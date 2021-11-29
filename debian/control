@@ -4,7 +4,7 @@ VCS-Browser: https://salsa.debian.org/volian-team/nala
 Priority: important
 Section: admin
 Homepage: https://salsa.debian.org/volian-team/nala
-Maintainer: Blake Lee <blake@volitank.com>
+Maintainer: Volian Developers <volian-devel@volian.org>
 Standards-Version: 4.6.0
 Build-Depends:	debhelper-compat (= 13), 
 				dh-python,
@@ -16,9 +16,11 @@ Build-Depends-Indep:	bash-completion,
 Package: nala
 Architecture: all
 Depends:	python3,
+			python3-apt,
 			python3-click,
 			python3-wcwidth,
-			python3-pyshell
+			python3-pyshell,
+			apt
 Description: A wrapper for the apt package manager
  nala is a wrapper for the apt package manager. It has a lot
  of the same functionality, but formats the output to be more

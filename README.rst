@@ -9,8 +9,8 @@ I have setup a repo that you can use at the moment.
 
 .. code-block:: console
  
-	$ echo "deb https://volitank.com/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
-	$ wget -qO - https://volitank.com/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
+	$ echo "deb http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+	$ wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
 	$ sudo apt update && sudo apt install nala
 
 There isn't a documentation site setup at the moment, but our man page explains things well enough for now.

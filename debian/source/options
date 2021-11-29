@@ -1,0 +1,6 @@
+tar-ignore = ".vscode"
+tar-ignore = "dist"
+tar-ignore = "test*"
+tar-ignore = ".git*"
+tar-ignore = "docs/build"
+tar-ignore = "nala/__pycache__"
