@@ -1,0 +1,139 @@
+# Volian nala completion			-*- shell-script -*-
+
+_nala()
+{
+	local sourcesdir="/etc/apt/sources.list.d"
+	local cur prev words cword split
+	_init_completion -s || return
+
+	local command i
+
+	local GLOBAL_OPTIONS='
+		-h --help
+		--debug
+		--version
+		--license
+    '
+
+    case $prev in
+        --help | --version | --license | -!(-*)[chslSbopitT])
+            return
+            ;;
+    esac
+
+    $split && return
+
+	local arg
+	_get_first_arg
+    if [[ -z $arg ]]; then
+        if [[ $cur == -* ]]; then
+            COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
+        else
+			COMPREPLY=( $( compgen -W 'show install remove update upgrade fetch history moo' -- "$cur") )
+		fi
+    else
+		local args
+		_count_args "" "-!(-*)[chslSbopitTdM]"
+		# supported options per command
+		if [[ "$cur" == -* ]]; then
+			case $arg in 
+				install)
+					COMPREPLY=( $( compgen -W '
+						-y --assume-yes
+						-d --download-only
+						--no-update
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				remove)
+					COMPREPLY=( $( compgen -W '
+						-y --assume-yes
+						-d --download-only
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				update|upgrade)
+					COMPREPLY=( $( compgen -W '
+						--no-full
+						-y --assume-yes
+						-d --download-only
+						--no-update
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				fetch)
+					COMPREPLY=( $( compgen -W '
+						--fetches
+						--debian
+						--ubuntu
+						--country
+						--foss'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				show)
+					COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				history)
+					COMPREPLY=( $( compgen -W ''"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				moo)
+					COMPREPLY=( $( compgen -W '
+						' -- "$cur" ) )
+					return 0
+					;;
+			esac
+		else
+			local args
+			_count_args "" "-!(-*)[chslSbopitTdM]"
+			case $arg in
+				install)
+					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" \
+						2> /dev/null ) )
+					if [[ "$cur" == ./* || "$cur" == /* ]]; then
+						_filedir "deb"
+					fi
+					return 0
+					;;
+				remove)
+					if [[ -f /etc/debian_version ]]; then
+						# Debian system
+						COMPREPLY=( $( \
+							_xfunc dpkg _comp_dpkg_installed_packages $cur ) )
+					else
+						# assume RPM based
+						_xfunc rpm _rpm_installed_packages
+					fi
+					return 0
+					;;
+				history)
+					case $args in
+						2)
+							COMPREPLY=( $( compgen -W 'info undo redo clear' \
+								-- "$cur" ) )
+							return 0
+							;;
+						3)
+							return 0
+							;;
+					esac
+					;;
+				show|list)
+					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" \
+						2> /dev/null ) )
+					return 0
+					;;
+					moo)
+					COMPREPLY=( $( compgen -W 'moo' \
+						-- "$cur" ) )
+					return 0
+					;;
+			esac
+		fi
+    fi
+
+} &&
+complete -F _nala nala
+
+# ex: ts=4 sw=4 et filetype=sh

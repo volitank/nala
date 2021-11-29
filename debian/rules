@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+export PYBUILD_NAME=nala
+
+%:
+	set -x
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_clean:
+	rm -rf nala.egg-info
+	rm -rf docs/nala.8.gz
+	dh_clean
+
+execute_before_dh_installman:
+	pandoc docs/nala.8.md \
+	--standalone \
+	--from markdown \
+	--to man | gzip -c > docs/nala.8.gz
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz
