@@ -10,11 +10,13 @@ override_dh_clean:
 	rm -rf docs/nala.8.gz
 	dh_clean
 
+execute_after_dh_auto_install:
+	rm -rf debian/nala/usr/lib/python3.9/dist-packages/nala/__pycache__/
+	rm -rf debian/nala/usr/lib/python3.10/
+	mv debian/nala/usr/lib/python3.9 debian/nala/usr/lib/python3
+
 execute_before_dh_installman:
 	pandoc docs/nala.8.md \
 	--standalone \
 	--from markdown \
 	--to man | gzip -c > docs/nala.8.gz
-
-override_dh_builddeb:
-	dh_builddeb -- -Zxz

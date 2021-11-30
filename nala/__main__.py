@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # nala is a wrapper for the apt package manager.
 # Copyright (C) 2021 Volitank
 

@@ -5,6 +5,7 @@ Priority: important
 Section: admin
 Homepage: https://salsa.debian.org/volian-team/nala
 Maintainer: Volian Developers <volian-devel@volian.org>
+Uploaders: Blake Lee <blake@volian.org>
 Standards-Version: 4.6.0
 Build-Depends:	debhelper-compat (= 13), 
 				dh-python,
@@ -23,7 +24,7 @@ Depends:	python3,
 			python3-pyshell,
 			apt,
 			${misc:Depends}
-Description: A wrapper for the apt package manager
+Description: commandline wrapper for the apt package manager
  nala is a wrapper for the apt package manager. It has a lot
  of the same functionality, but formats the output to be more
  human readable. Also implements a history function to see past
