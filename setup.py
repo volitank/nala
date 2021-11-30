@@ -39,9 +39,6 @@ setup(
 
 	keywords='nala, package management, apt',  # Optional
 	packages=['nala'],  # Required
-	package_data={  # Optional
-		'nala': ['LICENSE'],
-	},
 	python_requires='>=3.6, <4',
 	entry_points={  # Optional
 		'console_scripts': [

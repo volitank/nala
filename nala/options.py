@@ -45,9 +45,13 @@ class GPLv3(argparse.Action):
 			help=help)
 
 	def __call__(self, parser, args, values, option_string=None):
-		#setattr(args, self.dest, values)
-		with open(LICENSE, 'r') as file:
-			pager(file.read())
+		if LICENSE.exists():
+			with open(LICENSE, 'r') as file:
+				pager(file.read())
+		else:
+			print('It seems the system has no license file')
+			print('Nala is licensed under the GPLv3')
+			print('https://www.gnu.org/licenses/gpl-3.0.txt')
 		parser.exit()
 
 # Main Parser

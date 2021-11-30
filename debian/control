@@ -9,9 +9,10 @@ Standards-Version: 4.6.0
 Build-Depends:	debhelper-compat (= 13), 
 				dh-python,
 				python3-all-dev,
-				pandoc
-Build-Depends-Indep:	bash-completion,
-						dh-sequence-bash-completion
+				python3-setuptools,
+				pandoc,
+				bash-completion,
+				dh-sequence-bash-completion
 
 Package: nala
 Architecture: all
@@ -20,7 +21,8 @@ Depends:	python3,
 			python3-click,
 			python3-wcwidth,
 			python3-pyshell,
-			apt
+			apt,
+			${misc:Depends}
 Description: A wrapper for the apt package manager
  nala is a wrapper for the apt package manager. It has a lot
  of the same functionality, but formats the output to be more

@@ -4,13 +4,8 @@ from pyshell import pyshell
 from pathlib import Path
 import logging
 
-
-
-# Relative Files
-here = Path(__file__).parent.resolve()
-LICENSE = here / 'LICENSE'
-"""nala/LICENSE"""
-
+LICENSE = Path('/usr/share/common-licenses/GPL-3')
+"""/usr/share/common-licenses/GPL-3"""
 NALA_SOURCES = Path('/etc/apt/sources.list.d/nala-sources.list')
 """/etc/apt/sources.list.d/nala-sources.list"""
 NALA_LOGDIR = Path('/var/log/nala')
