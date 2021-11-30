@@ -22,7 +22,7 @@ Depends:	python3,
 			python3-click,
 			python3-wcwidth,
 			python3-pyshell,
-			aria2c,
+			aria2,
 			apt,
 			${misc:Depends}
 Description: commandline wrapper for the apt package manager
