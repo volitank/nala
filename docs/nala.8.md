@@ -59,6 +59,9 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 **\--no-full**
 : *\--no-full* is specific to the **update/upgrade** command. Using this switch will run an **apt** regular upgrade which won't remove packages. By default **nala** uses a *full-upgrade*
 
+**\--verbose**
+: *\--verbose* prints more information that sticks around. By default we use "Progress Bars" to hide some things I would consider unnecessary. Using *--verbose* removes the progress bars and prints that information
+
 **\--debug**
 : *\--debug* prints helpful information for solving issues. If you're submitting a bug report try running the command again with *\--debug* and providing the output to the devs, it will be helpful.
 

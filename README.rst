@@ -13,6 +13,12 @@ Install the Volian Scar repo and then install Nala
 	$ wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
 	$ sudo apt update && sudo apt install nala
 
+If you want to add the source repo
+
+.. code-block:: console
+
+	$ echo "deb-src http://deb.volian.org/volian/ scar main" | sudo tee -a /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+
 There isn't a documentation site setup at the moment, but our man page explains things well enough for now.
 
 # todo
