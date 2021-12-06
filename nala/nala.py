@@ -487,7 +487,7 @@ class nala:
 
 			if upgrade:
 				self.cache.commit(
-					nalaProgress(self.verbose, self.debug, quiet=True),
+					nalaProgress(self.verbose, self.debug),
 					InstallProgress(self.verbose, self.debug)
 				)
 			else:

@@ -84,7 +84,7 @@ class nalaCache(apt.Cache):
 # This is mostly for `apt update`
 class nalaProgress(text.AcquireProgress):
 
-	def __init__(	self, verbose=False, debug=False, outfile=None,):
+	def __init__(	self, verbose=False, debug=False, outfile=None):
 		text.TextProgress.__init__(self, outfile)
 		base.AcquireProgress.__init__(self)
 
