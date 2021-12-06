@@ -7,29 +7,28 @@ from click import style
 from sys import argv
 import hashlib
 import errno
+from tqdm import tqdm
 import json
-
-import apt
 import apt_pkg
 from nala.columnar import Columnar
-from nala.utils import dprint, iprint, logger_newline, ask, shell
-from apt.progress.text import AcquireProgress as TextProgress, _
-from apt.progress.base import AcquireProgress as BaseProgress
+from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
+from nala.progress import nalaCache, nalaOpProgress, nalaProgress, InstallProgress
 
 columnar = Columnar()
 timezone = datetime.utcnow().astimezone().tzinfo
 time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
 
-width = get_terminal_size().columns
-if width > 86:
-	width = 86
-wrapper = TextWrapper(width, subsequent_indent='   ' )
+try:
+	columns = get_terminal_size().columns
+except OSError:
+	columns = 80
 
-# Click Style Colors
-RED = {'fg':'red', 'bold':True}
-YELLOW = {'fg':'yellow', 'bold':True}
-GREEN = {'fg':'green', 'bold':True}
-BLUE = {'fg':'blue', 'bold':True}
+w_width = columns
+
+if w_width > 86:
+	w_width = 86
+
+wrapper = TextWrapper(w_width, subsequent_indent='   ' )
 
 try:
 	USER = environ["SUDO_USER"]
@@ -37,154 +36,18 @@ try:
 except KeyError:
 	USER = getuser()
 	UID = getuid()
+	
+environ["DEBIAN_FRONTEND"] = "noninteractive"
+
 
 NALA_DIR = Path('/var/lib/nala')
 NALA_HISTORY = Path('/var/lib/nala/history')
-
-# Overriding apt cache so we can make it exit on ctrl+c
-class nalaCache(apt.Cache):
-	def update(self, fetch_progress=None, pulse_interval=0,
-			   raise_on_error=True, sources_list=None):
-		## type: (Optional[AcquireProgress], int, bool, Optional[str]) -> int
-		"""Run the equivalent of apt-get update.
-
-		You probably want to call open() afterwards, in order to utilise the
-		new cache. Otherwise, the old cache will be used which can lead to
-		strange bugs.
-
-		The first parameter *fetch_progress* may be set to an instance of
-		apt.progress.FetchProgress, the default is apt.progress.FetchProgress()
-		.
-		sources_list -- Update a alternative sources.list than the default.
-		Note that the sources.list.d directory is ignored in this case
-		"""
-		from apt.cache import _WrappedLock, FetchFailedException
-		with _WrappedLock(apt_pkg.config.find_dir("Dir::State::Lists")):
-			if sources_list:
-				old_sources_list = apt_pkg.config.find("Dir::Etc::sourcelist")
-				old_sources_list_d = (
-					apt_pkg.config.find("Dir::Etc::sourceparts"))
-				old_cleanup = apt_pkg.config.find("APT::List-Cleanup")
-				apt_pkg.config.set("Dir::Etc::sourcelist",
-									Path(sources_list).absolute()
-				)
-				apt_pkg.config.set("Dir::Etc::sourceparts", "xxx")
-				apt_pkg.config.set("APT::List-Cleanup", "0")
-				slist = apt_pkg.SourceList()
-				slist.read_main_list()
-			else:
-				slist = self._list
-
-			try:
-				if fetch_progress is None:
-					fetch_progress = BaseProgress()
-				try:
-					res = self._cache.update(fetch_progress, slist,
-											 pulse_interval)
-				except SystemError as e:
-					raise FetchFailedException(e)
-				# If told to exit please do so
-				except KeyboardInterrupt as e:
-					exit(1)
-				if not res and raise_on_error:
-					raise FetchFailedException()
-				else:
-					return res
-			finally:
-				if sources_list:
-					apt_pkg.config.set("Dir::Etc::sourcelist",
-									   old_sources_list)
-					apt_pkg.config.set("Dir::Etc::sourceparts",
-									   old_sources_list_d)
-					apt_pkg.config.set("APT::List-Cleanup",
-									   old_cleanup)
-
-# Override the text progress to format updating output
-class nalaProgress(TextProgress):
-
-	def _(msg):
-		# Not really sure what the point of this is. If anyone can help out
-		# I would appreciate it. Leaving it here anyway and will comment the
-		# original lines in the methods using it
-		# type: (str) -> str
-		"""Translate the message, also try apt if translation is missing."""
-		res = apt_pkg.gettext(msg)
-		if res == msg:
-			res = apt_pkg.gettext(msg, "apt")
-		return res
-
-	def ims_hit(self, item):
-		# type: (apt_pkg.AcquireItemDesc) -> None
-		"""Called when an item is update (e.g. not modified on the server)."""
-		BaseProgress.ims_hit(self, item)
-		no_change = style('No Change:', **GREEN)
-		line = f"{no_change} {item.description}"
-		dline = f"'No Change:' {item.description}"
-		if item.owner.filesize:
-			size = apt_pkg.size_to_str(item.owner.filesize)
-			line += f' [{size}B]'
-			dline += f' [{size}B]'
-		self._write(line)
-		dprint(dline)
-
-	def fail(self, item):
-		# type: (apt_pkg.AcquireItemDesc) -> None
-		"""Called when an item is failed."""
-		BaseProgress.fail(self, item)
-		if item.owner.status == item.owner.STAT_DONE:
-			ignored = style('Ignored:  ', **YELLOW)
-			self._write(f"{ignored} {item.description}")
-			dprint(f"'Ignored:  '{item.description}")
-		else:
-			err = style('Error:    ', **RED)
-			self._write(f"{err} {item.description}")
-			self._write(f"  {item.owner.error_text}")
-			dprint(f"Error:     {item.description}")
-			dprint(f"  {item.owner.error_text}")
-
-	def fetch(self, item):
-		# type: (apt_pkg.AcquireItemDesc) -> None
-		"""Called when some of the item's data is fetched."""
-		BaseProgress.fetch(self, item)
-		# It's complete already (e.g. Hit)
-		if item.owner.complete:
-			return
-		update = style('Updated:  ', **BLUE)
-		line = f"{update} {item.description}"
-		if item.owner.filesize:
-			size = apt_pkg.size_to_str(item.owner.filesize)
-			line += f" [{size}B]"
-		self._write(line)
-		dprint(f"Updated:   {item.description}")
-
-	def stop(self):
-		# type: () -> None
-		"""Invoked when the Acquire process stops running."""
-		try:
-			BaseProgress.stop(self)
-		except KeyboardInterrupt:
-			exit()
-		# Trick for getting a translation from apt
-		fetched = apt_pkg.size_to_str(self.fetched_bytes)
-		elapsed = apt_pkg.time_to_str(self.elapsed_time)
-		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
-
-		self._write(
-			style(
-				f"Fetched {fetched}B in {elapsed} ({speed}B/s)",
-				bold=True
-			)
-		)
-		dprint(f"Fetched {fetched}B in {elapsed} ({speed}B/s)")
-
-		# Delete the signal again.
-		import signal
-		signal.signal(signal.SIGWINCH, self._signal)
 
 class nala:
 
 	def __init__(self,  download_only = False,
 						assume_yes = False,
+						verbose = False,
 						debug = False,
 						no_update = False,
 						metalink_out = None,
@@ -193,23 +56,27 @@ class nala:
 
 		if not no_update:
 			print('Updating package list...')
-			nalaCache().update(nalaProgress())
-		if debug:
-			self.cache = apt.Cache(apt.progress.text.OpProgress())
-		else:
-			self.cache = apt.Cache()
+			nalaCache().update(nalaProgress(verbose=verbose))
 
+		self.cache = nalaCache(nalaOpProgress(verbose=verbose))
 		self.download_only = download_only
+		self.verbose = verbose
 		self.debug = debug
 		self.assume_yes = assume_yes
 		self.metalink_out = metalink_out
 		self.hash_check = hash_check
 		self.aria2c = aria2c
+
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
 		if not self.archive_dir:
 			raise Exception(('No archive dir is set.'
 							 ' Usually it is /var/cache/apt/archives/'))
+
+		# Lists to check if we're removing stuff we shouldn't
+		self.essential = []
+		self.nala = []
+		self.nala_depends = ['nala', 'python3-pyshell']
 
 	def upgrade(self, dist_upgrade=False):
 		self.cache.upgrade(dist_upgrade=dist_upgrade)
@@ -218,6 +85,7 @@ class nala:
 	
 	def install(self, pkg_names):
 		dprint(f"Install pkg_names: {pkg_names}")
+		not_found = []
 		for pkg_name in pkg_names:
 			if pkg_name in self.cache:
 				pkg = self.cache[pkg_name]
@@ -227,35 +95,94 @@ class nala:
 				elif pkg.is_upgradable:
 					pkg.mark_upgrade()
 					dprint(f"Marked upgrade: {pkg.name}")
+				elif not pkg.is_upgradable:
+					print(f'Package {style(pkg.name, **GREEN)}',
+					'is already at the latest version',
+					style(pkg.installed.version, **BLUE))
 			else:
+				not_found.append(pkg_name)
+		if not_found:
+			for pkg in not_found:
 				print(
 					style('Error:', **RED),
 					style(pkg_name, **YELLOW),
 					'not found'
 				)
-				exit(1)
+			exit(1)
 		
 		self.auto_remover()
 		self._get_changes()
 
 	def remove(self, pkg_names):
 		dprint(f"Remove pkg_names: {pkg_names}")
+		not_found = []
+		not_installed = []
+
 		for pkg_name in pkg_names:
 			if pkg_name in self.cache:
 				pkg = self.cache[pkg_name]
 				if pkg.installed:
-					pkg.mark_delete()
-					dprint(f"Marked delete: {pkg.name}")
+					if not pkg.essential:
+						if not pkg.shortname in self.nala_depends:
+							pkg.mark_delete()
+							dprint(f"Marked delete: {pkg.name}")
+						else:
+							self.nala.append(pkg.name)
+					else:
+						self.essential.append(pkg.name)
+				else:
+					not_installed.append(pkg.name)
 			else:
+				not_found.append(pkg_name)
+
+		if not_installed:
+			if len(not_installed) > 4:
 				print(
 					style('Error:', **RED),
-					style(pkg_name, **YELLOW),
+					"Packages",
+					style(",".join(pkg for pkg in not_installed), **YELLOW),
+					"not installed"
+				)
+			else:
+				for pkg in not_installed:
+					print(
+						style('Error:', **RED),
+						style(pkg, **YELLOW),
+						'not installed'
+					)
+
+		if not_found:
+			for pkg in not_found:
+				print(
+					style('Error:', **RED),
+					style(pkg, **YELLOW),
 					'not found'
 				)
-				exit(1)
+
+		if self.essential:
+			for pkg in self.essential:
+				print(
+					style('Error:', **RED),
+					style(pkg, **YELLOW),
+					'cannot be removed'
+				)
+
+			print(f"Maybe {style('apt', **RED)} will let you")
+			exit(1)
+
+		if self.nala:
+			for pkg in self.nala:
+				print(
+					style('Error:', **RED),
+					style(pkg, **YELLOW),
+					'cannot be removed'
+				)
+
+			print(f"Why do you think I would destroy myself?")
+			exit(1)
 
 		self.auto_remover()
-		self._get_changes()
+		self._get_changes(remove=True)
 
 	def show(self, pkg_names):
 		dprint(f"Show pkg_names: {pkg_names}")
@@ -336,7 +263,7 @@ class nala:
 		dprint(f"Getting history {id}")
 		if not NALA_HISTORY.exists():
 			print("No history exists..")
-			return
+			exit()
 		history = NALA_HISTORY.read_text().splitlines()
 		TRANSACTION = {}
 
@@ -380,23 +307,27 @@ class nala:
 		
 		if id == 'all':
 			NALA_HISTORY.unlink()
+			print("History has been cleared")
 			return
 
-		history = NALA_HISTORY.read_text().splitlines()
-		history_edit = []
-		sum = 0
-		# Using sum increments to relabled the IDs so when you remove just one
-		# There isn't a gap in ID numbers and it looks concurrent.
-		for transaction in history:
-			transaction = json.loads(transaction)
-			if transaction.get('ID') != id:
-				sum = sum +1
-				transaction['ID'] = sum
-				history_edit.append(json.dumps(transaction))
-		# Write the new history file	
-		with open(NALA_HISTORY, 'w') as file:
-			for line in history_edit:
-				file.write(str(line)+'\n')
+		elif isinstance(id, int):
+			history = NALA_HISTORY.read_text().splitlines()
+			history_edit = []
+			sum = 0
+			# Using sum increments to relabled the IDs so when you remove just one
+			# There isn't a gap in ID numbers and it looks concurrent.
+			for transaction in history:
+				transaction = json.loads(transaction)
+				if transaction.get('ID') != id:
+					sum = sum +1
+					transaction['ID'] = sum
+					history_edit.append(json.dumps(transaction))
+			# Write the new history file	
+			with open(NALA_HISTORY, 'w') as file:
+				for line in history_edit:
+					file.write(str(line)+'\n')
+		else:
+			print("\nYour option was not understood")
 
 	def history_info(self, id):
 		dprint(f"History info {id}")
@@ -443,20 +374,59 @@ class nala:
 		pprint_names(['Package:', 'Version:', 'Size:'], upgrade_info, 'Upgraded:')
 
 	def auto_remover(self):
+		essential = []
 		autoremove = []
+		nala = []
 		for pkg in self.cache:
 			if pkg.is_auto_removable:
-				pkg.mark_delete()
-				autoremove.append(
-					f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
+				if not pkg.essential:
+					if not pkg.shortname in self.nala_depends:
+						pkg.mark_delete()
+						autoremove.append(
+							f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
+						)
+					else:
+						nala.append(pkg.name)
+				else:
+					essential.append(pkg.name)
+
+		if essential:
+			for pkg in essential:
+				print(
+					style('Error:', **RED),
+					style(pkg, **YELLOW),
+					'cannot be removed'
 				)
+
+			print("What ever you did tried to auto mark essential packages")
+			exit(1)
+
+		if nala:
+			for pkg in nala:
+				print(
+					style('Error:', **RED),
+					style(pkg, **YELLOW),
+					'cannot be removed'
+				)
+			print("What ever you did would have resulted in my own removal!")
+			exit(1)
+
 		dprint(f"Pkgs marked by autoremove: {autoremove}")
 
-	def _get_changes(self, upgrade=False):
+	def _get_changes(self, upgrade=False, remove=False):
 		pkgs = sorted(self.cache.get_changes(), key=lambda p:p.name)
 		if not NALA_DIR.exists():
 			NALA_DIR.mkdir()
-	
+
+		if upgrade and not pkgs:
+			print(style("All packages are up to date.", bold=True))
+			exit(0)
+		elif not remove and not pkgs:
+			print(style("Nothing for Nala to do.", bold=True))
+			exit(0)
+		elif remove and not pkgs:
+			print(style("Nothing for Nala to remove.", bold=True))
+			exit(0)
 		if pkgs:
 			_print_update_summary(self.cache, pkgs)
 			if not self.assume_yes:
@@ -464,6 +434,35 @@ class nala:
 					print("Abort.")
 					return
 			
+			for pkg in pkgs:
+				if pkg.essential and pkg.marked_delete:
+					self.essential.append(pkg.name)
+
+				elif pkg.shortname in self.nala_depends and pkg.marked_delete:
+					self.nala.append(pkg.name)
+
+			if self.essential:
+				for pkg in self.essential:
+					print(
+						style('Error:', **RED),
+						style(pkg, **YELLOW),
+						'cannot be removed'
+					)
+
+				print(f"Maybe {style('apt', **RED)} will let you")
+				exit(1)
+
+			if self.nala:
+				for pkg in self.nala:
+					print(
+						style('Error:', **RED),
+						style(pkg, **YELLOW),
+						'cannot be removed'
+					)
+
+				print("For some reason I was about to get nuked")
+				exit(1)
+
 			_write_history(pkgs)
 			_write_log(pkgs)
 
@@ -476,13 +475,30 @@ class nala:
 				return
 			if not self._download(pkgs, num_concurrent=guess_concurrent(pkgs)):
 				print("Some downloads failed. apt_pkg will take care of them.")
-		if upgrade and not pkgs:
-			print("All packages are up to date.")
-			exit(0)
+
 		if self.download_only:
 			print("Download complete and in download only mode.")
 		else:
-			self.cache.commit(apt.progress.text.AcquireProgress())
+			# This is the correct posistion configure it
+			# apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
+			# apt_pkg.config.set('Dpkg::Options::', '--force-confold')
+			# apt_pkg.config.set('Dpkg::Options::', '--force-confnew')
+			# apt_pkg.config.set('Dpkg::Options::', '--force-confmiss')
+
+			if upgrade:
+				self.cache.commit(
+					nalaProgress(self.verbose, self.debug, quiet=True),
+					InstallProgress(self.verbose, self.debug)
+				)
+			else:
+				# Install and remove get handled differently because we want the update
+				# To be silent because there isn't one really. since we use tqdm bars
+				# For the information it leaves 3 blank lines that looks gross
+				from nala.progress import base
+				self.cache.commit(
+					base.AcquireProgress(),
+					InstallProgress(self.verbose, self.debug)
+				)
 
 	def _download(self, pkgs, num_concurrent=1):
 		if not pkgs:
@@ -518,10 +534,45 @@ class nala:
 			cmdline,
 			popen=True,
 			stdin=shell.PIPE,
-			capture_output=shell.DEFAULT
 		)
 		make_metalink(proc.stdin, pkgs)
 		proc.stdin.close()
+		# for verbose mode we just print aria2c output normally
+		if self.verbose or self.debug:
+			for line in iter(proc.stdout.readline, ''):
+				# We don't really want this double printing if we have
+				# Verbose and debug enabled.
+				if line != '':
+					if self.debug:
+						dprint(line)
+					else:
+						print(line)
+		# In normal mode we hide the downloads behind some fancy bars
+		else:
+			num = 0
+			total = len(pkgs)
+			
+			with tqdm(total=total,
+				colour='CYAN',
+				desc=style('Downloading Packages', **BLUE),
+				unit='pkg',
+				position=1,
+				bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]',
+
+			) as progress:
+				with tqdm(total=0, position=0, bar_format='{desc}') as pkg_log:
+					for line in iter(proc.stdout.readline, ''):
+						try:
+							deb_name = Path(pkgs[num].candidate.filename).name
+						except IndexError:
+							pass
+						pkg_log.set_description_str(f"{style('Current Package:', **GREEN)} {deb_name}")
+						if 'Download complete:' in line:
+							num = num + 1
+							progress.update(1)
+						if num > total:
+							num = total	
+		
 		proc.wait()
 		link_success = True
 		# Link archives/partial/*.deb to archives/
@@ -612,7 +663,6 @@ def guess_concurrent(pkgs):
 	return max_uris
 
 def pprint_names(headers, names, title):
-	columns, lines = get_terminal_size()
 	if names:
 		print('='*columns)
 		print(title)
@@ -709,7 +759,6 @@ def _write_log(pkgs):
 	logger_newline()
 	
 def _print_update_summary(cache, pkgs):
-	columns, lines = get_terminal_size()
 
 	delete_names = []
 	install_names = []

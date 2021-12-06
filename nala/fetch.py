@@ -7,9 +7,15 @@ import random
 import re
 import threading
 from click import style
-from nala.utils import NALA_SOURCES, ask, shell
+from tqdm import tqdm
+from nala.utils import NALA_SOURCES, RED, YELLOW, BLUE, GREEN, ask, shell, dprint
 from nala.options import arg_parse
+
 netselect_scored = []
+
+parser = arg_parse()
+arguments = parser.parse_args()
+verbose = arguments.verbose
 
 def chk(data):
 	x = sum(x << 8 if i % 2 else x for i, x in enumerate(data)) & 0xFFFFFFFF
@@ -35,10 +41,12 @@ def ping(addr, timeout=2, number=1, data=b''):
 def net_select(host):
 	try:
 		# Regex to get the domain
+		dprint(host)
+		
 		regex = re.search('https?://([A-Za-z_0-9.-]+).*', host)
 		if regex:
 			domain = regex.group(1)
-		#res = ping(host.replace('http://', '').replace('/debian/', '').strip('/'))
+		dprint(domain)
 		res = ping(domain)
 		if res:
 			res = str(int(res*1000))
@@ -48,12 +56,13 @@ def net_select(host):
 				res == '00'+res
 			netselect_scored.append(f'{res} {host}')
 	except (socket.gaierror, OSError, ConnectionRefusedError) as e:
-		e = str(e)
-		regex = re.search('\[.*\]', e)
-		if regex: 
-			e = style(e.replace(regex.group(0), '').strip(), fg='yellow', bold=True)
-		print(f'{e}: {domain}')
-		print(f"{style('URL:', fg='yellow', bold=True)} {host}\n")
+		if verbose:
+			e = str(e)
+			regex = re.search('\[.*\]', e)
+			if regex: 
+				e = style(e.replace(regex.group(0), '').strip(), **YELLOW)
+			print(f'{e}: {domain}')
+			print(f"{style('URL:', **YELLOW)} {host}\n")
 
 def parse_ubuntu(country: list=None):
 	print('Fetching Ubuntu mirrors...')
@@ -69,8 +78,8 @@ def parse_ubuntu(country: list=None):
 					line = line[line.index('>')+1:]
 					line = line[:line.index('<')]
 					country.append(line)
-
-	print('Parsing mirror list...')
+	if verbose:
+		print('Parsing mirror list...')
 	for country in country:
 		for section in ubuntu:
 			if country in section:
@@ -101,7 +110,8 @@ def parse_debian(country: list=None):
 					line = line[:line.index('<')]
 					country.append(line)
 
-	print('Parsing mirror list...')
+	if verbose:
+		print('Parsing mirror list...')
 	for country in country:
 		for section in debian:
 			if country in section:
@@ -123,21 +133,24 @@ def parse_debian(country: list=None):
 def detect_release():
 	distro = False
 	release = False
-	release = shell.apt.policy(capture_output=True, text=True).stdout.splitlines()
-	for line in release:
+	policy = shell.apt.policy(capture_output=True, text=True).stdout.splitlines()
+	dprint(f'Policy: {policy}')
+	for line in policy:
 		if 'o=Ubuntu' in line or 'o=Debian' in line:
-			release = line.split(',')
-			for line in release:
+			policy = line.split(',')
+			dprint(f'Policy Split: {policy}')
+			for line in policy:
 				if line == 'o=Ubuntu':
 					distro = 'ubuntu'
-					for line in release:
-						if line.startswith('n='):
-							release = line[2:]
+				elif line == 'l=Debian':
+					distro = 'debian'
+				for line in policy:
+					if line.startswith('n='):
+						release = line[2:]
 	if distro and release:
 		return distro, release
 	else:
-		parser = arg_parse()
-		err = style('Error:', fg='red', bold=True)
+		err = style('Error:', **RED)
 		print(f'{err} Unable to detect release. Specify manually')
 		parser.parse_args(['fetch', '--help'])
 		exit(1)
@@ -183,6 +196,9 @@ def fetch(	fetches: int, foss: bool = False,
 		# It's ubuntu, you probably don't care about foss
 		component = 'main restricted universe multiverse'
 
+	dprint(netselect)
+	dprint(f'Distro: {distro}, Release: {release}, Component: {component}')
+
 	thread_handler = []
 	num = -1
 	for url in netselect:
@@ -191,16 +207,23 @@ def fetch(	fetches: int, foss: bool = False,
 		thread_handler.append(thread)
 		thread.start()
 
-	print('Testing Urls...')
 	# wait for all our threads to stop
-	for thread in thread_handler:
+	for thread in tqdm(
+		thread_handler, 
+		colour='CYAN',
+		unit='url',
+		desc=style('Testing URLs', **BLUE),
+		bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]',
+	):
 		thread.join()
 
 	netselect_scored.sort()
 
+	dprint(netselect_scored)
+
 	num = 0
 	with open(NALA_SOURCES, 'w') as file:
-		print(f'Writing {NALA_SOURCES}\n')
+		print(f"{style('Writing:', **GREEN)} {NALA_SOURCES}\n")
 		print(f'# Sources file built for nala\n', file=file)
 		for line in netselect_scored:
 			num = num + 1

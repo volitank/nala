@@ -20,9 +20,9 @@
 ## https://github.com/tatsuhiro-t/apt-metalink
 
 from sys import argv
-from nala.utils import LION_ASCII, LION_ASCII2, DEBUG, esyslog, CAT_ASCII
+from nala.utils import CAT_ASCII, LION_ASCII, LION_ASCII2, DEBUG, esyslog
 from nala.fetch import fetch
-from nala.utils import logger, dprint, nodate_format
+from nala.utils import logger, dprint, nodate_format, shell
 from nala.options import arg_parse
 from nala.nala import nala
 import logging
@@ -38,6 +38,7 @@ def _main():
 	no_update = arguments.no_update
 	assume_yes = arguments.assume_yes
 	download_only = arguments.download_only
+	verbose = arguments.verbose
 
 	su = geteuid()
 	if debug:
@@ -52,7 +53,7 @@ def _main():
 
 	dprint(f"Argparser = {arguments}")
 
-	superuser= ['update', 'upgrade', 'install', 'remove', 'fetch']
+	superuser= ['update', 'upgrade', 'install', 'remove', 'fetch', 'clean']
 	require_update = ['update', 'upgrade', 'install']
 	no_update_list = ['remove', 'show', 'history']
 	apt_init = ['update', 'upgrade', 'install', 'remove', 'show', 'history']
@@ -60,7 +61,7 @@ def _main():
 	if command in superuser:
 		if su != 0:
 			esyslog(f"{getuser()} tried to run [{' '.join(com for com in argv)}] without permission")
-			exit(f"nala needs root to {command}")
+			exit(f"Nala needs root to {command}")
 
 	if command in apt_init:
 		if command in no_update_list:
@@ -70,7 +71,8 @@ def _main():
 			download_only=download_only,
 			assume_yes=assume_yes,
 			no_update=no_update,
-			debug=debug
+			debug=debug,
+			verbose=verbose
 		)
 
 	if command in ['update', 'upgrade']:
@@ -106,32 +108,40 @@ def _main():
 	if command == 'history':
 		id = arguments.id
 		mode = arguments.mode
+
+		if mode:
+			if not id:
+				print('We need a transaction ID..')
+				exit()
+		else:
+			apt.history()
+
+		if mode in ['undo', 'redo', 'info']:
+			try:
+				id = int(id)
+			except ValueError:
+				print('Option must be a number..')
+				exit()
+
 		if mode == 'undo':
-			if id:
-				apt.history_undo(id)
-			else:
-				print('\nWe need a transaction ID')
+			apt.history_undo(id)
+
 		elif mode == 'redo':
-			if id:
-				apt.history_undo(id, redo=True)
-			else:
-				print('\nWe need a transaction ID')
+			apt.history_undo(id, redo=True)
+
 		elif mode == 'info':
-			if id:
 				apt.history_info(id)
-			else:
-				print('\nWe need a transaction ID')
+
 		elif mode == 'clear':
 			if su != 0:
 				esyslog(f"{getuser()} tried to run [{' '.join(com for com in argv)}] without permission")
-				exit(f"nala needs root to {command}")
-			if id:
-				apt.history_clear(id)
-			else:
-				print('\nWe need a transaction ID')
-		else:
-			apt.history()
+				exit(f"Nala needs root to clear history")
+			apt.history_clear(id)
 	
+	if command == 'clean':
+		shell.apt.clean()
+		print("Nala's local cache has been cleaned up")
+
 	if command == 'moo':
 		moos = arguments.moo
 		moos = moos.count('moo')

@@ -2,8 +2,8 @@
 title: nala
 section: 8
 header: User Manual
-footer: nala 1.0.0
-date: January 13, 2021
+footer: nala 0.1.1
+date: 6 December 2021
 ---
 # NAME
 nala - a wrapper for the apt package manager
@@ -25,6 +25,9 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 
 **update**, **upgrade**
 : **update** is really an alias for **upgrade**. **nala** will always handle updating the package cache so we have aliased **update** with **upgrade**. By default **nala** will run the equivalent of **apt full-upgrade**.
+
+**clean**
+: **clean** is exactly like running *apt clean*.
 
 **fetch**
 

@@ -1,3 +1,13 @@
+nala (0.1.1) unstable; urgency=medium
+
+  * Big changes to output formatting
+  * Added --verbose global switch
+  * Added clean command
+  * Nala now uses a debug log file for --debug mode
+  * A few bug fixes.
+
+ -- Blake Lee <blake@volian.org>  Mon, 06 Dec 2021 09:29:38 -0500
+
 nala (0.1.0) unstable; urgency=medium
 
   * nala experimental release

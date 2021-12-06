@@ -12,12 +12,21 @@ NALA_LOGDIR = Path('/var/log/nala')
 """/var/log/nala"""
 NALA_LOGFILE = NALA_LOGDIR / 'nala.log'
 """/var/log/nala/nala.log"""
+NALA_DEBUGLOG = NALA_LOGDIR / 'nala-debug.log'
 
 shell = pyshell(capture_output=True, text=True, check=True)
 
 # Define log levels for import
 INFO = 20
 DEBUG = 10
+
+# Click Style Colors
+RED = {'fg':'red', 'bold':True}
+YELLOW = {'fg':'yellow', 'bold':True}
+GREEN = {'fg':'green', 'bold':True}
+BLUE = {'fg':'blue', 'bold':True}
+CYAN = {'fg':'cyan', 'bold':True}
+MAGENTA = {'fg':'magenta', 'bold':True}
 
 # Create our main logger. This will do nothing unless we're root
 logger = logging.getLogger('nala_logger')
@@ -37,9 +46,18 @@ syslog_handler.setFormatter(sys_formatter)
 syslogger.addHandler(syslog_handler)
 
 if geteuid() == 0:
+	from nala.options import arg_parse
+	parser = arg_parse()
+	arguments = parser.parse_args()
+	verbose = arguments.verbose
+	debug = arguments.debug
+
 	if not NALA_LOGDIR.exists():
 		NALA_LOGDIR.mkdir()
-	file_handler = RotatingFileHandler(NALA_LOGFILE, maxBytes=1024*1024, backupCount=10)
+	if debug:
+		file_handler = RotatingFileHandler(NALA_DEBUGLOG, maxBytes=1024*1024, backupCount=10)
+	else:
+		file_handler = RotatingFileHandler(NALA_LOGFILE, maxBytes=1024*1024, backupCount=10)
 	file_handler.setFormatter(formatter)
 	logger.addHandler(file_handler)
 else:
@@ -57,7 +75,7 @@ def logger_newline():
 	iprint('')
 	file_handler.setFormatter(formatter)
 
-def ask(question):
+def ask(question, default_no=False):
 	"""resp = input(f'{question}? [Y/n]
 
 	Y returns True
@@ -70,9 +88,12 @@ def ask(question):
 		elif resp in ['n', 'N']:
 			return False
 		elif resp == '':
+			if default_no:
+				return False
 			return True
 		else:
 			print("Not a valid choice kiddo")
+
 
 LION_ASCII = (
 r"""

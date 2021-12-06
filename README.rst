@@ -5,7 +5,7 @@ a wrapper for the apt package manager.
 # installation
 ==============
 
-I have setup a repo that you can use at the moment. 
+Install the Volian Scar repo and then install Nala
 
 .. code-block:: console
  
@@ -26,7 +26,7 @@ There isn't a documentation site setup at the moment, but our man page explains 
 - --no-upgrade
 - nala download
 - nala purge
-- nala clean
+- switch to silently upgrade (Auto Select Config file changes, etc)
 - Probably many others to add as well
 
 **Internal**

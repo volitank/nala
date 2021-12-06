@@ -11,6 +11,7 @@ _nala()
 	local GLOBAL_OPTIONS='
 		-h --help
 		--debug
+		--verbose
 		--version
 		--license
     '
@@ -29,7 +30,7 @@ _nala()
         if [[ $cur == -* ]]; then
             COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
         else
-			COMPREPLY=( $( compgen -W 'show install remove update upgrade fetch history moo' -- "$cur") )
+			COMPREPLY=( $( compgen -W 'show install remove update upgrade fetch history clean moo' -- "$cur") )
 		fi
     else
 		local args
@@ -70,12 +71,8 @@ _nala()
 						--foss'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
-				show)
+				show|history|clean)
 					COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur" ) )
-					return 0
-					;;
-				history)
-					COMPREPLY=( $( compgen -W ''"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				moo)
