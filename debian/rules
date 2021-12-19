@@ -8,6 +8,7 @@ export PYBUILD_NAME=nala
 override_dh_clean:
 	rm -rf nala.egg-info
 	rm -rf docs/nala.8.gz
+	rm -rf nala/__pycache__
 	dh_clean
 
 execute_after_dh_auto_install:

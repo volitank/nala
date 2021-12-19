@@ -23,6 +23,9 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 **remove**
 : **remove** works similar to the way it does in **apt**. Our noticable differences here include improved output on what will be removed, no need for running an autoremove, **nala** will handle that for you. 
 
+**purge**
+: **purge** works similar to **remove**, but also gets rid of configuration files.
+
 **update**, **upgrade**
 : **update** is really an alias for **upgrade**. **nala** will handle updating the package cache so we have aliased **update** with **upgrade**. By default **nala** will run the equivalent of **apt full-upgrade**. If you are just looking to update the package cache and not actually perform an upgrade you can use **nala --update**
 
@@ -57,7 +60,7 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 : *\--no-update* skips updating the package cache if for whatever reason you would like to skip that.
 
 **\--update**
-: *\--update* updates the package cache. Typically run as **nala install --update** or **nala --update**
+: *\--update* updates the package cache. Typically run as **nala install** *\--update* or **nala** *\--update*
 
 **\--no-full**
 : *\--no-full* is specific to the **update/upgrade** command. Using this switch will run an **apt** regular upgrade which won't remove packages. By default **nala** uses a *full-upgrade*
@@ -69,7 +72,7 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 : *\--debug* prints helpful information for solving issues. If you're submitting a bug report try running the command again with *\--debug* and providing the output to the devs, it will be helpful.
 
 **\--fetches**
-: *\--fetches* is a **nala fetch** specific switch. Using this you can determin the amount of mirrors to fetch between 1-10. 3 is the default
+: *\--fetches* is a **nala fetch** specific switch. Using this you can determine the amount of mirrors to fetch between 1-10. 3 is the default
 
 **\--debian**
 : *\--debian* is a **nala fetch** specific switch. You can use this to specify that you're using **Debian** and what release you're using. *\--debian sid*
@@ -117,10 +120,10 @@ The following options are advanced options to control what dpkg does during **in
 : *\--confask* confask: If a conffile has been modified always offer to replace it with the version in the package, even if the version in the package did not change (since dpkg 1.15.8).  If any of *\--confnew*, *\--confold*, or *\--confdef* is also given, it will be used to decide the final action.
 
 # EXAMPLES
-**nala install --update wine**
+**nala install** *\--update* **wine**
 : downloads and installs wine, updating the package cache first.
 
-**nala upgrade --no-update**
+**nala upgrade** *\--no-update*
 : upgrades the system without updating the package cache.
 
 # AUTHORS

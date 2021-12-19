@@ -146,7 +146,7 @@ def arg_parse():
 	# Parser for the remove command
 	remove_parser = subparsers.add_parser('remove',
 		formatter_class=formatter,
-		help='remove packages', parents=[global_options],
+		help='remove packages', parents=[global_options, interactive_options],
 		usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
 	)
 
@@ -161,7 +161,7 @@ def arg_parse():
 	# Parser for the purge command
 	purge_parser = subparsers.add_parser('purge',
 		formatter_class=formatter,
-		help='purge packages', parents=[global_options],
+		help='purge packages', parents=[global_options, interactive_options],
 		usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
 	)
 
@@ -238,7 +238,7 @@ def arg_parse():
 	show_parser = subparsers.add_parser(
 		'show',
 		help='show package details',
-		parents=[global_options],
+		parents=[global_options, interactive_options],
 		usage=f'{bin_name} show [--options] pkg1 [pkg2 ...]'
 	)
 	# Remove Global options that I don't want to see in show --help
@@ -251,7 +251,7 @@ def arg_parse():
 		'history',
 		help='show transaction history',
 		description='history without additional commands lists a history summary',
-		parents=[global_options],
+		parents=[global_options, interactive_options],
 		usage=f'{bin_name} history [--options] <command> <id|all>'
 	)
 

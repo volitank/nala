@@ -63,6 +63,7 @@ class nala:
 		# Non interactiveness going on
 		parser = arg_parse()
 		arguments = parser.parse_args()
+
 		self.noninteractive = arguments.noninteractive
 		self.noninteractive_full = arguments.noninteractive_full
 		self.confold = arguments.confold

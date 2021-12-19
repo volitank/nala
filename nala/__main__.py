@@ -54,9 +54,9 @@ def _main():
 
 	dprint(f"Argparser = {arguments}")
 
-	superuser= ['update', 'upgrade', 'install', 'remove', 'fetch', 'clean']
-	no_update_list = ['remove', 'show', 'history', 'install', 'purge']
-	apt_init = ['update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None]
+	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
+	no_update_list = ('remove', 'show', 'history', 'install', 'purge')
+	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None)
 
 	if command in superuser:
 		if su != 0:
