@@ -373,8 +373,8 @@ class InstallProgress(base.InstallProgress):
 
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
 		with open(DPKG_LOG, 'w') as self.dpkg_log:
-			with open(DPKG_STATUS_LOG, 'w') as self.dpkg_status:
-				self.child.interact(output_filter=self.format_dpkg_output)
+			#with open(DPKG_STATUS_LOG, 'w') as self.dpkg_status:
+			self.child.interact(output_filter=self.format_dpkg_output)
 
 		# This is really just here so dpkg exits properly
 		res = self.wait_child()
@@ -457,7 +457,8 @@ class InstallProgress(base.InstallProgress):
 					rawline = b'\r'+rawline
 					break
 
-			if self.debconf_start in rawline:
+			# This second one is for the start of the shell
+			if self.debconf_start in rawline or b'\x1b[?2004h' in rawline:
 				self.raw = True
 
 			if self.raw:
@@ -513,7 +514,10 @@ class InstallProgress(base.InstallProgress):
 						else:
 							# Handles our scroll_bar effect
 							scroll_bar(self, msg.strip())
-		self.last_line = rawline
+		# Just something because if you do Y, then backspace, then hit enter
+		# At the conf prompt it'll get buggy
+		if b'\x08' not in rawline:
+			self.last_line = rawline
 
 def scroll_bar(self, msg):
 	"""self is either NalaProgress or InstallProgress. Msg is the Message"""

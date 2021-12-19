@@ -132,6 +132,8 @@ SPAM = (
 	'Extracting templates from packages:',
 	'Preconfiguring packages',
 	'Reloading AppArmor profiles',
+	'Scanning linux images...',
+	'Scanning processes...',
 )
 
 # ASCII Art
