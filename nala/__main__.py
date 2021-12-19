@@ -38,6 +38,8 @@ def _main():
 	assume_yes = arguments.assume_yes
 	download_only = arguments.download_only
 	verbose = arguments.verbose
+	update = arguments.update
+	raw_dpkg = arguments.raw_dpkg
 
 	su = geteuid()
 	if debug:
@@ -46,16 +48,15 @@ def _main():
 		logger.addHandler(std_err_handler)
 		logger.setLevel(DEBUG)
 
-	if not command:
+	if not command and not update:
 		parser.print_help()
 		exit()
 
 	dprint(f"Argparser = {arguments}")
 
 	superuser= ['update', 'upgrade', 'install', 'remove', 'fetch', 'clean']
-	require_update = ['update', 'upgrade', 'install']
-	no_update_list = ['remove', 'show', 'history']
-	apt_init = ['update', 'upgrade', 'install', 'remove', 'show', 'history']
+	no_update_list = ['remove', 'show', 'history', 'install', 'purge']
+	apt_init = ['update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None]
 
 	if command in superuser:
 		if su != 0:
@@ -65,16 +66,19 @@ def _main():
 	if command in apt_init:
 		if command in no_update_list:
 			no_update = True
+		if update:
+			no_update = False
 
 		apt = nala(
 			download_only=download_only,
 			assume_yes=assume_yes,
 			no_update=no_update,
 			debug=debug,
-			verbose=verbose
+			verbose=verbose,
+			raw_dpkg=raw_dpkg
 		)
 
-	if command in ['update', 'upgrade']:
+	if command in ('update', 'upgrade'):
 		apt.upgrade(dist_upgrade=arguments.no_full)
 
 	if command == 'install':
@@ -84,9 +88,12 @@ def _main():
 			exit()
 		apt.install(args)
 
-	if command == 'remove':
+	if command in ('remove', 'purge'):
+		purge = False
+		if command == 'purge':
+			purge = True
 		args = arguments.args
-		apt.remove(args)
+		apt.remove(args, purge=purge)
 
 	if command == 'fetch':
 		foss = arguments.foss
@@ -115,7 +122,7 @@ def _main():
 		else:
 			apt.history()
 
-		if mode in ['undo', 'redo', 'info']:
+		if mode in ('undo', 'redo', 'info'):
 			try:
 				id = int(id)
 			except ValueError:
@@ -153,7 +160,9 @@ def _main():
 			print(CAT_ASCII)
 		print('..."I can\'t moo for I\'m a cat"...')
 		if no_update:
-			print("...What did you expect --no-update to do?...")
+			print("...What did you expect no-update to do?...")
+		if update:
+			print("...What did you expect to update?...")
 
 def main():
 	try:

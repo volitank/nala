@@ -14,6 +14,7 @@ _nala()
 		--verbose
 		--version
 		--license
+		--update
     '
 
     case $prev in
@@ -30,7 +31,7 @@ _nala()
         if [[ $cur == -* ]]; then
             COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
         else
-			COMPREPLY=( $( compgen -W 'show install remove update upgrade fetch history clean moo' -- "$cur") )
+			COMPREPLY=( $( compgen -W 'show install remove purge update upgrade fetch history clean moo' -- "$cur") )
 		fi
     else
 		local args
@@ -42,14 +43,15 @@ _nala()
 					COMPREPLY=( $( compgen -W '
 						-y --assume-yes
 						-d --download-only
-						--no-update
+						--raw-dpkg
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
-				remove)
+				remove|purge)
 					COMPREPLY=( $( compgen -W '
 						-y --assume-yes
 						-d --download-only
+						--raw-dpkg
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
@@ -59,6 +61,7 @@ _nala()
 						-y --assume-yes
 						-d --download-only
 						--no-update
+						--raw-dpkg
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;

@@ -55,18 +55,23 @@ class GPLv3(argparse.Action):
 			print('https://www.gnu.org/licenses/gpl-3.0.txt')
 		parser.exit()
 
-def remove_options(parser, yes=True, download=True, update=True):
+def remove_options(parser, assume_yes=True, download_only=True, update=True, no_update=True, raw_dpkg=True):
 	for item in parser._optionals._group_actions[:]:
-		if yes:
+		if assume_yes:
 			if '--assume-yes' in item.option_strings:
 				parser._optionals._group_actions.remove(item)
-		if download:			
+		if download_only:			
 			if '--download-only' in item.option_strings:
 				parser._optionals._group_actions.remove(item)
-		if update:		
+		if no_update:		
 			if '--no-update' in item.option_strings:
 				parser._optionals._group_actions.remove(item)
-
+		if update:
+			if '--update' in item.option_strings:
+				parser._optionals._group_actions.remove(item)
+		if raw_dpkg:
+			if '--raw-dpkg' in item.option_strings:
+				parser._optionals._group_actions.remove(item)
 
 # Main Parser
 def arg_parse():
@@ -83,6 +88,8 @@ def arg_parse():
 	global_options.add_argument('-d', '--download-only', action='store_true', help="package files are only retrieved, not unpacked or installed")
 	global_options.add_argument('-v', '--verbose', action='store_true', help='Logs extra information for debugging')
 	global_options.add_argument('--no-update', action='store_true', help="skips updating the package list")
+	global_options.add_argument('--raw-dpkg', action='store_true', help="skips all formatting and you get raw dpkg output")
+	global_options.add_argument('--update', action='store_true', help="updates the package list")
 	global_options.add_argument('--debug', action='store_true', help='Logs extra information for debugging')
 	global_options.add_argument('--version', action='version', version=f'{bin_name} {version}')
 	global_options.add_argument('--license', action=GPLv3)
@@ -94,8 +101,6 @@ def arg_parse():
 
 	# Define our subparser
 	subparsers = parser.add_subparsers(metavar='', dest='command')
-	parser._subparsers.title = "command"
-	parser._optionals.title = "options"
 
 	# Parser for the install command 
 	install_parser = subparsers.add_parser('install', 
@@ -105,8 +110,12 @@ def arg_parse():
 		)
 		
 	install_parser.add_argument('args', metavar='pkg(s)', nargs='*', help='package(s) to install')
-	install_parser._positionals.title = "arguments"
-	install_parser._optionals.title = "options"
+
+	remove_options(
+		install_parser, assume_yes=False,
+		download_only=False, update=False,
+		no_update=True, raw_dpkg=False
+	)
 
 	# Parser for the remove command
 	remove_parser = subparsers.add_parser('remove',
@@ -115,37 +124,64 @@ def arg_parse():
 	)
 
 	# Remove Global options that I don't want to see in remove --help
-	remove_options(remove_parser, yes=False)
+	remove_options(remove_parser, assume_yes=False, update=False, raw_dpkg=False)
 
 	remove_parser.add_argument('args',
 		metavar='pkg(s)',
 		nargs='*',
 		help='package(s) to remove')
 
-	remove_parser._positionals.title = "arguments"
-	remove_parser._optionals.title = "options"
+	# Parser for the purge command
+	purge_parser = subparsers.add_parser('purge',
+		help='purge packages', parents=[global_options],
+		usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
+	)
+
+	# Remove Global options that I don't want to see in purge --help
+	remove_options(remove_parser, assume_yes=False, update=False, raw_dpkg=False)
+
+	purge_parser.add_argument('args',
+		metavar='pkg(s)',
+		nargs='*',
+		help='package(s) to purge')
 
 	# We specify the options as a parent parser first just so we can easily move them above the global options inside the subparser help.
 	# If there is a better way of doing this please let me know
 	update_options = nalaParser(add_help=False)
-	update_options.add_argument('--no-full', action='store_false', help="R|runs a normal upgrade instead of full-upgrade\n\n")
+	update_options.add_argument(
+		'--no-full',
+		action='store_false',
+		help="R|runs a normal upgrade instead of full-upgrade\n\n"
+	)
 
 	# Parser for the update/upgrade command
-	update_parser = subparsers.add_parser('update',
+	update_parser = subparsers.add_parser(
+		'update',
 		formatter_class=formatter,
 		help='update package list and upgrade the system',
 		parents=[update_options, global_options],
 		usage=f'{bin_name} update [--options]'
 	)
-	update_parser._optionals.title = "options"
 
-	upgrade_parser = subparsers.add_parser('upgrade',
+	remove_options(
+		update_parser, assume_yes=False,
+		download_only=False, update=True,
+		no_update=False, raw_dpkg=False
+	)
+
+	upgrade_parser = subparsers.add_parser(
+		'upgrade',
 		formatter_class=formatter,
 		help='alias for update',
 		parents=[update_options, global_options],
 		usage=f'{bin_name} upgrade [--options]'
 	)
-	upgrade_parser._optionals.title = "options"
+
+	remove_options(
+		upgrade_parser, assume_yes=False,
+		download_only=False, update=True,
+		no_update=False, raw_dpkg=False
+	)
 
 	# We do the same thing that we did with update options
 	fetch_options = nalaParser(add_help=False)
@@ -170,42 +206,38 @@ def arg_parse():
 	# Remove Global options that I don't want to see in fetch --help
 	remove_options(fetch_parser)
 
-	#fetch_parser.add_argument('fetches', nargs='?', default='3', type=int, help="1-10 of how many mirrors to fetch. default is 3")
-	fetch_parser._positionals.title = "arguments"
-	fetch_parser._optionals.title = "options"
-
 	# Parser for the show command
-	show_parser = subparsers.add_parser('show',
+	show_parser = subparsers.add_parser(
+		'show',
 		help='show package details',
 		parents=[global_options],
 		usage=f'{bin_name} show [--options] pkg1 [pkg2 ...]'
 	)
 	# Remove Global options that I don't want to see in show --help
-	remove_options(show_parser)
+	remove_options(show_parser, update=False)
 
-	show_parser._positionals.title = "arguments"
-	show_parser._optionals.title = "options"
 	show_parser.add_argument('args', metavar='pkg(s)', nargs='*', help='package(s) to show')
 
 	# Parser for the History command
-	history_parser = subparsers.add_parser('history', help='show transaction history',
+	history_parser = subparsers.add_parser(
+		'history',
+		help='show transaction history',
 		description='history without additional commands lists a history summary',
 		parents=[global_options],
 		usage=f'{bin_name} history [--options] <command> <id|all>'
 	)
 
 	# Remove Global options that I don't want to see in history --help
-	remove_options(history_parser)
+	remove_options(history_parser, update=False)
 
-	history_parser._positionals.title = "commands"
-	history_parser._optionals.title = "options"
 	history_parser.add_argument('mode', metavar='info <id>', nargs='?', help='action you would like to do on the history')
 	history_parser.add_argument('id', metavar='undo <id>', nargs='?', help='undo a transaction')
 	history_parser.add_argument('placeholder', metavar='redo <id>', nargs='?', help='redo a transaction')
 	history_parser.add_argument('placeholder2', metavar='clear <id>|all', nargs='?', help='clear a transaction or the entire history')
 
 	# Parser for the show command
-	clean_parser = subparsers.add_parser('clean',
+	clean_parser = subparsers.add_parser(
+		'clean',
 		help='clears out the local repository of retrieved package files.',
 		parents=[global_options],
 		usage=f'{bin_name} show [--options]'
@@ -215,12 +247,22 @@ def arg_parse():
 	remove_options(clean_parser)
 
 	# This is just moo, but we can't cause are cat
-	moo_parser = subparsers.add_parser('moo',
+	moo_parser = subparsers.add_parser(
+		'moo',
 		description='nala is unfortunately unable to moo',
 		parents=[global_options],
 		usage=f'{bin_name} moo [--options]'
 	)
 	moo_parser.add_argument('moo', nargs='*', help=argparse.SUPPRESS)
-	moo_parser._optionals.title = "options"
+
+	for item in (
+		install_parser, remove_parser,
+		update_parser, upgrade_parser,
+		moo_parser, fetch_parser, purge_parser,
+		show_parser, clean_parser, history_parser):
+
+		item._positionals.title = "arguments"
+		item._optionals.title = "options"
+	parser._subparsers.title = "commands"
 
 	return parser

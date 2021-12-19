@@ -8,12 +8,13 @@ import fnmatch
 from sys import argv
 import hashlib
 import errno
+import os
 from tqdm import tqdm
 import json
 import apt_pkg
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
-from nala.progress import nalaCache, nalaOpProgress, nalaProgress, InstallProgress
+from nala.progress import nalaCache, nalaProgress, InstallProgress
 
 columnar = Columnar()
 timezone = datetime.utcnow().astimezone().tzinfo
@@ -56,13 +57,14 @@ class nala:
 						no_update = False,
 						metalink_out = None,
 						hash_check = False,
+						raw_dpkg = False,
 						aria2c = '/usr/bin/aria2c'):
 
 		if not no_update:
 			print('Updating package list...')
 			nalaCache().update(nalaProgress(verbose=verbose))
-
-		self.cache = nalaCache(nalaOpProgress(verbose=verbose))
+		# We want to update the cache before we initialize it
+		self.cache = nalaCache(nalaProgress(verbose=verbose))
 		self.download_only = download_only
 		self.verbose = verbose
 		self.debug = debug
@@ -70,6 +72,11 @@ class nala:
 		self.metalink_out = metalink_out
 		self.hash_check = hash_check
 		self.aria2c = aria2c
+		self.raw_dpkg = raw_dpkg
+
+		# This is just a flag to check if we downloaded anything
+		self.downloaded = False
+		self.purge = False
 
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
@@ -133,10 +140,12 @@ class nala:
 		self.auto_remover()
 		self._get_changes()
 
-	def remove(self, pkg_names):
+	def remove(self, pkg_names, purge=False):
 		dprint(f"Remove pkg_names: {pkg_names}")
 		not_found = []
 		not_installed = []
+
+		self.purge = purge
 
 		# We only want to glob if we detect an *
 		if '*' in str(pkg_names):
@@ -157,7 +166,7 @@ class nala:
 					elif pkg.shortname in self.nala_depends:
 						self.nala.append(pkg_name)
 					else:
-						pkg.mark_delete()
+						pkg.mark_delete(purge=purge)
 						dprint(f"Marked delete: {pkg.name}")
 
 		if not_installed:
@@ -383,6 +392,8 @@ class nala:
 
 	def auto_remover(self):
 		autoremove = []
+		purge = self.purge
+
 		for pkg in self.cache:
 			# We kind of have to do a lot of weird checks here.
 			# Sometimes it gives us packages that are not okay
@@ -396,14 +407,13 @@ class nala:
 						if pkg.shortname in self.nala_depends:
 							self.nala.append(pkg.name)
 						else:
-							pkg.mark_delete()
+							pkg.mark_delete(purge=purge)
 							autoremove.append(
 								f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
 								)
 
 		if self.essential:
 			pkg_error(self.essential, 'cannot be removed', banter='auto_essential', terminate=True)
-
 		if self.nala:
 			pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
 
@@ -424,7 +434,7 @@ class nala:
 			print(style("Nothing for Nala to remove.", bold=True))
 			exit(0)
 		if pkgs:
-			_print_update_summary(self.cache, pkgs)
+			self.print_update_summary(pkgs)
 			if not self.assume_yes:
 				if not ask('Do you want to continue'):
 					print("Abort.")
@@ -467,22 +477,33 @@ class nala:
 			# apt_pkg.config.set('Dpkg::Options::', '--force-confnew')
 			# apt_pkg.config.set('Dpkg::Options::', '--force-confmiss')
 
+			# Check to see if they might be at a console
+			if 'xterm' not in os.environ["TERM"]:
+				if not self.verbose or not self.raw_dpkg:
+					if ask(
+						"It seems you might be at a console. Scroll bars can get wonkey.\n"
+						"Would you like to disable them"):
+						self.verbose = True
+
+			# If self.raw_dpkg is enabled likely they want to see the update too.
+			if self.raw_dpkg:
+				self.verbose = True
+
 			if upgrade:
 				self.cache.commit(
 					nalaProgress(self.verbose, self.debug),
 					InstallProgress(self.verbose, self.debug)
 				)
 			else:
-				# Install and remove get handled differently because we want the update
-				# To be silent because there isn't one really. since we use tqdm bars
-				# For the information it leaves 3 blank lines that looks gross
+				# If we didn't are installing or removing then run this silently
+				# it leaves 3 blank lines that looks gross otherwise.
 				from nala.progress import base
 				self.cache.commit(
 					base.AcquireProgress(),
 					InstallProgress(self.verbose, self.debug)
 				)
 
-	def _download(self, pkgs, num_concurrent=1):
+	def _download(self, pkgs, num_concurrent=2):
 		if not pkgs:
 			return True
 		partial_dir = self.archive_dir / 'partial'
@@ -558,6 +579,7 @@ class nala:
 		
 		proc.wait()
 		link_success = True
+		self.downloaded = True
 		# Link archives/partial/*.deb to archives/
 		for pkg in pkgs:
 			filename = get_filename(pkg.candidate)
@@ -595,6 +617,75 @@ class nala:
 				return False
 		else:
 			return True
+
+	def print_update_summary(self, pkgs):
+
+		delete_names = []
+		install_names = []
+		upgrade_names = []
+
+		# TODO marked_downgrade, marked_keep, marked_reinstall
+		for pkg in pkgs:
+			if pkg.marked_delete:
+				delete_names.append(
+					[style(pkg.name, **RED),
+					pkg.installed.version,
+					unit_str(pkg.installed.size)]
+				)
+
+			elif pkg.marked_install:
+				install_names.append(
+					[style(pkg.name, **GREEN),
+					pkg.candidate.version,
+					unit_str(pkg.candidate.size)],
+				)
+
+			elif pkg.marked_upgrade:
+				upgrade_names.append(
+					[style(pkg.name, **BLUE),
+					pkg.installed.version,
+					pkg.candidate.version,
+					unit_str(pkg.candidate.size)]
+				)
+
+		delete = 'Remove'
+		deleting = 'Removing:'
+		if self.purge:
+			delete = 'Purge'
+			deleting = 'Purging:'
+
+		pprint_names(['Package:', 'Version:', 'Size:'], delete_names, deleting)
+		pprint_names(['Package:', 'Version:', 'Size:'], install_names, 'Installing:')
+		pprint_names(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_names, 'Upgrading:')
+
+		# We need to get our width for formating
+		width_list = [
+			len(delete_names),
+			len(install_names),
+			len(upgrade_names)
+		]
+
+		# I know this looks weird but it's how it has to be
+		width = len(str(max(width_list)))
+
+		print('='*columns)
+		print('Summary')
+		print('='*columns)
+		transaction_summary(install_names, width, 'Install')
+		transaction_summary(upgrade_names, width, 'Upgrade')
+		transaction_summary(delete_names, width, delete)
+		
+		if self.cache.required_download > 0:
+			print(f'\nTotal download size: {unit_str(self.cache.required_download)}')
+		else:
+			# We need this extra line lol
+			print()
+		if self.cache.required_space < 0:
+			print(f'Disk space to free: {unit_str(-self.cache.required_space)}')
+		else:
+			print(f'Disk space required: {unit_str(self.cache.required_space)}')
+		if self.download_only:
+			print("Nala will only download the packages")
 
 def pkg_error(pkg_list: list, msg: str, banter: str = None, terminate: bool=False):
 	"""
@@ -782,67 +873,6 @@ def _write_log(pkgs):
 		iprint(f'Upgraded: {", ".join(item for item in upgrade_names)}')
 
 	logger_newline()
-	
-def _print_update_summary(cache, pkgs):
-
-	delete_names = []
-	install_names = []
-	upgrade_names = []
-
-	# TODO marked_downgrade, marked_keep, marked_reinstall
-	for pkg in pkgs:
-		if pkg.marked_delete:
-			delete_names.append(
-				[style(pkg.name, **RED),
-				pkg.installed.version,
-				unit_str(pkg.installed.size)]
-			)
-
-		elif pkg.marked_install:
-			install_names.append(
-				[style(pkg.name, **GREEN),
-				pkg.candidate.version,
-				unit_str(pkg.candidate.size)],
-			)
-
-		elif pkg.marked_upgrade:
-			upgrade_names.append(
-				[style(pkg.name, **BLUE),
-				pkg.installed.version,
-				pkg.candidate.version,
-				unit_str(pkg.candidate.size)]
-			)
-
-	pprint_names(['Package:', 'Version:', 'Size:'], delete_names, 'Removing:')
-	pprint_names(['Package:', 'Version:', 'Size:'], install_names, 'Installing:')
-	pprint_names(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_names, 'Upgrading:')
-
-	# We need to get our width for formating
-	width_list = [
-		len(delete_names),
-		len(install_names),
-		len(upgrade_names)
-	]
-
-	# I know this looks weird but it's how it has to be
-	width = len(str(max(width_list)))
-
-	print('='*columns)
-	print('Summary')
-	print('='*columns)
-	transaction_summary(install_names, width, 'Install')
-	transaction_summary(upgrade_names, width, 'Upgrade')
-	transaction_summary(delete_names, width, 'Remove')
-	
-	if cache.required_download > 0:
-		print(f'\nTotal download size: {unit_str(cache.required_download)}')
-	else:
-		# We need this extra line lol
-		print()
-	if cache.required_space < 0:
-		print(f'Disk space to free: {unit_str(-cache.required_space)}')
-	else:
-		print(f'Disk space required: {unit_str(cache.required_space)}')
 
 def dep_format(package_dependecy):
 	"""Takes a dependency object like pkg.candidate.dependencies"""

@@ -93,13 +93,13 @@ class nalaCache(apt.Cache):
 
 # Override the text progress to format updating output
 # This is mostly for `apt update`
-class nalaProgress(text.AcquireProgress):
+class nalaProgress(text.AcquireProgress, base.OpProgress):
 
-	def __init__(	self, verbose=False, debug=False, outfile=None):
-		text.TextProgress.__init__(self, outfile)
+	def __init__(self, verbose=False, debug=False):
+		text.TextProgress.__init__(self)
 		base.AcquireProgress.__init__(self)
 
-		self._file = outfile or sys.stdout
+		self._file = sys.stdout
 
 		self._signal = None
 		self._width = 80
@@ -107,6 +107,30 @@ class nalaProgress(text.AcquireProgress):
 		self.counter = 1
 		self.verbose=verbose
 		self.debug=debug
+
+		# OpProgress settings
+		base.OpProgress.__init__(self)
+		self.old_op = ""
+
+	# OpProgress Method
+	def update(self, percent=None):
+		"""Called periodically to update the user interface."""
+		base.OpProgress.update(self, percent)
+		if self.verbose:
+			if self.major_change and self.old_op:
+				self._write(self.old_op)	
+			self._write("%s... %i%%\r" % (self.op, self.percent), False, True)
+			self.old_op = self.op
+
+	# OpProgress Method
+	def done(self, compatibility=None):
+		"""Called once an operation has been completed."""
+		# Compatibility is just defined so we don't error while combining the two
+		base.OpProgress.done(self)
+		if self.verbose:
+			if self.old_op:
+				self._write(text._("%c%s... Done") % ('\r', self.old_op), True, True)
+			self.old_op = ""
 
 	def _(msg):
 		# Not really sure what the point of this is. If anyone can help out
@@ -135,7 +159,6 @@ class nalaProgress(text.AcquireProgress):
 			if newline:
 				self._file.write("\n")
 			else:
-				#self._file.write("\r")
 				self._file.flush()
 		else:
 			for item in ['Updated:', 'Ignored:', 'Error:', 'No Change:']:
@@ -150,15 +173,10 @@ class nalaProgress(text.AcquireProgress):
 		base.AcquireProgress.ims_hit(self, item)
 		no_change = style('No Change:', **GREEN)
 		line = f"{no_change} {item.description}"
-		dline = f"'No Change:' {item.description}"
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
 			line += f' [{size}B]'
-			dline += f' [{size}B]'
 		self._write(line)
-		if self.debug:
-			self._file.write("\r")
-			dprint(dline)
 
 	def fail(self, item):
 		"""Called when an item is failed."""
@@ -166,13 +184,10 @@ class nalaProgress(text.AcquireProgress):
 		if item.owner.status == item.owner.STAT_DONE:
 			ignored = style('Ignored:  ', **YELLOW)
 			self._write(f"{ignored} {item.description}")
-			dprint(f"'Ignored:  '{item.description}")
 		else:
 			err = style('Error:    ', **RED)
 			self._write(f"{err} {item.description}")
 			self._write(f"  {item.owner.error_text}")
-			dprint(f"Error:     {item.description}")
-			dprint(f"  {item.owner.error_text}")
 
 	def fetch(self, item):
 		# type: (apt_pkg.AcquireItemDesc) -> None
@@ -187,9 +202,6 @@ class nalaProgress(text.AcquireProgress):
 			size = apt_pkg.size_to_str(item.owner.filesize)
 			line += f" [{size}B]"
 		self._write(line)
-		if self.debug:
-			self._file.write("\r")
-			dprint(f"Updated:   {item.description}")
 
 	def start(self):
 		# type: () -> None
@@ -228,7 +240,6 @@ class nalaProgress(text.AcquireProgress):
 		else:
 			self.progress.set_description_str(f"{msg}")
 
-		dprint(msg)
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
 		if not self.verbose:
@@ -236,37 +247,6 @@ class nalaProgress(text.AcquireProgress):
 			self.update_log2.close()
 			self.update_log1.close()
 			self.progress.close()
-
-# Maybe look at combining Op Progress and nalaProgress if possible	
-class nalaOpProgress(base.OpProgress, nalaProgress):
-	"""Operation progress reporting.
-
-	This closely resembles Optext.AcquireProgress in libapt-pkg.
-	"""
-
-	def __init__(self, outfile=None, verbose=False):
-		nalaProgress.__init__(self, outfile, verbose)
-		base.OpProgress.__init__(self)
-		self.old_op = ""
-		self.verbose = verbose
-		self.counter = 1
-
-	def update(self, percent=None):
-		"""Called periodically to update the user interface."""
-		base.OpProgress.update(self, percent)
-		if self.verbose:
-			if self.major_change and self.old_op:
-				self._write(self.old_op)	
-			self._write("%s... %i%%\r" % (self.op, self.percent), False, True)
-			self.old_op = self.op
-
-	def done(self):
-		"""Called once an operation has been completed."""
-		base.OpProgress.done(self)
-		if self.verbose:
-			if self.old_op:
-				self._write(text._("%c%s... Done") % ('\r', self.old_op), True, True)
-			self.old_op = ""
 
 class InstallProgress(base.InstallProgress):
 	def __init__(self, verbose: bool = False,
@@ -301,12 +281,6 @@ class InstallProgress(base.InstallProgress):
 			# This is just an easy way to disable progress bars
 			# Verbose doesn't really do anything else if raw_dpkg is enabled
 			self.verbose = True
-
-		# If the user doesn't seem to be using XTERM we politely ask if they would like to disable scroll bars.
-		if not self.xterm:
-			if not verbose or not self.raw_dpkg:
-				if ask("It seems you might be at a console. Scroll bars can get wonkey.\nWould you like to disable them"):
-					self.verbose = True
 		
 		(self.statusfd, self.writefd) = os.pipe()
 		# These will leak fds, but fixing this safely requires API changes.
@@ -446,11 +420,11 @@ class InstallProgress(base.InstallProgress):
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
 		if self.verbose:
-			for line in [
+			for line in (
 				b'Reading changelogs...',
 				b'Scanning processes...',
 				b'Scanning candidates...',
-				b'Scanning linux images...',]:
+				b'Scanning linux images...',):
 				if line in rawline:
 					os.write(STDOUT_FILENO, rawline)
 					return

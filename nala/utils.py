@@ -90,9 +90,9 @@ def ask(question, default_no=False):
 	"""
 	while True:
 		resp = input(f'{question}? [Y/n] ')
-		if resp in ['y', 'Y']:
+		if resp in ('y', 'Y'):
 			return True
-		elif resp in ['n', 'N']:
+		elif resp in ('n', 'N'):
 			return False
 		elif resp == '':
 			if default_no:
@@ -102,7 +102,7 @@ def ask(question, default_no=False):
 			print("Not a valid choice kiddo")
 
 # Constants
-CONF_MESSAGE = [
+CONF_MESSAGE = (
 	b"Configuration file '",
 	b'==> Modified (by you or by a script) since installation.\r\n',
 	b' ==> Package distributor has shipped an updated version.\r\n',
@@ -113,17 +113,17 @@ CONF_MESSAGE = [
 	b'      Z     : start a shell to examine the situation\r\n',
 	b' The default action is to keep your current version.\r\n',
 	b'*** config.inc.php (Y/I/N/O/D/Z) [default=N] ?',
-]
-CONF_ANSWER = [b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',]
-NOTICES = [
+)
+CONF_ANSWER = (b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',)
+NOTICES = (
 	b'A reboot is required to replace the running dbus-daemon.',
 	b'Please reboot the system when convenient.',
 	b'The currently running kernel version is not the expected kernel version',
 	b'so you should consider rebooting.',
 	b'Please remove.',
 	b'Warning:'
-]
-SPAM = [
+)
+SPAM = (
 	# Stuff that's pretty useless
 	'(Reading database', #'(Reading database ... 247588 files and directories currently installed.)'
 	'files and directories currently installed.)',
@@ -132,7 +132,7 @@ SPAM = [
 	'Extracting templates from packages:',
 	'Preconfiguring packages',
 	'Reloading AppArmor profiles',
-]
+)
 
 # ASCII Art
 LION_ASCII = (
