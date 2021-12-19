@@ -27,7 +27,6 @@ from nala.options import arg_parse
 from nala.nala import nala
 import logging
 from os import geteuid
-from nala import __version__
 from getpass import getuser
 
 def _main():

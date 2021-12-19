@@ -40,3 +40,7 @@ There isn't a documentation site setup at the moment, but our man page explains 
 - implement optional bandwidth check on fetch
 - remove exceptions for just error messages
 - setup readthedocs pages
+- Make a self.downloaded variable. Set to true if we downloaded. This way if we downloaded we can run the non-slient upgrade on commit
+- Make --update switch so if you call nala --update it will just update the cache.
+- Further more make install not use apt.update by default and have an --update switch
+- Fix update --debug

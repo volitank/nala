@@ -4,6 +4,7 @@ from datetime import datetime
 from getpass import getuser
 from pathlib import Path
 from click import style
+import fnmatch
 from sys import argv
 import hashlib
 import errno
@@ -36,9 +37,12 @@ try:
 except KeyError:
 	USER = getuser()
 	UID = getuid()
-	
-environ["DEBIAN_FRONTEND"] = "noninteractive"
 
+#environ["DEBIAN_FRONTEND"] = "noninteractive"
+#environ["DEBIAN_FRONTEND"] = "editor"
+#environ["DEBIAN_FRONTEND"] = "readline"
+#environ["DEBIAN_FRONTEND"] = "dialog"
+# Eventually would like to add functionality to make apt list an option
 
 NALA_DIR = Path('/var/lib/nala')
 NALA_HISTORY = Path('/var/lib/nala/history')
@@ -82,12 +86,35 @@ class nala:
 		self.cache.upgrade(dist_upgrade=dist_upgrade)
 		self.auto_remover()
 		self._get_changes(upgrade=True)
-	
+
+	def glob_filter(self, pkg_names: list):
+		packages = self.cache.keys()
+		new_packages = []
+
+		for pkg_name in pkg_names:
+			if '*' in pkg_name:
+				dprint(f'Globbing: {pkg_name}')
+				new_packages.extend(
+					fnmatch.filter(packages, pkg_name)
+				)
+			else:
+				new_packages.append(pkg_name)
+
+		dprint(f'List after globbing: {new_packages}')
+		return new_packages
+
 	def install(self, pkg_names):
 		dprint(f"Install pkg_names: {pkg_names}")
 		not_found = []
+
+		# We only want to glob if we detect an *
+		if '*' in str(pkg_names):
+			pkg_names = self.glob_filter(pkg_names)
+
 		for pkg_name in pkg_names:
-			if pkg_name in self.cache:
+			if pkg_name not in self.cache:
+				not_found.append(pkg_name)
+			else:
 				pkg = self.cache[pkg_name]
 				if not pkg.installed:
 					pkg.mark_install()
@@ -99,16 +126,9 @@ class nala:
 					print(f'Package {style(pkg.name, **GREEN)}',
 					'is already at the latest version',
 					style(pkg.installed.version, **BLUE))
-			else:
-				not_found.append(pkg_name)
+
 		if not_found:
-			for pkg in not_found:
-				print(
-					style('Error:', **RED),
-					style(pkg_name, **YELLOW),
-					'not found'
-				)
-			exit(1)
+			pkg_error(not_found, 'not found', terminate=True)
 		
 		self.auto_remover()
 		self._get_changes()
@@ -118,68 +138,39 @@ class nala:
 		not_found = []
 		not_installed = []
 
+		# We only want to glob if we detect an *
+		if '*' in str(pkg_names):
+			pkg_names = self.glob_filter(pkg_names)
+
 		for pkg_name in pkg_names:
-			if pkg_name in self.cache:
-				pkg = self.cache[pkg_name]
-				if pkg.installed:
-					if not pkg.essential:
-						if not pkg.shortname in self.nala_depends:
-							pkg.mark_delete()
-							dprint(f"Marked delete: {pkg.name}")
-						else:
-							self.nala.append(pkg.name)
-					else:
-						self.essential.append(pkg.name)
-				else:
-					not_installed.append(pkg.name)
-			else:
+			if pkg_name not in self.cache:
 				not_found.append(pkg_name)
+			else:
+				pkg = self.cache[pkg_name]
+				if not pkg.installed:
+					not_installed.append(pkg_name)
+				else:
+					# do not allow the removal of essential or required packages
+					if pkg.essential or pkg.installed.priority == 'required':
+						self.essential.append(pkg_name)
+					# do not allow the removal of nala
+					elif pkg.shortname in self.nala_depends:
+						self.nala.append(pkg_name)
+					else:
+						pkg.mark_delete()
+						dprint(f"Marked delete: {pkg.name}")
 
 		if not_installed:
-			if len(not_installed) > 4:
-				print(
-					style('Error:', **RED),
-					"Packages",
-					style(",".join(pkg for pkg in not_installed), **YELLOW),
-					"not installed"
-				)
-			else:
-				for pkg in not_installed:
-					print(
-						style('Error:', **RED),
-						style(pkg, **YELLOW),
-						'not installed'
-					)
+			pkg_error(not_installed, 'not installed')
 
 		if not_found:
-			for pkg in not_found:
-				print(
-					style('Error:', **RED),
-					style(pkg, **YELLOW),
-					'not found'
-				)
+			pkg_error(not_found, 'not found')
 
 		if self.essential:
-			for pkg in self.essential:
-				print(
-					style('Error:', **RED),
-					style(pkg, **YELLOW),
-					'cannot be removed'
-				)
-
-			print(f"Maybe {style('apt', **RED)} will let you")
-			exit(1)
+			pkg_error(self.essential, 'cannot be removed', banter='apt', terminate=True)
 
 		if self.nala:
-			for pkg in self.nala:
-				print(
-					style('Error:', **RED),
-					style(pkg, **YELLOW),
-					'cannot be removed'
-				)
-
-			print(f"Why do you think I would destroy myself?")
-			exit(1)
+			pkg_error(self.nala, 'cannot be removed', banter='self_preservation', terminate=True)
 
 		self.auto_remover()
 		self._get_changes(remove=True)
@@ -195,7 +186,14 @@ class nala:
 				print(f"Package: {pkg.name}")
 				print(f"Version: {pkg.candidate.version}")
 				print(f"Architecture: {arch}")
+
+				installed = 'no'
+				if pkg.is_installed:
+					installed = 'yes'
+				print(f"Installed: {installed}")
 				print(f"Priority: {pkg.candidate.priority}")
+				if pkg.essential:
+					print(f"Essential: yes")
 				print(f"Section: {pkg.candidate.section}")
 				print(f"Source: {pkg.candidate.source_name}")
 				print(f"Origin: {pkg.candidate.origins[0].origin}")
@@ -204,21 +202,25 @@ class nala:
 					print(f"Original-Maintainer: {pkg.candidate.record.get('Original-Maintainer')}")
 				print(f"Bugs: {pkg.candidate.record.get('Bugs')}")
 				print(f"Installed-Size: {unit_str(pkg.candidate.installed_size, 1)}")
+				if pkg.candidate.provides:
+					provides = pkg.candidate.provides
+					provides.sort()
+					print(
+						'Provides:',
+						", ".join(name for name in provides)
+					)
 
 				if pkg.candidate.dependencies:
 					print(style('Depends:', bold=True))
-					for dep in pkg.candidate.dependencies:
-						print(style('  '+dep.rawstr, fg='green', bold=True))
+					dep_format(pkg.candidate.dependencies)
 
 				if pkg.candidate.recommends:
 					print(style('Recommends:', bold=True))
-					for rec in pkg.candidate.recommends:
-						print(style('  '+rec.rawstr, fg='green', bold=True))
+					dep_format(pkg.candidate.recommends)
 
 				if pkg.candidate.suggests:
 					print(style('Suggests:', bold=True))
-					for sug in pkg.candidate.suggests:
-						print(style('  '+sug.rawstr, fg='green', bold=True))
+					dep_format(pkg.candidate.suggests)
 
 				print(f"Homepage: {pkg.candidate.homepage}")
 				print(f"Download-Size: {unit_str(pkg.candidate.size, 1)}")
@@ -253,11 +255,17 @@ class nala:
 			trans = []
 			transaction = json.loads(transaction)
 			trans.append(transaction.get('ID'))
+			
+			command = transaction.get('Command')
+			if command[0] in ['update', 'upgrade']:
+				for package in transaction.get('Upgraded'):
+					command.append(package[0])
+
 			trans.append(' '.join(com for com in transaction.get('Command')))
 			trans.append(transaction.get('Date'))
 			trans.append(transaction.get('Altered'))
 			names.append(trans)
-		print(columnar(names, headers, no_borders=True))
+		print(columnar(names, headers, no_borders=True, wrap_max=0))
 
 	def _get_history(self, id):
 		dprint(f"Getting history {id}")
@@ -345,71 +353,59 @@ class nala:
 		upgrade_info = []
 
 		for pkg in install_names:
-			if pkg in self.cache:
-				pkg = self.cache[pkg]
-				install_info.append(
-					[style(pkg.name, **GREEN),
-					pkg.candidate.version,
-					unit_str(pkg.candidate.size)],
-				)
+			name, version, size = pkg
+			install_info.append(
+				[style(name, **GREEN),
+				version,
+				unit_str(size)],
+			)
+
 		for pkg in delete_names:
-			if pkg in self.cache:
-				pkg = self.cache[pkg]
-				delete_info.append(
-					[style(pkg.name, **RED),
-					pkg.candidate.version,
-					unit_str(pkg.candidate.size)],
-				)
+			name, version, size = pkg
+			delete_info.append(
+				[style(name, **RED),
+				version,
+				unit_str(size)],
+			)
+
 		for pkg in upgrade_names:
-			if pkg in self.cache:
-				pkg = self.cache[pkg]
-				upgrade_info.append(
-					[style(pkg.name, **BLUE),
-					pkg.candidate.version,
-					unit_str(pkg.candidate.size)],
-				)
+			name, old_version, new_version, size = pkg
+			upgrade_info.append(
+				[style(name, **BLUE),
+				old_version,
+				new_version,
+				unit_str(size)],
+			)
 
 		pprint_names(['Package:', 'Version:', 'Size:'], delete_info, 'Removed:')
 		pprint_names(['Package:', 'Version:', 'Size:'], install_info, 'Installed:')
-		pprint_names(['Package:', 'Version:', 'Size:'], upgrade_info, 'Upgraded:')
+		pprint_names(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_info, 'Upgraded:')
 
 	def auto_remover(self):
-		essential = []
 		autoremove = []
-		nala = []
 		for pkg in self.cache:
-			if pkg.is_auto_removable:
-				if not pkg.essential:
-					if not pkg.shortname in self.nala_depends:
-						pkg.mark_delete()
-						autoremove.append(
-							f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
-						)
+			# We kind of have to do a lot of weird checks here.
+			# Sometimes it gives us packages that are not okay
+			if pkg.is_installed:
+				if pkg.is_auto_removable:
+					# We can't let autoremover take out essential or required packages
+					if pkg.essential or pkg.installed.priority == 'required':
+						self.essential.append(pkg.name)
 					else:
-						nala.append(pkg.name)
-				else:
-					essential.append(pkg.name)
+						# We can't let nala be removed either
+						if pkg.shortname in self.nala_depends:
+							self.nala.append(pkg.name)
+						else:
+							pkg.mark_delete()
+							autoremove.append(
+								f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
+								)
 
-		if essential:
-			for pkg in essential:
-				print(
-					style('Error:', **RED),
-					style(pkg, **YELLOW),
-					'cannot be removed'
-				)
+		if self.essential:
+			pkg_error(self.essential, 'cannot be removed', banter='auto_essential', terminate=True)
 
-			print("What ever you did tried to auto mark essential packages")
-			exit(1)
-
-		if nala:
-			for pkg in nala:
-				print(
-					style('Error:', **RED),
-					style(pkg, **YELLOW),
-					'cannot be removed'
-				)
-			print("What ever you did would have resulted in my own removal!")
-			exit(1)
+		if self.nala:
+			pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
 
 		dprint(f"Pkgs marked by autoremove: {autoremove}")
 
@@ -435,33 +431,19 @@ class nala:
 					return
 			
 			for pkg in pkgs:
-				if pkg.essential and pkg.marked_delete:
-					self.essential.append(pkg.name)
-
-				elif pkg.shortname in self.nala_depends and pkg.marked_delete:
-					self.nala.append(pkg.name)
-
+				if pkg.is_installed:
+					if pkg.essential and pkg.marked_delete:
+						self.essential.append(pkg.name)
+					elif pkg.installed.priority == 'required' and pkg.marked_delete:
+						self.essential.append(pkg.name)
+					elif pkg.shortname in self.nala_depends and pkg.marked_delete:
+						self.nala.append(pkg.name)
+					
 			if self.essential:
-				for pkg in self.essential:
-					print(
-						style('Error:', **RED),
-						style(pkg, **YELLOW),
-						'cannot be removed'
-					)
-
-				print(f"Maybe {style('apt', **RED)} will let you")
-				exit(1)
+				pkg_error(self.essential, 'cannot be removed', banter='apt', terminate=True)
 
 			if self.nala:
-				for pkg in self.nala:
-					print(
-						style('Error:', **RED),
-						style(pkg, **YELLOW),
-						'cannot be removed'
-					)
-
-				print("For some reason I was about to get nuked")
-				exit(1)
+				pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
 
 			_write_history(pkgs)
 			_write_log(pkgs)
@@ -542,6 +524,7 @@ class nala:
 			for line in iter(proc.stdout.readline, ''):
 				# We don't really want this double printing if we have
 				# Verbose and debug enabled.
+				line = line.strip()
 				if line != '':
 					if self.debug:
 						dprint(line)
@@ -613,6 +596,38 @@ class nala:
 		else:
 			return True
 
+def pkg_error(pkg_list: list, msg: str, banter: str = None, terminate: bool=False):
+	"""
+	banter is optional and can be one of::
+
+		apt: "Maybe apt will let you"
+		self_preservation: "Why do you think I would destroy myself?"
+		auto_essential: "Whatever you did tried to auto mark essential packages"
+		auto_preservation: "Whatever you did would have resulted in my own removal!"
+	"""
+	for pkg in pkg_list:
+		print(
+			style('Error:', **RED),
+			style(pkg, **YELLOW),
+			msg
+		)
+
+	if banter:
+		if banter == 'apt':
+			print(f"Maybe {style('apt', **RED)} will let you")
+
+		elif banter == 'self_preservation':
+			print(f"Why do you think I would destroy myself?")
+
+		elif banter == 'auto_essential':
+			print("Whatever you did tried to auto mark essential packages")
+
+		elif banter == 'auto_preservation':
+			print("Whatever you did would have resulted in my own removal!")
+
+	if terminate:
+		exit(1)
+
 def check_hash(path, hash_type, hash_value):
 	hash_fun = hashlib.new(hash_type)
 	with open(path) as f:
@@ -667,7 +682,11 @@ def pprint_names(headers, names, title):
 		print('='*columns)
 		print(title)
 		print('='*columns, end='')
-		print(columnar(names, headers, no_borders=True, justify=['l', 'l', 'r']))
+		if 'Upgrad' in title:
+			justify = ['l', 'l', 'l', 'r']
+		else:
+			justify = ['l', 'l', 'r']
+		print(columnar(names, headers, no_borders=True, justify=justify))
 
 def transaction_summary(names, width, header: str):
 	if names:
@@ -694,13 +713,19 @@ def _write_history(pkgs):
 	# TODO marked_downgrade, marked_keep, marked_reinstall
 	for pkg in pkgs:
 		if pkg.marked_delete:
-			delete_names.append(pkg.name)
-
+			delete_names.append(
+				[pkg.name, pkg.installed.version, pkg.candidate.size]
+			)
+			
 		elif pkg.marked_install:
-			install_names.append(pkg.name)
+			install_names.append(
+				[pkg.name, pkg.candidate.version, pkg.candidate.size]
+			)
 
 		elif pkg.marked_upgrade:
-			upgrade_names.append(pkg.name)
+			upgrade_names.append(
+				[pkg.name, pkg.installed.version, pkg.candidate.version, pkg.candidate.size]
+			)
 
 	history = []
 	if NALA_HISTORY.exists():
@@ -783,13 +808,14 @@ def _print_update_summary(cache, pkgs):
 		elif pkg.marked_upgrade:
 			upgrade_names.append(
 				[style(pkg.name, **BLUE),
+				pkg.installed.version,
 				pkg.candidate.version,
 				unit_str(pkg.candidate.size)]
 			)
 
 	pprint_names(['Package:', 'Version:', 'Size:'], delete_names, 'Removing:')
 	pprint_names(['Package:', 'Version:', 'Size:'], install_names, 'Installing:')
-	pprint_names(['Package:', 'Version:', 'Size:'], upgrade_names, 'Upgrading:')
+	pprint_names(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_names, 'Upgrading:')
 
 	# We need to get our width for formating
 	width_list = [
@@ -817,3 +843,30 @@ def _print_update_summary(cache, pkgs):
 		print(f'Disk space to free: {unit_str(-cache.required_space)}')
 	else:
 		print(f'Disk space required: {unit_str(cache.required_space)}')
+
+def dep_format(package_dependecy):
+	"""Takes a dependency object like pkg.candidate.dependencies"""
+	for dep_list in package_dependecy:
+		dep_print = ''
+		num = 0
+		for dep in dep_list:
+			open_paren = style('(', bold=True)
+			close_paren = style(')', bold=True)
+			name = style(dep.name, **GREEN)
+			relation = style(dep.relation, bold=True)
+			version = style(dep.version, **BLUE)
+			pipe = style(' | ', bold=True)
+
+			final = name+' '+open_paren+relation+' '+version+close_paren
+			
+			if num == 0:
+				dep_print = '  '+name
+				if dep.relation:
+					dep_print = '  '+final
+			else:
+				if dep.relation:
+					dep_print += pipe+final
+				else:
+					dep_print += pipe+name
+			num += 1
+		print(dep_print)
