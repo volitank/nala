@@ -9,15 +9,15 @@ Install the Volian Scar repo and then install Nala
 
 .. code-block:: console
  
-	$ echo "deb http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
-	$ wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
-	$ sudo apt update && sudo apt install nala
+	echo "deb http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+	wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
+	sudo apt update && sudo apt install nala
 
 If you want to add the source repo
 
 .. code-block:: console
 
-	$ echo "deb-src http://deb.volian.org/volian/ scar main" | sudo tee -a /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+	echo "deb-src http://deb.volian.org/volian/ scar main" | sudo tee -a /etc/apt/sources.list.d/volian-archive-scar-unstable.list
 
 There isn't a documentation site setup at the moment, but our man page explains things well enough for now.
 
@@ -29,10 +29,7 @@ There isn't a documentation site setup at the moment, but our man page explains 
 - -f --fix-broken
 - --no-install-recommends
 - --install-suggests
-- --no-upgrade
 - nala download
-- nala purge
-- switch to silently upgrade (Auto Select Config file changes, etc)
 - Probably many others to add as well
 
 **Internal**
@@ -40,7 +37,3 @@ There isn't a documentation site setup at the moment, but our man page explains 
 - implement optional bandwidth check on fetch
 - remove exceptions for just error messages
 - setup readthedocs pages
-- Make a self.downloaded variable. Set to true if we downloaded. This way if we downloaded we can run the non-slient upgrade on commit
-- Make --update switch so if you call nala --update it will just update the cache.
-- Further more make install not use apt.update by default and have an --update switch
-- Fix update --debug

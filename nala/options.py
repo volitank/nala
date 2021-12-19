@@ -1,7 +1,9 @@
 import argparse
 from sys import argv
-from pydoc import pager
+from pydoc import describe, pager
 from pathlib import Path
+
+from apt_pkg import Description
 
 from nala.utils import LICENSE
 from nala import __version__
@@ -55,7 +57,11 @@ class GPLv3(argparse.Action):
 			print('https://www.gnu.org/licenses/gpl-3.0.txt')
 		parser.exit()
 
-def remove_options(parser, assume_yes=True, download_only=True, update=True, no_update=True, raw_dpkg=True):
+def remove_options(parser,
+	assume_yes=True, download_only=True,
+	update=True, no_update=True,
+	raw_dpkg=True, noninteractive=True):
+
 	for item in parser._optionals._group_actions[:]:
 		if assume_yes:
 			if '--assume-yes' in item.option_strings:
@@ -72,6 +78,10 @@ def remove_options(parser, assume_yes=True, download_only=True, update=True, no_
 		if raw_dpkg:
 			if '--raw-dpkg' in item.option_strings:
 				parser._optionals._group_actions.remove(item)
+		if noninteractive:
+			for switch in ('--noninteractive', '--noninteractive-full', '--confold', '--confnew', '--confdef', '--confask', '--confmiss'):
+				if switch in item.option_strings:
+					parser._optionals._group_actions.remove(item)
 
 # Main Parser
 def arg_parse():
@@ -94,18 +104,34 @@ def arg_parse():
 	global_options.add_argument('--version', action='version', version=f'{bin_name} {version}')
 	global_options.add_argument('--license', action=GPLv3)
 
+	# Define interactive options
+	interactive_options = nalaParser(add_help=False)
+	interactive_options.add_argument('--no-aptlist', action='store_true', help="sets 'APT_LISTCHANGES_FRONTEND=none'. apt-listchanges will not bug you")
+	interactive_options.add_argument('--noninteractive', action='store_true', help="sets 'DEBIAN_FRONTEND=noninteractive'. this also disables apt-listchanges")
+	interactive_options.add_argument('--noninteractive-full', action='store_true', help="an alias for --noninteractive --confdef --confold")
+	interactive_options.add_argument('--confold', action='store_true', help="always keep the old version without prompting")
+	interactive_options.add_argument('--confnew', action='store_true', help="always install the new version without prompting")
+	interactive_options.add_argument('--confdef', action='store_true', help="always choose the default action without prompting")
+	interactive_options.add_argument('--confmiss', action='store_true', help="always install the missing conffile without prompting. this is dangerous")
+	interactive_options.add_argument('--confask', action='store_true', help="always offer to replace it with the version in the package")
+	interactive_options._action_groups[1].title = 'dpkg options'
+	interactive_options._action_groups[1].description = 'read the man page if you are unsure about these options'
+
 	parser = nalaParser(	formatter_class=formatter,
 							usage=f'{bin_name} [--options] <command>',
 							parents=[global_options]
 							)
 
+	
+
 	# Define our subparser
 	subparsers = parser.add_subparsers(metavar='', dest='command')
 
 	# Parser for the install command 
-	install_parser = subparsers.add_parser('install', 
+	install_parser = subparsers.add_parser('install',
+		formatter_class=formatter,
 		help='install packages',
-		parents=[global_options],
+		parents=[global_options, interactive_options],
 		usage=f'{bin_name} install [--options] pkg1 [pkg2 ...]'
 		)
 		
@@ -114,11 +140,12 @@ def arg_parse():
 	remove_options(
 		install_parser, assume_yes=False,
 		download_only=False, update=False,
-		no_update=True, raw_dpkg=False
+		no_update=True, raw_dpkg=False, noninteractive=False
 	)
 
 	# Parser for the remove command
 	remove_parser = subparsers.add_parser('remove',
+		formatter_class=formatter,
 		help='remove packages', parents=[global_options],
 		usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
 	)
@@ -133,6 +160,7 @@ def arg_parse():
 
 	# Parser for the purge command
 	purge_parser = subparsers.add_parser('purge',
+		formatter_class=formatter,
 		help='purge packages', parents=[global_options],
 		usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
 	)
@@ -159,28 +187,28 @@ def arg_parse():
 		'update',
 		formatter_class=formatter,
 		help='update package list and upgrade the system',
-		parents=[update_options, global_options],
+		parents=[update_options, global_options, interactive_options],
 		usage=f'{bin_name} update [--options]'
 	)
 
 	remove_options(
 		update_parser, assume_yes=False,
 		download_only=False, update=True,
-		no_update=False, raw_dpkg=False
+		no_update=False, raw_dpkg=False, noninteractive=False
 	)
 
 	upgrade_parser = subparsers.add_parser(
 		'upgrade',
 		formatter_class=formatter,
 		help='alias for update',
-		parents=[update_options, global_options],
+		parents=[update_options, global_options, interactive_options],
 		usage=f'{bin_name} upgrade [--options]'
 	)
 
 	remove_options(
 		upgrade_parser, assume_yes=False,
 		download_only=False, update=True,
-		no_update=False, raw_dpkg=False
+		no_update=False, raw_dpkg=False, noninteractive=False
 	)
 
 	# We do the same thing that we did with update options

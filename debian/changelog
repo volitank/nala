@@ -1,3 +1,21 @@
+nala (0.1.2) unstable; urgency=medium
+
+  * Big holiday update
+  * debconf is now fully supported, along with apt-listchanges
+  * Added purge command
+  * Added --update to update the cache,
+    install no longer automatically updates the cache for you.
+  * Added a bunch of --conf options.
+  * Added --raw-dpkg in case you want regular ugly output
+  * Added wildcard* for install and remove commands
+  * Some History updates, you will likely need to remove your
+    old history file at /var/lib/nala/history
+  * While we're still in early development mandatory dpkg-debug
+    will be added to /var/log/nala
+  * Made general formatting changes
+
+ -- Blake Lee <blake@volian.org>  Sun, 19 Dec 2021 12:26:54 -0500
+
 nala (0.1.1) unstable; urgency=medium
 
   * Big changes to output formatting

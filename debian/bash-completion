@@ -17,6 +17,17 @@ _nala()
 		--update
     '
 
+	local DPKG_OPTIONS='
+		--no-aptlist
+		--noninteractive
+		--noninteractive-full
+		--confold
+		--confnew
+		--confdef
+		--confmiss
+		--confask
+	'
+
     case $prev in
         --help | --version | --license | -!(-*)[chslSbopitT])
             return
@@ -44,7 +55,7 @@ _nala()
 						-y --assume-yes
 						-d --download-only
 						--raw-dpkg
-						'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				remove|purge)
@@ -62,7 +73,7 @@ _nala()
 						-d --download-only
 						--no-update
 						--raw-dpkg
-						'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				fetch)

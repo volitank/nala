@@ -15,6 +15,7 @@ import apt_pkg
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.progress import nalaCache, nalaProgress, InstallProgress
+from nala.options import arg_parse
 
 columnar = Columnar()
 timezone = datetime.utcnow().astimezone().tzinfo
@@ -39,12 +40,6 @@ except KeyError:
 	USER = getuser()
 	UID = getuid()
 
-#environ["DEBIAN_FRONTEND"] = "noninteractive"
-#environ["DEBIAN_FRONTEND"] = "editor"
-#environ["DEBIAN_FRONTEND"] = "readline"
-#environ["DEBIAN_FRONTEND"] = "dialog"
-# Eventually would like to add functionality to make apt list an option
-
 NALA_DIR = Path('/var/lib/nala')
 NALA_HISTORY = Path('/var/lib/nala/history')
 
@@ -63,6 +58,20 @@ class nala:
 		if not no_update:
 			print('Updating package list...')
 			nalaCache().update(nalaProgress(verbose=verbose))
+
+		# We check the arguments here to see if we have any kind of
+		# Non interactiveness going on
+		parser = arg_parse()
+		arguments = parser.parse_args()
+		self.noninteractive = arguments.noninteractive
+		self.noninteractive_full = arguments.noninteractive_full
+		self.confold = arguments.confold
+		self.confnew = arguments.confnew
+		self.confdef = arguments.confdef
+		self.confmiss = arguments.confask
+		self.confask = arguments.confask
+		self.no_aptlist = arguments.no_aptlist
+
 		# We want to update the cache before we initialize it
 		self.cache = nalaCache(nalaProgress(verbose=verbose))
 		self.download_only = download_only
@@ -471,11 +480,25 @@ class nala:
 		if self.download_only:
 			print("Download complete and in download only mode.")
 		else:
-			# This is the correct posistion configure it
-			# apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
-			# apt_pkg.config.set('Dpkg::Options::', '--force-confold')
-			# apt_pkg.config.set('Dpkg::Options::', '--force-confnew')
-			# apt_pkg.config.set('Dpkg::Options::', '--force-confmiss')
+			# Lets get our environment variables set before we get down to business
+			if self.noninteractive:
+				environ["DEBIAN_FRONTEND"] = "noninteractive"
+			if self.noninteractive_full:
+				environ["DEBIAN_FRONTEND"] = "noninteractive"
+				apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
+				apt_pkg.config.set('Dpkg::Options::', '--force-confold')
+			if self.no_aptlist:
+				environ["APT_LISTCHANGES_FRONTEND"] = "none"
+			if self.confdef:
+				apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
+			if self.confold:
+				apt_pkg.config.set('Dpkg::Options::', '--force-confold')
+			if self.confnew:
+				apt_pkg.config.set('Dpkg::Options::', '--force-confnew')
+			if self.confmiss:
+				apt_pkg.config.set('Dpkg::Options::', '--force-confmiss')
+			if self.confask:
+				apt_pkg.config.set('Dpkg::Options::', '--force-confask')
 
 			# Check to see if they might be at a console
 			if 'xterm' not in os.environ["TERM"]:
