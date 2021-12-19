@@ -94,11 +94,11 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 : updates the package cache then upgrades the system.
 
 # AUTHORS
-Blake Lee <*https://salsa.debian.org/volitank*>
-volian-team <*https://salsa.debian.org/volian-team*>
+Blake Lee <*https://gitlab.com/volitank*>
+volian-team <*https://gitlab.com/volian*>
 
 # BUGS
-Submit bug reports online at: <*https://salsa.debian.org/volian-team/nala/-/issues*>
+Submit bug reports online at: <*https://gitlab.com/volian/nala/-/issues*>
 
 # SEE ALSO
-Sources at: <https://salsa.debian.org/volian-team/nala>
+Sources at: <https://gitlab.com/volian/nala>

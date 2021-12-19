@@ -1,9 +1,9 @@
 Source: nala
-VCS-Git: https://salsa.debian.org/volian-team/nala.git
-VCS-Browser: https://salsa.debian.org/volian-team/nala
+VCS-Git: https://gitlab.com/volian/nala.git
+VCS-Browser: https://gitlab.com/volian/nala
 Priority: important
 Section: admin
-Homepage: https://salsa.debian.org/volian-team/nala
+Homepage: https://gitlab.com/volian/nala
 Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
 Standards-Version: 4.6.0

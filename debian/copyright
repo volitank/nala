@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: nala
 Upstream-Contact: Blake Lee <blake@volian.org>
-Source: https://salsa.debian.org/volian-team/nala
+Source: https://gitlab.com/volian/nala
 
 Files: *
 Copyright: 2021 Blake Lee <blake@volian.org>
