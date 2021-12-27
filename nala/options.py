@@ -15,24 +15,6 @@ class nalaParser(argparse.ArgumentParser):
 		self.print_help()
 		exit(1)
 
-# Subclassing the HelpFormatter just to fix an empty line from setting metavar=''
-class nalaFormatter(argparse.RawDescriptionHelpFormatter):
-#class nalaFormatter(argparse.HelpFormatter):
-	def format_help(self):
-		help = self._root_section.format_help()
-		if help:
-			help = self._long_break_matcher.sub('\n\n', help)
-			help = help.strip('\n') + '\n'
-		if 'command:' in help:
-			help = help.replace('\n\ncommand:\n','\n\ncommand:')
-		return help
-
-	def _split_lines(self, text, width):
-		if text.startswith('R|'):
-			return text[2:].splitlines()  
-		# this is the RawTextHelpFormatter._split_lines
-		return argparse.RawTextHelpFormatter._split_lines(self, text, width)
-
 # Custom Action for --license switch
 class GPLv3(argparse.Action):
 	def __init__(self,
@@ -81,7 +63,7 @@ def remove_options(parser,
 # Main Parser
 def arg_parse():
 
-	formatter = lambda prog: nalaFormatter(prog, max_help_position=64)
+	formatter = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=64)
 
 	bin_name = Path(argv[0]).name
 
