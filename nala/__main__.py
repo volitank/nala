@@ -55,15 +55,14 @@ def _main():
 	dprint(f"Argparser = {arguments}")
 
 	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
-	no_update_list = ('remove', 'show', 'history', 'install', 'purge')
 	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None)
 
-	if command in superuser:
-		if su != 0:
-			esyslog(f"{getuser()} tried to run [{' '.join(com for com in argv)}] without permission")
-			exit(f"Nala needs root to {command}")
+	if command in superuser and su != 0:
+		esyslog(f'{getuser()} tried to run [{" ".join(argv)}] without permission')
+		exit(f"Nala needs root to {command}")
 
 	if command in apt_init:
+		no_update_list = ('remove', 'show', 'history', 'install', 'purge')
 		if command in no_update_list:
 			no_update = True
 		if update:
@@ -89,9 +88,7 @@ def _main():
 		apt.install(args)
 
 	if command in ('remove', 'purge'):
-		purge = False
-		if command == 'purge':
-			purge = True
+		purge = command == 'purge'
 		args = arguments.args
 		apt.remove(args, purge=purge)
 
@@ -140,10 +137,10 @@ def _main():
 
 		elif mode == 'clear':
 			if su != 0:
-				esyslog(f"{getuser()} tried to run [{' '.join(com for com in argv)}] without permission")
-				exit(f"Nala needs root to clear history")
+				esyslog(f'{getuser()} tried to run [{" ".join(argv)}] without permission')
+				exit('Nala needs root to clear history')
 			apt.history_clear(id)
-	
+
 	if command == 'clean':
 		shell.apt.clean()
 		print("Nala's local cache has been cleaned up")
