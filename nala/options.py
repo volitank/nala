@@ -1,5 +1,5 @@
 import argparse
-from sys import argv
+from sys import argv, stderr
 from pydoc import describe, pager
 from pathlib import Path
 
@@ -11,7 +11,7 @@ from nala import __version__
 # Custom Parser for printing help on error.
 class nalaParser(argparse.ArgumentParser):
 	def error(self, message):
-		#stderr.write('error: %s\n' % message)
+		stderr.write(f'error: {message}\n')
 		self.print_help()
 		exit(1)
 
