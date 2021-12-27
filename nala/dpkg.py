@@ -31,7 +31,6 @@ from nala.utils import (
 class nalaCache(apt.Cache):
 	def update(self, fetch_progress=None, pulse_interval=0,
 			   raise_on_error=True, sources_list=None):
-		## type: (Optional[AcquireProgress], int, bool, Optional[str]) -> int
 		"""Run the equivalent of apt-get update.
 
 		You probably want to call open() afterwards, in order to utilise the
@@ -305,7 +304,6 @@ class InstallProgress(base.InstallProgress):
 			self.update_log1.close()
 
 	def finish_update(self):
-		# type: () -> None
 		"""(Abstract) Called when update has finished."""
 		self.progress_bars(remove=True)
 		if self.notice:
@@ -315,7 +313,6 @@ class InstallProgress(base.InstallProgress):
 		print(style("Finished Successfully", **GREEN))
 
 	def __exit__(self, type, value, traceback):
-		# type: (object, object, object) -> None
 		self.write_stream.close()
 		self.status_stream.close()
 		self.dpkg.close()
