@@ -3,7 +3,7 @@ import struct
 import select
 import socket
 import time
-import random
+from secrets import SystemRandom
 import re
 import threading
 from click import style
@@ -25,7 +25,7 @@ def chk(data):
 
 def ping(addr, timeout=2, number=1, data=b''):
 	with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as conn:
-		payload = struct.pack('!HH', random.randrange(0, 65536), number) + data
+		payload = struct.pack('!HH', SystemRandom().randrange(0, 65536), number) + data
 
 		conn.connect((addr, 80))
 		conn.sendall(b'\x08\0' + chk(b'\x08\0\0\0' + payload) + payload)
