@@ -23,7 +23,7 @@ Depends:	python3,
 			python3-wcwidth,
 			python3-pyshell,
 			python3-pexpect,
-			python3-tqdm,
+			python3-tqdm (>= 4.57.0-2),
 			aria2,
 			apt,
 			${misc:Depends}

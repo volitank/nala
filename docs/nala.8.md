@@ -2,8 +2,8 @@
 title: nala
 section: 8
 header: User Manual
-footer: nala 0.1.2
-date: 19 December 2021
+footer: nala 0.1.3
+date: 27 December 2021
 ---
 # NAME
 nala - a wrapper for the apt package manager
@@ -81,7 +81,7 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 : *\--ubuntu* is a **nala fetch** specific switch. This is just the **Ubuntu** version of the switch above *\--ubuntu jammy*
 
 **\--country**
-: *\--country* is a **nala fetch** specific switch. This is for you to specify your *country* when fetching mirrors. You don't have to use this as we test latency anyway, but it seems like with *Ubuntu* you might want to specify your country.
+: *\--country* is a **nala fetch** specific switch. This is for you to specify your *country* when fetching mirrors. Use the ISO country code. You don't have to use this as we test latency anyway, but it seems like with *Ubuntu* you might want to specify your country.
 
 **\--foss**
 : *\--foss* is a **nala fetch** specific switch. Using this switch on *Debian* will ensure that you don't get the *contrib* or *non-free* repos. Using this on *Ubuntu* does nothing

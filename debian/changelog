@@ -1,3 +1,14 @@
+nala (0.1.3) unstable; urgency=medium
+
+  * Security fixes
+  * Fixed a bug where `nala --update` would throw an exception
+  * Fixed a bug where using Ubuntu mirrors.txt in sources.list
+  * A lot of code refactoring and optimizations
+  * `fetch` distro detection should be more reliable, but only
+    compatible with Debian and Ubuntu
+
+ -- Blake Lee <blake@volian.org>  Mon, 27 Dec 2021 17:39:44 -0500
+
 nala (0.1.2) unstable; urgency=medium
 
   * Big holiday update
