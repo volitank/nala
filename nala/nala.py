@@ -99,7 +99,7 @@ class nala:
 	def upgrade(self, dist_upgrade=False):
 		self.cache.upgrade(dist_upgrade=dist_upgrade)
 		self.auto_remover()
-		self._get_changes(upgrade=True)
+		self.get_changes(upgrade=True)
 
 	def glob_filter(self, pkg_names: list):
 		packages = self.cache.keys()
@@ -145,7 +145,7 @@ class nala:
 			pkg_error(not_found, 'not found', terminate=True)
 		
 		self.auto_remover()
-		self._get_changes()
+		self.get_changes()
 
 	def remove(self, pkg_names, purge=False):
 		dprint(f"Remove pkg_names: {pkg_names}")
@@ -189,7 +189,7 @@ class nala:
 			pkg_error(self.nala, 'cannot be removed', banter='self_preservation', terminate=True)
 
 		self.auto_remover()
-		self._get_changes(remove=True)
+		self.get_changes(remove=True)
 
 	def show(self, pkg_names):
 		dprint(f"Show pkg_names: {pkg_names}")
@@ -278,7 +278,7 @@ class nala:
 			names.append(trans)
 		print(columnar(names, headers, no_borders=True, wrap_max=0))
 
-	def _get_history(self, id):
+	def get_history(self, id):
 		dprint(f"Getting history {id}")
 		if not NALA_HISTORY.exists():
 			print("No history exists..")
@@ -297,7 +297,7 @@ class nala:
 			dprint(f"History: redo {id}")
 		else:
 			dprint(f"History: undo {id}")
-		transaction = self._get_history(id)
+		transaction = self.get_history(id)
 
 		dprint(f"Transaction: {transaction}")
 
@@ -351,7 +351,7 @@ class nala:
 	def history_info(self, id):
 		dprint(f"History info {id}")
 
-		transaction = self._get_history(id)
+		transaction = self.get_history(id)
 
 		dprint(f"Transaction {transaction}")
 
@@ -417,7 +417,7 @@ class nala:
 
 		dprint(f"Pkgs marked by autoremove: {autoremove}")
 
-	def _get_changes(self, upgrade=False, remove=False):
+	def get_changes(self, upgrade=False, remove=False):
 		pkgs = sorted(self.cache.get_changes(), key=lambda p:p.name)
 		if not NALA_DIR.exists():
 			NALA_DIR.mkdir()
@@ -454,17 +454,17 @@ class nala:
 			if self.nala:
 				pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
 
-			_write_history(pkgs)
-			_write_log(pkgs)
+			write_history(pkgs)
+			write_log(pkgs)
 
 			pkgs = [pkg for pkg in pkgs if not pkg.marked_delete and \
-						not self._file_downloaded(pkg, hash_check = \
+						not self.file_downloaded(pkg, hash_check = \
 													  self.hash_check)]
 			if self.metalink_out:
 				with open(self.metalink_out, 'w', encoding='utf-8') as f:
 					make_metalink(f, pkgs)
 				return
-			if not self._download(pkgs, num_concurrent=guess_concurrent(pkgs)):
+			if not self.download(pkgs, num_concurrent=guess_concurrent(pkgs)):
 				print("Some downloads failed. apt_pkg will take care of them.")
 
 		if self.download_only:
@@ -518,7 +518,7 @@ class nala:
 				InstallProgress(self.verbose, self.debug)
 			)
 
-	def _download(self, pkgs, num_concurrent=2):
+	def download(self, pkgs, num_concurrent=2):
 		if not pkgs:
 			return True
 		partial_dir = self.archive_dir / 'partial'
@@ -614,7 +614,7 @@ class nala:
 				link_success = False
 		return proc.returncode == 0 and link_success
 
-	def _file_downloaded(self, pkg, hash_check=False):
+	def file_downloaded(self, pkg, hash_check=False):
 		candidate = pkg.candidate
 		path = self.archive_dir / get_filename(candidate)
 		if not path.exists() or path.stat().st_size != candidate.size:
@@ -813,7 +813,7 @@ def unit_str(val, just = 7):
 	else:
 		return f'{val :.0f}'.rjust(just)+" B"
 
-def _write_history(pkgs):
+def write_history(pkgs):
 
 	delete_names = []
 	install_names = []
@@ -859,7 +859,7 @@ def _write_history(pkgs):
 		for line in history:
 			file.write(str(line)+'\n')
 
-def _write_log(pkgs):
+def write_log(pkgs):
 	delete_names = []
 	install_names = []
 	upgrade_names = []
