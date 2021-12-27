@@ -136,7 +136,7 @@ class nala:
 				elif pkg.is_upgradable:
 					pkg.mark_upgrade()
 					dprint(f"Marked upgrade: {pkg.name}")
-				elif not pkg.is_upgradable:
+				else:
 					print(f'Package {style(pkg.name, **GREEN)}',
 					'is already at the latest version',
 					style(pkg.installed.version, **BLUE))
@@ -161,32 +161,20 @@ class nala:
 		for pkg_name in pkg_names:
 			if pkg_name not in self.cache:
 				not_found.append(pkg_name)
-			else:
-				pkg = self.cache[pkg_name]
-				if not pkg.installed:
-					not_installed.append(pkg_name)
-				else:
-					# do not allow the removal of essential or required packages
-					if pkg.essential or pkg.installed.priority == 'required':
-						self.essential.append(pkg_name)
-					# do not allow the removal of nala
-					elif pkg.shortname in self.nala_depends:
-						self.nala.append(pkg_name)
-					else:
-						pkg.mark_delete(purge=purge)
-						dprint(f"Marked delete: {pkg.name}")
+				continue
+
+			pkg = self.cache[pkg_name]
+			if not pkg.installed:
+				not_installed.append(pkg_name)
+				continue
+
+			pkg.mark_delete(purge=purge)
+			dprint(f"Marked delete: {pkg.name}")
 
 		if not_installed:
 			pkg_error(not_installed, 'not installed')
-
 		if not_found:
 			pkg_error(not_found, 'not found')
-
-		if self.essential:
-			pkg_error(self.essential, 'cannot be removed', banter='apt', terminate=True)
-
-		if self.nala:
-			pkg_error(self.nala, 'cannot be removed', banter='self_preservation', terminate=True)
 
 		self.auto_remover()
 		self.get_changes(remove=True)
@@ -394,28 +382,31 @@ class nala:
 
 	def auto_remover(self):
 		autoremove = []
-		purge = self.purge
 
 		for pkg in self.cache:
 			# We have to check both of these. Sometimes weird things happen
 			if pkg.is_installed and pkg.is_auto_removable:
-				# We can't let autoremover take out essential or required packages
-				if pkg.essential or pkg.installed.priority == 'required':
-					self.essential.append(pkg.name)
-				elif pkg.shortname in self.nala_depends:
-					self.nala.append(pkg.name)
-				else:
-					pkg.mark_delete(purge=purge)
-					autoremove.append(
-						f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
-						)
-
-		if self.essential:
-			pkg_error(self.essential, 'cannot be removed', banter='auto_essential', terminate=True)
-		if self.nala:
-			pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
+				pkg.mark_delete(purge=self.purge)
+				autoremove.append(
+					f"<Package: '{pkg.name}' Arch: '{pkg.installed.architecture}' Version: '{pkg.installed.version}'"
+					)
 
 		dprint(f"Pkgs marked by autoremove: {autoremove}")
+
+	def check_essential(self, pkgs):
+		for pkg in pkgs:
+			if pkg.is_installed:
+				# do not allow the removal of essential or required packages
+				if pkg.installed.priority == 'required' and pkg.marked_delete:
+					self.essential.append(pkg.name)
+				# do not allow the removal of nala
+				elif pkg.shortname in self.nala_depends and pkg.marked_delete:
+					self.nala.append(pkg.name)
+
+		if self.essential:
+			pkg_error(self.essential, 'cannot be removed', banter='apt', terminate=True)
+		if self.nala:
+			pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
 
 	def get_changes(self, upgrade=False, remove=False):
 		pkgs = sorted(self.cache.get_changes(), key=lambda p:p.name)
@@ -432,27 +423,11 @@ class nala:
 			print(style("Nothing for Nala to remove.", bold=True))
 			exit(0)
 		if pkgs:
+			self.check_essential(pkgs)
 			self.print_update_summary(pkgs)
 			if not self.assume_yes and not ask('Do you want to continue'):
 				print("Abort.")
 				return
-
-			for pkg in pkgs:
-				if pkg.essential and pkg.marked_delete:
-					if pkg.is_installed:
-						self.essential.append(pkg.name)
-				elif pkg.installed.priority == 'required' and pkg.marked_delete:
-					if pkg.is_installed:
-						self.essential.append(pkg.name)
-				elif pkg.shortname in self.nala_depends and pkg.marked_delete:
-					if pkg.is_installed:
-						self.nala.append(pkg.name)
-
-			if self.essential:
-				pkg_error(self.essential, 'cannot be removed', banter='apt', terminate=True)
-
-			if self.nala:
-				pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
 
 			write_history(pkgs)
 			write_log(pkgs)
@@ -512,7 +487,7 @@ class nala:
 		else:
 			# If we didn't are installing or removing then run this silently
 			# it leaves 3 blank lines that looks gross otherwise.
-			from nala.progress import base
+			from nala.dpkg import base
 			self.cache.commit(
 				base.AcquireProgress(),
 				InstallProgress(self.verbose, self.debug)
@@ -567,28 +542,8 @@ class nala:
 					else:
 						print(line)
 		else:
-			num = 0
-			total = len(pkgs)
+			download_progress(pkgs)
 
-			with tqdm(total=total,
-						colour='CYAN',
-						desc=style('Downloading Packages', **BLUE),
-						unit='pkg',
-						position=1,
-						bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]',
-
-					) as progress:
-				with tqdm(total=0, position=0, bar_format='{desc}') as pkg_log:
-					for line in iter(proc.stdout.readline, ''):
-						try:
-							deb_name = Path(pkgs[num].candidate.filename).name
-						except IndexError:
-							pass
-						pkg_log.set_description_str(f"{style('Current Package:', **GREEN)} {deb_name}")
-						if 'Download complete:' in line:
-							num += 1
-							progress.update(1)
-						num = min(num, total)
 		proc.wait()
 		link_success = True
 		self.downloaded = True
@@ -613,7 +568,7 @@ class nala:
 					print("Failed to move archive file", e)
 				link_success = False
 		return proc.returncode == 0 and link_success
-
+	
 	def file_downloaded(self, pkg, hash_check=False):
 		candidate = pkg.candidate
 		path = self.archive_dir / get_filename(candidate)
@@ -722,10 +677,7 @@ def pkg_error(pkg_list: list, msg: str, banter: str = None, terminate: bool=Fals
 			print("Whatever you did tried to auto mark essential packages")
 
 		elif banter == 'auto_preservation':
-			print("Whatever you did would have resulted in my own removal!")
-
-		elif banter == 'self_preservation':
-			print('Why do you think I would destroy myself?')
+			print("This would have resulted in my own removal!")
 
 	if terminate:
 		exit(1)
@@ -907,3 +859,25 @@ def dep_format(package_dependecy):
 			else:
 				dep_print += pipe+final if dep.relation else pipe+name
 		print(dep_print)
+
+def download_progress(pkgs, proc):
+	num = 0
+	total = len(pkgs)
+
+	with tqdm(total=total,
+				colour='CYAN',
+				desc=style('Downloading Packages', **BLUE),
+				unit='pkg',
+				position=1,
+				bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]') as progress:
+		with tqdm(total=0, position=0, bar_format='{desc}') as pkg_log:
+			for line in iter(proc.stdout.readline, ''):
+				try:
+					deb_name = Path(pkgs[num].candidate.filename).name
+				except IndexError:
+					pass
+				pkg_log.set_description_str(f"{style('Current Package:', **GREEN)} {deb_name}")
+				if 'Download complete:' in line:
+					num += 1
+					progress.update(1)
+				num = min(num, total)
