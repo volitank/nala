@@ -63,21 +63,16 @@ def remove_options(parser,
 	raw_dpkg=True, noninteractive=True):
 
 	for item in parser._optionals._group_actions[:]:
-		if assume_yes:
-			if '--assume-yes' in item.option_strings:
-				parser._optionals._group_actions.remove(item)
-		if download_only:			
-			if '--download-only' in item.option_strings:
-				parser._optionals._group_actions.remove(item)
-		if no_update:		
-			if '--no-update' in item.option_strings:
-				parser._optionals._group_actions.remove(item)
-		if update:
-			if '--update' in item.option_strings:
-				parser._optionals._group_actions.remove(item)
-		if raw_dpkg:
-			if '--raw-dpkg' in item.option_strings:
-				parser._optionals._group_actions.remove(item)
+		if assume_yes and '--assume-yes' in item.option_strings:
+			parser._optionals._group_actions.remove(item)
+		if download_only and '--download-only' in item.option_strings:
+			parser._optionals._group_actions.remove(item)
+		if no_update and '--no-update' in item.option_strings:
+			parser._optionals._group_actions.remove(item)
+		if update and '--update' in item.option_strings:
+			parser._optionals._group_actions.remove(item)
+		if raw_dpkg and '--raw-dpkg' in item.option_strings:
+			parser._optionals._group_actions.remove(item)
 		if noninteractive:
 			for switch in ('--noninteractive', '--noninteractive-full', '--confold', '--confnew', '--confdef', '--confask', '--confmiss'):
 				if switch in item.option_strings:
