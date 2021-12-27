@@ -12,6 +12,7 @@ import os
 from tqdm import tqdm
 import json
 import apt_pkg
+import requests
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.progress import nalaCache, nalaProgress, InstallProgress
@@ -771,6 +772,7 @@ def get_filename(version):
 def make_metalink(out, pkgs):
 	out.write('<?xml version="1.0" encoding="UTF-8"?>')
 	out.write('<metalink xmlns="urn:ietf:params:xml:ns:metalink">')
+	mirrors = []
 	for pkg in pkgs:
 		version = pkg.candidate
 		hashtype, hashvalue = get_hash(version)
@@ -779,6 +781,16 @@ def make_metalink(out, pkgs):
 		if hashtype:
 			out.write('<hash type="{0}">{1}</hash>'.format(hashtype, hashvalue))
 		for uri in version.uris:
+			# To support mirrors.txt, and keep it fast we don't check if mirrors is already set
+			if not mirrors:
+				if 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
+					mirrors = requests.get("http://mirrors.ubuntu.com/mirrors.txt").text.splitlines()
+			# If we use mirrors we don't have to request it, we already have our list.
+			if 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
+				for link in mirrors:
+					link = uri.replace('mirror://mirrors.ubuntu.com/mirrors.txt', link)
+					out.write('<url priority="1">{0}</url>'.format(link))
+					continue
 			out.write('<url priority="1">{0}</url>'.format(uri))
 		out.write('</file>')
 	out.write('</metalink>')
