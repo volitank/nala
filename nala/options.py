@@ -1,9 +1,7 @@
 import argparse
 from sys import argv, stderr
-from pydoc import describe, pager
+from pydoc import pager
 from pathlib import Path
-
-from apt_pkg import Description
 
 from nala.utils import LICENSE
 from nala import __version__
