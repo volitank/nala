@@ -362,33 +362,27 @@ class InstallProgress(base.InstallProgress):
 			self.child.setwinsize(a[0],a[1])
 
 	def conf_end(self, rawline):
-		if rawline == b'\r\n':
-			if CONF_MESSAGE[9] in self.last_line:
-				return True
-			elif self.last_line in CONF_ANSWER:
-				return True
-		return False
+		return rawline == b'\r\n' and (CONF_MESSAGE[9] in self.last_line
+										or self.last_line in CONF_ANSWER)
 
 	def format_dpkg_output(self, rawline: bytes):
-		msg = ''
+		## Commenting out this for now. I basically only use this sometimes during development
+		## It doesn't make sense to keep it in if it's not being used
+		# try:
+		# 	status = self.status_stream.readline()
+		# except IOError as err:
+		# 	# resource temporarly unavailable is ignored
+		# 	if err.errno != errno.EAGAIN and err.errno != errno.EWOULDBLOCK:
+		# 		print(err.strerror)
+		# 	return
+		# if status != '':
+		# 	self.dpkg_status.write(status)
+		# 	self.dpkg_status.flush()
 
-		try:
-			status = self.status_stream.readline()
-		except IOError as err:
-			# resource temporarly unavailable is ignored
-			if err.errno != errno.EAGAIN and err.errno != errno.EWOULDBLOCK:
-				print(err.strerror)
-			return
-
-		if True:
-		# Change this to self.debug
 		# During early development this is mandatory
-			self.dpkg_log.write(repr(rawline)+'\n')
-			self.dpkg_log.flush()
-			# There isn't a ton of situations where we need this
-			# if status != '':
-			# 	self.dpkg_status.write(status)
-			# 	self.dpkg_status.flush()
+		# if self.debug:
+		self.dpkg_log.write(repr(rawline)+'\n')
+		self.dpkg_log.flush()
 
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
@@ -408,11 +402,8 @@ class InstallProgress(base.InstallProgress):
 			os.write(STDOUT_FILENO, rawline)
 
 		else:
-			if not self.xterm:
-				# We have to handle the pager differently if we're not xterm
-				# It just works^tm with xterm. They use b'\x1b[22;0;0t'
-				if self.apt_list_start in rawline:
-					self.raw = True
+			if not self.xterm and self.apt_list_start in rawline:
+				self.raw = True
 
 			# I wish they would just use debconf for this.
 			# But here we are and this is what we're doing for config files
@@ -452,6 +443,8 @@ class InstallProgress(base.InstallProgress):
 						if message in rawline:
 							self.notice.add(rawline.decode().strip())
 							break
+
+					msg = ''
 
 					for item in SPAM:
 						if item in line:
