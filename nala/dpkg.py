@@ -23,9 +23,8 @@ from nala.utils import (
 	RED, BLUE, GREEN, YELLOW,
 	# Import Message
 	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM,
-	# Import Files
-	DPKG_LOG, DPKG_STATUS_LOG,
-	dprint, ask
+	# Lonely Import File :(
+	DPKG_LOG
 )
 
 # Overriding apt cache so we can make it exit on ctrl+c
@@ -400,90 +399,91 @@ class InstallProgress(base.InstallProgress):
 		# But eventually I will make --raw-dpkg switch
 		if self.raw_dpkg:
 			os.write(STDOUT_FILENO, rawline)
+			return
 
-		else:
-			if not self.xterm and self.apt_list_start in rawline:
-				self.raw = True
+		if not self.xterm and self.apt_list_start in rawline:
+			self.raw = True
 
-			# I wish they would just use debconf for this.
-			# But here we are and this is what we're doing for config files
-			for line in CONF_MESSAGE:
-				# We only iterate the whole list just in case. We don't want to miss this.
-				# Even if we just hit the last line it's better than not hitting it.
-				if line in rawline:
-					# Sometimes dpkg be like yo I'm going to say the same thing as the conf prompt
-					# But a little different so it will trip you up.
-					if rawline.endswith((b'.', b'\r\n')):
-						break
-					self.raw = True
-					# Add return because our progress bar might eat one
-					#if not rawline.startswith(b'\r'):
-					rawline = b'\r'+rawline
+		# I wish they would just use debconf for this.
+		# But here we are and this is what we're doing for config files
+		for line in CONF_MESSAGE:
+			# We only iterate the whole list just in case. We don't want to miss this.
+			# Even if we just hit the last line it's better than not hitting it.
+			if line in rawline:
+				# Sometimes dpkg be like yo I'm going to say the same thing as the conf prompt
+				# But a little different so it will trip you up.
+				if rawline.endswith((b'.', b'\r\n')):
 					break
-
-			# This second one is for the start of the shell
-			if self.debconf_start in rawline or b'\x1b[?2004h' in rawline:
 				self.raw = True
+				# Add return because our progress bar might eat one
+				#if not rawline.startswith(b'\r'):
+				rawline = b'\r'+rawline
+				break
 
-			if self.raw:
-				self.progress_bars(remove=True, wipe=True)
-				os.write(STDOUT_FILENO, rawline)
-				if (self.debconf_stop in rawline
-					or self.conf_end(rawline)
-					or (self.apt_list_start in rawline and self.apt_list_end == self.last_line)):
+		# This second one is for the start of the shell
+		if self.debconf_start in rawline or b'\x1b[?2004h' in rawline:
+			self.raw = True
 
-					self.raw = False
-					self.progress_bars()
-
+		if self.raw:
+			self.progress_bars(remove=True, wipe=True)
+			os.write(STDOUT_FILENO, rawline)
+			if (self.debconf_stop in rawline
+				or self.conf_end(rawline)
+				or (self.apt_list_start in rawline and self.apt_list_end == self.last_line)):
+				self.raw = False
+				self.progress_bars()
+		else:
+			line = rawline.decode().strip()
+			if line == '':
+				return
+			for message in NOTICES:
+				if message in rawline:
+					self.notice.add(rawline.decode().strip())
+					break
+			for item in SPAM:
+				if item in line:
+					break
 			else:
-				line = rawline.decode().strip()
-				if line != '':
-
-					for message in NOTICES:
-						if message in rawline:
-							self.notice.add(rawline.decode().strip())
-							break
-
-					msg = ''
-
-					for item in SPAM:
-						if item in line:
-							break
-					else:
-						# Main format section for making things pretty
-						line = line.split()
-						for word in line:
-							match = re.fullmatch('\(.*.\)', word)
-							if word == 'Removing':
-								msg += style('Removing:   ', **RED)
-							elif word == 'Unpacking':
-								msg += style('Unpacking:  ', **GREEN)
-							elif word == 'Setting':
-								msg += style('Setting ', **GREEN)
-							elif word == 'up':
-								msg += style('up: ', **GREEN)
-							elif word == 'Processing':
-								msg += style('Processing: ', **GREEN)
-							elif word == '...':
-								continue
-							elif match:
-								word = re.sub('[()]', '', word)
-								paren = style('(', bold=True)
-								paren2 = style(')', bold=True)
-								msg += (' ') + paren+style(word, **BLUE)+paren2
-							else:
-								msg += ' ' + word
-						# If verbose we just send it. No bars
-						if self.verbose:
-							# We have to append Carrige return and new line or things get weird
-							os.write(STDOUT_FILENO, (msg+'\r\n').encode())
-						else:
-							# Handles our scroll_bar effect
-							scroll_bar(self, msg.strip())
+				# Main format section for making things pretty
+				msg = msg_formatter(line)
+				# If verbose we just send it. No bars
+				if self.verbose:
+					# We have to append Carrige return and new line or things get weird
+					os.write(STDOUT_FILENO, (msg+'\r\n').encode())
+				else:
+					# Handles our scroll_bar effect
+					scroll_bar(self, msg.strip())
 		# Just something because if you do Y, then backspace, then hit enter
 		# At the conf prompt it'll get buggy
 		if b'\x08' not in rawline:
 			self.last_line = rawline
+
+
+def msg_formatter(line):
+	msg = ''
+	line = line.split()
+	for word in line:
+		match = re.fullmatch('\(.*.\)', word)
+		if word == 'Removing':
+			msg += style('Removing:   ', **RED)
+		elif word == 'Unpacking':
+			msg += style('Unpacking:  ', **GREEN)
+		elif word == 'Setting':
+			msg += style('Setting ', **GREEN)
+		elif word == 'up':
+			msg += style('up: ', **GREEN)
+		elif word == 'Processing':
+			msg += style('Processing: ', **GREEN)
+		elif word == '...':
+			continue
+		elif match:
+			word = re.sub('[()]', '', word)
+			paren = style('(', bold=True)
+			paren2 = style(')', bold=True)
+			msg += (' ') + paren+style(word, **BLUE)+paren2
+		else:
+			msg += ' ' + word
+	return msg
 
 def scroll_bar(self, msg):
 	"""self is either NalaProgress or InstallProgress. Msg is the Message"""
