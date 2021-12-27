@@ -45,8 +45,9 @@ def net_select(host):
 		dprint(host)
 		
 		regex = re.search('https?://([A-Za-z_0-9.-]+).*', host)
-		if regex:
-			domain = regex.group(1)
+		if not regex:
+			return
+		domain = regex.group(1)
 		dprint(domain)
 		res = ping(domain)
 		if res:
