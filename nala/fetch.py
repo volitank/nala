@@ -8,6 +8,7 @@ import re
 import threading
 from click import style
 from tqdm import tqdm
+from aptsources.distro import get_distro
 from nala.utils import NALA_SOURCES, RED, YELLOW, BLUE, GREEN, ask, shell, dprint
 from nala.options import arg_parse
 
@@ -158,29 +159,20 @@ def parse_debian(country_list: list=None):
 	return list(mirror_set)
 
 def detect_release():
-	distro = False
-	release = False
-	policy = shell.apt.policy(capture_output=True, text=True).stdout.splitlines()
-	dprint(f'Policy: {policy}')
-	for line in policy:
-		if 'o=Ubuntu' in line or 'o=Debian' in line:
-			policy = line.split(',')
-			dprint(f'Policy Split: {policy}')
-			for line in policy:
-				if line == 'o=Ubuntu':
-					distro = 'ubuntu'
-				elif line == 'l=Debian':
-					distro = 'debian'
-				for line in policy:
-					if line.startswith('n='):
-						release = line[2:]
-	if distro and release:
-		return distro, release
-	else:
+
+	lsb = get_distro()
+	try:
+		distro = lsb.id
+		release = lsb.codename
+
+	except:
 		err = style('Error:', **RED)
 		print(f'{err} Unable to detect release. Specify manually')
 		parser.parse_args(['fetch', '--help'])
 		exit(1)
+
+	if distro and release:
+		return distro, release
 
 def fetch(	fetches: int, foss: bool = False,
 			debian=None, ubuntu=None, country=None,
@@ -204,16 +196,16 @@ def fetch(	fetches: int, foss: bool = False,
 	if not debian and not ubuntu:
 		distro, release = detect_release()
 	elif debian:
-		distro = 'debian'
+		distro = 'Debian'
 		release = debian
 	elif ubuntu:
-		distro = 'ubuntu'
+		distro = 'Ubuntu'
 		release = ubuntu
 	else:
 		print('Something went wrong...')
 		exit(1)
 
-	if distro == 'debian':
+	if distro == 'Debian':
 		netselect = parse_debian(country)
 		component = 'main contrib non-free'
 		if foss:
