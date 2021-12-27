@@ -221,7 +221,7 @@ def arg_parse():
 	fetch_options.add_argument('--fetches', metavar='number', type=int, default=3, help="number of mirrors to fetch")
 	fetch_options.add_argument('--debian', metavar='sid', help="choose the Debian release")
 	fetch_options.add_argument('--ubuntu', metavar='jammy', help="choose an Ubuntu release")
-	fetch_options.add_argument('--country', metavar='"United States"', help="country must be as it appears on the mirror site. use quotes for spaces")
+	fetch_options.add_argument('--country', metavar='US', help="choose only mirrors of a specific ISO country code")
 	fetch_options.add_argument('--foss', action='store_true', help="ommits contrib and non-free repos\n\n")
 
 	# Parser for the fetch command
