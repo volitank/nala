@@ -15,7 +15,7 @@ import apt_pkg
 import requests
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
-from nala.progress import nalaCache, nalaProgress, InstallProgress
+from nala.dpkg import nalaCache, nalaProgress, InstallProgress
 from nala.options import arg_parse
 
 columnar = Columnar()
