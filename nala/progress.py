@@ -9,7 +9,7 @@ import apt
 import apt_pkg
 from tqdm import tqdm
 from pathlib import Path
-from pty import STDIN_FILENO, STDOUT_FILENO
+from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts, errno
 from ptyprocess.ptyprocess import _setwinsize
@@ -326,39 +326,17 @@ class InstallProgress(base.InstallProgress):
 		self.status_stream.close()
 		self.dpkg.close()
 
-	def run(self, obj):
-		"""Install using the object 'obj'.
-
-		This functions runs install actions. The parameter 'obj' may either
-		be a PackageManager object in which case its do_install() method is
-		called or the path to a deb file.
-
-		If the object is a PackageManager, the functions returns the result
-		of calling its do_install() method. Otherwise, the function returns
-		the exit status of dpkg. In both cases, 0 means that there were no
-		problems.
+	def run(self, dpkg):
 		"""
-		pid, self.fd = os.forkpty()
+		Install using the `PackageManager` object `dpkg`
+
+		returns the result of calling `dpkg.do_install()`
+		"""
+		pid, self.fd = fork()
 
 		if pid == 0:
 			try:
-				# PEP-446 implemented in Python 3.4 made all descriptors
-				# CLOEXEC, but we need to be able to pass writefd to dpkg
-				# when we spawn it
-				os.set_inheritable(self.writefd, True)
-			except AttributeError:  # if we don't have os.set_inheritable()
-				pass
-			# pm.do_install might raise a exception,
-			# when this happens, we need to catch
-			# it, otherwise os._exit() is not run
-			# and the execution continues in the
-			# parent code leading to very confusing bugs
-			try:
-				os._exit(obj.do_install(self.write_stream.fileno()))  # type: ignore # noqa
-			except AttributeError:
-				os._exit(os.spawnlp(os.P_WAIT, "dpkg", "dpkg", "--status-fd",
-								str(self.write_stream.fileno()), "-i",
-								obj))  # type: ignore # noqa
+				os._exit(dpkg.do_install(self.write_stream.fileno()))
 			except Exception as e:
 				sys.stderr.write("%s\n" % e)
 				os._exit(apt_pkg.PackageManager.RESULT_FAILED)
