@@ -119,10 +119,15 @@ def arg_parse():
 
 	parser = nalaParser(	formatter_class=formatter,
 							usage=f'{bin_name} [--options] <command>',
-							parents=[global_options]
+							parents=[global_options, interactive_options]
 							)
 
-	
+	# We need a special iteration to remove the interactive_options from the global --help
+	for group in parser._action_groups[:]:
+		if group.title == 'dpkg options':
+			group._group_actions.clear()
+			group.title = None
+			group.description = None
 
 	# Define our subparser
 	subparsers = parser.add_subparsers(metavar='', dest='command')
