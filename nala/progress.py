@@ -276,11 +276,6 @@ class InstallProgress(base.InstallProgress):
 			self.debconf_stop = b'\x1b[40m\x1b[m\x0f\x1b[39;49m\r\x1b[K\r'
 		self.apt_list_start = b'apt-listchanges:'
 		self.apt_list_end = b'\r\x1b[K'
-
-		if self.raw_dpkg:
-			# This is just an easy way to disable progress bars
-			# Verbose doesn't really do anything else if raw_dpkg is enabled
-			self.verbose = True
 		
 		(self.statusfd, self.writefd) = os.pipe()
 		# These will leak fds, but fixing this safely requires API changes.
@@ -295,7 +290,7 @@ class InstallProgress(base.InstallProgress):
 
 	def progress_bars(self, remove: bool=False, wipe=False):
 		"Creates the progress bars. If remove=True it removes them instead."
-		if self.verbose or self.debug:
+		if self.verbose or self.raw:
 			return
 		if not remove:
 			self.update_log1 = tqdm(position=2, bar_format='{desc}', dynamic_ncols=True)
