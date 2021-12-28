@@ -4,6 +4,7 @@ import select
 import socket
 import time
 from secrets import SystemRandom
+from sys import stderr
 import re
 import threading
 from click import style
@@ -67,7 +68,13 @@ def net_select(host):
 
 def parse_ubuntu(country_list: list=None):
 	print('Fetching Ubuntu mirrors...')
-	ubuntu = requests.get("https://launchpad.net/ubuntu/+archivemirrors-rss").text.split('<item>')
+	
+	try:
+		ubuntu = requests.get("https://launchpad.net/ubuntu/+archivemirrors-rss").text.split('<item>')
+	except requests.ConnectionError:
+		err = style("Error:", **RED)
+		stderr.write(f'{err} unable to connect to http://mirrors.ubuntu.com/mirrors.txt\n')
+		exit(1)
 
 	# This is what one of our "Mirrors might look like after split"
 	#      <title>Steadfast Networks</title>
@@ -115,7 +122,14 @@ def parse_ubuntu(country_list: list=None):
 
 def parse_debian(country_list: list=None):
 	print('Fetching Debian mirrors...')
-	debian = requests.get("https://mirror-master.debian.org/status/Mirrors.masterlist").text.split('\n\n')
+
+	try:
+		debian = requests.get("https://mirror-master.debian.org/status/Mirrors.masterlist").text.split('\n\n')
+	except requests.ConnectionError:
+		err = style("Error:", **RED)
+		stderr.write(f'{err} unable to connect to http://mirrors.ubuntu.com/mirrors.txt\n')
+		exit(1)
+
 	arches = shell.dpkg.__print_architecture().stdout.strip().split()
 	foreign_arch = shell.dpkg.__print_foreign_architectures().stdout.strip().split()
 

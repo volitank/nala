@@ -5,7 +5,7 @@ from getpass import getuser
 from pathlib import Path
 from click import style
 import fnmatch
-from sys import argv
+from sys import argv, stderr
 import hashlib
 import errno
 import os
@@ -721,7 +721,12 @@ def make_metalink(out, pkgs):
 		for uri in version.uris:
 			# To support mirrors.txt, and keep it fast we don't check if mirrors is already set
 			if not mirrors and 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
-				mirrors = requests.get("http://mirrors.ubuntu.com/mirrors.txt").text.splitlines()
+				try:
+					mirrors = requests.get("http://mirrors.ubuntu.com/mirrors.txt").text.splitlines()
+				except requests.ConnectionError:
+					err = style("Error:", **RED)
+					stderr.write(f'{err} unable to connect to http://mirrors.ubuntu.com/mirrors.txt\n')
+					exit(1)
 			# If we use mirrors we don't have to request it, we already have our list.
 			if 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
 				for link in mirrors:
