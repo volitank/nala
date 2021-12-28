@@ -542,7 +542,7 @@ class nala:
 					else:
 						print(line)
 		else:
-			download_progress(pkgs)
+			download_progress(pkgs, proc)
 
 		proc.wait()
 		link_success = True
