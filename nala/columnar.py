@@ -145,7 +145,7 @@ class Columnar:
                     )
             if write_header:
                 out.write(
-                    (self.header_sep * (table_width - (len(self.column_sep * 2))))
+                    self.header_sep * (table_width - (len(self.column_sep * 2)))
                 )
                 write_header = False
             else:
@@ -281,7 +281,7 @@ class Columnar:
         distribute our 'diff' more equally among the widest columns.
         """
         subset = columns[:n]
-        width = sum([column["width"] for column in subset])
+        width = sum(column["width"] for column in subset)
         remainder = width - diff
         new_width = remainder // n
         for i in range(n):
@@ -293,7 +293,7 @@ class Columnar:
 
     def current_table_width(self, columns: List[dict]) -> int:
         return sum(
-            [len(self.column_sep) + column["width"] for column in columns]
+            len(self.column_sep) + column["width"] for column in columns
         ) + len(self.column_sep)
 
     def get_column_widths(self, logical_rows: List[LogicalRow]) -> List[int]:
@@ -353,7 +353,7 @@ class Columnar:
             max_widths.append(max_width)
 
         columns = sorted(
-            [{"column_no": no, "width": width} for no, width in enumerate(max_widths)],
+            ({"column_no": no, "width": width} for no, width in enumerate(max_widths)),
             key=lambda x: x["width"],
             reverse=True,
         )

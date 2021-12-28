@@ -460,7 +460,7 @@ def msg_formatter(line):
 	msg = ''
 	line = line.split()
 	for word in line:
-		match = re.fullmatch('\(.*.\)', word)
+		match = re.fullmatch(r'\(.*.\)', word)
 		if word == 'Removing':
 			msg += style('Removing:   ', **RED)
 		elif word == 'Unpacking':
