@@ -1,3 +1,10 @@
+nala (0.1.4) unstable; urgency=medium
+
+  * Fixed a bug where nothing can download
+  * Added error handling for url requests
+
+ -- Blake Lee <blake@volian.org>  Tue, 28 Dec 2021 08:32:25 -0500
+
 nala (0.1.3) unstable; urgency=medium
 
   * Security fixes

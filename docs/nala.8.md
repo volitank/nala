@@ -2,8 +2,8 @@
 title: nala
 section: 8
 header: User Manual
-footer: nala 0.1.3
-date: 27 December 2021
+footer: nala 0.1.4
+date: 28 December 2021
 ---
 # NAME
 nala - a wrapper for the apt package manager
