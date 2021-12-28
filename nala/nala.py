@@ -88,8 +88,8 @@ class nala:
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
 		if not self.archive_dir:
-			raise Exception(('No archive dir is set.'
-							 ' Usually it is /var/cache/apt/archives/'))
+			raise Exception('No archive dir is set.'
+							 ' Usually it is /var/cache/apt/archives/')
 
 		# Lists to check if we're removing stuff we shouldn't
 		self.essential = []
@@ -579,7 +579,7 @@ class nala:
 		hash_type, hash_value = get_hash(pkg.candidate)
 		try:
 			return check_hash(path, hash_type, hash_value)
-		except IOError as e:
+		except OSError as e:
 			if e.errno != errno.ENOENT:
 				print("Failed to check hash", e)
 			return False
@@ -731,9 +731,9 @@ def make_metalink(out, pkgs):
 			if 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
 				for link in mirrors:
 					link = uri.replace('mirror://mirrors.ubuntu.com/mirrors.txt', link)
-					out.write('<url priority="1">{0}</url>'.format(link))
+					out.write(f'<url priority="1">{link}</url>')
 					continue
-			out.write('<url priority="1">{0}</url>'.format(uri))
+			out.write(f'<url priority="1">{uri}</url>')
 		out.write('</file>')
 	out.write('</metalink>')
 

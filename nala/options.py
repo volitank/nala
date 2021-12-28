@@ -20,7 +20,7 @@ class GPLv3(argparse.Action):
 			dest=argparse.SUPPRESS,
 			default=argparse.SUPPRESS,
 			help='reads the GPLv3'):
-		super(GPLv3, self).__init__(
+		super().__init__(
 			option_strings=option_strings,
 			dest=dest,
 			default=default,
@@ -29,7 +29,7 @@ class GPLv3(argparse.Action):
 
 	def __call__(self, parser, args, values, option_string=None):
 		if LICENSE.exists():
-			with open(LICENSE, 'r') as file:
+			with open(LICENSE) as file:
 				pager(file.read())
 		else:
 			print('It seems the system has no license file')
