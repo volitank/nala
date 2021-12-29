@@ -8,9 +8,9 @@ from sys import stderr
 import re
 import threading
 from click import style
-from tqdm import tqdm
 from aptsources.distro import get_distro
-from nala.utils import NALA_SOURCES, RED, YELLOW, BLUE, GREEN, ask, shell, dprint
+from nala.utils import NALA_SOURCES, RED, YELLOW, GREEN, ask, shell, dprint
+from nala.rich_custom import rich_live, fetch_progress, rich_grid
 from nala.options import arg_parse
 
 netselect_scored = []
@@ -229,21 +229,29 @@ def fetch(	fetches: int, foss: bool = False,
 
 	thread_handler = []
 	num = -1
-	for url in netselect:
+	for _ in netselect:
 		num += 1
 		thread = threading.Thread(name='Net Select', target=net_select, args=[netselect[num]])
 		thread_handler.append(thread)
 		thread.start()
 
+	task = fetch_progress.add_task(
+		description='',
+		total=len(thread_handler)
+		)
+
+	print('Testing URLs...')
 	# wait for all our threads to stop
-	for thread in tqdm(
-		thread_handler, 
-		colour='CYAN',
-		unit='url',
-		desc=style('Testing URLs', **BLUE),
-		bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]',
-	):
-		thread.join()
+	with rich_live(transient=True) as live:
+		for num, thread in enumerate(thread_handler):
+
+			table = rich_grid()
+			table.add_row(f'{style("URL:", **GREEN)} {num}/{len(thread_handler)}')
+			table.add_row(fetch_progress)
+
+			thread.join()
+			fetch_progress.advance(task, advance=num)
+			live.update(table)
 
 	netselect_scored.sort()
 

@@ -9,15 +9,17 @@ from sys import argv, stderr
 import hashlib
 import errno
 import os
-from tqdm import tqdm
 import json
 import apt_pkg
 from apt.cache import LockFailedException
+from apt.package import Package
+from subprocess import Popen
 import requests
 
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.dpkg import nalaCache, nalaProgress, InstallProgress
+from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
 from nala.options import arg_parse
 
 columnar = Columnar()
@@ -30,7 +32,7 @@ except OSError:
 	columns = 80
 
 w_width = min(columns, 86)
-wrapper = TextWrapper(w_width, subsequent_indent='   ' )
+wrapper = TextWrapper(w_width, subsequent_indent='   ')
 
 try:
 	USER = environ["SUDO_USER"]
@@ -869,24 +871,30 @@ def dep_format(package_dependecy):
 				dep_print += pipe+final if dep.relation else pipe+name
 		print(dep_print)
 
-def download_progress(pkgs, proc):
-	num = 0
-	total = len(pkgs)
+def download_progress(pkgs: list[Package], proc: Popen):
 
-	with tqdm(total=total,
-				colour='CYAN',
-				desc=style('Downloading Packages', **BLUE),
-				unit='pkg',
-				position=1,
-				bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]') as progress:
-		with tqdm(total=0, position=0, bar_format='{desc}') as pkg_log:
-			for line in iter(proc.stdout.readline, ''):
-				try:
-					deb_name = Path(pkgs[num].candidate.filename).name
-				except IndexError:
-					pass
-				pkg_log.set_description_str(f"{style('Current Package:', **GREEN)} {deb_name}")
-				if 'Download complete:' in line:
-					num += 1
-					progress.update(1)
-				num = min(num, total)
+	# Add up the size of all our packages so we know the total
+	total = sum(pkg.candidate.size for pkg in pkgs)
+	task = pkg_download_progress.add_task(
+		"[bold][blue]Downloading [green]Packages",
+		total=total
+		)
+
+	with rich_live() as live:
+		num = 0
+		for line in iter(proc.stdout.readline, ''):
+
+			try:
+				deb_name = Path(pkgs[num].candidate.filename).name
+			except IndexError:
+				pass
+
+			table = rich_grid()
+			table.add_row(f'{style("Total Packages:", **GREEN)} {num}/{len(pkgs)}')
+			table.add_row(f'{style("Current Package:", **GREEN)} {deb_name}')
+			table.add_row(pkg_download_progress)
+			live.update(table)
+
+			if 'Download complete:' in line:
+				pkg_download_progress.advance(task, advance=pkgs[num].candidate.size)
+				num += 1

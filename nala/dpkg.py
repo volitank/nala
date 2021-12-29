@@ -1,4 +1,3 @@
-import time
 import os
 import sys
 import re
@@ -18,10 +17,8 @@ from typing import Union
 import apt.progress.base as base
 import apt.progress.text as text
 from click import style
-from rich.live import Live
-from rich.table import Table
-from rich.spinner import Spinner
 
+from nala.rich_custom import rich_live, rich_grid, rich_spinner
 from nala.utils import (
 	# Import Style Colors
 	RED, BLUE, GREEN, YELLOW,
@@ -101,14 +98,13 @@ class nalaCache(apt.Cache):
 # This is mostly for `apt update`
 class nalaProgress(text.AcquireProgress, base.OpProgress):
 
-	def __init__(self,
-		verbose=False, debug=False):
+	def __init__(self, verbose=False, debug=False):
 		text.TextProgress.__init__(self)
 		base.AcquireProgress.__init__(self)
 
 		self._file = sys.stdout
-		self.live = Live(redirect_stdout=False)
-		self.spinner = Spinner('dots', text='Initializing Cache', style="blue")
+		self.live = rich_live(redirect_stdout=False)
+		self.spinner = rich_spinner('dots', text='Initializing Cache', style="bold blue")
 		self.scroll = [self.spinner]
 		self._signal = None
 		self._width = 80
@@ -133,7 +129,6 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 	# OpProgress Method
 	def done(self, compatibility=None):
 		"""Called once an operation has been completed."""
-		# Compatibility is just defined so we don't error while combining the two
 		base.OpProgress.done(self)
 		if self.verbose:
 			if self.old_op:
@@ -209,7 +204,6 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 			self._write(f"  {item.owner.error_text}")
 
 	def fetch(self, item):
-		# type: (apt_pkg.AcquireItemDesc) -> None
 		"""Called when some of the item's data is fetched."""
 		base.AcquireProgress.fetch(self, item)
 		# It's complete already (e.g. Hit)
@@ -223,7 +217,6 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		self._write(line)
 
 	def start(self):
-		# type: () -> None
 		"""Start an Acquire progress.
 
 		In this case, the function sets up a signal handler for SIGWINCH, i.e.
@@ -237,7 +230,6 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		self.live.start()
 
 	def stop(self):
-		# type: () -> None
 		"""Invoked when the Acquire process stops running."""
 		try:
 			base.AcquireProgress.stop(self)
@@ -255,9 +247,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		self.live.stop()
 
 class InstallProgress(base.InstallProgress):
-	def __init__(self,
-			live: Live, spinner: Spinner,
-			verbose: bool = False, debug: bool = False):
+	def __init__(self, verbose: bool = False, debug: bool = False):
 
 		self.verbose = verbose
 		self.debug = debug
@@ -265,8 +255,8 @@ class InstallProgress(base.InstallProgress):
 		self.raw_dpkg = False
 		self.last_line = None
 		self.xterm = os.environ["TERM"]
-		self.live = Live(redirect_stdout=False)
-		self.spinner = Spinner('dots', text='Initializing dpkg', style="blue")
+		self.live = rich_live(redirect_stdout=False)
+		self.spinner = rich_spinner('dots', text='Initializing dpkg', style="bold blue")
 		self.scroll = [self.spinner]
 
 		if 'xterm' in self.xterm:
@@ -297,7 +287,7 @@ class InstallProgress(base.InstallProgress):
 		"""(Abstract) Start update."""
 		self.notice = set()
 		self.live.start()
-		self.spinner.text = 'Doin dat dpkg thang doe'
+		self.spinner.text = style('Running dpkg...', bold=True)
 
 	def finish_update(self):
 		"""(Abstract) Called when update has finished."""
@@ -502,7 +492,7 @@ def scroll_bar(self: Union[nalaProgress, InstallProgress], msg:str):
 	if len(self.scroll) > 10:
 		del self.scroll[0]
 
-	table = Table.grid()
+	table = rich_grid()
 	for item in self.scroll:
 		table.add_row(item)
 
