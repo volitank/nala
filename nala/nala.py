@@ -291,14 +291,14 @@ class nala:
 
 		# We just reverse whatever was done in the transaction
 		if transaction.get('Command')[0] == 'remove':
-			removed_pkgs = transaction.get('Removed')
+			removed_pkgs = (pkg[0] for pkg in transaction.get('Removed'))
 			if redo:
 				self.remove(removed_pkgs)
 			else:
 				self.install(removed_pkgs)
 
 		elif transaction.get('Command')[0] == 'install':
-			installed_pkgs = transaction.get('Installed')
+			installed_pkgs = (pkg[0] for pkg in transaction.get('Installed'))
 			if redo:
 				self.install(installed_pkgs)
 			else:
