@@ -12,7 +12,9 @@ import os
 from tqdm import tqdm
 import json
 import apt_pkg
+from apt.cache import LockFailedException
 import requests
+
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.dpkg import nalaCache, nalaProgress, InstallProgress
@@ -88,8 +90,8 @@ class nala:
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
 		if not self.archive_dir:
-			raise Exception('No archive dir is set.'
-							 ' Usually it is /var/cache/apt/archives/')
+			raise Exception(('No archive dir is set.'
+							 ' Usually it is /var/cache/apt/archives/'))
 
 		# Lists to check if we're removing stuff we shouldn't
 		self.essential = []
@@ -445,9 +447,9 @@ class nala:
 		if self.download_only:
 			print("Download complete and in download only mode.")
 		else:
-			self.start_dpkg(upgrade)
+			self.start_dpkg()
 
-	def start_dpkg(self, upgrade):
+	def start_dpkg(self):
 		# Lets get our environment variables set before we get down to business
 		if self.noninteractive:
 			environ["DEBIAN_FRONTEND"] = "noninteractive"
@@ -479,19 +481,10 @@ class nala:
 		if self.raw_dpkg:
 			self.verbose = True
 
-		if upgrade:
-			self.cache.commit(
-				nalaProgress(self.verbose, self.debug),
-				InstallProgress(self.verbose, self.debug)
-			)
-		else:
-			# If we didn't are installing or removing then run this silently
-			# it leaves 3 blank lines that looks gross otherwise.
-			from nala.dpkg import base
-			self.cache.commit(
-				base.AcquireProgress(),
-				InstallProgress(self.verbose, self.debug)
-			)
+		self.cache.commit(
+			nalaProgress(self.verbose, self.debug),
+			InstallProgress(self.verbose, self.debug)
+		)
 
 	def download(self, pkgs, num_concurrent=2):
 		if not pkgs:

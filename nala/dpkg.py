@@ -1,3 +1,4 @@
+import time
 import os
 import sys
 import re
@@ -7,16 +8,19 @@ import signal
 import tty
 import apt
 import apt_pkg
-from tqdm import tqdm
 from pathlib import Path
 from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts, errno
 from ptyprocess.ptyprocess import _setwinsize
 from shutil import get_terminal_size
+from typing import Union
 import apt.progress.base as base
 import apt.progress.text as text
 from click import style
+from rich.live import Live
+from rich.table import Table
+from rich.spinner import Spinner
 
 from nala.utils import (
 	# Import Style Colors
@@ -24,8 +28,12 @@ from nala.utils import (
 	# Import Message
 	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM,
 	# Lonely Import File :(
-	DPKG_LOG
+	DPKG_LOG,
 )
+
+# Control Codes
+CURSER_UP = b'\x1b[1A'
+CLEAR_LINE = b'\x1b[2k'
 
 # Overriding apt cache so we can make it exit on ctrl+c
 class nalaCache(apt.Cache):
@@ -93,16 +101,18 @@ class nalaCache(apt.Cache):
 # This is mostly for `apt update`
 class nalaProgress(text.AcquireProgress, base.OpProgress):
 
-	def __init__(self, verbose=False, debug=False):
+	def __init__(self,
+		verbose=False, debug=False):
 		text.TextProgress.__init__(self)
 		base.AcquireProgress.__init__(self)
 
 		self._file = sys.stdout
-
+		self.live = Live(redirect_stdout=False)
+		self.spinner = Spinner('dots', text='Initializing Cache', style="blue")
+		self.scroll = [self.spinner]
 		self._signal = None
 		self._width = 80
 		self._id = 1
-		self.counter = 1
 		self.verbose=verbose
 		self.debug=debug
 
@@ -164,7 +174,18 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 					scroll_bar(self, msg)
 					break
 			else:
-				self.progress.set_description_str(f"{style(msg.strip(), bold=True)}")
+				# For the pulse messages we need to do some formatting
+				# End of the line will look like '51.8 mB/s 2s'
+				if msg.endswith('s'):
+					msg = msg.split()
+					last = len(msg) - 1
+					fill = sum(len(line) for line in msg) + last
+					# Minus three too account for our spinner dots
+					fill = (self._width - fill) - 3
+					msg.insert(last-2, ' '*fill)
+					msg = ' '.join(msg)
+
+				self.spinner.text = msg
 
 	def ims_hit(self, item):
 		"""Called when an item is update (e.g. not modified on the server)."""
@@ -213,12 +234,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		# Get the window size.
 		self._winch()
 		self._id = 1
-		# This is where we create our progress bars
-		if not self.verbose:
-			self.progress = tqdm(position=3, bar_format='{desc}', dynamic_ncols=True)
-			self.update_log1 = tqdm(position=2, bar_format='{desc}', dynamic_ncols=True)
-			self.update_log2 = tqdm(position=1, bar_format='{desc}', dynamic_ncols=True)
-			self.update_log3 = tqdm(position=0, bar_format='{desc}', dynamic_ncols=True)
+		self.live.start()
 
 	def stop(self):
 		# type: () -> None
@@ -231,31 +247,27 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		fetched = apt_pkg.size_to_str(self.fetched_bytes)
 		elapsed = apt_pkg.time_to_str(self.elapsed_time)
 		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
-		msg = f"Fetched {fetched}B in {elapsed} ({speed}B/s)"
-		msg = style(msg, bold=True)
-		if self.verbose:
-			self._write(msg)
-		else:
-			self.progress.set_description_str(f"{msg}")
+		msg = style(f"Fetched {fetched}B in {elapsed} ({speed}B/s)", bold=True)
+		self._write(msg)
 
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
-		if not self.verbose:
-			self.update_log3.close()
-			self.update_log2.close()
-			self.update_log1.close()
-			self.progress.close()
+		self.live.stop()
 
 class InstallProgress(base.InstallProgress):
-	def __init__(self, verbose: bool = False,
-						debug: bool = False):
+	def __init__(self,
+			live: Live, spinner: Spinner,
+			verbose: bool = False, debug: bool = False):
+
 		self.verbose = verbose
 		self.debug = debug
-		self.counter = 1
 		self.raw = False
 		self.raw_dpkg = False
 		self.last_line = None
 		self.xterm = os.environ["TERM"]
+		self.live = Live(redirect_stdout=False)
+		self.spinner = Spinner('dots', text='Initializing dpkg', style="blue")
+		self.scroll = [self.spinner]
 
 		if 'xterm' in self.xterm:
 			self.xterm = True
@@ -274,7 +286,7 @@ class InstallProgress(base.InstallProgress):
 			self.debconf_stop = b'\x1b[40m\x1b[m\x0f\x1b[39;49m\r\x1b[K\r'
 		self.apt_list_start = b'apt-listchanges:'
 		self.apt_list_end = b'\r\x1b[K'
-		
+
 		(self.statusfd, self.writefd) = os.pipe()
 		# These will leak fds, but fixing this safely requires API changes.
 		self.write_stream = os.fdopen(self.writefd, "w")
@@ -284,28 +296,12 @@ class InstallProgress(base.InstallProgress):
 	def start_update(self):
 		"""(Abstract) Start update."""
 		self.notice = set()
-		self.progress_bars() # Create pkg bars
-
-	def progress_bars(self, remove: bool=False, wipe=False):
-		"Creates the progress bars. If remove=True it removes them instead."
-		if self.verbose or self.raw:
-			return
-		if not remove:
-			self.update_log1 = tqdm(position=2, bar_format='{desc}', dynamic_ncols=True)
-			self.update_log2 = tqdm(position=1, bar_format='{desc}', dynamic_ncols=True)
-			self.update_log3 = tqdm(position=0, bar_format='{desc}', dynamic_ncols=True)
-		else:
-			if wipe:
-				self.update_log3.leave = False
-				self.update_log2.leave = False
-				self.update_log1.leave = False
-			self.update_log3.close()
-			self.update_log2.close()
-			self.update_log1.close()
+		self.live.start()
+		self.spinner.text = 'Doin dat dpkg thang doe'
 
 	def finish_update(self):
 		"""(Abstract) Called when update has finished."""
-		self.progress_bars(remove=True)
+		self.live.stop()
 		if self.notice:
 			print('\n'+style('Notices:', bold=True))
 			for notice in self.notice:
@@ -327,7 +323,11 @@ class InstallProgress(base.InstallProgress):
 
 		if pid == 0:
 			try:
-				os._exit(dpkg.do_install(self.write_stream.fileno()))
+				###########################
+				## If we pass a fd here for status stream we MUST read from it
+				## Using this and not reading from it causes a deadlock on dpkg output
+				os._exit(dpkg.do_install())
+				#os._exit(dpkg.do_install(self.write_stream.fileno()))
 			except Exception as e:
 				sys.stderr.write("%s\n" % e)
 				os._exit(apt_pkg.PackageManager.RESULT_FAILED)
@@ -377,8 +377,8 @@ class InstallProgress(base.InstallProgress):
 
 		# During early development this is mandatory
 		# if self.debug:
-		self.dpkg_log.write(repr(rawline)+'\n')
-		self.dpkg_log.flush()
+		# self.dpkg_log.write(repr(rawline)+'\n')
+		# self.dpkg_log.flush()
 
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
@@ -422,20 +422,27 @@ class InstallProgress(base.InstallProgress):
 			self.raw = True
 
 		if self.raw:
-			self.progress_bars(remove=True, wipe=True)
+			##################################
+			## Starting Raw we probably want to remove the live display
+			## And clear everything to prepare for raw text. IDK how it handles this
+			## Will need testing with and without.
+			self.live.update('')
+			control_code(CURSER_UP+CLEAR_LINE)
+			self.live.stop()
+			##
 			os.write(STDOUT_FILENO, rawline)
 			if (self.debconf_stop in rawline
 				or self.conf_end(rawline)
 				or (self.apt_list_start in rawline and self.apt_list_end == self.last_line)):
 				self.raw = False
-				self.progress_bars()
+				self.live.start()
 		else:
 			line = rawline.decode().strip()
 			if line == '':
 				return
 			for message in NOTICES:
 				if message in rawline:
-					self.notice.add(rawline.decode().strip())
+					self.notice.add(line)
 					break
 			for item in SPAM:
 				if item in line:
@@ -449,13 +456,13 @@ class InstallProgress(base.InstallProgress):
 					os.write(STDOUT_FILENO, (msg+'\r\n').encode())
 				else:
 					# Handles our scroll_bar effect
-					scroll_bar(self, msg.strip())
+					#os.write(STDOUT_FILENO, (msg+'\r\n').encode())
+					scroll_bar(self, msg)
 		# Just something because if you do Y, then backspace, then hit enter
 		# At the conf prompt it'll get buggy
 		if b'\x08' not in rawline:
 			self.last_line = rawline
-
-
+		
 def msg_formatter(line):
 	msg = ''
 	line = line.split()
@@ -482,41 +489,28 @@ def msg_formatter(line):
 			msg += ' ' + word
 	return msg
 
-def scroll_bar(self, msg):
+def scroll_bar(self: Union[nalaProgress, InstallProgress], msg:str):
 	"""self is either NalaProgress or InstallProgress. Msg is the Message"""
-	if self.counter == 4:
-		self.counter = 3
-	# If our message is longer than our progress bar we need to truncate it
-	# Otherwise the terminal gets spammed and lines wrap weird
-	# We care more about being beautiful than verbosity in this mode
-	if len(msg) > self.update_log1.ncols:
-		msg = msg[:self.update_log1.ncols].strip()
-	else:
-		buff_num = self.update_log1.ncols - len(msg)
-		buffer = ' '*(buff_num - 1)
-		msg += buffer
+	self.scroll.append(msg)
 
-	if self.counter == 1:
-		self.old = msg
-		self.update_log1.set_description_str(self.old)
-		self.counter += 1
+	self.scroll.append(
+		self.scroll.pop(
+			self.scroll.index(self.spinner)
+		)
+	)
 
-	elif self.counter == 2:
-		self.update_log1.set_description_str(msg)
-		self.update_log2.set_description_str(self.old)
+	if len(self.scroll) > 10:
+		del self.scroll[0]
 
-		self.old_old = self.old
-		self.old = msg
-		self.counter += 1
+	table = Table.grid()
+	for item in self.scroll:
+		table.add_row(item)
 
-	elif self.counter == 3:
-		self.update_log1.set_description_str(msg)
-		self.update_log2.set_description_str(self.old)
-		self.update_log3.set_description_str(self.old_old)
+	self.live.update(table)
 
-		self.old_old = self.old
-		self.old = msg					
-		self.counter += 1
+def control_code(code):
+	"""Wrapper for sending escape codes"""
+	os.write(STDIN_FILENO, code)
 
 class dcexpect(fdspawn):
 	def interact(self, output_filter=None):
@@ -535,13 +529,13 @@ class dcexpect(fdspawn):
 		self.stdout.flush()
 		self._buffer = self.buffer_type()
 		mode = tty.tcgetattr(STDIN_FILENO)
-		tty.setraw(STDIN_FILENO)
+		
 
 		cols, rows = get_terminal_size()
 		self.setwinsize(rows, cols)
 
 		try:
-			self.__interact_copy(output_filter)
+			self.__interact_copy(output_filter, mode)
 		finally:
 			tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, mode)
 
@@ -555,7 +549,7 @@ class dcexpect(fdspawn):
 		"""
 		return _setwinsize(self.child_fd, rows, cols)
 
-	def __interact_copy(self, output_filter=None):
+	def __interact_copy(self, output_filter, mode):
 		'''This is used by the interact() method.
 		'''
 		while self.isalive():
@@ -573,7 +567,9 @@ class dcexpect(fdspawn):
 					break
 				output_filter(data)
 			if STDIN_FILENO in r:
+				tty.setraw(STDIN_FILENO)
 				data = os.read(STDIN_FILENO, 1000)
 				while data != b'' and self.isalive():
 					n = os.write(self.child_fd, data)
 					data = data[n:]
+				tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, mode)
