@@ -54,9 +54,15 @@ class nala:
 						raw_dpkg = False,
 						aria2c = '/usr/bin/aria2c'):
 
+		# We want to update the cache before we initialize it
 		if not no_update:
 			print('Updating package list...')
-			nalaCache().update(nalaProgress(verbose=verbose))
+			try:
+				nalaCache().update(nalaProgress(verbose=verbose))
+			except LockFailedException as e:
+				print(f'{style("Error:", **RED)} {e}')
+				print('Are you root?')
+				exit()
 
 		# We check the arguments here to see if we have any kind of
 		# Non interactiveness going on
@@ -72,8 +78,13 @@ class nala:
 		self.confask = arguments.confask
 		self.no_aptlist = arguments.no_aptlist
 
-		# We want to update the cache before we initialize it
-		self.cache = nalaCache(nalaProgress(verbose=verbose))
+		try:
+			self.cache = nalaCache(nalaProgress(verbose=verbose))
+		except LockFailedException as e:
+			print(f'{style("Error:", **RED)} {e}')
+			print('Are you root?')
+			exit()
+		
 		self.download_only = download_only
 		self.verbose = verbose
 		self.debug = debug
