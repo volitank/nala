@@ -19,7 +19,7 @@
 ## Special thanks to Tatsuhiro Tsujikawa for apt-metalink. nala uses a modified version
 ## https://github.com/tatsuhiro-t/apt-metalink
 
-from sys import argv
+from sys import argv, exit
 from nala.utils import CAT_ASCII, LION_ASCII, LION_ASCII2, DEBUG, esyslog
 from nala.fetch import fetch
 from nala.utils import logger, dprint, nodate_format, shell

@@ -4,7 +4,7 @@ import select
 import socket
 import time
 from secrets import SystemRandom
-from sys import stderr
+from sys import stderr, exit
 import re
 import threading
 from click import style

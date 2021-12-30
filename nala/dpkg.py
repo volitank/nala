@@ -1,5 +1,4 @@
 import os
-import sys
 import re
 import fcntl
 import errno
@@ -7,6 +6,7 @@ import signal
 import tty
 import apt_pkg
 from time import sleep
+from sys import stderr, stdout, exit
 from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts, errno
@@ -53,7 +53,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		text.TextProgress.__init__(self)
 		base.AcquireProgress.__init__(self)
 
-		self._file = sys.stdout
+		self._file = stdout
 		self.live = rich_live(redirect_stdout=False)
 		self.spinner = rich_spinner('dots', text='Initializing Cache', style="bold blue")
 		self.scroll = [self.spinner]
@@ -248,7 +248,7 @@ class InstallProgress(base.InstallProgress):
 				os._exit(dpkg.do_install())
 				#os._exit(dpkg.do_install(self.write_stream.fileno()))
 			except Exception as e:
-				sys.stderr.write("%s\n" % e)
+				stderr.write("%s\n" % e)
 				os._exit(apt_pkg.PackageManager.RESULT_FAILED)
 
 		self.child_pid = pid
@@ -279,7 +279,7 @@ class InstallProgress(base.InstallProgress):
 	def sigwinch_passthrough(self, sig, data):
 		import struct, termios
 		s = struct.pack("HHHH", 0, 0, 0, 0)
-		a = struct.unpack('hhhh', fcntl.ioctl(sys.stdout.fileno(),
+		a = struct.unpack('hhhh', fcntl.ioctl(stdout.fileno(),
 			termios.TIOCGWINSZ , s))
 		if self.child.isalive():
 			self.child.setwinsize(a[0],a[1])

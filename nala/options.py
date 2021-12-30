@@ -1,5 +1,5 @@
 import argparse
-from sys import argv, stderr
+from sys import argv, stderr, exit
 from pydoc import pager
 from pathlib import Path
 
