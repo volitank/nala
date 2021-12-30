@@ -18,7 +18,6 @@ from rich.progress import (
 console = Console()
 rich_live = Live
 rich_grid = Table().grid
-rich_table = Table
 rich_spinner = Spinner
 
 class TransferSpeedColumn(ProgressColumn):
@@ -98,3 +97,10 @@ fetch_progress = Progress(
 	# The color of completly finshed bar
 	finished_style=bar_style),
 )
+
+history_table = Table(
+			'ID:', 'Command:', 'Date and Time:', 'Altered:',
+			padding=(0,2), box=None
+		)
+
+package_table = Table(padding=(0,2), box=None)

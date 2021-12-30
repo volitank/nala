@@ -16,7 +16,7 @@ from apt.package import Package
 from subprocess import Popen
 import requests
 
-from nala.rich_custom import console, rich_table
+from nala.rich_custom import console, history_table, package_table
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.dpkg import nalaProgress, InstallProgress
 from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
@@ -63,7 +63,7 @@ class nala:
 			except LockFailedException as e:
 				print(f'{style("Error:", **RED)} {e}')
 				print('Are you root?')
-				exit()
+				exit(1)
 
 		# We check the arguments here to see if we have any kind of
 		# Non interactiveness going on
@@ -81,7 +81,7 @@ class nala:
 		except LockFailedException as e:
 			print(f'{style("Error:", **RED)} {e}')
 			print('Are you root?')
-			exit()
+			exit(1)
 		
 		self.download_only = download_only
 		self.verbose = verbose
@@ -275,14 +275,11 @@ class nala:
 			trans.append(str(transaction.get('Altered')))
 			names.append(trans)
 
-		table = rich_table(
-			'ID:', 'Command:', 'Date and Time:', 'Altered:',
-			padding=(0,2), box=None
-		)
+		history_table
 		for item in names:
-			table.add_row(*item)
+			history_table.add_row(*item)
 
-		console.print(table)
+		console.print(history_table)
 
 	def get_history(self, id):
 		dprint(f"Getting history {id}")
@@ -364,7 +361,6 @@ class nala:
 		delete_names = transaction.get('Removed')
 		install_names = transaction.get('Installed')
 		upgrade_names = transaction.get('Upgraded')
-
 
 		print_packages(['Package:', 'Version:', 'Size:'], delete_names, 'Removed:', 'bold red')
 		print_packages(['Package:', 'Version:', 'Size:'], install_names, 'Installed:', 'bold green')
@@ -724,14 +720,13 @@ def print_packages(headers:list[str], names:list[list], title, style=None):
 		return
 
 	# Setup rich table and columns
-	table = rich_table(padding=(0,2), box=None)
 	for header in headers:
 		if header == 'Package:':
-			table.add_column(header, style=style)
+			package_table.add_column(header, style=style)
 		elif header == 'Size:':
-			table.add_column(header, justify='right')
+			package_table.add_column(header, justify='right')
 		else:
-			table.add_column(header)
+			package_table.add_column(header)
 
 	# Iterate to find if size is and integer and convert it before printing
 	for package in names[:]:
@@ -742,12 +737,14 @@ def print_packages(headers:list[str], names:list[list], title, style=None):
 
 	# Add our packages
 	for name in names:
-		table.add_row(*name)
+		package_table.add_row(*name)
 
-	print('='*columns)
-	print(title)
-	print('='*columns, end='')
-	console.print(table)
+	sep = '='*columns
+	console.print(
+		sep,
+		title,
+		sep,
+		package_table)
 
 def transaction_summary(names, width, header: str):
 	if names:
