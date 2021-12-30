@@ -23,7 +23,7 @@ from nala.utils import (
 	# Import Style Colors
 	RED, BLUE, GREEN, YELLOW,
 	# Import Message
-	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM,
+	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM, VERBOSE_SPAM,
 	# Lonely Import File :(
 	DPKG_LOG,
 )
@@ -31,68 +31,17 @@ from nala.utils import (
 # Control Codes
 CURSER_UP = b'\x1b[1A'
 CLEAR_LINE = b'\x1b[2k'
-
-# Overriding apt cache so we can make it exit on ctrl+c
-class nalaCache(apt.Cache):
-	def update(self, fetch_progress=None, pulse_interval=0,
-			   raise_on_error=True, sources_list=None):
-		"""Run the equivalent of apt-get update.
-
-		You probably want to call open() afterwards, in order to utilise the
-		new cache. Otherwise, the old cache will be used which can lead to
-		strange bugs.
-
-		The first parameter *fetch_progress* may be set to an instance of
-		apt.progress.FetchProgress, the default is apt.progress.FetchProgress()
-		.
-		sources_list -- Update a alternative sources.list than the default.
-		Note that the sources.list.d directory is ignored in this case
-		"""
-		from apt.cache import _WrappedLock, FetchFailedException
-		with _WrappedLock(apt_pkg.config.find_dir("Dir::State::Lists")):
-			if sources_list:
-				old_sources_list = apt_pkg.config.find("Dir::Etc::sourcelist")
-				old_sources_list_d = (
-					apt_pkg.config.find("Dir::Etc::sourceparts"))
-				old_cleanup = apt_pkg.config.find("APT::List-Cleanup")
-				apt_pkg.config.set("Dir::Etc::sourcelist",
-									Path(sources_list).absolute()
-				)
-				apt_pkg.config.set("Dir::Etc::sourceparts", "xxx")
-				apt_pkg.config.set("APT::List-Cleanup", "0")
-				slist = apt_pkg.SourceList()
-				slist.read_main_list()
-			else:
-				slist = self._list
-
-			try:
-				if fetch_progress is None:
-					fetch_progress = base.AcquireProgress()
-				try:
-					res = self._cache.update(fetch_progress, slist,
-											 pulse_interval)
-				except SystemError as e:
-					print(
-						style('Error:', **RED),
-						str(e).replace('E:', ''),
-						'\nCannot continue..'
-					)
-					exit(1)
-				# If told to exit please do so
-				except KeyboardInterrupt as e:
-					exit(1)
-				if not res and raise_on_error:
-					raise FetchFailedException()
-				else:
-					return res
-			finally:
-				if sources_list:
-					apt_pkg.config.set("Dir::Etc::sourcelist",
-									   old_sources_list)
-					apt_pkg.config.set("Dir::Etc::sourceparts",
-									   old_sources_list_d)
-					apt_pkg.config.set("APT::List-Cleanup",
-									   old_cleanup)
+BACKSPACE = b'\x08'
+ENABLE_BRACKETED_PASTE = b'\x1b[?2004h'
+DISABLE_BRACKETED_PASTE = b'\x1b[?2004l'
+ENABLE_ALT_SCREEN = b'\x1b[?1049h'
+DISABLE_ALT_SCREEN = b'\x1b[?1049l'
+SHOW_CURSOR = b'\x1b[?25h'
+HIDE_CURSOR = b'\x1b[?25l'
+SAVE_TERM = b'\x1b[22;0;0t'
+RESTORE_TERM = b'\x1b[23;0;0t'
+CR = b'\r'
+LF = b'\n'
 
 # Override the text progress to format updating output
 # This is mostly for `apt update`
@@ -135,19 +84,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 				self._write(text._("%c%s... Done") % ('\r', self.old_op), True, True)
 			self.old_op = ""
 
-	def _(msg):
-		# Not really sure what the point of this is. If anyone can help out
-		# I would appreciate it. Leaving it here anyway and will comment the
-		# original lines in the methods using it
-		# type: (str) -> str
-		"""Translate the message, also try apt if translation is missing."""
-		res = apt_pkg.gettext(msg)
-		if res == msg:
-			res = apt_pkg.gettext(msg, "apt")
-		return res
-
 	def _write(self, msg, newline=True, maximize=False):
-		# type: (str, bool, bool) -> None
 		"""Write the message on the terminal, fill remaining space."""
 
 		if self.verbose:
@@ -254,28 +191,15 @@ class InstallProgress(base.InstallProgress):
 		self.raw = False
 		self.raw_dpkg = False
 		self.last_line = None
-		self.xterm = os.environ["TERM"]
 		self.live = rich_live(redirect_stdout=False)
 		self.spinner = rich_spinner('dots', text='Initializing dpkg', style="bold blue")
+		self.mode = tty.tcgetattr(STDIN_FILENO)
 		self.scroll = [self.spinner]
 
-		if 'xterm' in self.xterm:
-			self.xterm = True
-			self.debconf_start = b'\x1b[22;0;0t'
-			self.debconf_stop = b'\x1b[23;0;0t'
-		else:
-			self.xterm = False
-			# Hide cursor sequence. Determines start of debconf
-			self.debconf_start = b'\x1b[?25l'
-			# # Restore cursor, not really reliable for detecting end
-			# b'\x1b[?25h'
-			#debconf_stop = b'\x1b[m\x0f\x1b[37m\x1b[40m\x1b[m\x0f\x1b[39;49m\r\x1b[K\r'
-			# We may end up having to detect more than one thing for the end.
-			# Checking if not \x1b doesn't really work because conf files and aptlist pager prints
-			# Some lines that don't have escape sequences. Doing so breaks those 
-			self.debconf_stop = b'\x1b[40m\x1b[m\x0f\x1b[39;49m\r\x1b[K\r'
-		self.apt_list_start = b'apt-listchanges:'
-		self.apt_list_end = b'\r\x1b[K'
+		# setting environment to xterm seems to work find for linux terminal
+		# I don't think we will be supporting much more this this, at least for now
+		if 'xterm' not in os.environ["TERM"]:
+			os.environ["TERM"] = 'xterm'
 
 		(self.statusfd, self.writefd) = os.pipe()
 		# These will leak fds, but fixing this safely requires API changes.
@@ -284,14 +208,16 @@ class InstallProgress(base.InstallProgress):
 		fcntl.fcntl(self.statusfd, fcntl.F_SETFL, os.O_NONBLOCK)
 
 	def start_update(self):
-		"""(Abstract) Start update."""
+		"""Start update."""
 		self.notice = set()
-		self.live.start()
+		if not self.verbose:
+			self.live.start()
 		self.spinner.text = style('Running dpkg...', bold=True)
 
 	def finish_update(self):
-		"""(Abstract) Called when update has finished."""
-		self.live.stop()
+		"""Called when update has finished."""
+		if not self.verbose:
+			self.live.stop()
 		if self.notice:
 			print('\n'+style('Notices:', bold=True))
 			for notice in self.notice:
@@ -347,8 +273,27 @@ class InstallProgress(base.InstallProgress):
 		if self.child.isalive():
 			self.child.setwinsize(a[0],a[1])
 
+	def conf_check(self, rawline):
+		"""Checks if we get a conf prompt"""
+		# I wish they would just use debconf for this.
+		# But here we are and this is what we're doing for config files
+		for line in CONF_MESSAGE:
+			# We only iterate the whole list just in case. We don't want to miss this.
+			# Even if we just hit the last line it's better than not hitting it.
+			if line in rawline:
+				# Sometimes dpkg be like yo I'm going to say the same thing as the conf prompt
+				# But a little different so it will trip you up.
+				if rawline.endswith((b'.', CR+LF)):
+					break
+				self.raw = True
+				self.raw_init()
+				# Add return because our progress bar might eat one
+				#if not rawline.startswith(b'\r'):
+				rawline = CR+rawline
+				break
+
 	def conf_end(self, rawline):
-		return rawline == b'\r\n' and (CONF_MESSAGE[9] in self.last_line
+		return rawline == CR+LF and (CONF_MESSAGE[9] in self.last_line
 										or self.last_line in CONF_ANSWER)
 
 	def format_dpkg_output(self, rawline: bytes):
@@ -367,18 +312,19 @@ class InstallProgress(base.InstallProgress):
 
 		# During early development this is mandatory
 		# if self.debug:
-		# self.dpkg_log.write(repr(rawline)+'\n')
-		# self.dpkg_log.flush()
+		self.dpkg_log.write(repr(rawline)+'\n')
+		self.dpkg_log.flush()
 
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
+
+		if b'Reading changelogs...' in rawline:
+			os.write(STDOUT_FILENO, rawline)
+			return
+
 		if self.verbose:
-			for line in (
-				b'Reading changelogs...',
-				b'Scanning processes...',
-				b'Scanning candidates...',
-				b'Scanning linux images...',):
-				if line in rawline:
+			for item in VERBOSE_SPAM:
+				if item in rawline:
 					os.write(STDOUT_FILENO, rawline)
 					return
 
@@ -388,71 +334,72 @@ class InstallProgress(base.InstallProgress):
 			os.write(STDOUT_FILENO, rawline)
 			return
 
-		if not self.xterm and self.apt_list_start in rawline:
-			self.raw = True
-
-		# I wish they would just use debconf for this.
-		# But here we are and this is what we're doing for config files
-		for line in CONF_MESSAGE:
-			# We only iterate the whole list just in case. We don't want to miss this.
-			# Even if we just hit the last line it's better than not hitting it.
-			if line in rawline:
-				# Sometimes dpkg be like yo I'm going to say the same thing as the conf prompt
-				# But a little different so it will trip you up.
-				if rawline.endswith((b'.', b'\r\n')):
-					break
-				self.raw = True
-				# Add return because our progress bar might eat one
-				#if not rawline.startswith(b'\r'):
-				rawline = b'\r'+rawline
-				break
+		# Set to raw if we have a conf prompt
+		self.conf_check(rawline)
 
 		# This second one is for the start of the shell
-		if self.debconf_start in rawline or b'\x1b[?2004h' in rawline:
+		if SAVE_TERM in rawline or ENABLE_BRACKETED_PASTE in rawline:
 			self.raw = True
-
+			self.raw_init()
+			
 		if self.raw:
-			##################################
-			## Starting Raw we probably want to remove the live display
-			## And clear everything to prepare for raw text. IDK how it handles this
-			## Will need testing with and without.
-			self.live.update('')
-			control_code(CURSER_UP+CLEAR_LINE)
-			self.live.stop()
-			##
-			os.write(STDOUT_FILENO, rawline)
-			if (self.debconf_stop in rawline
-				or self.conf_end(rawline)
-				or (self.apt_list_start in rawline and self.apt_list_end == self.last_line)):
-				self.raw = False
-				self.live.start()
+			self.rawline_handler(rawline)
+			return
+
+		self.line_handler(rawline)
+
+	def line_handler(self, rawline):
+		"""Handles text operations if we're not using a rawline"""
+		line = rawline.decode().strip()
+		if line == '':
+			return
+
+		if self.check_line_spam():
+			return
+
+		# Main format section for making things pretty
+		msg = msg_formatter(line)
+		# If verbose we just send it. No bars
+		if self.verbose:
+			# We have to append Carrige return and new line or things get weird
+			os.write(STDOUT_FILENO, (msg+'\r\n').encode())
 		else:
-			line = rawline.decode().strip()
-			if line == '':
-				return
-			for message in NOTICES:
-				if message in rawline:
-					self.notice.add(line)
-					break
-			for item in SPAM:
-				if item in line:
-					break
-			else:
-				# Main format section for making things pretty
-				msg = msg_formatter(line)
-				# If verbose we just send it. No bars
-				if self.verbose:
-					# We have to append Carrige return and new line or things get weird
-					os.write(STDOUT_FILENO, (msg+'\r\n').encode())
-				else:
-					# Handles our scroll_bar effect
-					#os.write(STDOUT_FILENO, (msg+'\r\n').encode())
-					scroll_bar(self, msg)
+			scroll_bar(self, msg)
+
+		self.set_last_line(rawline)
+
+	def rawline_handler(self, rawline):
+		os.write(STDOUT_FILENO, rawline)
+		# Once we write we can check if we need to pop out of raw mode
+		if RESTORE_TERM in rawline or self.conf_end(rawline):
+			self.raw = False
+			tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, self.mode)
+			self.live.start()
+		self.set_last_line(rawline)
+		return	
+
+	def set_last_line(self, rawline):
 		# Just something because if you do Y, then backspace, then hit enter
-		# At the conf prompt it'll get buggy
-		if b'\x08' not in rawline:
+		# At the conf prompt it'll get buggy if we don't check for backspace
+		if BACKSPACE not in rawline:
 			self.last_line = rawline
-		
+
+	def raw_init(self):
+		self.live.update('')
+		control_code(CURSER_UP+CLEAR_LINE)
+		self.live.stop()
+		tty.setraw(STDIN_FILENO)
+
+	def check_line_spam(self, line, rawline):
+		for message in NOTICES:
+			if message in rawline:
+				self.notice.add(line)
+				break
+
+		for item in SPAM:
+			if item in line:
+				return True
+
 def msg_formatter(line):
 	msg = ''
 	line = line.split()
@@ -557,9 +504,7 @@ class dcexpect(fdspawn):
 					break
 				output_filter(data)
 			if STDIN_FILENO in r:
-				tty.setraw(STDIN_FILENO)
 				data = os.read(STDIN_FILENO, 1000)
 				while data != b'' and self.isalive():
 					n = os.write(self.child_fd, data)
 					data = data[n:]
-				tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, mode)

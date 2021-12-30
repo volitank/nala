@@ -133,6 +133,14 @@ SPAM = (
 	'Reloading AppArmor profiles',
 	'Scanning linux images...',
 	'Scanning processes...',
+	'Scanning candidates...',
+)
+
+VERBOSE_SPAM = (
+	b'Scanning processes...',
+	b'Scanning candidates...',
+	b'Scanning linux images...',
+	b'Extracting templates from packages'
 )
 
 # ASCII Art

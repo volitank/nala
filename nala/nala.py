@@ -11,16 +11,16 @@ import errno
 import os
 import json
 import apt_pkg
-from apt.cache import LockFailedException
+from apt.cache import LockFailedException, Cache
 from apt.package import Package
 from subprocess import Popen
 import requests
 
 from nala.columnar import Columnar
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
-from nala.dpkg import nalaCache, nalaProgress, InstallProgress
+from nala.dpkg import nalaProgress, InstallProgress
 from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
-from nala.options import arg_parse
+from nala.options import arguments
 
 columnar = Columnar()
 timezone = datetime.utcnow().astimezone().tzinfo
@@ -60,7 +60,7 @@ class nala:
 		if not no_update:
 			print('Updating package list...')
 			try:
-				nalaCache().update(nalaProgress(verbose=verbose))
+				Cache().update(nalaProgress(verbose=verbose))
 			except LockFailedException as e:
 				print(f'{style("Error:", **RED)} {e}')
 				print('Are you root?')
@@ -68,9 +68,6 @@ class nala:
 
 		# We check the arguments here to see if we have any kind of
 		# Non interactiveness going on
-		parser = arg_parse()
-		arguments = parser.parse_args()
-
 		self.noninteractive = arguments.noninteractive
 		self.noninteractive_full = arguments.noninteractive_full
 		self.confold = arguments.confold
@@ -81,7 +78,7 @@ class nala:
 		self.no_aptlist = arguments.no_aptlist
 
 		try:
-			self.cache = nalaCache(nalaProgress(verbose=verbose))
+			self.cache = Cache(nalaProgress(verbose=verbose))
 		except LockFailedException as e:
 			print(f'{style("Error:", **RED)} {e}')
 			print('Are you root?')
@@ -483,11 +480,8 @@ class nala:
 		if self.confask:
 			apt_pkg.config.set('Dpkg::Options::', '--force-confask')
 
-			# Check to see if they might be at a console
-		if ('xterm' not in os.environ["TERM"]
-		    and (not self.verbose or not self.raw_dpkg) and ask(
-		        "It seems you might be at a console. Scroll bars can get wonkey.\n"
-		        "Would you like to disable them")):
+		# Turn off Rich scrolling if we don't have XTERM.
+		if 'xterm' not in os.environ["TERM"]:
 			self.verbose = True
 
 		# If self.raw_dpkg is enabled likely they want to see the update too.

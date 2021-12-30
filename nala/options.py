@@ -274,3 +274,5 @@ def arg_parse():
 	parser._subparsers.title = "commands"
 
 	return parser
+
+arguments = arg_parse().parse_args()
