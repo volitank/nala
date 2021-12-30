@@ -13,10 +13,12 @@ from rich.progress import (
 	filesize,
 	Optional,
 	Column,
+	Console
 )
-
+console = Console()
 rich_live = Live
 rich_grid = Table().grid
+rich_table = Table
 rich_spinner = Spinner
 
 class TransferSpeedColumn(ProgressColumn):

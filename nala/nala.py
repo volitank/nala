@@ -16,13 +16,12 @@ from apt.package import Package
 from subprocess import Popen
 import requests
 
-from nala.columnar import Columnar
+from nala.rich_custom import console, rich_table
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.dpkg import nalaProgress, InstallProgress
 from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
 from nala.options import arguments
 
-columnar = Columnar()
 timezone = datetime.utcnow().astimezone().tzinfo
 time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
 
@@ -259,13 +258,12 @@ class nala:
 			print("No history exists..")
 			return
 		history = NALA_HISTORY.read_text().splitlines()
-		headers = ['ID:', 'Command:', 'Date and Time:', 'Altered:']
 		names = []
 
 		for transaction in history:
 			trans = []
 			transaction = json.loads(transaction)
-			trans.append(transaction.get('ID'))
+			trans.append(str(transaction.get('ID')))
 
 			command = transaction.get('Command')
 			if command[0] in ['update', 'upgrade']:
@@ -274,9 +272,17 @@ class nala:
 
 			trans.append(' '.join(transaction.get('Command')))
 			trans.append(transaction.get('Date'))
-			trans.append(transaction.get('Altered'))
+			trans.append(str(transaction.get('Altered')))
 			names.append(trans)
-		print(columnar(names, headers, no_borders=True, wrap_max=0))
+
+		table = rich_table(
+			'ID:', 'Command:', 'Date and Time:', 'Altered:',
+			padding=(0,2), box=None
+		)
+		for item in names:
+			table.add_row(*item)
+
+		console.print(table)
 
 	def get_history(self, id):
 		dprint(f"Getting history {id}")
@@ -359,38 +365,18 @@ class nala:
 		install_names = transaction.get('Installed')
 		upgrade_names = transaction.get('Upgraded')
 
-		delete_info = []
-		install_info = []
-		upgrade_info = []
 
-		for pkg in install_names:
-			name, version, size = pkg
-			install_info.append(
-				[style(name, **GREEN),
-				version,
-				unit_str(size)],
-			)
+		print_packages(['Package:', 'Version:', 'Size:'], delete_names, 'Removed:', 'bold red')
+		print_packages(['Package:', 'Version:', 'Size:'], install_names, 'Installed:', 'bold green')
+		print_packages(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_names, 'Upgraded:', 'bold blue')
 
-		for pkg in delete_names:
-			name, version, size = pkg
-			delete_info.append(
-				[style(name, **RED),
-				version,
-				unit_str(size)],
-			)
-
-		for pkg in upgrade_names:
-			name, old_version, new_version, size = pkg
-			upgrade_info.append(
-				[style(name, **BLUE),
-				old_version,
-				new_version,
-				unit_str(size)],
-			)
-
-		pprint_names(['Package:', 'Version:', 'Size:'], delete_info, 'Removed:')
-		pprint_names(['Package:', 'Version:', 'Size:'], install_info, 'Installed:')
-		pprint_names(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_info, 'Upgraded:')
+		print('='*columns)
+		if delete_names:
+			print(f'Removed {len(delete_names)} Packages')
+		if install_names:
+			print(f'Installed {len(install_names)} Packages')
+		if upgrade_names:
+			print(f'Upgraded {len(upgrade_names)} Packages')
 
 	def auto_remover(self):
 		autoremove = []
@@ -436,7 +422,8 @@ class nala:
 			exit(0)
 		if pkgs:
 			self.check_essential(pkgs)
-			self.print_update_summary(pkgs)
+			delete_names, install_names, upgrade_names = sort_pkg_changes(pkgs)
+			self.print_update_summary(delete_names, install_names, upgrade_names)
 			if not self.assume_yes and not ask('Do you want to continue'):
 				print("Abort.")
 				return
@@ -484,7 +471,7 @@ class nala:
 		# Turn off Rich scrolling if we don't have XTERM.
 		if self.raw_dpkg or 'xterm' not in os.environ["TERM"]:
 			self.verbose = True
-			
+
 		try:
 			self.cache.commit(
 				nalaProgress(self.verbose, self.debug),
@@ -585,45 +572,30 @@ class nala:
 				print("Failed to check hash", e)
 			return False
 
-	def print_update_summary(self, pkgs):
+	def print_update_summary(self, delete_names, install_names, upgrade_names):
 
-		delete_names = []
-		install_names = []
-		upgrade_names = []
+		delete = ('Purge', 'Purging:') if self.purge else ('Remove', 'Removing:')
 
-		# TODO marked_downgrade, marked_keep, marked_reinstall
-		for pkg in pkgs:
-			if pkg.marked_delete:
-				delete_names.append(
-					[style(pkg.name, **RED),
-					pkg.installed.version,
-					unit_str(pkg.installed.size)]
-				)
+		print_packages(
+			['Package:', 'Version:', 'Size:'],
+			delete_names,
+			delete[1],
+			'bold red'
+		)
 
-			elif pkg.marked_install:
-				install_names.append(
-					[style(pkg.name, **GREEN),
-					pkg.candidate.version,
-					unit_str(pkg.candidate.size)],
-				)
+		print_packages(
+			['Package:', 'Version:', 'Size:'],
+			install_names,
+			'Installing:',
+			'bold green'
+		)
 
-			elif pkg.marked_upgrade:
-				upgrade_names.append(
-					[style(pkg.name, **BLUE),
-					pkg.installed.version,
-					pkg.candidate.version,
-					unit_str(pkg.candidate.size)]
-				)
-
-		delete = 'Remove'
-		deleting = 'Removing:'
-		if self.purge:
-			delete = 'Purge'
-			deleting = 'Purging:'
-
-		pprint_names(['Package:', 'Version:', 'Size:'], delete_names, deleting)
-		pprint_names(['Package:', 'Version:', 'Size:'], install_names, 'Installing:')
-		pprint_names(['Package:', 'Old Version:', 'New Version:', 'Size:'], upgrade_names, 'Upgrading:')
+		print_packages(
+			['Package:', 'Old Version:', 'New Version:', 'Size:'],
+			upgrade_names,
+			'Upgrading:',
+			'bold blue'
+		)
 
 		# We need to get our width for formating
 		width_list = [
@@ -640,8 +612,8 @@ class nala:
 		print('='*columns)
 		transaction_summary(install_names, width, 'Install')
 		transaction_summary(upgrade_names, width, 'Upgrade')
-		transaction_summary(delete_names, width, delete)
-		
+		transaction_summary(delete_names, width, delete[0])
+
 		if self.cache.required_download > 0:
 			print(f'\nTotal download size: {unit_str(self.cache.required_download)}')
 		else:
@@ -747,13 +719,35 @@ def guess_concurrent(pkgs):
 		max_uris = 2
 	return max_uris
 
-def pprint_names(headers, names, title):
-	if names:
-		print('='*columns)
-		print(title)
-		print('='*columns, end='')
-		justify = ['l', 'l', 'l', 'r'] if 'Upgrad' in title else ['l', 'l', 'r']
-		print(columnar(names, headers, no_borders=True, justify=justify))
+def print_packages(headers:list[str], names:list[list], title, style=None):
+	if not names:
+		return
+
+	# Setup rich table and columns
+	table = rich_table(padding=(0,2), box=None)
+	for header in headers:
+		if header == 'Package:':
+			table.add_column(header, style=style)
+		elif header == 'Size:':
+			table.add_column(header, justify='right')
+		else:
+			table.add_column(header)
+
+	# Iterate to find if size is and integer and convert it before printing
+	for package in names[:]:
+		for item in package[:]:
+			if isinstance(item, int):
+				package.remove(item)
+				package.append(unit_str(item))
+
+	# Add our packages
+	for name in names:
+		table.add_row(*name)
+
+	print('='*columns)
+	print(title)
+	print('='*columns, end='')
+	console.print(table)
 
 def transaction_summary(names, width, header: str):
 	if names:
@@ -771,7 +765,7 @@ def unit_str(val, just = 7):
 	else:
 		return f'{val :.0f}'.rjust(just)+" B"
 
-def write_history(pkgs):
+def sort_pkg_changes(pkgs:list[Package]):
 
 	delete_names = []
 	install_names = []
@@ -793,6 +787,10 @@ def write_history(pkgs):
 			upgrade_names.append(
 				[pkg.name, pkg.installed.version, pkg.candidate.version, pkg.candidate.size]
 			)
+	return delete_names, install_names, upgrade_names
+
+
+def write_history(delete_names, install_names, upgrade_names):
 
 	history = []
 	if NALA_HISTORY.exists():

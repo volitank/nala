@@ -110,17 +110,16 @@ def history(arguments, apt: nala, su):
 
 	if mode and not id:
 		print('We need a transaction ID..')
-		exit()
-	else:
-		apt.history()
+		exit(1)
 
 	if mode in ('undo', 'redo', 'info'):
 		try:
 			id = int(id)
 		except ValueError:
 			print('Option must be a number..')
-			exit()
-
+			exit(1)
+	else:
+		apt.history()
 	if mode == 'undo':
 		apt.history_undo(id)
 
