@@ -19,6 +19,7 @@ console = Console()
 rich_live = Live
 rich_grid = Table().grid
 rich_spinner = Spinner
+rich_table = Table
 
 class TransferSpeedColumn(ProgressColumn):
 	"""Renders human readable transfer speed."""
@@ -102,5 +103,3 @@ history_table = Table(
 			'ID:', 'Command:', 'Date and Time:', 'Altered:',
 			padding=(0,2), box=None
 		)
-
-package_table = Table(padding=(0,2), box=None)

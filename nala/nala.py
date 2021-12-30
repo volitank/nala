@@ -16,7 +16,7 @@ from apt.package import Package
 from subprocess import Popen
 import requests
 
-from nala.rich_custom import console, history_table, package_table
+from nala.rich_custom import console, history_table, rich_table
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.dpkg import nalaProgress, InstallProgress
 from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
@@ -275,7 +275,6 @@ class nala:
 			trans.append(str(transaction.get('Altered')))
 			names.append(trans)
 
-		history_table
 		for item in names:
 			history_table.add_row(*item)
 
@@ -719,6 +718,7 @@ def print_packages(headers:list[str], names:list[list], title, style=None):
 	if not names:
 		return
 
+	package_table = rich_table(padding=(0,2), box=None)
 	# Setup rich table and columns
 	for header in headers:
 		if header == 'Package:':
@@ -785,7 +785,6 @@ def sort_pkg_changes(pkgs:list[Package]):
 				[pkg.name, pkg.installed.version, pkg.candidate.version, pkg.candidate.size]
 			)
 	return delete_names, install_names, upgrade_names
-
 
 def write_history(delete_names, install_names, upgrade_names):
 
