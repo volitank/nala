@@ -275,4 +275,5 @@ def arg_parse():
 
 	return parser
 
-arguments = arg_parse().parse_args()
+parser = arg_parse()
+arguments = parser.parse_args()

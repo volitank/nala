@@ -23,15 +23,14 @@ from sys import argv
 from nala.utils import CAT_ASCII, LION_ASCII, LION_ASCII2, DEBUG, esyslog
 from nala.fetch import fetch
 from nala.utils import logger, dprint, nodate_format, shell
-from nala.options import arg_parse
+from nala.options import parser, arguments
 from nala.nala import nala
 import logging
 from os import geteuid
 from getpass import getuser
 
 def _main():
-	parser = arg_parse()
-	arguments = parser.parse_args()
+	print(arguments)
 	command = arguments.command
 	debug = arguments.debug
 	no_update = arguments.no_update
