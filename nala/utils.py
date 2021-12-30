@@ -131,16 +131,14 @@ SPAM = (
 	'Extracting templates from packages:',
 	'Preconfiguring packages',
 	'Reloading AppArmor profiles',
-	'Scanning linux images...',
-	'Scanning processes...',
-	'Scanning candidates...',
 )
 
-VERBOSE_SPAM = (
+DPKG_STATUS = (
 	b'Scanning processes...',
 	b'Scanning candidates...',
 	b'Scanning linux images...',
-	b'Extracting templates from packages'
+	b'Extracting templates from packages',
+	b'Reading changelogs...'
 )
 
 # ASCII Art

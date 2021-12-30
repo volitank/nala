@@ -6,6 +6,7 @@ import errno
 import signal
 import tty
 import apt_pkg
+from time import sleep
 from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts, errno
@@ -21,7 +22,7 @@ from nala.utils import (
 	# Import Style Colors
 	RED, BLUE, GREEN, YELLOW,
 	# Import Message
-	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM, VERBOSE_SPAM,
+	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM, DPKG_STATUS,
 	# Lonely Import File :(
 	DPKG_LOG,
 )
@@ -29,6 +30,7 @@ from nala.utils import (
 # Control Codes
 CURSER_UP = b'\x1b[1A'
 CLEAR_LINE = b'\x1b[2k'
+CLEAR_FROM_CURRENT_TO_END = b'\x1b[K'
 BACKSPACE = b'\x08'
 ENABLE_BRACKETED_PASTE = b'\x1b[?2004h'
 DISABLE_BRACKETED_PASTE = b'\x1b[?2004l'
@@ -38,6 +40,8 @@ SHOW_CURSOR = b'\x1b[?25h'
 HIDE_CURSOR = b'\x1b[?25l'
 SAVE_TERM = b'\x1b[22;0;0t'
 RESTORE_TERM = b'\x1b[23;0;0t'
+APPLICATION_KEYPAD = b'\x1b='
+NORMAL_KEYPAD = b'\x1b>'
 CR = b'\r'
 LF = b'\n'
 
@@ -58,6 +62,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		self._id = 1
 		self.verbose=verbose
 		self.debug=debug
+		self.termsize = get_terminal_size()
 
 		# OpProgress settings
 		base.OpProgress.__init__(self)
@@ -210,7 +215,7 @@ class InstallProgress(base.InstallProgress):
 		self.notice = set()
 		if not self.verbose:
 			self.live.start()
-		self.spinner.text = style('Running dpkg...', bold=True)
+		self.spinner.text = style('Initializing dpkg...', **BLUE)
 
 	def finish_update(self):
 		"""Called when update has finished."""
@@ -257,7 +262,15 @@ class InstallProgress(base.InstallProgress):
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
 		with open(DPKG_LOG, 'w') as self.dpkg_log:
 			#with open(DPKG_STATUS_LOG, 'w') as self.dpkg_status:
-			self.child.interact(output_filter=self.format_dpkg_output)
+			try:
+				self.child.interact(
+					self.format_dpkg_output,
+					self
+					)
+			finally:
+				# We need to make sure that no matter what the terminal
+				# Settings are restored if for some reason we stop
+				tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, self.mode)
 
 		# This is really just here so dpkg exits properly
 		res = self.wait_child()
@@ -315,17 +328,16 @@ class InstallProgress(base.InstallProgress):
 
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
-
-		if b'Reading changelogs...' in rawline:
-			os.write(STDOUT_FILENO, rawline)
-			return
-
-		if self.verbose:
-			for item in VERBOSE_SPAM:
-				if item in rawline:
+		for item in DPKG_STATUS:
+			if item in rawline:
+				if self.verbose:
 					os.write(STDOUT_FILENO, rawline)
-					return
-
+				else:
+					self.spinner.text = style(
+						rawline.decode().strip(), bold=True
+					)
+					scroll_bar(self, msg=None)
+				return
 		# There isn't really an option to hit this yet
 		# But eventually I will make --raw-dpkg switch
 		if self.raw_dpkg:
@@ -339,14 +351,14 @@ class InstallProgress(base.InstallProgress):
 		if SAVE_TERM in rawline or ENABLE_BRACKETED_PASTE in rawline:
 			self.raw = True
 			self.raw_init()
-			
+
 		if self.raw:
 			self.rawline_handler(rawline)
 			return
 
 		self.line_handler(rawline)
 
-	def line_handler(self, rawline):
+	def line_handler(self, rawline: bytes):
 		"""Handles text operations if we're not using a rawline"""
 		line = rawline.decode().strip()
 		if line == '':
@@ -355,6 +367,7 @@ class InstallProgress(base.InstallProgress):
 		if self.check_line_spam(line, rawline):
 			return
 
+		self.spinner.text = style('Running dpkg...', bold=True)
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
@@ -426,7 +439,8 @@ def msg_formatter(line):
 
 def scroll_bar(self: Union[nalaProgress, InstallProgress], msg:str):
 	"""self is either NalaProgress or InstallProgress. Msg is the Message"""
-	self.scroll.append(msg)
+	if msg:
+		self.scroll.append(msg)
 
 	self.scroll.append(
 		self.scroll.pop(
@@ -434,10 +448,15 @@ def scroll_bar(self: Union[nalaProgress, InstallProgress], msg:str):
 		)
 	)
 
-	if len(self.scroll) > 10:
+	# Set the scroll bar to take up a 3rd of the screen
+	scroll_lines = self.termsize.lines // 3
+
+	#if len(self.scroll) > 10:
+	if len(self.scroll) > scroll_lines and len(self.scroll) > 10:
 		del self.scroll[0]
 
 	table = rich_grid()
+	table.add_column(no_wrap=True)
 	for item in self.scroll:
 		table.add_row(item)
 
@@ -448,7 +467,7 @@ def control_code(code):
 	os.write(STDIN_FILENO, code)
 
 class dcexpect(fdspawn):
-	def interact(self, output_filter=None):
+	def interact(self, output_filter, parent):
 		"""Hacked up interact method because pexpect doesn't want to have one
 		for fdspawn
 
@@ -463,6 +482,7 @@ class dcexpect(fdspawn):
 		self.write_to_stdout(self.buffer)
 		self.stdout.flush()
 		self._buffer = self.buffer_type()
+		self.parent = parent
 		mode = tty.tcgetattr(STDIN_FILENO)
 		
 
@@ -470,7 +490,7 @@ class dcexpect(fdspawn):
 		self.setwinsize(rows, cols)
 
 		try:
-			self.__interact_copy(output_filter, mode)
+			self.__interact_copy(output_filter)
 		finally:
 			tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, mode)
 
@@ -484,25 +504,36 @@ class dcexpect(fdspawn):
 		"""
 		return _setwinsize(self.child_fd, rows, cols)
 
-	def __interact_copy(self, output_filter, mode):
+	def __interact_copy(self, output_filter):
 		'''This is used by the interact() method.
 		'''
 		while self.isalive():
-			r = poll_ignore_interrupts([self.child_fd, STDIN_FILENO])
-			if self.child_fd in r:
-				try:
-					data = os.read(self.child_fd, 1000)
-				except OSError as err:
-					if err.args[0] == errno.EIO:
-						# Linux-style EOF
+			try:
+				r = poll_ignore_interrupts([self.child_fd, STDIN_FILENO])
+				if self.child_fd in r:
+					try:
+						data = os.read(self.child_fd, 1000)
+					except OSError as err:
+						if err.args[0] == errno.EIO:
+							# Linux-style EOF
+							break
+						raise
+					if data == b'':
+						# BSD-style EOF
 						break
-					raise
-				if data == b'':
-					# BSD-style EOF
-					break
-				output_filter(data)
-			if STDIN_FILENO in r:
-				data = os.read(STDIN_FILENO, 1000)
-				while data != b'' and self.isalive():
-					n = os.write(self.child_fd, data)
-					data = data[n:]
+					output_filter(data)
+				if STDIN_FILENO in r:
+					data = os.read(STDIN_FILENO, 1000)
+					while data != b'' and self.isalive():
+						n = os.write(self.child_fd, data)
+						data = data[n:]
+			except KeyboardInterrupt:
+				err = style("Warning: ", **YELLOW)
+				err += "quiting now could break your system!"
+				if self.parent.live.is_started:
+					self.parent.scroll.append(err)
+					self.parent.scroll.append(style("Ctrl+C twice quickly will exit...", **RED))
+					scroll_bar(self.parent, None)
+				else:
+					os.write(STDOUT_FILENO, LF+err.encode())
+				sleep(0.5)

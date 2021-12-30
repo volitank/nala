@@ -5,7 +5,7 @@ from getpass import getuser
 from pathlib import Path
 from click import style
 import fnmatch
-from sys import argv, stderr
+from sys import argv, stderr, exit
 import hashlib
 import errno
 import os
@@ -480,18 +480,19 @@ class nala:
 		if self.confask:
 			apt_pkg.config.set('Dpkg::Options::', '--force-confask')
 
-		# Turn off Rich scrolling if we don't have XTERM.
-		if 'xterm' not in os.environ["TERM"]:
-			self.verbose = True
-
 		# If self.raw_dpkg is enabled likely they want to see the update too.
-		if self.raw_dpkg:
+		# Turn off Rich scrolling if we don't have XTERM.
+		if self.raw_dpkg or 'xterm' not in os.environ["TERM"]:
 			self.verbose = True
-
-		self.cache.commit(
-			nalaProgress(self.verbose, self.debug),
-			InstallProgress(self.verbose, self.debug)
-		)
+			
+		try:
+			self.cache.commit(
+				nalaProgress(self.verbose, self.debug),
+				InstallProgress(self.verbose, self.debug)
+			)
+		except apt_pkg.Error as e:
+			print(f'\r\n{style("Error:", **RED)} {e}')
+			exit(1)
 
 	def download(self, pkgs, num_concurrent=2):
 		if not pkgs:
