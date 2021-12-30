@@ -30,7 +30,6 @@ from os import geteuid
 from getpass import getuser
 
 def _main():
-	print(arguments)
 	command = arguments.command
 	debug = arguments.debug
 	no_update = arguments.no_update

@@ -5,9 +5,7 @@ import fcntl
 import errno
 import signal
 import tty
-import apt
 import apt_pkg
-from pathlib import Path
 from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts, errno
