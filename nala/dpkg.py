@@ -352,7 +352,7 @@ class InstallProgress(base.InstallProgress):
 		if line == '':
 			return
 
-		if self.check_line_spam():
+		if self.check_line_spam(line, rawline):
 			return
 
 		# Main format section for making things pretty
