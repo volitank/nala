@@ -16,7 +16,7 @@ from apt.package import Package
 from subprocess import Popen
 import requests
 
-from nala.rich_custom import console, history_table, rich_table
+from nala.rich_custom import console, rich_table, Column
 from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
 from nala.dpkg import nalaProgress, InstallProgress
 from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
@@ -276,6 +276,15 @@ class nala:
 			trans.append(transaction.get('Date'))
 			trans.append(str(transaction.get('Altered')))
 			names.append(trans)
+
+		max_width = get_terminal_size().columns - 50
+		history_table = rich_table(
+					'ID:',
+					Column('Command:', no_wrap=True, max_width=max_width),
+					'Date and Time:',
+					'Altered:',
+					padding=(0,2), box=None
+				)
 
 		for item in names:
 			history_table.add_row(*item)
