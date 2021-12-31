@@ -1,5 +1,5 @@
-# Nala entry point
 #!/usr/bin/env python3
+# Nala entry point
 
 from nala import __main__
 
