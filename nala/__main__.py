@@ -99,7 +99,7 @@ def _main():
 
 	elif command == 'clean':
 		shell.apt.clean()
-		print("Nala's local cache has been cleaned up")
+		print("Cache has been cleaned")
 
 	elif command == 'moo':
 		moo_pls(arguments, update, no_update)
