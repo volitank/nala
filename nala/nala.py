@@ -793,6 +793,9 @@ def sort_pkg_changes(pkgs:list[Package]):
 	return delete_names, install_names, upgrade_names
 
 def write_history(delete_names, install_names, upgrade_names):
+	# We don't need only downloads in the history
+	if '--download-only' in argv[1:]:
+		return
 
 	history = []
 	if NALA_HISTORY.exists():
