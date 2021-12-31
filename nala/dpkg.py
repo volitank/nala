@@ -45,8 +45,6 @@ NORMAL_KEYPAD = b'\x1b>'
 CR = b'\r'
 LF = b'\n'
 
-# Override the text progress to format updating output
-# This is mostly for `apt update`
 class nalaProgress(text.AcquireProgress, base.OpProgress):
 
 	def __init__(self, verbose=False, debug=False):
@@ -187,39 +185,41 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		self.live.stop()
 
 class InstallProgress(base.InstallProgress):
-	def __init__(self, verbose: bool = False, debug: bool = False):
+	def __init__(self,
+		verbose: bool = False,
+		debug: bool = False,
+		raw_dpkg: bool = False):
 
 		self.verbose = verbose
 		self.debug = debug
+		self.raw_dpkg = raw_dpkg
 		self.raw = False
-		self.raw_dpkg = False
+
 		self.last_line = None
+		self.termsize = get_terminal_size()
 		self.live = rich_live(redirect_stdout=False)
 		self.spinner = rich_spinner('dots', text='Initializing dpkg', style="bold blue")
 		self.mode = tty.tcgetattr(STDIN_FILENO)
 		self.scroll = [self.spinner]
+
+		if self.raw_dpkg:
+			tty.setraw(STDIN_FILENO)
 
 		# setting environment to xterm seems to work find for linux terminal
 		# I don't think we will be supporting much more this this, at least for now
 		if 'xterm' not in os.environ["TERM"]:
 			os.environ["TERM"] = 'xterm'
 
-		(self.statusfd, self.writefd) = os.pipe()
-		# These will leak fds, but fixing this safely requires API changes.
-		self.write_stream = os.fdopen(self.writefd, "w")
-		self.status_stream = os.fdopen(self.statusfd, "r")
-		fcntl.fcntl(self.statusfd, fcntl.F_SETFL, os.O_NONBLOCK)
-
 	def start_update(self):
 		"""Start update."""
 		self.notice = set()
-		if not self.verbose:
+		if not self.verbose and not self.raw_dpkg:
 			self.live.start()
-		self.spinner.text = style('Initializing dpkg...', **BLUE)
+			self.spinner.text = style('Initializing dpkg...', **BLUE)
 
 	def finish_update(self):
 		"""Called when update has finished."""
-		if not self.verbose:
+		if not self.verbose and not self.raw_dpkg:
 			self.live.stop()
 		if self.notice:
 			print('\n'+style('Notices:', bold=True))
@@ -228,9 +228,7 @@ class InstallProgress(base.InstallProgress):
 		print(style("Finished Successfully", **GREEN))
 
 	def __exit__(self, type, value, traceback):
-		self.write_stream.close()
-		self.status_stream.close()
-		self.dpkg.close()
+		pass
 
 	def run(self, dpkg):
 		"""
@@ -242,22 +240,19 @@ class InstallProgress(base.InstallProgress):
 
 		if pid == 0:
 			try:
-				###########################
-				## If we pass a fd here for status stream we MUST read from it
-				## Using this and not reading from it causes a deadlock on dpkg output
 				os._exit(dpkg.do_install())
-				#os._exit(dpkg.do_install(self.write_stream.fileno()))
 			except Exception as e:
 				stderr.write("%s\n" % e)
 				os._exit(apt_pkg.PackageManager.RESULT_FAILED)
 
 		self.child_pid = pid
-		self.dpkg = os.fdopen(self.fd, "r")
+		#self.dpkg = os.fdopen(self.fd, "r")
 		fcntl.fcntl(self.fd, fcntl.F_SETFL, os.O_NONBLOCK)
 
 		# We use fdspawn from pexpect to interact with out dpkg pty
 		# But we also subclass it to give it the interact method and setwindow
-		self.child = dcexpect(self.dpkg, timeout=None)
+		#self.child = dcexpect(self.dpkg, timeout=None)
+		self.child = dcexpect(self.fd, timeout=None)
 
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
 		with open(DPKG_LOG, 'w') as self.dpkg_log:
@@ -272,16 +267,14 @@ class InstallProgress(base.InstallProgress):
 				# Settings are restored if for some reason we stop
 				tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, self.mode)
 
-		# This is really just here so dpkg exits properly
-		res = self.wait_child()
-		return os.WEXITSTATUS(res)
+		return os.WEXITSTATUS(0)
 
 	def sigwinch_passthrough(self, sig, data):
 		import struct, termios
 		s = struct.pack("HHHH", 0, 0, 0, 0)
-		a = struct.unpack('hhhh', fcntl.ioctl(stdout.fileno(),
+		a = struct.unpack('hhhh', fcntl.ioctl(STDOUT_FILENO,
 			termios.TIOCGWINSZ , s))
-		if self.child.isalive():
+		if not self.child.closed:
 			self.child.setwinsize(a[0],a[1])
 
 	def conf_check(self, rawline):
@@ -308,23 +301,14 @@ class InstallProgress(base.InstallProgress):
 										or self.last_line in CONF_ANSWER)
 
 	def format_dpkg_output(self, rawline: bytes):
-		## Commenting out this for now. I basically only use this sometimes during development
-		## It doesn't make sense to keep it in if it's not being used
-		# try:
-		# 	status = self.status_stream.readline()
-		# except IOError as err:
-		# 	# resource temporarly unavailable is ignored
-		# 	if err.errno != errno.EAGAIN and err.errno != errno.EWOULDBLOCK:
-		# 		print(err.strerror)
-		# 	return
-		# if status != '':
-		# 	self.dpkg_status.write(status)
-		# 	self.dpkg_status.flush()
-
 		# During early development this is mandatory
 		# if self.debug:
 		self.dpkg_log.write(repr(rawline)+'\n')
 		self.dpkg_log.flush()
+
+		if self.raw_dpkg:
+			os.write(STDOUT_FILENO, rawline)
+			return
 
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
@@ -338,11 +322,6 @@ class InstallProgress(base.InstallProgress):
 					)
 					scroll_bar(self, msg=None)
 				return
-		# There isn't really an option to hit this yet
-		# But eventually I will make --raw-dpkg switch
-		if self.raw_dpkg:
-			os.write(STDOUT_FILENO, rawline)
-			return
 
 		# Set to raw if we have a conf prompt
 		self.conf_check(rawline)
@@ -485,7 +464,6 @@ class dcexpect(fdspawn):
 		self.parent = parent
 		mode = tty.tcgetattr(STDIN_FILENO)
 		
-
 		cols, rows = get_terminal_size()
 		self.setwinsize(rows, cols)
 

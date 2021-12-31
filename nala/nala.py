@@ -11,7 +11,7 @@ import errno
 import os
 import json
 import apt_pkg
-from apt.cache import LockFailedException, Cache
+from apt.cache import FetchFailedException, LockFailedException, Cache
 from apt.package import Package
 from subprocess import Popen
 import requests
@@ -55,15 +55,20 @@ class nala:
 						raw_dpkg = False,
 						aria2c = '/usr/bin/aria2c'):
 
+		# If self.raw_dpkg is enabled likely they want to see the update too.
+		# Turn off Rich scrolling if we don't have XTERM.
+		self.verbose = verbose
+		self.raw_dpkg = raw_dpkg
+		if self.raw_dpkg or 'xterm' not in os.environ["TERM"]:
+			self.verbose = True
+
 		# We want to update the cache before we initialize it
 		if not no_update:
 			print('Updating package list...')
 			try:
 				Cache().update(nalaProgress(verbose=verbose))
-			except LockFailedException as e:
-				print(f'{style("Error:", **RED)} {e}')
-				print('Are you root?')
-				exit(1)
+			except (LockFailedException, FetchFailedException) as e:
+				apt_error(e)
 
 		# We check the arguments here to see if we have any kind of
 		# Non interactiveness going on
@@ -78,19 +83,15 @@ class nala:
 
 		try:
 			self.cache = Cache(nalaProgress(verbose=verbose))
-		except LockFailedException as e:
-			print(f'{style("Error:", **RED)} {e}')
-			print('Are you root?')
-			exit(1)
-		
+		except (LockFailedException, FetchFailedException) as e:
+			apt_error(e)
+
 		self.download_only = download_only
-		self.verbose = verbose
 		self.debug = debug
 		self.assume_yes = assume_yes
 		self.metalink_out = metalink_out
 		self.hash_check = hash_check
 		self.aria2c = aria2c
-		self.raw_dpkg = raw_dpkg
 
 		# This is just a flag to check if we downloaded anything
 		self.downloaded = False
@@ -99,8 +100,9 @@ class nala:
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
 		if not self.archive_dir:
-			raise Exception(('No archive dir is set.'
-							 ' Usually it is /var/cache/apt/archives/'))
+			err = 'No archive dir is set. Usually it is /var/cache/apt/archives/'
+			print(f'{style("Error:", **RED)} {err}')
+			exit(1)
 
 		# Lists to check if we're removing stuff we shouldn't
 		self.essential = []
@@ -423,7 +425,7 @@ class nala:
 				print("Abort.")
 				return
 
-			write_history(pkgs)
+			write_history(delete_names, install_names, upgrade_names)
 			write_log(pkgs)
 
 			pkgs = [pkg for pkg in pkgs if not pkg.marked_delete and \
@@ -462,15 +464,10 @@ class nala:
 		if self.confask:
 			apt_pkg.config.set('Dpkg::Options::', '--force-confask')
 
-		# If self.raw_dpkg is enabled likely they want to see the update too.
-		# Turn off Rich scrolling if we don't have XTERM.
-		if self.raw_dpkg or 'xterm' not in os.environ["TERM"]:
-			self.verbose = True
-
 		try:
 			self.cache.commit(
 				nalaProgress(self.verbose, self.debug),
-				InstallProgress(self.verbose, self.debug)
+				InstallProgress(self.verbose, self.debug, self.raw_dpkg)
 			)
 		except apt_pkg.Error as e:
 			print(f'\r\n{style("Error:", **RED)} {e}')
@@ -887,3 +884,14 @@ def download_progress(pkgs: list[Package], proc: Popen):
 			if 'Download complete:' in line:
 				pkg_download_progress.advance(task, advance=pkgs[num].candidate.size)
 				num += 1
+
+def apt_error(e):
+	if '.,' in str(e):
+		err_list = list(set(str(e).split(',')))
+		for err in err_list:
+			err = err.replace('E:', '')
+			print(f'{style("Error:", **RED)} {err.strip()}')
+		exit(1)
+	print(f'{style("Error:", **RED)} {e}')
+	print('Are you root?')
+	exit(1)
