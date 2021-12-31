@@ -246,12 +246,10 @@ class InstallProgress(base.InstallProgress):
 				os._exit(apt_pkg.PackageManager.RESULT_FAILED)
 
 		self.child_pid = pid
-		#self.dpkg = os.fdopen(self.fd, "r")
 		fcntl.fcntl(self.fd, fcntl.F_SETFL, os.O_NONBLOCK)
 
 		# We use fdspawn from pexpect to interact with out dpkg pty
 		# But we also subclass it to give it the interact method and setwindow
-		#self.child = dcexpect(self.dpkg, timeout=None)
 		self.child = dcexpect(self.fd, timeout=None)
 
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
