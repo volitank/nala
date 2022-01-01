@@ -70,7 +70,7 @@ def net_select(host):
 
 def parse_ubuntu(country_list: list=None):
 	print('Fetching Ubuntu mirrors...')
-	
+
 	try:
 		ubuntu = requests.get("https://launchpad.net/ubuntu/+archivemirrors-rss").text.split('<item>')
 	except requests.ConnectionError:
@@ -161,7 +161,7 @@ def parse_debian(country_list: list=None):
 	if verbose:
 		print('Parsing mirror list...')
 	mirror_set = set()
-	# If no country is supplied then our list will be all countries				
+	# If no country is supplied then our list will be all countries
 	for country in country_list:
 		for mirror in debian:
 			if (country in mirror and 'Archive-http:' in mirror and all(arch in mirror for arch in arches)):

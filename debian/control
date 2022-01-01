@@ -7,7 +7,7 @@ Homepage: https://gitlab.com/volian/nala
 Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
 Standards-Version: 4.6.0
-Build-Depends:	debhelper-compat (= 13), 
+Build-Depends:	debhelper-compat (= 13),
 				dh-python,
 				python3-all-dev,
 				python3-setuptools,

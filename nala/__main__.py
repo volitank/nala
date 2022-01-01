@@ -63,7 +63,7 @@ def _main():
 
 	if command in apt_init:
 		apt = init_apt(
-			command, update, 
+			command, update,
 			download_only, assume_yes,
 			no_update, debug,
 			verbose, raw_dpkg
@@ -138,7 +138,7 @@ def history(arguments, apt: nala, su):
 		apt.history_clear(id)
 
 def init_apt(
-	command, update, 
+	command, update,
 	download_only, assume_yes,
 	no_update, debug,
 	verbose, raw_dpkg):

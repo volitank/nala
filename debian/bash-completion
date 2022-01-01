@@ -49,7 +49,7 @@ _nala()
 		_count_args "" "-!(-*)[chslSbopitTdM]"
 		# supported options per command
 		if [[ "$cur" == -* ]]; then
-			case $arg in 
+			case $arg in
 				install)
 					COMPREPLY=( $( compgen -W '
 						-y --assume-yes
