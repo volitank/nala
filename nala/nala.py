@@ -158,7 +158,7 @@ class nala:
 
 		if not_found:
 			pkg_error(not_found, 'not found', terminate=True)
-		
+
 		self.auto_remover()
 		self.get_changes()
 
@@ -356,7 +356,7 @@ class nala:
 					sum += 1
 					transaction['ID'] = sum
 					history_edit.append(json.dumps(transaction))
-			# Write the new history file	
+			# Write the new history file
 			with open(NALA_HISTORY, 'w') as file:
 				for line in history_edit:
 					file.write(str(line)+'\n')
@@ -559,7 +559,7 @@ class nala:
 					print("Failed to move archive file", e)
 				link_success = False
 		return proc.returncode == 0 and link_success
-	
+
 	def file_downloaded(self, pkg, hash_check=False):
 		candidate = pkg.candidate
 		path = self.archive_dir / get_filename(candidate)
@@ -600,7 +600,7 @@ class nala:
 			'bold blue'
 		)
 
-		# We need to get our width for formating
+		# We need to get our width for formatting
 		width_list = [
 			len(delete_names),
 			len(install_names),

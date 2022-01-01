@@ -13,7 +13,7 @@ nala - a wrapper for the apt package manager
 
 # DESCRIPTION
 **nala** is a wrapper for the apt package manager. The goals of wrapping apt are
-to add quality of life changes, and improve the ouput to make it more reader friendly.
+to add quality of life changes, and improve the output to make it more reader friendly.
 
 **install**
 : **install** works similar too the way it does in **apt**. **nala** takes multiple packages as arguments and will install all of them just like **apt**.
@@ -21,7 +21,7 @@ to add quality of life changes, and improve the ouput to make it more reader fri
 : **nala** also uses **aria2c** for downloading packages. This functionality is much like **apt-fast** or **apt-metalink** (which **nala** is heavily based on). Along with this **nala** can download packages from multiple mirrors concurrently to speed up package downloads.
 
 **remove**
-: **remove** works similar to the way it does in **apt**. Our noticable differences here include improved output on what will be removed, no need for running an autoremove, **nala** will handle that for you. 
+: **remove** works similar to the way it does in **apt**. Our noticeable differences here include improved output on what will be removed, no need for running an autoremove, **nala** will handle that for you.
 
 **purge**
 : **purge** works similar to **remove**, but also gets rid of configuration files.

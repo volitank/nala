@@ -108,14 +108,14 @@ def arg_parse():
 	# Define our subparser
 	subparsers = parser.add_subparsers(metavar='', dest='command')
 
-	# Parser for the install command 
+	# Parser for the install command
 	install_parser = subparsers.add_parser('install',
 		formatter_class=formatter,
 		help='install packages',
 		parents=[global_options, interactive_options],
 		usage=f'{bin_name} install [--options] pkg1 [pkg2 ...]'
 		)
-		
+
 	install_parser.add_argument('args', metavar='pkg(s)', nargs='*', help='package(s) to install')
 
 	remove_options(
@@ -198,7 +198,7 @@ def arg_parse():
 	fetch_options.add_argument('--debian', metavar='sid', help="choose the Debian release")
 	fetch_options.add_argument('--ubuntu', metavar='jammy', help="choose an Ubuntu release")
 	fetch_options.add_argument('--country', metavar='US', help="choose only mirrors of a specific ISO country code")
-	fetch_options.add_argument('--foss', action='store_true', help="ommits contrib and non-free repos\n\n")
+	fetch_options.add_argument('--foss', action='store_true', help="omits contrib and non-free repos\n\n")
 
 	# Parser for the fetch command
 	fetch_parser = subparsers.add_parser('fetch',

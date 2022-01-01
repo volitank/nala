@@ -68,7 +68,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		base.OpProgress.update(self, percent)
 		if self.verbose:
 			if self.major_change and self.old_op:
-				self._write(self.old_op)	
+				self._write(self.old_op)
 			self._write("%s... %i%%\r" % (self.op, self.percent), False, True)
 			self.old_op = self.op
 
@@ -346,7 +346,7 @@ class InstallProgress(base.InstallProgress):
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
 		if self.verbose:
-			# We have to append Carrige return and new line or things get weird
+			# We have to append Carriage return and new line or things get weird
 			os.write(STDOUT_FILENO, (msg+'\r\n').encode())
 		else:
 			scroll_bar(self, msg)
@@ -361,7 +361,7 @@ class InstallProgress(base.InstallProgress):
 			tty.tcsetattr(STDIN_FILENO, tty.TCSAFLUSH, self.mode)
 			self.live.start()
 		self.set_last_line(rawline)
-		return	
+		return
 
 	def set_last_line(self, rawline):
 		# Just something because if you do Y, then backspace, then hit enter
@@ -458,7 +458,7 @@ class dcexpect(fdspawn):
 		self._buffer = self.buffer_type()
 		self.parent = parent
 		mode = tty.tcgetattr(STDIN_FILENO)
-		
+
 		cols, rows = get_terminal_size()
 		self.setwinsize(rows, cols)
 
@@ -502,7 +502,7 @@ class dcexpect(fdspawn):
 						data = data[n:]
 			except KeyboardInterrupt:
 				err = style("Warning: ", **YELLOW)
-				err += "quiting now could break your system!"
+				err += "quitting now could break your system!"
 				if self.parent.live.is_started:
 					self.parent.scroll.append(err)
 					self.parent.scroll.append(style("Ctrl+C twice quickly will exit...", **RED))

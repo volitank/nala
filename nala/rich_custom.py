@@ -68,7 +68,7 @@ pkg_download_progress = Progress(
 		style=bar_back_style,
 		# The color completed section
 		complete_style=bar_style,
-		# The color of completly finshed bar
+		# The color of completely finished bar
 		finished_style=bar_style
 	),
 	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
@@ -86,6 +86,6 @@ fetch_progress = Progress(
 	style=bar_back_style,
 	# The color completed section
 	complete_style=bar_style,
-	# The color of completly finshed bar
+	# The color of completely finished bar
 	finished_style=bar_style),
 )
