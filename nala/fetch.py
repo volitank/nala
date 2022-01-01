@@ -1,17 +1,19 @@
-import requests
-import struct
+import re
 import select
 import socket
+import struct
+import threading
 import time
 from secrets import SystemRandom
-from sys import stderr, exit
-import re
-import threading
-from click import style
+from sys import exit, stderr
+
+import requests
 from aptsources.distro import get_distro
-from nala.utils import NALA_SOURCES, RED, YELLOW, GREEN, ask, shell, dprint
-from nala.rich_custom import rich_live, fetch_progress, rich_grid
+from click import style
+
 from nala.options import arg_parse
+from nala.rich_custom import fetch_progress, rich_grid, rich_live
+from nala.utils import GREEN, NALA_SOURCES, RED, YELLOW, ask, dprint, shell
 
 netselect_scored = []
 

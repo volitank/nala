@@ -1,31 +1,27 @@
+import errno
+import fcntl
 import os
 import re
-import fcntl
-import errno
 import signal
 import tty
-import apt_pkg
-from time import sleep
-from sys import stderr, stdout, exit
 from pty import STDIN_FILENO, STDOUT_FILENO, fork
-from pexpect.fdpexpect import fdspawn
-from pexpect.utils import poll_ignore_interrupts, errno
-from ptyprocess.ptyprocess import _setwinsize
 from shutil import get_terminal_size
+from sys import exit, stderr, stdout
+from time import sleep
 from typing import Union
+
 import apt.progress.base as base
 import apt.progress.text as text
+import apt_pkg
 from click import style
+from pexpect.fdpexpect import fdspawn
+from pexpect.utils import errno, poll_ignore_interrupts
+from ptyprocess.ptyprocess import _setwinsize
 
-from nala.rich_custom import rich_live, rich_grid, rich_spinner
-from nala.utils import (
-	# Import Style Colors
-	RED, BLUE, GREEN, YELLOW,
-	# Import Message
-	CONF_MESSAGE, CONF_ANSWER, NOTICES, SPAM, DPKG_STATUS,
-	# Lonely Import File :(
-	DPKG_LOG,
-)
+from nala.rich_custom import rich_grid, rich_live, rich_spinner
+from nala.utils import (  # Import Style Colors; Import Message; Lonely Import File :(
+	BLUE, CONF_ANSWER, CONF_MESSAGE, DPKG_LOG,
+	DPKG_STATUS, GREEN, NOTICES, RED, SPAM, YELLOW,)
 
 # Control Codes
 CURSER_UP = b'\x1b[1A'
@@ -268,7 +264,8 @@ class InstallProgress(base.InstallProgress):
 		return os.WEXITSTATUS(0)
 
 	def sigwinch_passthrough(self, sig, data):
-		import struct, termios
+		import struct
+		import termios
 		s = struct.pack("HHHH", 0, 0, 0, 0)
 		a = struct.unpack('hhhh', fcntl.ioctl(STDOUT_FILENO,
 			termios.TIOCGWINSZ , s))

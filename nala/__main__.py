@@ -19,15 +19,17 @@
 ## Special thanks to Tatsuhiro Tsujikawa for apt-metalink. nala uses a modified version
 ## https://github.com/tatsuhiro-t/apt-metalink
 
-from sys import argv, exit
-from nala.utils import CAT_ASCII, LION_ASCII, LION_ASCII2, DEBUG, esyslog
-from nala.fetch import fetch
-from nala.utils import logger, dprint, nodate_format, shell
-from nala.options import parser, arguments
-from nala.nala import nala
 import logging
-from os import geteuid
 from getpass import getuser
+from os import geteuid
+from sys import argv, exit
+
+from nala.fetch import fetch
+from nala.nala import nala
+from nala.options import arguments, parser
+from nala.utils import (CAT_ASCII, DEBUG, LION_ASCII, LION_ASCII2,
+                        dprint, esyslog, logger, nodate_format, shell,)
+
 
 def _main():
 	command = arguments.command

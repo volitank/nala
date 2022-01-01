@@ -1,10 +1,11 @@
 import argparse
-from sys import argv, stderr, exit
-from pydoc import pager
 from pathlib import Path
+from pydoc import pager
+from sys import argv, exit, stderr
 
-from nala.utils import LICENSE
 from nala import __version__
+from nala.utils import LICENSE
+
 
 # Custom Parser for printing help on error.
 class nalaParser(argparse.ArgumentParser):

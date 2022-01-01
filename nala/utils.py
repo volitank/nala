@@ -1,8 +1,9 @@
-from logging.handlers import RotatingFileHandler, SysLogHandler
-from os import geteuid, devnull
-from pyshell import pyshell
-from pathlib import Path
 import logging
+from logging.handlers import RotatingFileHandler, SysLogHandler
+from os import devnull, geteuid
+from pathlib import Path
+
+from pyshell import pyshell
 
 # File Constants
 LICENSE = Path('/usr/share/common-licenses/GPL-3')

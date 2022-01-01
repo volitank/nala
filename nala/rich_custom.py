@@ -1,20 +1,11 @@
+from rich.live import Live
+from rich.progress import (BarColumn, Column, Console, DownloadColumn,
+                           Optional, Progress, ProgressColumn, Text,
+                           TextColumn, TransferSpeedColumn, filesize,)
+from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Table
-from rich.live import Live
-from rich.spinner import Spinner
-from rich.progress import (
-	BarColumn,
-	DownloadColumn,
-	Progress,
-	TextColumn,
-	TransferSpeedColumn,
-	ProgressColumn,
-	Text,
-	filesize,
-	Optional,
-	Column,
-	Console
-)
+
 console = Console()
 rich_live = Live
 rich_grid = Table().grid

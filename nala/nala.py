@@ -1,26 +1,28 @@
-from os import get_terminal_size, getuid, environ
-from textwrap import TextWrapper
+import errno
+import fnmatch
+import hashlib
+import json
+import os
 from datetime import datetime
 from getpass import getuser
+from os import environ, get_terminal_size, getuid
 from pathlib import Path
-from click import style
-import fnmatch
-from sys import argv, stderr, exit
-import hashlib
-import errno
-import os
-import json
-import apt_pkg
-from apt.cache import FetchFailedException, LockFailedException, Cache
-from apt.package import Package
 from subprocess import Popen
-import requests
+from sys import argv, exit, stderr
+from textwrap import TextWrapper
 
-from nala.rich_custom import console, rich_table, Column
-from nala.utils import dprint, iprint, logger_newline, ask, shell, RED, BLUE, YELLOW, GREEN
-from nala.dpkg import nalaProgress, InstallProgress
-from nala.rich_custom import pkg_download_progress, rich_live, rich_grid
+import apt_pkg
+import requests
+from apt.cache import Cache, FetchFailedException, LockFailedException
+from apt.package import Package
+from click import style
+
+from nala.dpkg import InstallProgress, nalaProgress
 from nala.options import arguments
+from nala.rich_custom import (Column, console, pkg_download_progress,
+                              rich_grid, rich_live, rich_table,)
+from nala.utils import (BLUE, GREEN, RED, YELLOW, ask, dprint,
+                        iprint, logger_newline, shell,)
 
 timezone = datetime.utcnow().astimezone().tzinfo
 time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)

@@ -1,7 +1,10 @@
 # Always prefer setuptools over distutils
-from setuptools import setup
 from pathlib import Path
+
+from setuptools import setup
+
 import nala
+
 # Define the directory that setup.py is in
 here = Path(__file__).parent.resolve()
 
