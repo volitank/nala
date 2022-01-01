@@ -10,6 +10,7 @@ from pathlib import Path
 from subprocess import Popen
 from sys import argv, exit, stderr
 from textwrap import TextWrapper
+from typing import List
 
 import apt_pkg
 import requests
@@ -722,7 +723,7 @@ def guess_concurrent(pkgs):
 		max_uris = 2
 	return max_uris
 
-def print_packages(headers:list[str], names:list[list], title, style=None):
+def print_packages(headers: List[str], names: List[list], title, style=None):
 	if not names:
 		return
 
@@ -770,7 +771,7 @@ def unit_str(val, just = 7):
 	else:
 		return f'{val :.0f}'.rjust(just)+" B"
 
-def sort_pkg_changes(pkgs:list[Package]):
+def sort_pkg_changes(pkgs: List[Package]):
 
 	delete_names = []
 	install_names = []
@@ -871,7 +872,7 @@ def dep_format(package_dependecy):
 				dep_print += pipe+final if dep.relation else pipe+name
 		print(dep_print)
 
-def download_progress(pkgs: list[Package], proc: Popen):
+def download_progress(pkgs: List[Package], proc: Popen):
 
 	# Add up the size of all our packages so we know the total
 	total = sum(pkg.candidate.size for pkg in pkgs)
