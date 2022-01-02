@@ -21,7 +21,17 @@ repos:
     rev: 5.10.1
     hooks:
       - id: isort
-        args: ["--py=auto", "-e", "-i=\t", "--ca", "--cs", "-n", "--tc", "--up", "-p=nala"]
+        args: [
+          "--python-version=auto", # Tells isort to set the known standard library based on the specified Python version.
+        	"--balanced", # Balances wrapping to produce the most consistent line length possible
+          "--indent=\t", # String to place for indents defaults to " " (4 spaces).
+          "--combine-as", # Combines as imports on the same line.
+          "--combine-star", # Ensures that if a star import is present, nothing else is imported from that namespace.
+          "--ensure-newline-before-comments", # Inserts a blank line before a comment following an import.
+          "--use-parentheses", # Use parentheses for line continuation on length limit instead of slashes.
+          "--only-sections", # Imports are ordered by their import style, not alphabetically.
+          "--project=nala" # Force isort to recognize a module as being part of the current python project.
+        ]
   - repo: https://github.com/asottile/pyupgrade
     rev: v2.30.1
     hooks:
@@ -31,4 +41,11 @@ repos:
     rev: v0.930
     hooks:
       - id: mypy
-        args: ["--ignore-missing-imports", "--strict", "--pretty", "--show-error-context", "--show-column-numbers", "--show-error-codes"]
+        args: [
+          "--ignore-missing-imports",
+          "--strict",
+          "--pretty",
+          "--show-error-context",
+          "--show-column-numbers",
+          "--show-error-codes"
+        ]
