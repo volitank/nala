@@ -28,10 +28,10 @@ from sys import argv, exit
 
 from nala.fetch import fetch
 from nala.logger import dprint, esyslog
-from nala.nala import nala
+from nala.nala import nala, clean
 from nala.options import arguments, parser
-from nala.utils import CAT_ASCII, LION_ASCII, LION_ASCII2, shell
-
+from nala.utils import (CAT_ASCII, LION_ASCII, LION_ASCII2,
+			ARCHIVE_DIR, PARTIAL_DIR, LISTS_PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
 
 def _main():
 	command = arguments.command
@@ -97,7 +97,18 @@ def _main():
 		history(arguments, apt, su)
 
 	elif command == 'clean':
-		shell.apt.clean()
+		# Find and delete everything
+		clean(ARCHIVE_DIR, verbose)
+		clean(PARTIAL_DIR, verbose)
+		clean(LISTS_PARTIAL_DIR, verbose)
+		if verbose:
+			print(f'Removing {PKGCACHE}')
+			print(f'Removing {SRCPKGCACHE}')
+		elif debug:
+			dprint(f'Removing {PKGCACHE}')
+			dprint(f'Removing {SRCPKGCACHE}')
+		PKGCACHE.unlink(missing_ok=True)
+		SRCPKGCACHE.unlink(missing_ok=True)
 		print("Cache has been cleaned")
 
 	elif command == 'moo':

@@ -22,9 +22,24 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
+import sys
 from pathlib import Path
 
+import apt_pkg
+from click import style
 from pyshell import pyshell
+
+# TODO: I want to integrate this in fetch maybe.
+#       Seems like a better way to get arch.
+# apt_pkg.config.find_dir('APT::Architecture')
+
+# Click Style Colors
+RED = {'fg':'red', 'bold':True}
+YELLOW = {'fg':'yellow', 'bold':True}
+GREEN = {'fg':'green', 'bold':True}
+BLUE = {'fg':'blue', 'bold':True}
+CYAN = {'fg':'cyan', 'bold':True}
+MAGENTA = {'fg':'magenta', 'bold':True}
 
 # File Constants
 LICENSE = Path('/usr/share/common-licenses/GPL-3')
@@ -43,15 +58,32 @@ DPKG_LOG = NALA_LOGDIR / 'dpkg-debug.log'
 DPKG_STATUS_LOG = NALA_LOGDIR / 'dpkg-status.log'
 """/var/log/nala/dpkg-status.log"""
 
-shell = pyshell(capture_output=True, text=True, check=True)
+# Apt Directories
+ARCHIVE_DIR = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
+"""/var/cache/apt/archives/"""
+PARTIAL_DIR = ARCHIVE_DIR / 'partial'
+"""/var/cache/apt/archives/partial"""
+LISTS_DIR = Path(apt_pkg.config.find_dir('Dir::State::Lists'))
+LISTS_PARTIAL_DIR = LISTS_DIR / 'partial'
+"""/var/lib/apt/lists/partial"""
+PKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::pkgcache'))
+"""/var/cache/apt/pkgcache.bin"""
+SRCPKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::srcpkgcache'))
+"""/var/cache/apt/srcpkgcache.bin"""
 
-# Click Style Colors
-RED = {'fg':'red', 'bold':True}
-YELLOW = {'fg':'yellow', 'bold':True}
-GREEN = {'fg':'green', 'bold':True}
-BLUE = {'fg':'blue', 'bold':True}
-CYAN = {'fg':'cyan', 'bold':True}
-MAGENTA = {'fg':'magenta', 'bold':True}
+def dir_check(path: Path, err: str) -> None:
+	"""Check to see if the directory exists in apt config."""
+	if not path:
+		print(f'{style("Error:", **RED)} {err}')
+		sys.exit(1)
+
+# Make sure these are set, they probably are, but we will error early if not
+dir_check(ARCHIVE_DIR, 'No archive dir is set. Usually it is /var/cache/apt/archives/')
+dir_check(LISTS_DIR, 'No lists dir is set. Usually it is /var/lib/apt/lists/')
+dir_check(PKGCACHE, 'No pkgcache file is set. Usually it is /var/cache/apt/pkgcache.bin')
+dir_check(SRCPKGCACHE, 'No srcpkgcache file is set. Usually it is /var/cache/apt/srcpkgcache.bin')
+
+shell = pyshell(capture_output=True, text=True, check=True)
 
 def ask(question, default_no=False):
 	"""resp = input(f'{question}? [Y/n]

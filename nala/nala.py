@@ -936,3 +936,12 @@ def apt_error(e):
 	print(f'{style("Error:", **RED)} {e}')
 	print('Are you root?')
 	exit(1)
+
+def clean(path: Path, verbose: bool = False) -> None:
+	"""Iter the directory supplied and remove all files."""
+	if verbose:
+		print(f'Removing files in {path}')
+	for file in path.iterdir():
+		if file.is_file():
+			dprint(f'Removed: {file}')
+			file.unlink(missing_ok=True)
