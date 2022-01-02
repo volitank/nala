@@ -22,9 +22,6 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
-from logging.handlers import RotatingFileHandler, SysLogHandler
-from os import devnull, geteuid
 from pathlib import Path
 
 from pyshell import pyshell
@@ -48,10 +45,6 @@ DPKG_STATUS_LOG = NALA_LOGDIR / 'dpkg-status.log'
 
 shell = pyshell(capture_output=True, text=True, check=True)
 
-# Define log levels for import
-INFO = 20
-DEBUG = 10
-
 # Click Style Colors
 RED = {'fg':'red', 'bold':True}
 YELLOW = {'fg':'yellow', 'bold':True}
@@ -59,54 +52,6 @@ GREEN = {'fg':'green', 'bold':True}
 BLUE = {'fg':'blue', 'bold':True}
 CYAN = {'fg':'cyan', 'bold':True}
 MAGENTA = {'fg':'magenta', 'bold':True}
-
-# Create our main logger. This will do nothing unless we're root
-logger = logging.getLogger('nala_logger')
-logger.setLevel(INFO)
-
-# Define logging formatters
-formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='[%Y-%m-%d %H:%M:%S]')
-sys_formatter = logging.Formatter('nala: %(levelname)s: %(message)s')
-nodate_format = logging.Formatter('[%(levelname)s]: %(message)s')
-empty_format = logging.Formatter('%(message)s')
-
-# Our syslogger. Currently only used for telling on people for using trying to use nala without permission
-syslogger = logging.getLogger('nala_syslogger')
-syslogger.setLevel(INFO)
-syslog_handler = SysLogHandler(facility=SysLogHandler.LOG_USER, address='/dev/log')
-syslog_handler.setFormatter(sys_formatter)
-syslogger.addHandler(syslog_handler)
-
-if geteuid() == 0:
-	from nala.options import arg_parse
-	parser = arg_parse()
-	arguments = parser.parse_args()
-	verbose = arguments.verbose
-	debug = arguments.debug
-
-	if not NALA_LOGDIR.exists():
-		NALA_LOGDIR.mkdir()
-	if debug:
-		file_handler = RotatingFileHandler(NALA_DEBUGLOG, maxBytes=1024**2, backupCount=10)
-	else:
-		file_handler = RotatingFileHandler(
-		    NALA_LOGFILE, maxBytes=1024**2, backupCount=10)
-	file_handler.setFormatter(formatter)
-	logger.addHandler(file_handler)
-else:
-	file_handler = RotatingFileHandler(devnull, maxBytes=1024**2, backupCount=10)
-
-syslog = syslogger.info
-esyslog = syslogger.error
-
-eprint = logger.error
-iprint = logger.info
-dprint = logger.debug
-
-def logger_newline():
-	file_handler.setFormatter(empty_format)
-	iprint('')
-	file_handler.setFormatter(formatter)
 
 def ask(question, default_no=False):
 	"""resp = input(f'{question}? [Y/n]

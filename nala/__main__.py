@@ -22,16 +22,15 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
 from getpass import getuser
 from os import geteuid
 from sys import argv, exit
 
 from nala.fetch import fetch
+from nala.logger import dprint, esyslog
 from nala.nala import nala
 from nala.options import arguments, parser
-from nala.utils import (CAT_ASCII, DEBUG, LION_ASCII, LION_ASCII2,
-                        dprint, esyslog, logger, nodate_format, shell,)
+from nala.utils import CAT_ASCII, LION_ASCII, LION_ASCII2, shell
 
 
 def _main():
@@ -45,11 +44,6 @@ def _main():
 	raw_dpkg = arguments.raw_dpkg
 
 	su = geteuid()
-	if debug:
-		std_err_handler = logging.StreamHandler()
-		std_err_handler.setFormatter(nodate_format)
-		logger.addHandler(std_err_handler)
-		logger.setLevel(DEBUG)
 
 	if not command and not update:
 		parser.print_help()

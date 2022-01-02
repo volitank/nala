@@ -35,14 +35,12 @@ import requests
 from aptsources.distro import get_distro
 from click import style
 
-from nala.options import arg_parse
+from nala.logger import dprint
+from nala.options import arguments, parser
 from nala.rich_custom import fetch_progress, rich_grid, rich_live
-from nala.utils import GREEN, NALA_SOURCES, RED, YELLOW, ask, dprint, shell
+from nala.utils import GREEN, NALA_SOURCES, RED, YELLOW, ask, shell
 
 netselect_scored = []
-
-parser = arg_parse()
-arguments = parser.parse_args()
 verbose = arguments.verbose
 
 def chk(data):
