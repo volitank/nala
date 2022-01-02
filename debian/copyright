@@ -4,16 +4,15 @@ Upstream-Contact: Blake Lee <blake@volian.org>
 Source: https://gitlab.com/volian/nala
 
 Files: *
-Copyright: 2021 Blake Lee <blake@volian.org>
+Copyright: 2021, 2022 Blake Lee <blake@volian.org>
 License: GPL-3
 
 Files: debian/*
-Copyright: 2021 Blake Lee <blake@volian.org>
+Copyright: 2021, 2022 Blake Lee <blake@volian.org>
 License: GPL-3
 
 License: GPL-3
- nala is a wrapper for the apt package manager.
- Copyright (C) 2021 Volitank
+ Copyright (C) 2021, 2022 Blake Lee <blake@volian.org>
  .
  nala is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
