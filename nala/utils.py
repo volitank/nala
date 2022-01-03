@@ -26,20 +26,20 @@ import sys
 from pathlib import Path
 
 import apt_pkg
-from click import style
 from pyshell import pyshell
 
-# TODO: I want to integrate this in fetch maybe.
-#       Seems like a better way to get arch.
-# apt_pkg.config.find_dir('APT::Architecture')
+RESET = '\x1b[0m'
+RED = 31
+GREEN = 32
+YELLOW = 33
+BLUE = 34
+MAGENTA = 35
+CYAN = 36
+WHITE = 37
 
-# Click Style Colors
-RED = {'fg':'red', 'bold':True}
-YELLOW = {'fg':'yellow', 'bold':True}
-GREEN = {'fg':'green', 'bold':True}
-BLUE = {'fg':'blue', 'bold':True}
-CYAN = {'fg':'cyan', 'bold':True}
-MAGENTA = {'fg':'magenta', 'bold':True}
+def color(text: str, color: int = WHITE) -> str:
+	"""Returns bold text in the color of your choice."""
+	return f'\x1b[1;{color}m' + text + RESET
 
 # File Constants
 LICENSE = Path('/usr/share/common-licenses/GPL-3')
@@ -71,11 +71,13 @@ PKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::pkgcache'))
 SRCPKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::srcpkgcache'))
 """/var/cache/apt/srcpkgcache.bin"""
 
-def dir_check(path: Path, err: str) -> None:
+# We use this before all error messages
+ERROR_PREFIX = color('Error: ', RED)
+
+def dir_check(path: Path, msg: str) -> None:
 	"""Check to see if the directory exists in apt config."""
 	if not path:
-		print(f'{style("Error:", **RED)} {err}')
-		sys.exit(1)
+		sys.exit(ERROR_PREFIX+msg)
 
 # Make sure these are set, they probably are, but we will error early if not
 dir_check(ARCHIVE_DIR, 'No archive dir is set. Usually it is /var/cache/apt/archives/')
