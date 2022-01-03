@@ -23,17 +23,14 @@
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
-import select
 import socket
-import struct
 import sys
-import threading
-import time
-from secrets import SystemRandom
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from aptsources.distro import get_distro
 from click import style
+from pythonping import ping
 
 from nala.logger import dprint
 from nala.options import arguments, parser
@@ -43,44 +40,43 @@ from nala.utils import GREEN, NALA_SOURCES, RED, YELLOW, ask, shell
 netselect_scored = []
 verbose = arguments.verbose
 
-def chk(data):
-	x = sum(x << 8 if i % 2 else x for i, x in enumerate(data)) & 0xFFFFFFFF
-	x = (x >> 16) + (x & 0xFFFF)
-	x = (x >> 16) + (x & 0xFFFF)
-	return struct.pack('<H', ~x & 0xFFFF)
+def net_select(mirror, task, live, total, num) -> None:
+	"""Takes a URL and pings the domain and scores the latency."""
+	debugger = [f'Thread: {num}', f'Current Mirror: {mirror}']
 
-def ping(addr, timeout=2, number=1, data=b''):
-	with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as conn:
-		payload = struct.pack('!HH', SystemRandom().randrange(0, 65536), number) + data
+	if not arguments.debug:
+		table = rich_grid()
+		table.add_row(f'{style("Mirror:", **GREEN)} {num}/{total}')
+		table.add_row(fetch_progress)
 
-		conn.connect((addr, 80))
-		conn.sendall(b'\x08\0' + chk(b'\x08\0\0\0' + payload) + payload)
-		start = time.time()
-
-		while select.select([conn], [], [], max(0, start + timeout - time.time()))[0]:
-			data = conn.recv(65536)
-			if len(data) < 20 or len(data) < struct.unpack_from('!xxH', data)[0]:
-				continue
-			if data[20:] == b'\0\0' + chk(b'\0\0\0\0' + payload) + payload:
-				return time.time() - start
-
-def net_select(host):
+		fetch_progress.advance(task)
+		live.update(table)
 	try:
-		dprint(host)
 		# Regex to get the domain
-		regex = re.search('https?://([A-Za-z_0-9.-]+).*', host)
+		regex = re.search('https?://([A-Za-z_0-9.-]+).*', mirror)
 		if not regex:
+			debugger.append('Regex Failed')
+			dprint(debugger)
 			return
 		domain = regex.group(1)
-		dprint(domain)
-		res = ping(domain)
-		if res:
-			res = str(int(res*1000))
-			if len(res) == 2:
-				res = '0'+res
-			if len(res) == 1:
-				res == '00'+res
-			netselect_scored.append(f'{res} {host}')
+		debugger.append(f'Pinged: {domain}')
+		res = str(int(ping(domain, count=4, match=True, timeout=1).rtt_avg_ms))
+
+		debugger.append(f'Ping ms: {res}')
+		if len(res) == 2:
+			res = '0'+res
+		elif len(res) == 1:
+			res == '00'+res
+		elif len(res) > 3:
+			debugger.append('Mirror too slow')
+			dprint(debugger)
+			return
+
+		score = f'{res} {mirror}'
+		debugger.append(f'Appended: {score}')
+		dprint(debugger)
+		netselect_scored.append(score)
+
 	except (socket.gaierror, OSError) as e:
 		if verbose:
 			e = str(e)
@@ -88,7 +84,7 @@ def net_select(host):
 			if regex:
 				e = style(e.replace(regex.group(0), '').strip(), **YELLOW)
 			print(f'{e}: {domain}')
-			print(f'{style("URL:", **YELLOW)} {host}\n')
+			print(f'{style("URL:", **YELLOW)} {mirror}\n')
 
 def parse_ubuntu(country_list: list=None):
 	print('Fetching Ubuntu mirrors...')
@@ -150,11 +146,7 @@ def parse_debian(country_list: list=None):
 	except requests.ConnectionError:
 		sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 
-	arches = shell.dpkg.__print_architecture().stdout.strip().split()
-	foreign_arch = shell.dpkg.__print_foreign_architectures().stdout.strip().split()
-
-	if foreign_arch:
-		arches += foreign_arch
+	arches = get_arch()
 
 	# This is what one of our "Mirrors might look like after split"
 	# Site: mirrors.edge.kernel.org
@@ -208,6 +200,15 @@ def detect_release():
 	if distro and release:
 		return distro, release
 
+def get_arch() -> list[str]:
+	"""Query dpkg for supported architectures."""
+	arches = shell.dpkg.__print_architecture().stdout.strip().split()
+	foreign_arch = shell.dpkg.__print_foreign_architectures().stdout.strip().split()
+
+	if foreign_arch:
+		arches += foreign_arch
+	return arches
+
 def fetch(	fetches: int, foss: bool = False,
 			debian=None, ubuntu=None, country=None,
 			assume_yes=False):
@@ -245,42 +246,28 @@ def fetch(	fetches: int, foss: bool = False,
 	dprint(netselect)
 	dprint(f'Distro: {distro}, Release: {release}, Component: {component}')
 
-	thread_handler = []
-	num = -1
-	for _ in netselect:
-		num += 1
-		thread = threading.Thread(name='Net Select', target=net_select, args=[netselect[num]])
-		thread_handler.append(thread)
-		thread.start()
-
-	task = fetch_progress.add_task(
-		description='',
-		total=len(thread_handler)
-		)
-
-	print('Testing URLs...')
-	# wait for all our threads to stop
+	print('Testing mirrors...')
 	with rich_live(transient=True) as live:
-		for num, thread in enumerate(thread_handler):
+		with ThreadPoolExecutor(max_workers=32) as pool:
+			total = len(netselect)
+			task = fetch_progress.add_task('', total=total)
 
-			table = rich_grid()
-			table.add_row(f'{style("URL:", **GREEN)} {num}/{len(thread_handler)}')
-			table.add_row(fetch_progress)
-
-			thread.join()
-			fetch_progress.advance(task, advance=num)
-			live.update(table)
+			for num, mirror in enumerate(netselect):
+				pool.submit(net_select, mirror, task, live, total, num)
 
 	netselect_scored.sort()
 
 	dprint(netselect_scored)
+	dprint(f'Size of original list: {len(netselect)}')
+	dprint(f'Size of scored list: {len(netselect_scored)}')
+	dprint(f'Writing from: {netselect_scored[:fetches]}')
 
-	num = 0
 	with open(NALA_SOURCES, 'w') as file:
 		print(f"{style('Writing:', **GREEN)} {NALA_SOURCES}\n")
 		print('# Sources file built for nala\n', file=file)
-		for line in netselect_scored:
-			num += 1
+		fetches -= 1
+		for num, line in enumerate(netselect_scored):
+			# This splits off the score '030 http://mirror.steadfast.net/debian/'
 			line = line[line.index('h'):]
 			print(f'deb {line} {release} {component}')
 			print(f'deb-src {line} {release} {component}\n')
