@@ -276,7 +276,7 @@ class nala:
 				print()
 			else:
 				sys.exit(
-					f'{style('Error:', **RED)} {style(pkg_name, **YELLOW)} not found'
+					f"{style('Error:', **RED)} {style(pkg_name, **YELLOW)} not found"
 				)
 
 	def history(self):
