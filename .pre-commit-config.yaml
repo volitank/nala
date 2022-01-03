@@ -23,7 +23,7 @@ repos:
       - id: isort
         args: [
           "--python-version=auto", # Tells isort to set the known standard library based on the specified Python version.
-        	"--balanced", # Balances wrapping to produce the most consistent line length possible
+          "--balanced", # Balances wrapping to produce the most consistent line length possible
           "--indent=\t", # String to place for indents defaults to " " (4 spaces).
           "--combine-as", # Combines as imports on the same line.
           "--combine-star", # Ensures that if a star import is present, nothing else is imported from that namespace.
