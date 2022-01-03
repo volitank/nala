@@ -23,9 +23,8 @@
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
 from rich.live import Live
-from rich.progress import (BarColumn, Column, Console, DownloadColumn,
-                           Optional, Progress, ProgressColumn, Text,
-                           TextColumn, TransferSpeedColumn, filesize,)
+from rich.progress import (BarColumn, Column, Console, Optional, Progress,
+                           ProgressColumn, Text, TextColumn, filesize,)
 from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Table
