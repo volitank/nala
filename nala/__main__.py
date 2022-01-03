@@ -30,8 +30,8 @@ from nala.fetch import fetch
 from nala.logger import dprint, esyslog
 from nala.nala import clean, nala
 from nala.options import arguments, parser
-from nala.utils import (ARCHIVE_DIR, CAT_ASCII, LION_ASCII, LION_ASCII2,
-                        LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE,)
+from nala.utils import (CAT_ASCII, LION_ASCII, LION_ASCII2,
+				ARCHIVE_DIR, LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
 
 
 def _main():

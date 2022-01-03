@@ -43,9 +43,8 @@ from pexpect.utils import errno, poll_ignore_interrupts
 from ptyprocess.ptyprocess import _setwinsize
 
 from nala.rich_custom import rich_grid, rich_live, rich_spinner
-from nala.utils import (  # Import Style Colors; Import Message; Lonely Import File :(
-	BLUE, CONF_ANSWER, CONF_MESSAGE, DPKG_LOG,
-	DPKG_STATUS, GREEN, NOTICES, RED, SPAM, YELLOW,)
+from nala.utils import (BLUE, CONF_ANSWER, CONF_MESSAGE,
+				DPKG_LOG, DPKG_STATUS, GREEN, NOTICES, RED, SPAM, YELLOW)
 
 # Control Codes
 CURSER_UP = b'\x1b[1A'

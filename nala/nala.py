@@ -47,8 +47,8 @@ from click import style
 from nala.dpkg import InstallProgress, nalaProgress
 from nala.logger import dprint, iprint, logger_newline
 from nala.options import arguments
-from nala.rich_custom import (Column, console, pkg_download_progress,
-                              rich_grid, rich_live, rich_table,)
+from nala.rich_custom import (Column, console,
+				pkg_download_progress, rich_grid, rich_live, rich_table)
 from nala.utils import BLUE, GREEN, RED, YELLOW, ask, shell
 
 timezone = datetime.utcnow().astimezone().tzinfo
