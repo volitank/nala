@@ -29,12 +29,12 @@ import fnmatch
 import hashlib
 import json
 import os
+import sys
 from datetime import datetime
 from getpass import getuser
 from os import environ, get_terminal_size, getuid
 from pathlib import Path
 from subprocess import Popen
-from sys import argv, exit, stderr
 from textwrap import TextWrapper
 from typing import List
 
@@ -129,9 +129,7 @@ class nala:
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
 		if not self.archive_dir:
-			err = 'No archive dir is set. Usually it is /var/cache/apt/archives/'
-			print(f'{style("Error:", **RED)} {err}')
-			exit(1)
+			sys.exit(f'{style("Error:", **RED)} No archive dir is set. Usually it is /var/cache/apt/archives/')
 
 		# Lists to check if we're removing stuff we shouldn't
 		self.essential = []
@@ -277,12 +275,9 @@ class nala:
 				print(f"Description: {pkg.candidate._translated_records.long_desc}")
 				print()
 			else:
-				print(
-					style('Error:', **RED),
-					style(pkg_name, **YELLOW),
-					'not found'
+				sys.exit(
+					f'{style('Error:', **RED)} {style(pkg_name, **YELLOW)} not found'
 				)
-				exit(1)
 
 	def history(self):
 		if not NALA_HISTORY.exists():
@@ -323,8 +318,7 @@ class nala:
 	def get_history(self, id):
 		dprint(f"Getting history {id}")
 		if not NALA_HISTORY.exists():
-			print("No history exists..")
-			exit()
+			sys.exit("No history exists..")
 		history = NALA_HISTORY.read_text().splitlines()
 		TRANSACTION = {}
 
@@ -448,13 +442,13 @@ class nala:
 
 		if upgrade and not pkgs:
 			print(style("All packages are up to date.", bold=True))
-			exit(0)
+			sys.exit(0)
 		elif not remove and not pkgs:
 			print(style("Nothing for Nala to do.", bold=True))
-			exit(0)
+			sys.exit(0)
 		elif remove and not pkgs:
 			print(style("Nothing for Nala to remove.", bold=True))
-			exit(0)
+			sys.exit(0)
 		if pkgs:
 			self.check_essential(pkgs)
 			delete_names, install_names, upgrade_names = sort_pkg_changes(pkgs)
@@ -508,8 +502,7 @@ class nala:
 				InstallProgress(self.verbose, self.debug, self.raw_dpkg)
 			)
 		except apt_pkg.Error as e:
-			print(f'\r\n{style("Error:", **RED)} {e}')
-			exit(1)
+			sys.exit(f'\r\n{style("Error:", **RED)} {e}')
 
 	def download(self, pkgs, num_concurrent=2):
 		if not pkgs:
@@ -683,7 +676,7 @@ def pkg_error(pkg_list: list, msg: str, banter: str = None, terminate: bool=Fals
 			print("This would have resulted in my own removal!")
 
 	if terminate:
-		exit(1)
+		sys.exit(1)
 
 def check_hash(path, hash_type, hash_value):
 	hash_fun = hashlib.new(hash_type)
@@ -727,9 +720,7 @@ def make_metalink(out, pkgs):
 				try:
 					mirrors = requests.get("http://mirrors.ubuntu.com/mirrors.txt").text.splitlines()
 				except requests.ConnectionError:
-					err = style("Error:", **RED)
-					stderr.write(f'{err} unable to connect to http://mirrors.ubuntu.com/mirrors.txt\n')
-					exit(1)
+					sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 			# If we use mirrors we don't have to request it, we already have our list.
 			if 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
 				for link in mirrors:
@@ -823,7 +814,7 @@ def sort_pkg_changes(pkgs: List[Package]):
 
 def write_history(delete_names, install_names, upgrade_names):
 	# We don't need only downloads in the history
-	if '--download-only' in argv[1:]:
+	if '--download-only' in sys.argv[1:]:
 		return
 
 	history = []
@@ -836,7 +827,7 @@ def write_history(delete_names, install_names, upgrade_names):
 	transaction = {
 		'ID' : ID,
 		'Date' : time,
-		'Command' : argv[1:],
+		'Command' : sys.argv[1:],
 		'Altered' : altered,
 		'Removed' : delete_names,
 		'Installed' : install_names,
@@ -932,10 +923,9 @@ def apt_error(e):
 		for err in err_list:
 			err = err.replace('E:', '')
 			print(f'{style("Error:", **RED)} {err.strip()}')
-		exit(1)
+		sys.exit(1)
 	print(f'{style("Error:", **RED)} {e}')
-	print('Are you root?')
-	exit(1)
+	sys.exit('Are you root?')
 
 def clean(path: Path, verbose: bool = False) -> None:
 	"""Iter the directory supplied and remove all files."""

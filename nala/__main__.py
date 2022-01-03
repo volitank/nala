@@ -22,16 +22,17 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
+import sys
 from getpass import getuser
 from os import geteuid
-from sys import argv, exit
 
 from nala.fetch import fetch
 from nala.logger import dprint, esyslog
-from nala.nala import nala, clean
+from nala.nala import clean, nala
 from nala.options import arguments, parser
-from nala.utils import (CAT_ASCII, LION_ASCII, LION_ASCII2,
-			ARCHIVE_DIR, PARTIAL_DIR, LISTS_PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
+from nala.utils import (ARCHIVE_DIR, CAT_ASCII, LION_ASCII, LION_ASCII2,
+                        LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE,)
+
 
 def _main():
 	command = arguments.command
@@ -47,7 +48,7 @@ def _main():
 
 	if not command and not update:
 		parser.print_help()
-		exit()
+		sys.exit(1)
 
 	dprint(f"Argparser = {arguments}")
 
@@ -55,8 +56,8 @@ def _main():
 	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None)
 
 	if command in superuser and su != 0:
-		esyslog(f'{getuser()} tried to run [{" ".join(argv)}] without permission')
-		exit(f"Nala needs root to {command}")
+		esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
+		sys.exit(f"Nala needs root to {command}")
 
 	if command in apt_init:
 		apt = init_apt(
@@ -71,8 +72,7 @@ def _main():
 
 	elif command == 'install':
 		if not arguments.args:
-			print('You must specify a package to install')
-			exit()
+			sys.exit('You must specify a package to install')
 		apt.install(arguments.args)
 
 	elif command in ('remove', 'purge'):
@@ -89,8 +89,7 @@ def _main():
 
 	elif command == 'show':
 		if not arguments.args:
-			print('You must specify a package to show')
-			exit()
+			sys.exit('You must specify a package to show')
 		apt.show(arguments.args)
 
 	elif command == 'history':
@@ -119,15 +118,13 @@ def history(arguments, apt: nala, su):
 	mode = arguments.mode
 
 	if mode and not id:
-		print('We need a transaction ID..')
-		exit(1)
+		sys.exit('We need a transaction ID..')
 
 	if mode in ('undo', 'redo', 'info'):
 		try:
 			id = int(id)
 		except ValueError:
-			print('Option must be a number..')
-			exit(1)
+			sys.exit('Option must be a number..')
 	else:
 		apt.history()
 	if mode == 'undo':
@@ -141,8 +138,8 @@ def history(arguments, apt: nala, su):
 
 	elif mode == 'clear':
 		if su != 0:
-			esyslog(f'{getuser()} tried to run [{" ".join(argv)}] without permission')
-			exit('Nala needs root to clear history')
+			esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
+			sys.exit('Nala needs root to clear history')
 		apt.history_clear(id)
 
 def init_apt(
@@ -187,4 +184,4 @@ def main():
 		_main()
 	except KeyboardInterrupt:
 		print('\nExiting at your request')
-		exit()
+		sys.exit(130)

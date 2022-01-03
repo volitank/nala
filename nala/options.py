@@ -23,9 +23,9 @@
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse
+import sys
 from pathlib import Path
 from pydoc import pager
-from sys import argv, exit, stderr
 
 from nala import __version__
 from nala.utils import LICENSE
@@ -34,9 +34,9 @@ from nala.utils import LICENSE
 # Custom Parser for printing help on error.
 class nalaParser(argparse.ArgumentParser):
 	def error(self, message):
-		stderr.write(f'error: {message}\n')
+		sys.stderr.write(f'error: {message}\n')
 		self.print_help()
-		exit(1)
+		sys.exit(1)
 
 # Custom Action for --license switch
 class GPLv3(argparse.Action):
@@ -88,7 +88,7 @@ def arg_parse():
 
 	formatter = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=64)
 
-	bin_name = Path(argv[0]).name
+	bin_name = Path(sys.argv[0]).name
 
 	version = __version__
 

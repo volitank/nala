@@ -26,10 +26,10 @@ import re
 import select
 import socket
 import struct
+import sys
 import threading
 import time
 from secrets import SystemRandom
-from sys import exit, stderr
 
 import requests
 from aptsources.distro import get_distro
@@ -96,9 +96,7 @@ def parse_ubuntu(country_list: list=None):
 	try:
 		ubuntu = requests.get("https://launchpad.net/ubuntu/+archivemirrors-rss").text.split('<item>')
 	except requests.ConnectionError:
-		err = style("Error:", **RED)
-		stderr.write(f'{err} unable to connect to http://mirrors.ubuntu.com/mirrors.txt\n')
-		exit(1)
+		sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 
 	# This is what one of our "Mirrors might look like after split"
 	#      <title>Steadfast Networks</title>
@@ -150,9 +148,7 @@ def parse_debian(country_list: list=None):
 	try:
 		debian = requests.get("https://mirror-master.debian.org/status/Mirrors.masterlist").text.split('\n\n')
 	except requests.ConnectionError:
-		err = style("Error:", **RED)
-		stderr.write(f'{err} unable to connect to http://mirrors.ubuntu.com/mirrors.txt\n')
-		exit(1)
+		sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 
 	arches = shell.dpkg.__print_architecture().stdout.strip().split()
 	foreign_arch = shell.dpkg.__print_foreign_architectures().stdout.strip().split()
@@ -207,7 +203,7 @@ def detect_release():
 		err = style('Error:', **RED)
 		print(f'{err} Unable to detect release. Specify manually')
 		parser.parse_args(['fetch', '--help'])
-		exit(1)
+		sys.exit(1)
 
 	if distro and release:
 		return distro, release
@@ -219,13 +215,11 @@ def fetch(	fetches: int, foss: bool = False,
 	if (NALA_SOURCES.exists() and not assume_yes and
 	    not ask(f'{NALA_SOURCES.name} already exists.\ncontinue and overwrite it')
 	    ):
-		print('Abort')
-		exit()
+		sys.exit('Abort')
 
 	# Make sure there aren't any shenanigans
 	if fetches not in range(1,11):
-		print('Amount of fetches has to be 1-10...')
-		exit(1)
+		sys.exit('Amount of fetches has to be 1-10...')
 
 	# If supplied a country it needs to be a list
 	if country:

@@ -27,10 +27,10 @@ import fcntl
 import os
 import re
 import signal
+import sys
 import tty
 from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from shutil import get_terminal_size
-from sys import exit, stderr, stdout
 from time import sleep
 from typing import Union
 
@@ -71,7 +71,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		text.TextProgress.__init__(self)
 		base.AcquireProgress.__init__(self)
 
-		self._file = stdout
+		self._file = sys.stdout
 		self.live = rich_live(redirect_stdout=False)
 		self.spinner = rich_spinner('dots', text='Initializing Cache', style="bold blue")
 		self.scroll = [self.spinner]
@@ -189,10 +189,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 
 	def stop(self):
 		"""Invoked when the Acquire process stops running."""
-		try:
-			base.AcquireProgress.stop(self)
-		except KeyboardInterrupt:
-			exit()
+		base.AcquireProgress.stop(self)
 		# Trick for getting a translation from apt
 		fetched = apt_pkg.size_to_str(self.fetched_bytes)
 		elapsed = apt_pkg.time_to_str(self.elapsed_time)
@@ -262,7 +259,7 @@ class InstallProgress(base.InstallProgress):
 			try:
 				os._exit(dpkg.do_install())
 			except Exception as e:
-				stderr.write("%s\n" % e)
+				sys.stderr.write("%s\n" % e)
 				os._exit(apt_pkg.PackageManager.RESULT_FAILED)
 
 		self.child_pid = pid
