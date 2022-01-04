@@ -29,13 +29,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from aptsources.distro import get_distro
-from click import style
 from pythonping import ping
 
 from nala.logger import dprint
 from nala.options import arguments, parser
 from nala.rich_custom import fetch_progress, rich_grid, rich_live
-from nala.utils import GREEN, NALA_SOURCES, RED, YELLOW, ask, shell
+from nala.utils import (color, YELLOW, GREEN,
+				ERROR_PREFIX, NALA_SOURCES, ask, shell)
 
 netselect_scored = []
 verbose = arguments.verbose
@@ -46,7 +46,7 @@ def net_select(mirror, task, live, total, num) -> None:
 
 	if not arguments.debug:
 		table = rich_grid()
-		table.add_row(f'{style("Mirror:", **GREEN)} {num}/{total}')
+		table.add_row(f'{color("Mirror:", GREEN)} {num}/{total}')
 		table.add_row(fetch_progress)
 
 		fetch_progress.advance(task)
@@ -82,9 +82,9 @@ def net_select(mirror, task, live, total, num) -> None:
 			e = str(e)
 			regex = re.search('\\[.*\\]', e)
 			if regex:
-				e = style(e.replace(regex.group(0), '').strip(), **YELLOW)
+				e = color(e.replace(regex.group(0), '').strip(), YELLOW)
 			print(f'{e}: {domain}')
-			print(f'{style("URL:", **YELLOW)} {mirror}\n')
+			print(f'{color("URL:", YELLOW)} {mirror}\n')
 
 def parse_ubuntu(country_list: list=None):
 	print('Fetching Ubuntu mirrors...')
@@ -92,7 +92,7 @@ def parse_ubuntu(country_list: list=None):
 	try:
 		ubuntu = requests.get("https://launchpad.net/ubuntu/+archivemirrors-rss").text.split('<item>')
 	except requests.ConnectionError:
-		sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
+		sys.exit(ERROR_PREFIX+'unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 
 	# This is what one of our "Mirrors might look like after split"
 	#      <title>Steadfast Networks</title>
@@ -144,7 +144,7 @@ def parse_debian(country_list: list=None):
 	try:
 		debian = requests.get("https://mirror-master.debian.org/status/Mirrors.masterlist").text.split('\n\n')
 	except requests.ConnectionError:
-		sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
+		sys.exit(ERROR_PREFIX+'unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 
 	arches = get_arch()
 
@@ -190,10 +190,8 @@ def detect_release():
 	try:
 		distro = lsb.id
 		release = lsb.codename
-
 	except:
-		err = style('Error:', **RED)
-		print(f'{err} Unable to detect release. Specify manually')
+		print(ERROR_PREFIX+'Unable to detect release. Specify manually')
 		parser.parse_args(['fetch', '--help'])
 		sys.exit(1)
 
@@ -263,7 +261,7 @@ def fetch(	fetches: int, foss: bool = False,
 	dprint(f'Writing from: {netselect_scored[:fetches]}')
 
 	with open(NALA_SOURCES, 'w') as file:
-		print(f"{style('Writing:', **GREEN)} {NALA_SOURCES}\n")
+		print(f"{color('Writing:', GREEN)} {NALA_SOURCES}\n")
 		print('# Sources file built for nala\n', file=file)
 		fetches -= 1
 		for num, line in enumerate(netselect_scored):

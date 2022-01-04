@@ -37,9 +37,9 @@ MAGENTA = 35
 CYAN = 36
 WHITE = 37
 
-def color(text: str, color: int = WHITE) -> str:
+def color(text: str, text_color: int = WHITE) -> str:
 	"""Returns bold text in the color of your choice."""
-	return f'\x1b[1;{color}m' + text + RESET
+	return f'\x1b[1;{text_color}m' + text + RESET
 
 # File Constants
 LICENSE = Path('/usr/share/common-licenses/GPL-3')

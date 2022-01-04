@@ -24,6 +24,8 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import errno
 import fnmatch
 import hashlib
@@ -36,20 +38,20 @@ from os import environ, get_terminal_size, getuid
 from pathlib import Path
 from subprocess import Popen
 from textwrap import TextWrapper
-from typing import List
+from typing import NoReturn
 
 import apt_pkg
 import requests
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import Package
-from click import style
 
 from nala.dpkg import InstallProgress, nalaProgress
 from nala.logger import dprint, iprint, logger_newline
 from nala.options import arguments
-from nala.rich_custom import (Column, console,
-				pkg_download_progress, rich_grid, rich_live, rich_table)
-from nala.utils import BLUE, GREEN, RED, YELLOW, ask, shell
+from nala.rich_custom import (Column, console, rich_grid,
+				rich_live, rich_table, pkg_download_progress)
+from nala.utils import (ask, shell, ERROR_PREFIX,
+				color, RED, YELLOW, BLUE, GREEN)
 
 timezone = datetime.utcnow().astimezone().tzinfo
 time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
@@ -129,7 +131,7 @@ class nala:
 		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
 		"""/var/cache/apt/archives/"""
 		if not self.archive_dir:
-			sys.exit(f'{style("Error:", **RED)} No archive dir is set. Usually it is /var/cache/apt/archives/')
+			sys.exit(ERROR_PREFIX+'No archive dir is set. Usually it is /var/cache/apt/archives/')
 
 		# Lists to check if we're removing stuff we shouldn't
 		self.essential = []
@@ -177,9 +179,9 @@ class nala:
 					pkg.mark_upgrade()
 					dprint(f"Marked upgrade: {pkg.name}")
 				else:
-					print(f'Package {style(pkg.name, **GREEN)}',
+					print(f'Package {color(pkg.name, GREEN)}',
 					'is already at the latest version',
-					style(pkg.installed.version, **BLUE))
+					color(pkg.installed.version, BLUE))
 
 		if not_found:
 			pkg_error(not_found, 'not found', terminate=True)
@@ -250,15 +252,15 @@ class nala:
 					print('Provides:', ", ".join(provides))
 
 				if pkg.candidate.dependencies:
-					print(style('Depends:', bold=True))
+					print(color('Depends:'))
 					dep_format(pkg.candidate.dependencies)
 
 				if pkg.candidate.recommends:
-					print(style('Recommends:', bold=True))
+					print(color('Recommends:'))
 					dep_format(pkg.candidate.recommends)
 
 				if pkg.candidate.suggests:
-					print(style('Suggests:', bold=True))
+					print(color('Suggests:'))
 					dep_format(pkg.candidate.suggests)
 
 				print(f"Homepage: {pkg.candidate.homepage}")
@@ -276,7 +278,7 @@ class nala:
 				print()
 			else:
 				sys.exit(
-					f"{style('Error:', **RED)} {style(pkg_name, **YELLOW)} not found"
+					f"{ERROR_PREFIX}{color(pkg_name, YELLOW)} not found"
 				)
 
 	def history(self):
@@ -441,13 +443,13 @@ class nala:
 			NALA_DIR.mkdir()
 
 		if upgrade and not pkgs:
-			print(style("All packages are up to date.", bold=True))
+			print(color("All packages are up to date."))
 			sys.exit(0)
 		elif not remove and not pkgs:
-			print(style("Nothing for Nala to do.", bold=True))
+			print(color("Nothing for Nala to do."))
 			sys.exit(0)
 		elif remove and not pkgs:
-			print(style("Nothing for Nala to remove.", bold=True))
+			print(color("Nothing for Nala to remove."))
 			sys.exit(0)
 		if pkgs:
 			self.check_essential(pkgs)
@@ -502,7 +504,7 @@ class nala:
 				InstallProgress(self.verbose, self.debug, self.raw_dpkg)
 			)
 		except apt_pkg.Error as e:
-			sys.exit(f'\r\n{style("Error:", **RED)} {e}')
+			sys.exit(f'\r\n{ERROR_PREFIX+e}')
 
 	def download(self, pkgs, num_concurrent=2):
 		if not pkgs:
@@ -659,15 +661,11 @@ def pkg_error(pkg_list: list, msg: str, banter: str = None, terminate: bool=Fals
 		auto_preservation: "Whatever you did would have resulted in my own removal!"
 	"""
 	for pkg in pkg_list:
-		print(
-			style('Error:', **RED),
-			style(pkg, **YELLOW),
-			msg
-		)
+		print(ERROR_PREFIX+color(pkg, YELLOW), msg)
 
 	if banter:
 		if banter == 'apt':
-			print(f"Maybe {style('apt', **RED)} will let you")
+			print(f"Maybe {color('apt', RED)} will let you")
 
 		elif banter == 'auto_essential':
 			print("Whatever you did tried to auto mark essential packages")
@@ -720,7 +718,7 @@ def make_metalink(out, pkgs):
 				try:
 					mirrors = requests.get("http://mirrors.ubuntu.com/mirrors.txt").text.splitlines()
 				except requests.ConnectionError:
-					sys.exit(f'{style("Error:", **RED)} unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
+					sys.exit(ERROR_PREFIX+'unable to connect to http://mirrors.ubuntu.com/mirrors.txt')
 			# If we use mirrors we don't have to request it, we already have our list.
 			if 'mirror://mirrors.ubuntu.com/mirrors.txt' in uri:
 				for link in mirrors:
@@ -740,7 +738,8 @@ def guess_concurrent(pkgs):
 		max_uris = 2
 	return max_uris
 
-def print_packages(headers: List[str], names: List[list], title, style=None):
+def print_packages(headers: list[str], names: list[list], title, style=None):
+	"""Prints package transactions in a pretty format."""
 	if not names:
 		return
 
@@ -788,8 +787,8 @@ def unit_str(val, just = 7):
 	else:
 		return f'{val :.0f}'.rjust(just)+" B"
 
-def sort_pkg_changes(pkgs: List[Package]):
-
+def sort_pkg_changes(pkgs: list[Package]):
+	"""Sorts a list of packages and splits them based on the action to take."""
 	delete_names = []
 	install_names = []
 	upgrade_names = []
@@ -874,12 +873,12 @@ def dep_format(package_dependecy):
 	for dep_list in package_dependecy:
 		dep_print = ''
 		for num, dep in enumerate(dep_list):
-			open_paren = style('(', bold=True)
-			close_paren = style(')', bold=True)
-			name = style(dep.name, **GREEN)
-			relation = style(dep.relation, bold=True)
-			version = style(dep.version, **BLUE)
-			pipe = style(' | ', bold=True)
+			open_paren = color('(')
+			close_paren = color(')')
+			name = color(dep.name, GREEN)
+			relation = color(dep.relation)
+			version = color(dep.version, BLUE)
+			pipe = color(' | ')
 
 			final = name+' '+open_paren+relation+' '+version+close_paren
 
@@ -889,8 +888,8 @@ def dep_format(package_dependecy):
 				dep_print += pipe+final if dep.relation else pipe+name
 		print(dep_print)
 
-def download_progress(pkgs: List[Package], proc: Popen):
-
+def download_progress(pkgs: list[Package], proc: Popen) -> None:
+	"""Monitors the downloads and prints a progress bar."""
 	# Add up the size of all our packages so we know the total
 	total = sum(pkg.candidate.size for pkg in pkgs)
 	task = pkg_download_progress.add_task(
@@ -908,8 +907,8 @@ def download_progress(pkgs: List[Package], proc: Popen):
 				pass
 
 			table = rich_grid()
-			table.add_row(f'{style("Total Packages:", **GREEN)} {num}/{len(pkgs)}')
-			table.add_row(f'{style("Current Package:", **GREEN)} {deb_name}')
+			table.add_row(f'{color("Total Packages:", GREEN)} {num}/{len(pkgs)}')
+			table.add_row(f'{color("Current Package:", GREEN)} {deb_name}')
 			table.add_row(pkg_download_progress)
 			live.update(table)
 
@@ -917,14 +916,23 @@ def download_progress(pkgs: List[Package], proc: Popen):
 				pkg_download_progress.advance(task, advance=pkgs[num].candidate.size)
 				num += 1
 
-def apt_error(e):
-	if '.,' in str(e):
-		err_list = list(set(str(e).split(',')))
+def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
+	"""Takes an error message from python-apt and formats it."""
+	msg = str(apt_err)
+	if msg == '':
+		# Sometimes python apt gives us literally nothing to work with.
+		# Probably an issue with sources.list. Needs further testing.
+		sys.exit(
+			ERROR_PREFIX+f"python-apt gave us '{repr(apt_err)}'\n"
+			"This isn't a proper error as it's empty"
+			)
+	if '.,' in msg:
+		err_list = set(msg.split(','))
 		for err in err_list:
 			err = err.replace('E:', '')
-			print(f'{style("Error:", **RED)} {err.strip()}')
+			print(ERROR_PREFIX+err.strip())
 		sys.exit(1)
-	print(f'{style("Error:", **RED)} {e}')
+	print(ERROR_PREFIX+msg)
 	sys.exit('Are you root?')
 
 def clean(path: Path, verbose: bool = False) -> None:

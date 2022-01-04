@@ -37,14 +37,13 @@ from typing import Union
 import apt.progress.base as base
 import apt.progress.text as text
 import apt_pkg
-from click import style
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import errno, poll_ignore_interrupts
 from ptyprocess.ptyprocess import _setwinsize
 
 from nala.rich_custom import rich_grid, rich_live, rich_spinner
-from nala.utils import (BLUE, CONF_ANSWER, CONF_MESSAGE,
-				DPKG_LOG, DPKG_STATUS, GREEN, NOTICES, RED, SPAM, YELLOW)
+from nala.utils import (color, BLUE, RED, GREEN, YELLOW, ERROR_PREFIX,
+				CONF_ANSWER, CONF_MESSAGE, DPKG_LOG, DPKG_STATUS, NOTICES, SPAM)
 
 # Control Codes
 CURSER_UP = b'\x1b[1A'
@@ -142,22 +141,15 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 	def ims_hit(self, item):
 		"""Called when an item is update (e.g. not modified on the server)."""
 		base.AcquireProgress.ims_hit(self, item)
-		no_change = style('No Change:', **GREEN)
-		line = f"{no_change} {item.description}"
-		if item.owner.filesize:
-			size = apt_pkg.size_to_str(item.owner.filesize)
-			line += f' [{size}B]'
-		self._write(line)
+		self.write_update('No Change:', GREEN, item)
 
 	def fail(self, item):
 		"""Called when an item is failed."""
 		base.AcquireProgress.fail(self, item)
 		if item.owner.status == item.owner.STAT_DONE:
-			ignored = style('Ignored:  ', **YELLOW)
-			self._write(f"{ignored} {item.description}")
+			self._write(f"{color('Ignored:  ', YELLOW)} {item.description}")
 		else:
-			err = style('Error:    ', **RED)
-			self._write(f"{err} {item.description}")
+			self._write(ERROR_PREFIX+item.description)
 			self._write(f"  {item.owner.error_text}")
 
 	def fetch(self, item):
@@ -166,11 +158,14 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		# It's complete already (e.g. Hit)
 		if item.owner.complete:
 			return
-		update = style('Updated:  ', **BLUE)
-		line = f"{update} {item.description}"
+		self.write_update('Updated:  ', BLUE, item)
+
+	def write_update(self, msg: str, _color: int, item: apt_pkg.AcquireItemDesc) -> None:
+		"""Writes the update from either hit or fetch."""
+		line = f'{color(msg, _color)} {item.description}'
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
-			line += f" [{size}B]"
+			line += f' [{size}B]'
 		self._write(line)
 
 	def start(self):
@@ -193,7 +188,7 @@ class nalaProgress(text.AcquireProgress, base.OpProgress):
 		fetched = apt_pkg.size_to_str(self.fetched_bytes)
 		elapsed = apt_pkg.time_to_str(self.elapsed_time)
 		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
-		msg = style(f"Fetched {fetched}B in {elapsed} ({speed}B/s)", bold=True)
+		msg = color(f"Fetched {fetched}B in {elapsed} ({speed}B/s)")
 		self._write(msg)
 
 		# Delete the signal again.
@@ -231,17 +226,17 @@ class InstallProgress(base.InstallProgress):
 		self.notice = set()
 		if not self.verbose and not self.raw_dpkg:
 			self.live.start()
-			self.spinner.text = style('Initializing dpkg...', **BLUE)
+			self.spinner.text = color('Initializing dpkg...', BLUE)
 
 	def finish_update(self):
 		"""Called when update has finished."""
 		if not self.verbose and not self.raw_dpkg:
 			self.live.stop()
 		if self.notice:
-			print('\n'+style('Notices:', bold=True))
+			print('\n'+color('Notices:'))
 			for notice in self.notice:
 				print(notice)
-		print(style("Finished Successfully", **GREEN))
+		print(color("Finished Successfully", GREEN))
 
 	def __exit__(self, type, value, traceback):
 		pass
@@ -332,9 +327,7 @@ class InstallProgress(base.InstallProgress):
 				if self.verbose:
 					os.write(STDOUT_FILENO, rawline)
 				else:
-					self.spinner.text = style(
-						rawline.decode().strip(), bold=True
-					)
+					self.spinner.text = color(rawline.decode().strip())
 					scroll_bar(self, msg=None)
 				return
 
@@ -361,7 +354,7 @@ class InstallProgress(base.InstallProgress):
 		if self.check_line_spam(line, rawline):
 			return
 
-		self.spinner.text = style('Running dpkg...', bold=True)
+		self.spinner.text = color('Running dpkg...')
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
@@ -411,22 +404,22 @@ def msg_formatter(line):
 	for word in line:
 		match = re.fullmatch(r'\(.*.\)', word)
 		if word == 'Removing':
-			msg += style('Removing:   ', **RED)
+			msg += color('Removing:   ', RED)
 		elif word == 'Unpacking':
-			msg += style('Unpacking:  ', **GREEN)
+			msg += color('Unpacking:  ', GREEN)
 		elif word == 'Setting':
-			msg += style('Setting ', **GREEN)
+			msg += color('Setting ', GREEN)
 		elif word == 'up':
-			msg += style('up: ', **GREEN)
+			msg += color('up: ', GREEN)
 		elif word == 'Processing':
-			msg += style('Processing: ', **GREEN)
+			msg += color('Processing: ', GREEN)
 		elif word == '...':
 			continue
 		elif match:
 			word = re.sub('[()]', '', word)
-			paren = style('(', bold=True)
-			paren2 = style(')', bold=True)
-			msg += (' ') + paren+style(word, **BLUE)+paren2
+			paren = color('(')
+			paren2 = color(')')
+			msg += (' ') + paren+color(word, BLUE)+paren2
 		else:
 			msg += ' ' + word
 	return msg
@@ -521,11 +514,11 @@ class dcexpect(fdspawn):
 						n = os.write(self.child_fd, data)
 						data = data[n:]
 			except KeyboardInterrupt:
-				err = style("Warning: ", **YELLOW)
+				err = color("Warning: ", YELLOW)
 				err += "quitting now could break your system!"
 				if self.parent.live.is_started:
 					self.parent.scroll.append(err)
-					self.parent.scroll.append(style("Ctrl+C twice quickly will exit...", **RED))
+					self.parent.scroll.append(color("Ctrl+C twice quickly will exit...", RED))
 					scroll_bar(self.parent, None)
 				else:
 					os.write(STDOUT_FILENO, LF+err.encode())

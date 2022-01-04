@@ -30,7 +30,7 @@ from nala.fetch import fetch
 from nala.logger import dprint, esyslog
 from nala.nala import clean, nala
 from nala.options import arguments, parser
-from nala.utils import (CAT_ASCII, LION_ASCII, LION_ASCII2,
+from nala.utils import (CAT_ASCII, LION_ASCII, LION_ASCII2, ERROR_PREFIX,
 				ARCHIVE_DIR, LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
 
 
@@ -57,7 +57,7 @@ def _main():
 
 	if command in superuser and su != 0:
 		esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
-		sys.exit(f"Nala needs root to {command}")
+		sys.exit(f"{ERROR_PREFIX}Nala needs root to {command}")
 
 	if command in apt_init:
 		apt = init_apt(
@@ -72,7 +72,7 @@ def _main():
 
 	elif command == 'install':
 		if not arguments.args:
-			sys.exit('You must specify a package to install')
+			sys.exit(ERROR_PREFIX+'You must specify a package to install')
 		apt.install(arguments.args)
 
 	elif command in ('remove', 'purge'):
@@ -89,7 +89,7 @@ def _main():
 
 	elif command == 'show':
 		if not arguments.args:
-			sys.exit('You must specify a package to show')
+			sys.exit(ERROR_PREFIX+'You must specify a package to show')
 		apt.show(arguments.args)
 
 	elif command == 'history':
@@ -118,13 +118,13 @@ def history(arguments, apt: nala, su):
 	mode = arguments.mode
 
 	if mode and not id:
-		sys.exit('We need a transaction ID..')
+		sys.exit(ERROR_PREFIX+'We need a transaction ID..')
 
 	if mode in ('undo', 'redo', 'info'):
 		try:
 			id = int(id)
 		except ValueError:
-			sys.exit('Option must be a number..')
+			sys.exit(ERROR_PREFIX+'Option must be a number..')
 	else:
 		apt.history()
 	if mode == 'undo':
@@ -139,7 +139,7 @@ def history(arguments, apt: nala, su):
 	elif mode == 'clear':
 		if su != 0:
 			esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
-			sys.exit('Nala needs root to clear history')
+			sys.exit(ERROR_PREFIX+'Nala needs root to clear history')
 		apt.history_clear(id)
 
 def init_apt(
