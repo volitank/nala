@@ -22,6 +22,8 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import sys
 from getpass import getuser
 from os import geteuid

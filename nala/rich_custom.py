@@ -22,6 +22,8 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 from rich.live import Live
 from rich.progress import (BarColumn, Column, Console, Optional,
 				Progress, ProgressColumn, Text, TextColumn, filesize)
