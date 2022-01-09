@@ -40,3 +40,7 @@ venv.bak/
 # Volian
 test*.py
 .vscode/
+
+# Nuitka Build
+nala-cli.build/
+nala-cli.bin
