@@ -619,6 +619,7 @@ def sort_pkg_changes(pkgs: list[Package], log: bool = False
 			)
 
 		elif pkg.marked_upgrade:
+			installed = pkg_installed(pkg)
 			if log:
 				upgrade_names.append([f"{pkg.name}:{candidate.architecture} ({candidate.version})"])
 			upgrade_names.append(
