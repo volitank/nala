@@ -21,26 +21,24 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
-
+"""Rich options for Nala output."""
 from __future__ import annotations
 
+from rich.console import Console
 from rich.live import Live
-from rich.progress import (BarColumn, Column, Console, Optional,
-				Progress, ProgressColumn, Text, TextColumn, filesize)
+from rich.progress import (BarColumn, DownloadColumn,
+				Progress, Task, TextColumn, TransferSpeedColumn, filesize)
 from rich.spinner import Spinner
 from rich.style import Style
-from rich.table import Table
+from rich.table import Column, Table
+from rich.text import Text
 
-console = Console()
-rich_live = Live
-rich_grid = Table().grid
-rich_spinner = Spinner
-rich_table = Table
+__all__ = ('Spinner', 'Table', 'Column', 'Live')
 
-class TransferSpeedColumn(ProgressColumn):
-	"""Renders human readable transfer speed."""
+class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
+	"""Subclass of TransferSpeedColumn."""
 
-	def render(self, task) -> Text:
+	def render(self, task: Task) -> Text:
 		"""Show data transfer speed."""
 		speed = task.finished_speed or task.speed
 		if speed is None:
@@ -48,20 +46,10 @@ class TransferSpeedColumn(ProgressColumn):
 		data_speed = filesize.decimal(int(speed))
 		return Text(f"{data_speed}/s", style="bold blue")
 
-class DownloadColumn(ProgressColumn):
-	"""Renders file size downloaded and total, e.g. '0.5/2.3 GB'.
+class NalaDownload(DownloadColumn): # type: ignore[misc]
+	"""Subclass of DownloadColumn."""
 
-	Args:
-		binary_units (bool, optional): Use binary units, KiB, MiB etc. Defaults to False.
-	"""
-
-	def __init__(
-		self, binary_units: bool = False, table_column: Optional[Column] = None
-	) -> None:
-		self.binary_units = binary_units
-		super().__init__(table_column=table_column)
-
-	def render(self, task) -> Text:
+	def render(self, task: Task) -> Text:
 		"""Calculate common unit for completed and total."""
 		completed = int(task.completed)
 		total = int(task.total)
@@ -85,6 +73,8 @@ class DownloadColumn(ProgressColumn):
 
 bar_back_style = Style(color='red')
 bar_style = Style(color='cyan')
+console = Console()
+
 pkg_download_progress = Progress(
 	TextColumn("[bold blue]Downloading ...", justify="right"),
 	BarColumn(
@@ -98,9 +88,9 @@ pkg_download_progress = Progress(
 	),
 	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
 	"[bold]•",
-	DownloadColumn(),
+	NalaDownload(),
 	"[bold]•",
-	TransferSpeedColumn(),
+	NalaTransferSpeed(),
 	)
 
 fetch_progress = Progress(

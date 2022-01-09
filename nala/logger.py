@@ -1,12 +1,35 @@
-
+#                 __
+#    ____ _____  |  | _____
+#   /    \\__  \ |  | \__  \
+#  |   |  \/ __ \|  |__/ __ \_
+#  |___|  (____  /____(____  /
+#       \/     \/          \/
+#
+# Copyright (C) 2021, 2022 Blake Lee
+#
+# This file is part of nala
+#
+# nala is program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# nala is program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with nala.  If not, see <https://www.gnu.org/licenses/>.
+"""Nala logging Module."""
 from __future__ import annotations
 
 import logging
 from logging.handlers import RotatingFileHandler, SysLogHandler
 from os import devnull, geteuid
 
+from nala.constants import NALA_DEBUGLOG, NALA_LOGDIR, NALA_LOGFILE
 from nala.options import arguments
-from nala.utils import NALA_DEBUGLOG, NALA_LOGDIR, NALA_LOGFILE
 
 # Define log levels for import
 INFO = 20
@@ -58,8 +81,8 @@ if arguments.debug:
 	logger.addHandler(std_err_handler)
 	logger.setLevel(DEBUG)
 
-# This allows us to print a blank newline in nala.log
-def logger_newline():
+def logger_newline() -> None:
+	"""Print a blank newline in nala.log."""
 	file_handler.setFormatter(empty_format)
 	iprint('')
 	file_handler.setFormatter(formatter)

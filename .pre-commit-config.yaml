@@ -28,7 +28,6 @@ repos:
           "--combine-as", # Combines as imports on the same line.
           "--combine-star", # Ensures that if a star import is present, nothing else is imported from that namespace.
           "--ensure-newline-before-comments", # Inserts a blank line before a comment following an import.
-          "--only-sections", # Imports are ordered by their import style, not alphabetically.
           "--project=nala" # Force isort to recognize a module as being part of the current python project.
         ]
   - repo: https://github.com/asottile/pyupgrade

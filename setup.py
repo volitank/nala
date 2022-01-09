@@ -1,4 +1,5 @@
 # Always prefer setuptools over distutils
+"""Setup.py."""
 from pathlib import Path
 
 from setuptools import setup

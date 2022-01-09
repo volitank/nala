@@ -22,8 +22,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
-
-"""Nala command-line entry point"""
+# nala-cli.py doesn't conform to snake name
+# This isn't really a module and is an entry script
+# pylint disable=invalid-name
+"""Nala command-line entry point."""
 
 from nala import __main__
 
