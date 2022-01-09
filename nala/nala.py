@@ -91,11 +91,6 @@ class Nala:
 		if not self.archive_dir:
 			sys.exit(ERROR_PREFIX+'No archive dir is set. Usually it is /var/cache/apt/archives/')
 
-		# Lists to check if we're removing stuff we shouldn't
-		self.essential: list[str] = []
-		self.nala: list[str] = []
-		self.nala_depends = ['nala', 'python3-pyshell']
-
 	def upgrade(self, dist_upgrade: bool = False) -> None:
 		"""Upgrade pkg[s]."""
 		self.cache.upgrade(dist_upgrade=dist_upgrade)
@@ -260,19 +255,22 @@ class Nala:
 
 	def check_essential(self, pkgs: list[Package]) -> None:
 		"""Check removal of essential packages."""
+		essential: list[str] = []
+		nala_check: bool = False
+		banter: str = 'apt'
 		for pkg in pkgs:
 			if pkg.is_installed:
 				# do not allow the removal of essential or required packages
 				if pkg_installed(pkg).priority == 'required' and pkg.marked_delete:
-					self.essential.append(pkg.name)
+					essential.append(pkg.name)
 				# do not allow the removal of nala
-				elif pkg.shortname in self.nala_depends and pkg.marked_delete:
-					self.nala.append(pkg.name)
+				elif pkg.shortname in 'nala' and pkg.marked_delete:
+					nala_check = True
+					banter = 'auto_preservation'
+					essential.append('nala')
 
-		if self.essential:
-			pkg_error(self.essential, 'cannot be removed', banter='apt', terminate=True)
-		if self.nala:
-			pkg_error(self.nala, 'cannot be removed', banter='auto_preservation', terminate=True)
+		if essential or nala_check:
+			pkg_error(essential, 'cannot be removed', banter=banter, terminate=True)
 
 	def get_changes(self, upgrade: bool = False, remove: bool = False) -> None:
 		"""Get packages requiring changes and process them."""
