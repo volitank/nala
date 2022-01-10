@@ -33,7 +33,7 @@ from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
 
-__all__ = ('Spinner', 'Table', 'Column', 'Live')
+__all__ = ('Spinner', 'Table', 'Column', 'Live', 'Text')
 
 class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
 	"""Subclass of TransferSpeedColumn."""

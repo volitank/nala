@@ -45,7 +45,7 @@ from pexpect.utils import poll_ignore_interrupts
 
 from nala.constants import DPKG_LOG, DPKG_MSG, ERROR_PREFIX, SPAM, TERM_SIZE
 from nala.options import arguments
-from nala.rich import Live, Spinner, Table
+from nala.rich import Live, Spinner, Table, Text
 from nala.utils import color
 
 # Control Codes
@@ -73,12 +73,11 @@ scroll_list: list[Spinner | str] = []
 notice: set[str] = set()
 live = Live(redirect_stdout=False)
 
-class UpdateProgress(text.TextProgress, base.AcquireProgress, base.OpProgress): # type: ignore[misc]
+class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc]
 	"""Class for getting cache update status and printing to terminal."""
 
 	def __init__(self) -> None:
 		"""Class for getting cache update status and printing to terminal."""
-		text.TextProgress.__init__(self)
 		base.AcquireProgress.__init__(self)
 		base.OpProgress.__init__(self)
 		self._file = sys.stdout
@@ -89,7 +88,7 @@ class UpdateProgress(text.TextProgress, base.AcquireProgress, base.OpProgress): 
 		if arguments.debug:
 			arguments.verbose=True
 
-		spinner.update(text='Initializing Cache')
+		spinner.text = Text('Initializing Cache')
 		scroll_list.clear()
 		scroll_list.append(spinner)
 
@@ -144,7 +143,8 @@ class UpdateProgress(text.TextProgress, base.AcquireProgress, base.OpProgress): 
 					pulse.insert(last-2, ' '*fill)
 					msg = ' '.join(pulse)
 
-				spinner.update(text=msg)
+				spinner.text = Text(msg)
+				scroll_bar(msg=None)
 
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is update (e.g. not modified on the server)."""
@@ -192,7 +192,6 @@ class UpdateProgress(text.TextProgress, base.AcquireProgress, base.OpProgress): 
 		base.AcquireProgress.start(self)
 		self._signal = signal.signal(signal.SIGWINCH, self._winch) # type: ignore[assignment]
 		# Get the window size.
-		self._width = 80
 		self._winch()
 		self._id = 1
 		live.start()
@@ -230,7 +229,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		if 'xterm' not in os.environ["TERM"]:
 			os.environ["TERM"] = 'xterm'
 
-		spinner.update(text='Initializing dpkg')
+		spinner.text = Text('Initializing dpkg')
 		scroll_list.clear()
 		scroll_list.append(spinner)
 
@@ -239,7 +238,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		"""Start update."""
 		if not arguments.verbose and not arguments.raw_dpkg:
 			live.start()
-			spinner.update(text=color('Initializing dpkg...', 'BLUE'))
+			spinner.text = Text(color('Initializing dpkg...', 'BLUE'))
 
 	@staticmethod
 	def finish_update() -> None:
@@ -341,7 +340,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 				if arguments.verbose:
 					os.write(STDOUT_FILENO, rawline)
 				else:
-					spinner.update(text=color(rawline.decode().strip()))
+					spinner.text = Text(color(rawline.decode().strip()))
 					scroll_bar(msg=None)
 				return
 
@@ -368,7 +367,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		if check_line_spam(line, rawline):
 			return
 
-		spinner.update(text=color('Running dpkg...'))
+		spinner.text = Text(color('Running dpkg...'))
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
