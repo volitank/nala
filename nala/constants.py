@@ -98,6 +98,7 @@ NOTICES = (
 	b'The currently running kernel version is not the expected kernel version',
 	b'so you should consider rebooting.',
 	b'Please remove.',
+	b'NOTICE:',
 	b'Warning:'
 )
 SPAM = (
