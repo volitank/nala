@@ -45,5 +45,6 @@ repos:
           "--pretty",
           "--show-error-context",
           "--show-column-numbers",
-          "--show-error-codes"
+          "--show-error-codes",
+          "--no-warn-unused-ignores"
         ]
