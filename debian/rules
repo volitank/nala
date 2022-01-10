@@ -1,23 +1,33 @@
 #!/usr/bin/make -f
-export PYBUILD_NAME=nala
 
 %:
 	set -x
-	dh $@ --with python3 --buildsystem=pybuild
-
-override_dh_clean:
-	rm -rf nala.egg-info
-	rm -rf docs/nala.8.gz
-	rm -rf nala/__pycache__
-	dh_clean
-
-execute_after_dh_auto_install:
-	rm -rf debian/nala/usr/lib/python3.9/dist-packages/nala/__pycache__/
-	rm -rf debian/nala/usr/lib/python3.10/
-	mv debian/nala/usr/lib/python3.9 debian/nala/usr/lib/python3
+	dh $@ --buildsystem=none
 
 execute_before_dh_installman:
 	pandoc docs/nala.8.md \
 	--standalone \
 	--from markdown \
 	--to man | gzip -c > docs/nala.8.gz
+
+execute_before_dh_install:
+	mkdir -p debian/nala/usr/bin
+	mv nala-cli.build/nala debian/nala/usr/bin/nala
+	chrpath -d debian/nala/usr/bin/nala
+
+override_dh_clean:
+	rm -f nala.egg-info
+	rm -f docs/nala.8.gz
+	rm -rf nala-cli.build
+	rm -rf nala/__pycache__
+	dh_clean
+
+override_dh_auto_build:
+	nuitka3 --assume-yes-for-downloads \
+	--follow-import-to=nala \
+	--follow-import-to=pyshell \
+	--follow-import-to=pythonping \
+	--follow-import-to=rich \
+	--plugin-enable=pylint-warnings \
+	--static-libpython=yes \
+	nala-cli.py -o nala-cli.build/nala

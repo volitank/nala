@@ -8,25 +8,26 @@ Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
 Standards-Version: 4.6.0
 Build-Depends:	debhelper-compat (= 13),
-				dh-python,
-				python3-all-dev,
-				python3-setuptools,
+				nuitka (>= 0.6.18.6+ds-1~),
+				python3-apt,
+				python3-pexpect,
+				python3-requests,
+				python3-jsbeautifier,
 				pandoc,
+				chrpath,
 				bash-completion,
 				dh-sequence-bash-completion
 
 Package: nala
-Architecture: all
-Depends:	python3,
+Architecture: any
+Depends:	${shlibs:Depends},
+			${misc:Depends},
+			libpython3.9,
 			python3-apt,
-			python3-click,
-			python3-wcwidth,
-			python3-pyshell,
 			python3-pexpect,
-			python3-tqdm (>= 4.57.0-2),
+			python3-requests,
+			python3-jsbeautifier,
 			aria2,
-			apt,
-			${misc:Depends}
 Description: commandline wrapper for the apt package manager
  nala is a wrapper for the apt package manager. It has a lot
  of the same functionality, but formats the output to be more

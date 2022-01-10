@@ -1,0 +1,26 @@
+#!/bin/sh
+#DEBHELPER#
+set -e
+
+lib_dir="/usr/lib/python3/dist-packages/"
+apt_pkg39="${lib_dir}apt_pkg.cpython-39-x86_64-linux-gnu.so"
+apt_pkg38="${lib_dir}apt_pkg.cpython-38-x86_64-linux-gnu.so"
+apt_generic="${lib_dir}apt_pkg.so"
+
+echo "checking apt_pkg library.."
+if [ ! -e $apt_pkg39 ]; then
+	if [ -e $apt_generic ]; then
+		echo "$apt_generic exists.."
+	else
+		if [ -e $apt_pkg38 ]; then
+			echo "linking ${lib_dir}apt_pkg.so"
+			ln -s "$apt_pkg38" "$apt_generic"
+			echo "linking complete.."
+		else
+			echo "error: can't find a suitable library.."
+			exit 1
+		fi
+	fi
+else
+	echo "$apt_pkg39 exists.."
+fi

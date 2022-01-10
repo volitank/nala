@@ -1,0 +1,11 @@
+#!/bin/sh
+#DEBHELPER#
+set -e
+
+lib_dir="/usr/lib/python3/dist-packages/"
+apt_generic="${lib_dir}apt_pkg.so"
+
+if [ -L $apt_generic ];then
+	echo "removing apt_pkg.so link.."
+	rm "$apt_generic"
+fi
