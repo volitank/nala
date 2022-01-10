@@ -21,7 +21,7 @@ setup(
 	description='a wrapper for the apt package manager.',  # Optional
 	long_description=long_description,  # Optional
 	long_description_content_type='text/reStructuredText',  # Optional (see note above)
-	url='https://salsa.debian.org/volian-team/nala',  # Optional
+	url='https://gitlab.com/volian/nala',  # Optional
 	author='Blake Lee (volitank)',  # Optional
 	author_email='blake@volitank.com',  # Optional
 	classifiers=[  # Optional
@@ -43,7 +43,7 @@ setup(
 
 	keywords='nala, package management, apt',  # Optional
 	packages=['nala'],  # Required
-	python_requires='>=3.6, <4',
+	python_requires='>=3.8, <4',
 	entry_points={  # Optional
 		'console_scripts': [
 			'nala=nala.__main__:main',
@@ -51,7 +51,7 @@ setup(
 	},
 
 	project_urls={  # Optional
-		'Documentation': 'https://salsa.debian.org/volian-team/nala',
-		'Source': 'https://salsa.debian.org/volian-team/nala',
+		'Documentation': 'https://gitlab.com/volian/nala',
+		'Source': 'https://gitlab.com/volian/nala',
 	},
 )
