@@ -31,7 +31,7 @@ from pydoc import pager
 from typing import Any, NoReturn, Sequence
 
 from nala import __version__
-from nala.constants import LICENSE
+from nala.constants import LICENSE, RICH, PYTHONPING, NALA_LICENSE
 
 
 # Custom Parser for printing help on error.
@@ -44,6 +44,8 @@ class NalaParser(argparse.ArgumentParser):
 		self.print_help()
 		sys.exit(1)
 
+gpl_help: str = 'reads the licenses of software compiled in and then reads the GPLv3'
+
 class GPLv3(argparse.Action):
 	"""Print the GPLv3 with `--license`."""
 
@@ -51,7 +53,7 @@ class GPLv3(argparse.Action):
 			option_strings: str,
 			dest: str = argparse.SUPPRESS,
 			default: str = argparse.SUPPRESS,
-			_help: str = 'reads the GPLv3'):
+			_help: str = gpl_help):
 		"""Print the GPLv3 with `--license`."""
 		super().__init__(
 			option_strings=option_strings,
@@ -66,6 +68,7 @@ class GPLv3(argparse.Action):
 	values: str | Sequence[Any] | None,
 	option_string: None | str = None) -> None:
 		"""Print the GPLv3 with `--license`."""
+		pager(NALA_LICENSE)
 		if LICENSE.exists():
 			with open(LICENSE, encoding='utf-8') as file:
 				pager(file.read())
