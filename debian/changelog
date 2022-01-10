@@ -1,3 +1,15 @@
+nala (0.2.0) unstable; urgency=medium
+
+  * Nala is now distributed with a nuitka binary
+  * Nala now uses rich for the update progress
+  * Improved `nala fetch` reliability and performance
+  * History file format is now pure json and more readable
+  * Nala's clean command no longer subprocesses `apt clean`
+  * Nala transactions with `--download-only` no longer make it
+    into the history file.
+
+ -- Blake Lee <blake@volian.org>  Mon, 10 Jan 2022 17:57:24 -0500
+
 nala (0.1.4) unstable; urgency=medium
 
   * Fixed a bug where nothing can download
