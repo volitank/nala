@@ -29,6 +29,7 @@ from shutil import get_terminal_size
 
 import apt_pkg
 
+apt_pkg.init_config()
 # File Constants
 LICENSE = Path('/usr/share/common-licenses/GPL-3')
 """/usr/share/common-licenses/GPL-3"""
