@@ -1,3 +1,11 @@
+nala (0.2.1) unstable; urgency=medium
+
+  * Critical bug fix. `nala clean` attempts to remove files
+    in the root directory due to the apt_pkg config not being
+    initialized.
+
+ -- Blake Lee <blake@volian.org>  Tue, 11 Jan 2022 16:10:41 -0500
+
 nala (0.2.0) unstable; urgency=medium
 
   * Nala is now distributed with a nuitka binary

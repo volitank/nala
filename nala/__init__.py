@@ -22,4 +22,4 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 """Nala package manager."""
-__version__ = '0.2.0'
+__version__ = '0.2.1'
