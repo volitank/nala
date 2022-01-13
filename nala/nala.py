@@ -372,10 +372,25 @@ def show_sources(candidate: Version) -> str:
 	"""Show apt sources."""
 	origin = candidate.origins[0]
 	if origin.archive == 'now':
-		return 'APT-Sources: /var/lib/dpkg/status'
+		source = 'local install'
+		if candidate.section == 'Pacstall':
+			source = color('https://github.com/pacstall/pacstall-programs', 'BLUE')
+		return f'APT-Sources: {source}'
+
+	for mirror in candidate.uris:
+		if 'mirror://' in mirror:
+			index = mirror.index('/pool')
+			url = mirror[:index]
+			break
+	else:
+		uris = candidate.uris[:]
+		shuffle(uris)
+		index = uris[0].index('/pool')
+		url = uris[0][:index]
+
 	return (
-			f"APT-Sources: http://{origin.site}/{origin.origin.lower()} "
-			f"{origin.archive}/{origin.component} {candidate.architecture} Packages"
+		f"APT-Sources: {url} {origin.archive}/"
+		f"{origin.component} {candidate.architecture} Packages"
 	)
 
 def show_filter_empty(candidate: Version) -> tuple[str, str, str, str]:
