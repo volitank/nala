@@ -27,13 +27,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from pyshell import pyshell
-
 from nala.constants import COLOR_CODES, COLUMNS, ERROR_PREFIX
 from nala.logger import dprint
+from nala.options import arguments
 from nala.rich import Table, console
 
-shell = pyshell(capture_output=True, text=True, check=True)
 
 def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
@@ -111,3 +109,8 @@ def print_packages(
 		title,
 		sep,
 		package_table)
+
+def verbose_print(msg: str) -> None:
+	"""Print message if verbose."""
+	if arguments.verbose:
+		print(msg)
