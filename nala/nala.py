@@ -181,59 +181,11 @@ class Nala:
 	def show(self, pkg_names: list[str]) -> None:
 		"""Show package information."""
 		dprint(f"Show pkg_names: {pkg_names}")
-		print()
-		for pkg_name in pkg_names:
+		for num, pkg_name in enumerate(pkg_names):
 			if pkg_name in self.cache:
-				pkg = self.cache[pkg_name]
-				candidate = pkg_candidate(pkg)
-				origin = candidate.origins[0]
-				arch = candidate.architecture
-				print(f"Package: {pkg.name}")
-				print(f"Version: {candidate.version}")
-				print(f"Architecture: {arch}")
-				installed = 'yes' if pkg.is_installed else 'no'
-				print(f"Installed: {installed}")
-				print(f"Priority: {candidate.priority}")
-				if pkg.essential:
-					print('Essential: yes')
-				print(f"Section: {candidate.section}")
-				print(f"Source: {candidate.source_name}")
-				print(f"Origin: {candidate.origins[0].origin}")
-				print(f"Maintainer: {candidate.record.get('Maintainer')}")
-				if candidate.record.get('Original-Maintainer'):
-					print(f"Original-Maintainer: {candidate.record.get('Original-Maintainer')}")
-				print(f"Bugs: {candidate.record.get('Bugs')}")
-				print(f"Installed-Size: {unit_str(candidate.installed_size, 1)}")
-				if candidate.provides:
-					provides = candidate.provides
-					provides.sort()
-					print('Provides:', ", ".join(provides))
-
-				if candidate.dependencies:
-					print(color('Depends:'))
-					dep_format(candidate.dependencies)
-
-				if candidate.recommends:
-					print(color('Recommends:'))
-					dep_format(candidate.recommends)
-
-				if candidate.suggests:
-					print(color('Suggests:'))
-					dep_format(candidate.suggests)
-
-				print(f"Homepage: {candidate.homepage}")
-				print(f"Download-Size: {unit_str(candidate.size, 1)}")
-
-				if origin.archive == 'now':
-					print('APT-Sources: /var/lib/dpkg/status')
-				else:
-					print(
-						f"APT-Sources: http://{origin.site}/{origin.origin.lower()}",
-						f"{origin.archive}/{origin.component} {arch} Packages"
-					)
-				if candidate._translated_records is not None:
-					print(f"Description: {candidate._translated_records.long_desc}")
-				print()
+				if num > 0:
+					print()
+				show_main(self.cache[pkg_name])
 			else:
 				sys.exit(f"{ERROR_PREFIX}{color(pkg_name, 'YELLOW')} not found")
 
@@ -401,6 +353,69 @@ class Nala:
 			print(f'Disk space required: {unit_str(self.cache.required_space)}')
 		if arguments.download_only:
 			print("Nala will only download the packages")
+
+def show_main(pkg: Package) -> None:
+	candidate = pkg_candidate(pkg)
+	for desc in show_format(pkg, candidate):
+		if desc:
+			print(desc)
+	show_related(candidate)
+	print(f"Homepage: {candidate.homepage}")
+	print(f"Download-Size: {unit_str(candidate.size, 1)}")
+	print(show_sources(candidate))
+	if candidate._translated_records is not None:
+		print(f"Description: {candidate._translated_records.long_desc}")
+
+def show_sources(candidate: Version) -> str:
+	"""Show apt sources."""
+	origin = candidate.origins[0]
+	if origin.archive == 'now':
+		return 'APT-Sources: /var/lib/dpkg/status'
+	return (
+			f"APT-Sources: http://{origin.site}/{origin.origin.lower()} "
+			f"{origin.archive}/{origin.component} {candidate.architecture} Packages"
+	)
+
+def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
+	"""Format main section for show command."""
+	installed = 'yes' if pkg.is_installed else 'no'
+	essential = 'yes' if pkg.essential else 'no'
+	ogm = candidate.record.get('Original-Maintainer')
+	record = f"Original-Maintainer: {ogm}" if ogm else ''
+	return (
+		f"Package: {pkg.name}",
+		f"Version: {candidate.version}",
+		f"Architecture: {candidate.architecture}",
+		f"Installed: {installed}",
+		f"Priority: {candidate.priority}",
+		f'Essential: {essential}',
+		f"Section: {candidate.section}",
+		f"Source: {candidate.source_name}",
+		f"Origin: {candidate.origins[0].origin}",
+		f"Maintainer: {candidate.record.get('Maintainer')}",
+		record,
+		f"Bugs: {candidate.record.get('Bugs')}",
+		f"Installed-Size: {unit_str(candidate.installed_size, 1)}",
+	)
+
+def show_related(candidate: Version) -> None:
+	"""Show relational packages."""
+	if candidate.provides:
+		provides = candidate.provides
+		provides.sort()
+		print('Provides:', ", ".join(provides))
+
+	if candidate.dependencies:
+		print(color('Depends:'))
+		dep_format(candidate.dependencies)
+
+	if candidate.recommends:
+		print(color('Recommends:'))
+		dep_format(candidate.recommends)
+
+	if candidate.suggests:
+		print(color('Suggests:'))
+		dep_format(candidate.suggests)
 
 def pkg_error(pkg_list: list[str], msg: str, banter: str = '', terminate: bool = False) -> None:
 	"""Print error for package in list.
