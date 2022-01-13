@@ -45,7 +45,7 @@ from typing import NoReturn, Pattern
 import apt_pkg
 import requests  # type: ignore[import]
 from apt.cache import Cache, FetchFailedException, LockFailedException
-from apt.package import Dependency, Package, Version
+from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import ARCHIVE_DIR, COLUMNS, ERROR_PREFIX, PARTIAL_DIR
 from nala.dpkg import InstallProgress, UpdateProgress
@@ -413,24 +413,56 @@ def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
 		installed_size,
 	)
 
+def show_split_deps(depend_list: list[Dependency]) -> list[Dependency]:
+	depends = []
+	pre_depends = []
+	for depend in depend_list:
+		if depend[0].pre_depend:
+			pre_depends.append(depend)
+			continue
+		depends.append(depend)
+	return depends, pre_depends
+
 def show_related(candidate: Version) -> None:
 	"""Show relational packages."""
+	breaks = candidate.get_dependencies('Breaks')
+	conflicts = candidate.get_dependencies('Conflicts')
+	replaces = candidate.get_dependencies('Replaces')
+
 	if candidate.provides:
-		provides = candidate.provides
-		provides.sort()
-		print('Provides:', ", ".join(provides))
+		show_dep_print(
+			color('Provides:'),
+			[color(name, 'GREEN') for name in candidate.provides],
+		)
+
+	if candidate.enhances:
+		show_dep_print(
+			color('Enhances:'),
+			[color(pkg[0].name, 'GREEN') for pkg in candidate.enhances],
+		)
 
 	if candidate.dependencies:
-		print(color('Depends:'))
-		dep_format(candidate.dependencies)
+		depends, pre_depends = show_split_deps(candidate.dependencies)
+		if pre_depends:
+			show_dep_print(color('Pre-Depends:'), pre_depends)
+		if depends:
+			show_dep_print(color('Depends:'), depends)
 
 	if candidate.recommends:
-		print(color('Recommends:'))
-		dep_format(candidate.recommends)
+		show_dep_print(color('Recommends:'), candidate.recommends)
 
 	if candidate.suggests:
-		print(color('Suggests:'))
-		dep_format(candidate.suggests)
+		show_dep_print(color('Suggests:'), candidate.suggests)
+
+	if replaces:
+		show_dep_print(
+			color('Replaces:'),
+			[color(pkg[0].name, 'GREEN') for pkg in replaces],
+		)
+	if conflicts:
+		show_dep_print(color('Conflicts:'), conflicts)
+	if breaks:
+		show_dep_print(color('Breaks:'), breaks)
 
 def pkg_error(pkg_list: list[str], msg: str, banter: str = '', terminate: bool = False) -> None:
 	"""Print error for package in list.
@@ -605,25 +637,51 @@ def write_log(pkgs: list[Package]) -> None:
 
 	logger_newline()
 
-def dep_format(package_dependecy: list[Dependency]) -> None:
+def show_dep_format(dep: BaseDependency, iteration: int) -> str:
 	"""Format dependencies for show."""
+	open_paren = color('(')
+	close_paren = color(')')
+	name = color(dep.name, 'GREEN')
+	if dep.rawtype in ('Breaks', 'Conflicts'):
+		name = color(dep.name, 'RED')
+	relation = color(dep.relation)
+	version = color(dep.version, 'BLUE')
+	indent = color(' | ') if iteration > 0 else '  '
+
+	final = name+' '+open_paren+relation+' '+version+close_paren
+
+	return indent+final if dep.relation else indent+name
+
+def show_dep_print(prefix: str,
+	package_dependecy: list[Dependency] | list[str]) -> None:
+	"""Print dependencies for show."""
+	if isinstance(package_dependecy[0], str):
+		package_dependecy.sort()
+		print(prefix, ", ".join(package_dependecy))
+		return
+
+	join_list = []
+	same_line = True
+	if len(package_dependecy) > 4:
+		same_line = False
+		print(prefix)
+
 	for dep_list in package_dependecy:
 		dep_print = ''
 		for num, dep in enumerate(dep_list):
-			open_paren = color('(')
-			close_paren = color(')')
-			name = color(dep.name, 'GREEN')
-			relation = color(dep.relation)
-			version = color(dep.version, 'BLUE')
-			pipe = color(' | ')
-
-			final = name+' '+open_paren+relation+' '+version+close_paren
-
 			if num == 0:
-				dep_print = '  '+final if dep.relation else '  '+name
+				dep_print = show_dep_format(dep, num)
 			else:
-				dep_print += pipe+final if dep.relation else pipe+name
+				dep_print += show_dep_format(dep, num)
+
+		if same_line:
+			join_list.append(dep_print.strip())
+			continue
 		print(dep_print)
+
+	if same_line:
+		print(prefix,", ".join(join_list))
+
 
 def pkg_candidate(pkg: Package) -> Version:
 	"""Type enforce package candidate."""
