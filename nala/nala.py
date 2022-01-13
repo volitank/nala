@@ -360,7 +360,8 @@ def show_main(pkg: Package) -> None:
 		if desc:
 			print(desc)
 	show_related(candidate)
-	print(f"Homepage: {candidate.homepage}")
+	if candidate.homepage:
+		print(f"Homepage: {candidate.homepage}")
 	print(f"Download-Size: {unit_str(candidate.size, 1)}")
 	print(show_sources(candidate))
 	if candidate._translated_records is not None:
