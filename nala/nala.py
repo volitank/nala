@@ -378,12 +378,25 @@ def show_sources(candidate: Version) -> str:
 			f"{origin.archive}/{origin.component} {candidate.architecture} Packages"
 	)
 
+def show_filter_empty(candidate: Version) -> tuple[str, str, str, str]:
+	original_maintainer = candidate.record.get('Original-Maintainer')
+	bugs = candidate.record.get('Bugs')
+	origin = candidate.origins[0].origin
+	installed_size = candidate.installed_size
+
+	return (
+		f"Original-Maintainer: {original_maintainer}" if original_maintainer else '',
+		f"Bugs: {bugs}" if bugs else '',
+		f"Origin: {origin}" if origin else '',
+		f"Installed-Size: {unit_str(installed_size, 1)}" if installed_size else ''
+	)
+
 def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
 	"""Format main section for show command."""
 	installed = 'yes' if pkg.is_installed else 'no'
 	essential = 'yes' if pkg.essential else 'no'
-	ogm = candidate.record.get('Original-Maintainer')
-	record = f"Original-Maintainer: {ogm}" if ogm else ''
+	original_maintainer, bugs, origin, installed_size = show_filter_empty(candidate)
+
 	return (
 		f"Package: {pkg.name}",
 		f"Version: {candidate.version}",
@@ -393,11 +406,11 @@ def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
 		f'Essential: {essential}',
 		f"Section: {candidate.section}",
 		f"Source: {candidate.source_name}",
-		f"Origin: {candidate.origins[0].origin}",
+		origin,
 		f"Maintainer: {candidate.record.get('Maintainer')}",
-		record,
-		f"Bugs: {candidate.record.get('Bugs')}",
-		f"Installed-Size: {unit_str(candidate.installed_size, 1)}",
+		original_maintainer,
+		bugs,
+		installed_size,
 	)
 
 def show_related(candidate: Version) -> None:
