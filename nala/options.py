@@ -31,7 +31,7 @@ from pydoc import pager
 from typing import Any, NoReturn, Sequence
 
 from nala import __version__
-from nala.constants import LICENSE, RICH, PYTHONPING, NALA_LICENSE
+from nala.constants import LICENSE, NALA_LICENSE
 
 
 # Custom Parser for printing help on error.
