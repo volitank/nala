@@ -47,6 +47,8 @@ DPKG_STATUS_LOG = NALA_LOGDIR / 'dpkg-status.log'
 """/var/log/nala/dpkg-status.log"""
 NALA_HISTORY = Path('/var/lib/nala/history.json')
 """/var/lib/nala/history.json"""
+PACSTALL_METADATA = Path('/var/log/pacstall/metadata')
+"""/var/log/pacstall/metadata"""
 
 # Apt Directories
 ARCHIVE_DIR = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))

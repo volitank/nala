@@ -47,7 +47,7 @@ import requests  # type: ignore[import]
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package, Version
 
-from nala.constants import ARCHIVE_DIR, COLUMNS, ERROR_PREFIX, PARTIAL_DIR
+from nala.constants import ARCHIVE_DIR, COLUMNS, ERROR_PREFIX, PARTIAL_DIR, PACSTALL_METADATA
 from nala.dpkg import InstallProgress, UpdateProgress
 from nala.history import write_history
 from nala.logger import dprint, iprint, logger_newline
@@ -376,17 +376,29 @@ def show_main(pkg: Package) -> None:
 		print(color('Homepage:'), candidate.homepage)
 	if candidate.size:
 		print(color('Download-Size:'), unit_str(candidate.size, 1))
-	print(show_sources(candidate))
+	print(show_sources(candidate, pkg))
 	if candidate._translated_records is not None:
 		print(color('Description:'), candidate._translated_records.long_desc)
 
-def show_sources(candidate: Version) -> str:
+def parse_pacstall(pkg_name: str) -> str:
+	"""Parse pacstall metadata file."""
+	metadata = PACSTALL_METADATA / pkg_name
+	if metadata.exists():
+		remote = '_remoterepo='
+		# _remoterepo="https://github.com/pacstall/pacstall-programs"
+		for line in metadata.read_text().splitlines():
+			if line.startswith(remote):
+				index = line.index('=') + 1
+				return color(line[index:].strip('"'), 'BLUE')
+	return color('https://github.com/pacstall/pacstall-programs', 'BLUE')
+
+def show_sources(candidate: Version, pkg: Package) -> str:
 	"""Show apt sources."""
 	origin = candidate.origins[0]
 	if origin.archive == 'now':
 		source = 'local install'
 		if candidate.section == 'Pacstall':
-			source = color('https://github.com/pacstall/pacstall-programs', 'BLUE')
+			source = parse_pacstall(pkg.shortname)
 		return f'{color("APT-Sources:")} {source}'
 
 	for mirror in candidate.uris:
