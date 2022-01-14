@@ -187,7 +187,19 @@ class Nala:
 					print()
 				show_main(self.cache[pkg_name])
 			else:
-				sys.exit(f"{ERROR_PREFIX}{color(pkg_name, 'YELLOW')} not found")
+				yellow_name = color(pkg_name, 'YELLOW')
+				virtual = [
+				    color(pkg.name, 'GREEN') for pkg in self.cache
+					if pkg_name in pkg.candidate.provides
+				]
+				if virtual:
+					print(
+						yellow_name,
+						"is a virtual package satisfied by the following:\n"
+						f"{', '.join(virtual)}"
+					)
+					sys.exit(0)
+				sys.exit(f"{ERROR_PREFIX}{yellow_name} not found")
 
 	def auto_remover(self) -> None:
 		"""Handle auto removal of packages."""
