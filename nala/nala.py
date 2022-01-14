@@ -361,12 +361,12 @@ def show_main(pkg: Package) -> None:
 			print(desc)
 	show_related(candidate)
 	if candidate.homepage:
-		print(f"Homepage: {candidate.homepage}")
+		print(color('Homepage:'), candidate.homepage)
 	if candidate.size:
-		print(f"Download-Size: {unit_str(candidate.size, 1)}")
+		print(color('Download-Size:'), unit_str(candidate.size, 1))
 	print(show_sources(candidate))
 	if candidate._translated_records is not None:
-		print(f"Description: {candidate._translated_records.long_desc}")
+		print(color('Description:'), candidate._translated_records.long_desc)
 
 def show_sources(candidate: Version) -> str:
 	"""Show apt sources."""
@@ -375,7 +375,7 @@ def show_sources(candidate: Version) -> str:
 		source = 'local install'
 		if candidate.section == 'Pacstall':
 			source = color('https://github.com/pacstall/pacstall-programs', 'BLUE')
-		return f'APT-Sources: {source}'
+		return f'{color("APT-Sources:")} {source}'
 
 	for mirror in candidate.uris:
 		if 'mirror://' in mirror:
@@ -389,7 +389,7 @@ def show_sources(candidate: Version) -> str:
 		url = uris[0][:index]
 
 	return (
-		f"APT-Sources: {url} {origin.archive}/"
+		f"{color('APT-Sources:')} {url} {origin.archive}/"
 		f"{origin.component} {candidate.architecture} Packages"
 	)
 
@@ -400,10 +400,10 @@ def show_filter_empty(candidate: Version) -> tuple[str, str, str, str]:
 	installed_size = candidate.installed_size
 
 	return (
-		f"Original-Maintainer: {original_maintainer}" if original_maintainer else '',
-		f"Bugs: {bugs}" if bugs else '',
-		f"Origin: {origin}" if origin else '',
-		f"Installed-Size: {unit_str(installed_size, 1)}" if installed_size else ''
+		f"{color('Original-Maintainer:')} {original_maintainer}" if original_maintainer else '',
+		f"{color('Bugs:')} {bugs}" if bugs else '',
+		f"{color('Origin:')} {origin}" if origin else '',
+		f"{color('Installed-Size:')} {unit_str(installed_size, 1)}" if installed_size else ''
 	)
 
 def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
@@ -413,16 +413,16 @@ def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
 	original_maintainer, bugs, origin, installed_size = show_filter_empty(candidate)
 
 	return (
-		f"Package: {pkg.name}",
-		f"Version: {candidate.version}",
-		f"Architecture: {candidate.architecture}",
-		f"Installed: {installed}",
-		f"Priority: {candidate.priority}",
-		f'Essential: {essential}',
-		f"Section: {candidate.section}",
-		f"Source: {candidate.source_name}",
+		f"{color('Package:')} {color(pkg.name, 'GREEN')}",
+		f"{color('Version:')} {color(candidate.version, 'BLUE')}",
+		f"{color('Architecture:')} {candidate.architecture}",
+		f"{color('Installed:')} {installed}",
+		f"{color('Priority:')} {candidate.priority}",
+		f"{color('Essential:')} {essential}",
+		f"{color('Section:')} {candidate.section}",
+		f"{color('Source:')} {candidate.source_name}",
 		origin,
-		f"Maintainer: {candidate.record.get('Maintainer')}",
+		f"{color('Maintainer:')} {candidate.record.get('Maintainer')}",
 		original_maintainer,
 		bugs,
 		installed_size,
