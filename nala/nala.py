@@ -45,15 +45,17 @@ from typing import NoReturn, Pattern
 import apt_pkg
 import requests  # type: ignore[import]
 from apt.cache import Cache, FetchFailedException, LockFailedException
-from apt.package import BaseDependency, Dependency, Package, Version
+from apt.package import Package, Version
 
-from nala.constants import ARCHIVE_DIR, COLUMNS, ERROR_PREFIX, PARTIAL_DIR, PACSTALL_METADATA
+from nala.constants import ARCHIVE_DIR, COLUMNS, ERROR_PREFIX, PARTIAL_DIR
 from nala.dpkg import InstallProgress, UpdateProgress
 from nala.history import write_history
 from nala.logger import dprint, iprint, logger_newline
 from nala.options import arguments
 from nala.rich import Live, Table, pkg_download_progress
-from nala.utils import ask, color, print_packages, unit_str, verbose_print
+from nala.show import check_virtual, show_main
+from nala.utils import (ask, color, pkg_candidate,
+				pkg_installed, print_packages, unit_str, verbose_print)
 
 try:
 	USER: str = environ["SUDO_USER"]
@@ -187,19 +189,8 @@ class Nala:
 					print()
 				show_main(self.cache[pkg_name])
 			else:
-				yellow_name = color(pkg_name, 'YELLOW')
-				virtual = [
-				    color(pkg.name, 'GREEN') for pkg in self.cache
-					if pkg_name in pkg.candidate.provides
-				]
-				if virtual:
-					print(
-						yellow_name,
-						"is a virtual package satisfied by the following:\n"
-						f"{', '.join(virtual)}"
-					)
-					sys.exit(0)
-				sys.exit(f"{ERROR_PREFIX}{yellow_name} not found")
+				check_virtual(pkg_name, self.cache)
+				sys.exit(f"{ERROR_PREFIX}{color(pkg_name, 'YELLOW')} not found")
 
 	def auto_remover(self) -> None:
 		"""Handle auto removal of packages."""
@@ -217,25 +208,6 @@ class Nala:
 					)
 
 		dprint(f"Pkgs marked by autoremove: {autoremove}")
-
-	def check_essential(self, pkgs: list[Package]) -> None:
-		"""Check removal of essential packages."""
-		essential: list[str] = []
-		nala_check: bool = False
-		banter: str = 'apt'
-		for pkg in pkgs:
-			if pkg.is_installed:
-				# do not allow the removal of essential or required packages
-				if pkg_installed(pkg).priority == 'required' and pkg.marked_delete:
-					essential.append(pkg.name)
-				# do not allow the removal of nala
-				elif pkg.shortname in 'nala' and pkg.marked_delete:
-					nala_check = True
-					banter = 'auto_preservation'
-					essential.append('nala')
-
-		if essential or nala_check:
-			pkg_error(essential, 'cannot be removed', banter=banter, terminate=True)
 
 	def get_changes(self, upgrade: bool = False, remove: bool = False) -> None:
 		"""Get packages requiring changes and process them."""
@@ -257,7 +229,7 @@ class Nala:
 			print(color("Nothing for Nala to remove."))
 			sys.exit(0)
 		if pkgs:
-			self.check_essential(pkgs)
+			check_essential(pkgs)
 			delete_names, install_names, upgrade_names = sort_pkg_changes(pkgs)
 			self.print_update_summary(delete_names, install_names, upgrade_names)
 			if not arguments.assume_yes and not ask('Do you want to continue'):
@@ -366,142 +338,24 @@ class Nala:
 		if arguments.download_only:
 			print("Nala will only download the packages")
 
-def show_main(pkg: Package) -> None:
-	candidate = pkg_candidate(pkg)
-	for desc in show_format(pkg, candidate):
-		if desc:
-			print(desc)
-	show_related(candidate)
-	if candidate.homepage:
-		print(color('Homepage:'), candidate.homepage)
-	if candidate.size:
-		print(color('Download-Size:'), unit_str(candidate.size, 1))
-	print(show_sources(candidate, pkg))
-	if candidate._translated_records is not None:
-		print(color('Description:'), candidate._translated_records.long_desc)
+def check_essential(pkgs: list[Package]) -> None:
+	"""Check removal of essential packages."""
+	essential: list[str] = []
+	nala_check: bool = False
+	banter: str = 'apt'
+	for pkg in pkgs:
+		if pkg.is_installed:
+			# do not allow the removal of essential or required packages
+			if pkg_installed(pkg).priority == 'required' and pkg.marked_delete:
+				essential.append(pkg.name)
+			# do not allow the removal of nala
+			elif pkg.shortname in 'nala' and pkg.marked_delete:
+				nala_check = True
+				banter = 'auto_preservation'
+				essential.append('nala')
 
-def parse_pacstall(pkg_name: str) -> str:
-	"""Parse pacstall metadata file."""
-	metadata = PACSTALL_METADATA / pkg_name
-	if metadata.exists():
-		remote = '_remoterepo='
-		# _remoterepo="https://github.com/pacstall/pacstall-programs"
-		for line in metadata.read_text().splitlines():
-			if line.startswith(remote):
-				index = line.index('=') + 1
-				return color(line[index:].strip('"'), 'BLUE')
-	return color('https://github.com/pacstall/pacstall-programs', 'BLUE')
-
-def show_sources(candidate: Version, pkg: Package) -> str:
-	"""Show apt sources."""
-	origin = candidate.origins[0]
-	if origin.archive == 'now':
-		source = 'local install'
-		if candidate.section == 'Pacstall':
-			source = parse_pacstall(pkg.shortname)
-		return f'{color("APT-Sources:")} {source}'
-
-	for mirror in candidate.uris:
-		if 'mirror://' in mirror:
-			index = mirror.index('/pool')
-			url = mirror[:index]
-			break
-	else:
-		uris = candidate.uris[:]
-		shuffle(uris)
-		index = uris[0].index('/pool')
-		url = uris[0][:index]
-
-	return (
-		f"{color('APT-Sources:')} {url} {origin.archive}/"
-		f"{origin.component} {candidate.architecture} Packages"
-	)
-
-def show_filter_empty(candidate: Version) -> tuple[str, str, str, str]:
-	original_maintainer = candidate.record.get('Original-Maintainer')
-	bugs = candidate.record.get('Bugs')
-	origin = candidate.origins[0].origin
-	installed_size = candidate.installed_size
-
-	return (
-		f"{color('Original-Maintainer:')} {original_maintainer}" if original_maintainer else '',
-		f"{color('Bugs:')} {bugs}" if bugs else '',
-		f"{color('Origin:')} {origin}" if origin else '',
-		f"{color('Installed-Size:')} {unit_str(installed_size, 1)}" if installed_size else ''
-	)
-
-def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
-	"""Format main section for show command."""
-	installed = 'yes' if pkg.is_installed else 'no'
-	essential = 'yes' if pkg.essential else 'no'
-	original_maintainer, bugs, origin, installed_size = show_filter_empty(candidate)
-
-	return (
-		f"{color('Package:')} {color(pkg.name, 'GREEN')}",
-		f"{color('Version:')} {color(candidate.version, 'BLUE')}",
-		f"{color('Architecture:')} {candidate.architecture}",
-		f"{color('Installed:')} {installed}",
-		f"{color('Priority:')} {candidate.priority}",
-		f"{color('Essential:')} {essential}",
-		f"{color('Section:')} {candidate.section}",
-		f"{color('Source:')} {candidate.source_name}",
-		origin,
-		f"{color('Maintainer:')} {candidate.record.get('Maintainer')}",
-		original_maintainer,
-		bugs,
-		installed_size,
-	)
-
-def show_split_deps(depend_list: list[Dependency]) -> list[Dependency]:
-	depends = []
-	pre_depends = []
-	for depend in depend_list:
-		if depend[0].pre_depend:
-			pre_depends.append(depend)
-			continue
-		depends.append(depend)
-	return depends, pre_depends
-
-def show_related(candidate: Version) -> None:
-	"""Show relational packages."""
-	breaks = candidate.get_dependencies('Breaks')
-	conflicts = candidate.get_dependencies('Conflicts')
-	replaces = candidate.get_dependencies('Replaces')
-
-	if candidate.provides:
-		show_dep_print(
-			color('Provides:'),
-			[color(name, 'GREEN') for name in candidate.provides],
-		)
-
-	if candidate.enhances:
-		show_dep_print(
-			color('Enhances:'),
-			[color(pkg[0].name, 'GREEN') for pkg in candidate.enhances],
-		)
-
-	if candidate.dependencies:
-		depends, pre_depends = show_split_deps(candidate.dependencies)
-		if pre_depends:
-			show_dep_print(color('Pre-Depends:'), pre_depends)
-		if depends:
-			show_dep_print(color('Depends:'), depends)
-
-	if candidate.recommends:
-		show_dep_print(color('Recommends:'), candidate.recommends)
-
-	if candidate.suggests:
-		show_dep_print(color('Suggests:'), candidate.suggests)
-
-	if replaces:
-		show_dep_print(
-			color('Replaces:'),
-			[color(pkg[0].name, 'GREEN') for pkg in replaces],
-		)
-	if conflicts:
-		show_dep_print(color('Conflicts:'), conflicts)
-	if breaks:
-		show_dep_print(color('Breaks:'), breaks)
+	if essential or nala_check:
+		pkg_error(essential, 'cannot be removed', banter=banter, terminate=True)
 
 def pkg_error(pkg_list: list[str], msg: str, banter: str = '', terminate: bool = False) -> None:
 	"""Print error for package in list.
@@ -675,62 +529,6 @@ def write_log(pkgs: list[Package]) -> None:
 		iprint(f'Upgraded: {", ".join(upgrade_names[0])}')
 
 	logger_newline()
-
-def show_dep_format(dep: BaseDependency, iteration: int) -> str:
-	"""Format dependencies for show."""
-	open_paren = color('(')
-	close_paren = color(')')
-	name = color(dep.name, 'GREEN')
-	if dep.rawtype in ('Breaks', 'Conflicts'):
-		name = color(dep.name, 'RED')
-	relation = color(dep.relation)
-	version = color(dep.version, 'BLUE')
-	indent = color(' | ') if iteration > 0 else '  '
-
-	final = name+' '+open_paren+relation+' '+version+close_paren
-
-	return indent+final if dep.relation else indent+name
-
-def show_dep_print(prefix: str,
-	package_dependecy: list[Dependency] | list[str]) -> None:
-	"""Print dependencies for show."""
-	if isinstance(package_dependecy[0], str):
-		package_dependecy.sort()
-		print(prefix, ", ".join(package_dependecy))
-		return
-
-	join_list = []
-	same_line = True
-	if len(package_dependecy) > 4:
-		same_line = False
-		print(prefix)
-
-	for dep_list in package_dependecy:
-		dep_print = ''
-		for num, dep in enumerate(dep_list):
-			if num == 0:
-				dep_print = show_dep_format(dep, num)
-			else:
-				dep_print += show_dep_format(dep, num)
-
-		if same_line:
-			join_list.append(dep_print.strip())
-			continue
-		print(dep_print)
-
-	if same_line:
-		print(prefix,", ".join(join_list))
-
-
-def pkg_candidate(pkg: Package) -> Version:
-	"""Type enforce package candidate."""
-	assert pkg.candidate
-	return pkg.candidate
-
-def pkg_installed(pkg: Package) -> Version:
-	"""Type enforce package installed."""
-	assert pkg.installed
-	return pkg.installed
 
 def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""

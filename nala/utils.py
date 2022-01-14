@@ -27,6 +27,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from apt.package import Package, Version
+
 from nala.constants import COLOR_CODES, COLUMNS, ERROR_PREFIX
 from nala.logger import dprint
 from nala.options import arguments
@@ -76,6 +78,16 @@ def iter_remove(path: Path, verbose: bool = False) -> None:
 		if file.is_file():
 			dprint(f'Removed: {file}')
 			file.unlink(missing_ok=True)
+
+def pkg_candidate(pkg: Package) -> Version:
+	"""Type enforce package candidate."""
+	assert pkg.candidate
+	return pkg.candidate
+
+def pkg_installed(pkg: Package) -> Version:
+	"""Type enforce package installed."""
+	assert pkg.installed
+	return pkg.installed
 
 def print_packages(
 	headers: list[str], names: list[list[str]],
