@@ -28,10 +28,11 @@ import sys
 from random import shuffle
 
 from apt.cache import Cache
-from apt.package import Package, Version, BaseDependency, Dependency
+from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import PACSTALL_METADATA
-from nala.utils import color, unit_str, pkg_candidate
+from nala.utils import color, pkg_candidate, unit_str
+
 
 def show_main(pkg: Package) -> None:
 	"""Start show functions."""

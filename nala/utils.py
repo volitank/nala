@@ -32,8 +32,8 @@ import tty
 from pathlib import Path
 from shutil import get_terminal_size
 
-from apt.package import Package, Version
 import jsbeautifier
+from apt.package import Package, Version
 
 from nala.constants import COLOR_CODES, ERROR_PREFIX, JSON_OPTIONS
 from nala.logger import dprint

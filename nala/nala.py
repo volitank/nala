@@ -53,8 +53,8 @@ from nala.logger import dprint, iprint, logger_newline
 from nala.options import arguments
 from nala.rich import Live, Table, pkg_download_progress
 from nala.show import check_virtual, show_main
-from nala.utils import (ask, color, pkg_candidate,
-				pkg_installed, print_packages, term, unit_str, verbose_print)
+from nala.utils import (ask, color, pkg_candidate, pkg_installed,
+				print_packages, term, unit_str, verbose_print)
 
 try:
 	USER: str = environ["SUDO_USER"]
