@@ -204,6 +204,9 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		self.child: AptExpect
 		self.child_fd: int
 		self.child_pid: int
+		# If we detect we're piped it's probably best to go raw.
+		if not term.is_term():
+			arguments.raw_dpkg = True
 		# Setting environment to xterm seems to work fine for linux terminal
 		# I don't think we will be supporting much more this this, at least for now
 		if not term.is_xterm() and not arguments.raw_dpkg:
