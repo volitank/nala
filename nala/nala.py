@@ -632,7 +632,7 @@ class PkgDownloader:
 		"""Generate Rich Table."""
 		table = Table.grid()
 		table.add_row(f"{color('Total Packages:', 'GREEN')} {self.count}/{self.total_pkgs}")
-		table.add_row(f"{color('Current Package:', 'GREEN')} {pkg_name}")
+		table.add_row(f"{color('Last Completed:', 'GREEN')} {pkg_name}")
 		table.add_row(pkg_download_progress.get_renderable())
 		return table
 
