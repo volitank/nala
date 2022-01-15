@@ -28,15 +28,14 @@ import json
 import sys
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from shutil import get_terminal_size
 from typing import TYPE_CHECKING
 
 import jsbeautifier
 
-from nala.constants import COLUMNS, ERROR_PREFIX, NALA_HISTORY
+from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY
 from nala.logger import dprint
 from nala.rich import Column, Table, console
-from nala.utils import print_packages
+from nala.utils import print_packages, term
 
 if TYPE_CHECKING:
 	from nala.nala import Nala
@@ -52,11 +51,8 @@ def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]
 
 def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str]]]]) -> None:
 	"""Write history to file."""
-	options = jsbeautifier.default_options()
-	options.indent_size = 1
-	options.indent_char = '\t'
 	with open(NALA_HISTORY, 'w', encoding='utf-8') as file:
-		file.write(jsbeautifier.beautify(json.dumps(data), options))
+		file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
 
 def history() -> None:
 	"""History command."""
@@ -75,7 +71,7 @@ def history() -> None:
 				(key, ' '.join(command), str(entry.get('Date')), str(entry.get('Altered')))
 		)
 
-	max_width = get_terminal_size().columns - 50
+	max_width = term.columns - 50
 	history_table = Table(
 				'ID',
 				Column('Command', no_wrap=True, max_width=max_width),
@@ -119,7 +115,7 @@ def history_info(hist_id: str) -> None:
 		upgrade_names, 'Upgraded:', 'bold blue'
 	)
 
-	print('='*COLUMNS)
+	print('='*term.columns)
 	if delete_names:
 		print(f'Removed {len(delete_names)} Packages')
 	if install_names:
