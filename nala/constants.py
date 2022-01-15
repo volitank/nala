@@ -25,9 +25,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from shutil import get_terminal_size
 
 import apt_pkg
+import jsbeautifier
 
 apt_pkg.init_config()
 # File Constants
@@ -64,10 +64,7 @@ PKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::pkgcache'))
 SRCPKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::srcpkgcache'))
 """/var/cache/apt/srcpkgcache.bin"""
 
-# Term Constants
-TERM_SIZE = get_terminal_size()
-COLUMNS = TERM_SIZE.columns
-LINES = TERM_SIZE.lines
+JSON_OPTIONS = jsbeautifier.BeautifierOptions(options={'indent_with_tabs' : True})
 ERROR_PREFIX = '\x1b[1;31mError: \x1b[0m'
 
 COLOR_CODES: dict[str, str | int] = {
