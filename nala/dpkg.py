@@ -27,13 +27,12 @@ from __future__ import annotations
 import errno
 import fcntl
 import os
+import pty
 import re
 import signal
 import struct
 import sys
 import termios
-import tty
-from pty import STDIN_FILENO, STDOUT_FILENO, fork
 from time import sleep
 from types import FrameType
 from typing import Callable, Match, TextIO
@@ -43,30 +42,10 @@ from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 
-from nala.constants import DPKG_LOG, DPKG_MSG, ERROR_PREFIX, SPAM, TERM_SIZE
+from nala.constants import DPKG_LOG, DPKG_MSG, ERROR_PREFIX, SPAM
 from nala.options import arguments
 from nala.rich import Live, Spinner, Table, Text
-from nala.utils import color
-
-# Control Codes
-CURSER_UP = b'\x1b[1A'
-CLEAR_LINE = b'\x1b[2k'
-CLEAR_FROM_CURRENT_TO_END = b'\x1b[K'
-BACKSPACE = b'\x08'
-ENABLE_BRACKETED_PASTE = b'\x1b[?2004h'
-DISABLE_BRACKETED_PASTE = b'\x1b[?2004l'
-ENABLE_ALT_SCREEN = b'\x1b[?1049h'
-DISABLE_ALT_SCREEN = b'\x1b[?1049l'
-SHOW_CURSOR = b'\x1b[?25h'
-HIDE_CURSOR = b'\x1b[?25l'
-SAVE_TERM = b'\x1b[22;0;0t'
-RESTORE_TERM = b'\x1b[23;0;0t'
-APPLICATION_KEYPAD = b'\x1b='
-NORMAL_KEYPAD = b'\x1b>'
-CR = b'\r'
-LF = b'\n'
-
-TERM_MODE = termios.tcgetattr(STDIN_FILENO)
+from nala.utils import color, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
@@ -81,7 +60,7 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 
 	def __init__(self) -> None:
 		"""Class for getting cache update status and printing to terminal."""
-		base.AcquireProgress.__init__(self)
+		text.AcquireProgress.__init__(self)
 		base.OpProgress.__init__(self)
 		self._file = sys.stdout
 		self._signal = None
@@ -224,12 +203,10 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		self.dpkg_log: TextIO
 		self.child: AptExpect
 		self.child_fd: int
-		if arguments.raw_dpkg:
-			tty.setraw(STDIN_FILENO)
-
-		# Setting environment to xterm seems to work find for linux terminal
+		self.child_pid: int
+		# Setting environment to xterm seems to work fine for linux terminal
 		# I don't think we will be supporting much more this this, at least for now
-		if 'xterm' not in os.environ["TERM"]:
+		if not term.is_xterm() and not arguments.raw_dpkg:
 			os.environ["TERM"] = 'xterm'
 
 		spinner.text = Text('Initializing dpkg')
@@ -263,7 +240,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 
 		returns the result of calling `obj.do_install()`
 		"""
-		pid, self.child_fd = fork()
+		pid, self.child_fd = self.fork()
 		if pid == 0:
 			try:
 				# We ignore this with mypy because the attr is there
@@ -276,6 +253,10 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 				sys.stderr.write(f"{err}\n")
 				os._exit(1)
 
+		self.child_pid = pid
+		if arguments.raw_dpkg:
+			return os.WEXITSTATUS(self.wait_child())
+
 		fcntl.fcntl(self.child_fd, fcntl.F_SETFL, os.O_NONBLOCK)
 		# We use fdspawn from pexpect to interact with out dpkg pty
 		# But we also subclass it to give it the interact method and setwindow
@@ -283,20 +264,33 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
 		with open(DPKG_LOG, 'w', encoding="utf-8") as self.dpkg_log:
+			self.child.interact(self.format_dpkg_output)
+		return os.WEXITSTATUS(self.wait_child())
+
+	def fork(self) -> tuple[int, int]:
+		"""Fork pty or regular."""
+		return (os.fork(), 0) if arguments.raw_dpkg else pty.fork()
+
+	def wait_child(self) -> int:
+		"""Wait for child progress to exit."""
+		(pid, res) = (0, 0)
+		while True:
 			try:
-				self.child.interact(
-					self.format_dpkg_output
-					)
-			finally:
-				# We need to make sure that no matter what the terminal
-				# Settings are restored if for some reason we stop
-				termios.tcsetattr(STDIN_FILENO, termios.TCSAFLUSH, TERM_MODE)
-		return 0
+				sleep(0.01)
+				(pid, res) = os.waitpid(self.child_pid, os.WNOHANG)
+				if pid == self.child_pid:
+					break
+			except OSError as err:
+				if err.errno == errno.ECHILD:
+					break
+				if err.errno != errno.EINTR:
+					raise
+		return res
 
 	def sigwinch_passthrough(self, _sig_dummy: int, _data_dummy: FrameType | None) -> None:
 		"""Pass through sigwinch signals to dpkg."""
 		buffer = struct.pack("HHHH", 0, 0, 0, 0)
-		term_size = struct.unpack('hhhh', fcntl.ioctl(STDOUT_FILENO,
+		term_size = struct.unpack('hhhh', fcntl.ioctl(term.STDIN,
 			termios.TIOCGWINSZ , buffer))
 		if not self.child.closed:
 			setwinsize(self.child_fd, term_size[0],term_size[1])
@@ -311,18 +305,18 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 			if line in rawline:
 				# Sometimes dpkg be like yo I'm going to say the same thing as the conf prompt
 				# But a little different so it will trip you up.
-				if rawline.endswith((b'.', CR+LF)):
+				if rawline.endswith((b'.', b'\r\n')):
 					break
 				self.raw = True
 				raw_init()
 				# Add return because our progress bar might eat one
 				#if not rawline.startswith(b'\r'):
-				rawline = CR+rawline
+				rawline = b'\r'+rawline
 				break
 
 	def conf_end(self, rawline: bytes) -> bool:
 		"""Check to see if the conf prompt is over."""
-		return rawline == CR+LF and (DPKG_MSG['CONF_MESSAGE'][9] in self.last_line
+		return rawline == b'\r\n' and (DPKG_MSG['CONF_MESSAGE'][9] in self.last_line
 										or self.last_line in DPKG_MSG['CONF_ANSWER'])
 
 	def format_dpkg_output(self, rawline: bytes) -> None:
@@ -332,16 +326,12 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		self.dpkg_log.write(repr(rawline)+'\n')
 		self.dpkg_log.flush()
 
-		if arguments.raw_dpkg:
-			os.write(STDOUT_FILENO, rawline)
-			return
-
 		# These are real spammy the way we set this up
 		# So if we're in verbose just send it
 		for item in DPKG_MSG['DPKG_STATUS']:
 			if item in rawline:
 				if arguments.verbose:
-					os.write(STDOUT_FILENO, rawline)
+					term.write(rawline)
 				else:
 					spinner.text = Text(color(rawline.decode().strip()))
 					scroll_bar(msg=None)
@@ -351,7 +341,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		self.conf_check(rawline)
 
 		# This second one is for the start of the shell
-		if SAVE_TERM in rawline or ENABLE_BRACKETED_PASTE in rawline:
+		if term.SAVE_TERM in rawline or term.ENABLE_BRACKETED_PASTE in rawline:
 			self.raw = True
 			raw_init()
 
@@ -376,7 +366,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		# If verbose we just send it. No bars
 		if arguments.verbose:
 			# We have to append Carriage return and new line or things get weird
-			os.write(STDOUT_FILENO, (msg+'\r\n').encode())
+			term.write((msg+'\r\n').encode())
 		else:
 			scroll_bar(msg)
 
@@ -384,11 +374,11 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 
 	def rawline_handler(self, rawline: bytes) -> None:
 		"""Handle text operations for rawline."""
-		os.write(STDOUT_FILENO, rawline)
+		term.write(rawline)
 		# Once we write we can check if we need to pop out of raw mode
-		if RESTORE_TERM in rawline or self.conf_end(rawline):
+		if term.RESTORE_TERM in rawline or self.conf_end(rawline):
 			self.raw = False
-			termios.tcsetattr(STDIN_FILENO, termios.TCSAFLUSH, TERM_MODE)
+			term.restore_mode()
 			live.start()
 		self.set_last_line(rawline)
 
@@ -396,7 +386,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		"""Set the current line to last line if there is no backspace."""
 		# When at the conf prompt if you press Y, then backspace, then hit enter
 		# Things get really buggy so instead we check for a backspace
-		if BACKSPACE not in rawline:
+		if term.BACKSPACE not in rawline:
 			self.last_line = rawline
 
 def check_line_spam(line: str, rawline: bytes) -> bool:
@@ -411,9 +401,9 @@ def check_line_spam(line: str, rawline: bytes) -> bool:
 def raw_init() -> None:
 	"""Initialize raw terminal output."""
 	live.update('')
-	control_code(CURSER_UP+CLEAR_LINE)
+	term.write(term.CURSER_UP+term.CLEAR_LINE)
 	live.stop()
-	tty.setraw(STDIN_FILENO)
+	term.set_raw()
 
 def paren_color(match: Match[str]) -> str:
 	"""Color parenthesis"""
@@ -469,7 +459,7 @@ def scroll_bar(msg: str | None = None) -> None:
 	)
 
 	# Set the scroll bar to take up a 3rd of the screen
-	scroll_lines = TERM_SIZE.lines // 3
+	scroll_lines = term.lines // 3
 	if len(scroll_list) > scroll_lines and len(scroll_list) > 10:
 		del scroll_list[0]
 
@@ -479,10 +469,6 @@ def scroll_bar(msg: str | None = None) -> None:
 		table.add_row(item)
 
 	live.update(table)
-
-def control_code(code: bytes) -> None:
-	"""Send escape codes."""
-	os.write(STDIN_FILENO, code)
 
 def setwinsize(file_descriptor: int, rows: int, cols: int) -> None:
 	"""Set the terminal window size of the child tty.
@@ -516,18 +502,18 @@ class AptExpect(fdspawn): # type: ignore[misc]
 		self.stdout.flush()
 		self._buffer = self.buffer_type()
 
-		setwinsize(self.child_fd, TERM_SIZE.lines, TERM_SIZE.columns)
+		setwinsize(self.child_fd, term.lines, term.columns)
 
 		try:
 			self.interact_copy(output_filter)
 		finally:
-			termios.tcsetattr(STDIN_FILENO, termios.TCSAFLUSH, TERM_MODE)
+			term.restore_mode()
 
 	def interact_copy(self, output_filter: Callable[[bytes], None]) -> None:
 		"""Interact with the pty."""
 		while self.isalive():
 			try:
-				ready = poll_ignore_interrupts([self.child_fd, STDIN_FILENO])
+				ready = poll_ignore_interrupts([self.child_fd, term.STDIN])
 				if self.child_fd in ready:
 					try:
 						data = os.read(self.child_fd, 1000)
@@ -540,8 +526,8 @@ class AptExpect(fdspawn): # type: ignore[misc]
 						# BSD-style EOF
 						break
 					output_filter(data)
-				if STDIN_FILENO in ready:
-					data = os.read(STDIN_FILENO, 1000)
+				if term.STDIN in ready:
+					data = os.read(term.STDIN, 1000)
 					while data != b'' and self.isalive():
 						split = os.write(self.child_fd, data)
 						data = data[split:]
@@ -553,5 +539,5 @@ class AptExpect(fdspawn): # type: ignore[misc]
 					scroll_list.append(color("Ctrl+C twice quickly will exit...", 'RED'))
 					scroll_bar()
 				else:
-					os.write(STDOUT_FILENO, LF+warn.encode())
+					term.write(b'\n'+warn.encode())
 				sleep(0.5)
