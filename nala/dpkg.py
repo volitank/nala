@@ -68,7 +68,7 @@ LF = b'\n'
 
 TERM_MODE = termios.tcgetattr(STDIN_FILENO)
 
-VERSION_PATTERN = re.compile(r'\(.*\)')
+VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
 
 spinner = Spinner('dots', text='Initializing', style="bold blue")
@@ -428,6 +428,16 @@ def lines(line: str, zword: str, msg_color: str) -> str:
 		space *= 2
 	return line.replace(zword, color(f'{zword}:{space}', msg_color))
 
+def format_version(match: list[str], line: str) -> str:
+	"""Format version numbers."""
+	for ver in match:
+		version = ver[1:-1]
+		if version[0].isdigit():
+			new_ver = ver.replace(version, color(version, 'BLUE'))
+			new_ver = re.sub(PARENTHESIS_PATTERN, paren_color, new_ver)
+			line = line.replace(ver, new_ver)
+	return line
+
 def msg_formatter(line: str) -> str:
 	"""Format dpkg output."""
 	if line.endswith('...'):
@@ -442,14 +452,9 @@ def msg_formatter(line: str) -> str:
 	elif line.startswith('Processing'):
 		line = lines(line, 'Processing', 'GREEN')
 
-	match = re.search(VERSION_PATTERN, line)
+	match = re.findall(VERSION_PATTERN, line)
 	if match:
-		full_version = match.group(0)
-		version = full_version[1:-1]
-		# deb version numbers always start with a number
-		if version[0].isdigit():
-			line = re.sub(PARENTHESIS_PATTERN, paren_color, line)
-			line = line.replace(version, color(version, 'BLUE'))
+		return format_version(match, line)
 	return line
 
 def scroll_bar(msg: str | None = None) -> None:
