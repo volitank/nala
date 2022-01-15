@@ -638,12 +638,11 @@ class PkgDownloader:
 
 	def _update_progress(self, pkg_name: str, size: int) -> None:
 		"""Update download progress."""
-		if not arguments.verbose:
-			pkg_download_progress.advance(self.task, advance=size)
-			self.count += 1
-			self.live.update(
-				self._gen_table(pkg_name)
-			)
+		pkg_download_progress.advance(self.task, advance=size)
+		self.count += 1
+		self.live.update(
+			self._gen_table(pkg_name)
+		)
 
 class IntegrityError(Exception):
 	"""Exception for integrity checking."""
