@@ -24,16 +24,118 @@
 """Where Utilities who don't have a special home come together."""
 from __future__ import annotations
 
+import json
+import os
 import sys
+import termios
+import tty
 from pathlib import Path
+from shutil import get_terminal_size
 
 from apt.package import Package, Version
+import jsbeautifier
 
-from nala.constants import COLOR_CODES, COLUMNS, ERROR_PREFIX
+from nala.constants import COLOR_CODES, ERROR_PREFIX, JSON_OPTIONS
 from nala.logger import dprint
 from nala.options import arguments
 from nala.rich import Table, console
 
+
+class Terminal:
+	"""Represent the user terminal."""
+	# Term Constants
+	STDIN = 0
+	STDOUT = 1
+	STDERR = 2
+
+	# Control Codes
+	CURSER_UP = b'\x1b[1A'
+	CLEAR_LINE = b'\x1b[2k'
+	CLEAR = b'\x1b[2J'
+	CLEAR_FROM_CURRENT_TO_END = b'\x1b[K'
+	BACKSPACE = b'\x08'
+	HOME = b'\x1b[H'
+	ENABLE_BRACKETED_PASTE = b'\x1b[?2004h'
+	DISABLE_BRACKETED_PASTE = b'\x1b[?2004l'
+	ENABLE_ALT_SCREEN = b'\x1b[?1049h'
+	DISABLE_ALT_SCREEN = b'\x1b[?1049l'
+	SHOW_CURSOR = b'\x1b[?25h'
+	HIDE_CURSOR = b'\x1b[?25l'
+	SAVE_TERM = b'\x1b[22;0;0t'
+	RESTORE_TERM = b'\x1b[23;0;0t'
+	APPLICATION_KEYPAD = b'\x1b='
+	NORMAL_KEYPAD = b'\x1b>'
+	CR = b'\r'
+	LF = b'\n'
+
+	def __init__(self) -> None:
+		"""Represent the user terminal."""
+		self.size = get_terminal_size()
+		self.columns = self.size.columns
+		self.lines = self.size.lines
+		self.term: bool = True
+		self.mode: list[int | list[bytes | int]] = []
+		self.term_type: str = os.environ.get('TERM', '')
+		self.check()
+
+	def __repr__(self) -> str:
+		"""Represent state of the user terminal as a string."""
+		representation = {
+			'object' : 'Terminal',
+			'size' : self.size,
+			'columns' : self.size.columns,
+			'lines' : self.lines,
+			'mode'	: str(self.mode),
+			'term' : self.term
+		}
+		return str(jsbeautifier.beautify(json.dumps(representation), JSON_OPTIONS))
+
+	def check(self) -> None:
+		"""Check if we are a terminal or piped."""
+		self.term = bool(sys.stdout.isatty())
+		if self.term:
+			# There are some cases where we need extra checks
+			# For example whatever hyperfine is doing with --show-output
+			try:
+				self.mode = termios.tcgetattr(self.STDIN)
+				self.term = True
+			# We catch and handle 'Inappropriate ioctl for device'.
+			except termios.error as err:
+				# And then we set term off.
+				if err.args[0] == 25:
+					self.term = False
+				else:
+					sys.exit(err)
+
+	def update_size(self) -> None:
+		"""Updates the current width and length of the terminal."""
+		self.size = get_terminal_size()
+		self.columns = self.size.columns
+		self.lines = self.size.lines
+
+	def restore_mode(self) -> None:
+		"""Restore the mode the Terminal was initialized with."""
+		if self.term:
+			termios.tcsetattr(self.STDIN, termios.TCSAFLUSH, self.mode)
+
+	def set_raw(self) -> None:
+		"""Set terminal raw."""
+		if self.term:
+			tty.setraw(self.STDIN)
+
+	def write(self, data: bytes) -> None:
+		"""Write bytes directly to stdout."""
+		os.write(self.STDOUT, data)
+
+	def is_term(self) -> bool:
+		"""Return true if we are a terminal. False if piped."""
+		return self.term
+
+	def is_xterm(self) -> bool:
+		"""Return True if we're in an xterm, False otherwise."""
+		return 'xterm' in self.term_type
+
+term = Terminal()
 
 def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
@@ -115,7 +217,7 @@ def print_packages(
 	for name in names:
 		package_table.add_row(*name)
 
-	sep = '='*COLUMNS
+	sep = '='*term.columns
 	console.print(
 		sep,
 		title,
