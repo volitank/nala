@@ -89,6 +89,7 @@ def remove_options(argparser: NalaParser, **kwargs: bool) -> None:
 		'assume_yes' : True, 'download_only' : True,
 		'update' : True, 'no_update' : True,
 		'raw_dpkg' : True, 'noninteractive' : True,
+		'no_autoremove' : True
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -130,6 +131,11 @@ global_options.add_argument(
 	'--no-update',
 	action='store_true',
 	help="skips updating the package list"
+)
+global_options.add_argument(
+	'--no-autoremove',
+	action='store_true',
+	help='stops nala from autoremoving packages.'
 )
 global_options.add_argument(
 	'--raw-dpkg',
@@ -339,7 +345,8 @@ show_parser = subparsers.add_parser(
 remove_options(
 	show_parser, assume_yes=True,
 	download_only=True, no_update=True,
-	raw_dpkg=True, noninteractive=True
+	raw_dpkg=True, noninteractive=True,
+	no_autoremove=True
 )
 
 remove_interactive_options(show_parser)
@@ -358,7 +365,8 @@ history_parser = subparsers.add_parser(
 remove_options(
 	history_parser, assume_yes=True,
 	download_only=True, no_update=True,
-	raw_dpkg=True, noninteractive=True
+	raw_dpkg=True, noninteractive=True,
+	no_autoremove=True
 )
 
 remove_interactive_options(history_parser)

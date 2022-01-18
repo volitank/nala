@@ -27,18 +27,30 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime
+from getpass import getuser
 from json.decoder import JSONDecodeError
+from os import environ, getuid
+from pwd import getpwnam
 from typing import TYPE_CHECKING
 
 import jsbeautifier
 
-from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY
+from nala.constants import (ERROR_PREFIX,
+				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE)
 from nala.logger import dprint
 from nala.rich import Column, Table, console
 from nala.utils import print_packages, term
 
 if TYPE_CHECKING:
 	from nala.nala import Nala
+
+USER: str = environ.get("DOAS_USER", '')
+UID: int = 0
+if USER:
+	UID = getpwnam(USER).pw_uid
+else:
+	USER = environ.get("SUDO_USER", getuser())
+	UID = int(environ.get("SUDO_UID", getuid()))
 
 def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]]]:
 	"""Load Nala history."""
@@ -184,8 +196,6 @@ def write_history(delete_names: list[list[str]],
 	install_names: list[list[str]], upgrade_names: list[list[str]]) -> None:
 	"""Prepare history for writing."""
 	# We don't need only downloads in the history
-	if '--download-only' in sys.argv[1:]:
-		return
 	timezone = datetime.utcnow().astimezone().tzinfo
 	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
 	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
@@ -203,6 +213,24 @@ def write_history(delete_names: list[list[str]],
 
 	history_dict[hist_id] = transaction
 	write_history_file(history_dict)
+
+def write_log(delete_names: list[list[str]], install_names: list[list[str]],
+	upgrade_names: list[list[str]], autoremove_names: list[list[str]]) -> None:
+	"""Write information to the log file."""
+	timezone = datetime.utcnow().astimezone().tzinfo
+	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
+
+	log = {
+		'Date' : time,
+		'Requested-By' : f'{USER} ({UID})',
+		'Command' : sys.argv[1:],
+		'Removed' : delete_names,
+		'Auto-Removed' : autoremove_names,
+		'Installed' : install_names,
+		'Upgraded' : upgrade_names,
+	}
+	with NALA_LOGFILE.open('a', encoding='utf-8') as file:
+		file.write(jsbeautifier.beautify(json.dumps(log), JSON_OPTIONS))
 
 def get_history(hist_id: str) -> dict[str, str | list[str] | list[list[str]]]:
 	"""Get the history from file."""

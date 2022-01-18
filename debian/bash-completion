@@ -77,6 +77,7 @@ _nala()
 						-y --assume-yes
 						-d --download-only
 						--raw-dpkg
+						--no-autoremove
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
@@ -85,6 +86,7 @@ _nala()
 						-y --assume-yes
 						-d --download-only
 						--raw-dpkg
+						--no-autoremove
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
@@ -95,6 +97,7 @@ _nala()
 						-d --download-only
 						--no-update
 						--raw-dpkg
+						--no-autoremove
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;

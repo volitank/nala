@@ -38,6 +38,8 @@ from nala.nala import Nala
 from nala.options import arguments, parser
 from nala.utils import dir_check, iter_remove
 
+if str(ARCHIVE_DIR) == '/':
+	sys.exit(ERROR_PREFIX+"archive dir is '/'. This is dangerous and unsupported.")
 
 def _main() -> None:
 	"""Nala Main."""
