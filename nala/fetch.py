@@ -46,11 +46,52 @@ netselect_scored = []
 
 DEBIAN = 'Debian'
 UBUNTU = 'Ubuntu'
+DOMAIN_PATTERN = re.compile(r'https?://([A-Za-z_0-9.-]+).*')
+ERRNO_PATTERN = re.compile(r'\[.*\]')
+UBUNTU_COUNTRY = re.compile(r'<mirror:countrycode>(.*)</mirror:countrycode>')
+UBUNTU_MIRROR = re.compile(r'<link>(.*)</link>')
 
 def net_select(mirror: str, task: TaskID, live: Live, total: int, num: int) -> None:
 	"""Take a URL, ping the domain and score the latency."""
 	debugger = [f'Thread: {num}', f'Current Mirror: {mirror}']
+	ping_progress(live, task, total, num)
 
+	# Regex to get the domain
+	regex = re.search(DOMAIN_PATTERN, mirror)
+	if not regex:
+		debugger.append('Regex Failed')
+		dprint(debugger)
+		return
+	domain = regex.group(1)
+	debugger.append(f'Pinged: {domain}')
+	try:
+		if not netping(domain, mirror, debugger):
+			return
+	except (socket.gaierror, RuntimeError) as err:
+		ping_error(str(err), domain, mirror)
+
+def netping(domain: str, mirror: str, debugger: list[str]) -> bool:
+	"""Ping the domain and score it."""
+	# We convert the float to integer in order to get rid of the decimal
+	# From there we convert it to a string so we can prefix zeros for sorting
+	res = str(int(ping(domain, count=4, match=True, timeout=1).rtt_avg_ms))
+	debugger.append(f'Ping ms: {res}')
+	if len(res) == 2:
+		res = '0'+res
+	elif len(res) == 1:
+		res = '00'+res
+	elif len(res) > 3:
+		debugger.append('Mirror too slow')
+		dprint(debugger)
+		return False
+
+	debugger.append(f'Appended: {res} {mirror}')
+	dprint(debugger)
+	netselect_scored.append(f'{res} {mirror}')
+	return True
+
+def ping_progress(live: Live, task: TaskID, total: int, num: int) -> None:
+	"""Update fetch progress bar."""
 	if not arguments.debug:
 		table = Table.grid()
 		table.add_row(f"{color('Mirror:', 'GREEN')} {num}/{total}")
@@ -58,41 +99,22 @@ def net_select(mirror: str, task: TaskID, live: Live, total: int, num: int) -> N
 
 		fetch_progress.advance(task)
 		live.update(table)
-	try:
-		# Regex to get the domain
-		regex = re.search('https?://([A-Za-z_0-9.-]+).*', mirror)
-		if not regex:
-			debugger.append('Regex Failed')
-			dprint(debugger)
-			return
-		domain = regex.group(1)
-		debugger.append(f'Pinged: {domain}')
-		# We convert the float to integer in order to get rid of the decimal
-		# From there we convert it to a string so we can prefix zeros for sorting
-		res = str(int(ping(domain, count=4, match=True, timeout=1).rtt_avg_ms))
-		debugger.append(f'Ping ms: {res}')
-		if len(res) == 2:
-			res = '0'+res
-		elif len(res) == 1:
-			res = '00'+res
-		elif len(res) > 3:
-			debugger.append('Mirror too slow')
-			dprint(debugger)
-			return
 
-		score = f'{res} {mirror}'
-		debugger.append(f'Appended: {score}')
-		dprint(debugger)
-		netselect_scored.append(score)
-
-	except (socket.gaierror, OSError) as ping_err:
-		if arguments.verbose:
-			err = str(ping_err)
-			regex = re.search('\\[.*\\]', err)
-			if regex:
-				err = color(err.replace(regex.group(0), '').strip(), 'YELLOW')
-			print(f'{err}: {domain}')
-			print(f"{color('URL:', 'YELLOW')} {mirror}\n")
+def ping_error(err: str, domain: str, mirror: str) -> None:
+	"""Handle error on ping."""
+	if arguments.verbose:
+		# socket.gaierror: [Errno -2] Name or service not known
+		if 'Errno' in err:
+			print(
+				f"{color(re.sub(ERRNO_PATTERN, '', err), 'YELLOW')}: {domain}",
+				f"{color('URL:', 'YELLOW')} {mirror}\n"
+			)
+			return
+		# 'Cannot resolve address "mirror.telepoint.bg", try verify your DNS or host file'
+		if err.startswith('Cannot resolve'):
+			print(f"{color('Warning:', 'YELLOW')} {str(err).split(',')[0]}")
+			return
+		print(err)
 
 def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	"""Get and parse the Ubuntu mirror list."""
@@ -175,7 +197,7 @@ def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
 			# Ubuntu Countries
 			elif '<mirror:countrycode>' in line:
 				# <mirror:countrycode>US</mirror:countrycode>
-				result = re.search('<mirror:countrycode>(.*)</mirror:countrycode>', line)
+				result = re.search(UBUNTU_COUNTRY, line)
 				if result:
 					country_list.add(result.group(1))
 	return tuple(country_list)
@@ -202,62 +224,40 @@ def ubuntu_parser(mirror: str) -> str | None:
 	for line in mirror.splitlines():
 		if '<link>' in line:
 			# <link>http://mirror.steadfastnet.com/ubuntu/</link>
-			result = re.search('<link>(.*)</link>', line)
+			result = re.search(UBUNTU_MIRROR, line)
 			if result:
 				return result.group(1)
 	return None
 
-def detect_release() -> tuple[str | None, ...]:
+def detect_release() -> tuple[str, str]:
 	"""Detect the distro and release."""
-	try:
-		lsb = get_distro()
-		distro = lsb.id
-		release = lsb.codename
-	# I'm not sure if this can fail but if it does we can't really continue.
-	except Exception as err: # pylint: disable=broad-except
-		print(err)
-		print(ERROR_PREFIX+'Unable to detect release. Specify manually')
-		parser.parse_args(['fetch', '--help'])
-		sys.exit(1)
-
-	if distro and release:
-		return distro, release
-	return None, None
-
-def fetch() -> None:
-	"""Fetch fast mirrors and write nala-sources.list."""
-	if (NALA_SOURCES.exists() and not arguments.assume_yes and
-	    not ask(f'{NALA_SOURCES.name} already exists.\ncontinue and overwrite it')
-	    ):
-		sys.exit('Abort')
-
-	# Make sure there aren't any shenanigans
-	if arguments.fetches not in range(1,11):
-		sys.exit('Amount of fetches has to be 1-10...')
-
-	# If supplied a country it needs to be a list
-	country_list = (arguments.country,) if arguments.country else None
-
 	if not arguments.debian and not arguments.ubuntu:
-		distro, release = detect_release()
-	elif arguments.debian:
-		distro = DEBIAN
-		release = arguments.debian
-	else:
-		distro = UBUNTU
-		release = arguments.ubuntu
+		lsb = get_distro()
+		return lsb.id, lsb.codename
 
-	if distro == DEBIAN:
-		netselect = debian_mirror(country_list)
-		component = 'main' if arguments.foss else 'main contrib non-free'
-	else:
-		netselect = ubuntu_mirror(country_list)
-		# It's ubuntu, you probably don't care about foss
-		component = 'main restricted universe multiverse'
+	if arguments.debian:
+		return DEBIAN, arguments.debian
+	return UBUNTU, arguments.ubuntu
 
-	dprint(netselect)
-	dprint(f'Distro: {distro}, Release: {release}, Component: {component}')
+def write_sources(release: str, component: str) -> None:
+	"""Write mirrors to nala-sources.list."""
+	with open(NALA_SOURCES, 'w', encoding="utf-8") as file:
+		print(f"{color('Writing:', 'GREEN')} {NALA_SOURCES}\n")
+		print('# Sources file built for nala\n', file=file)
+		arguments.fetches -= 1
+		for num, line in enumerate(netselect_scored):
+			# This splits off the score '030 http://mirror.steadfast.net/debian/'
+			line = line[line.index('h'):]
+			source = f'{line} {release} {component}'
+			print(f'deb {source}')
+			print(f'deb-src {source}\n')
+			print(f'deb {source}', file=file)
+			print(f'deb-src {source}\n', file=file)
+			if num == arguments.fetches:
+				break
 
+def test_mirrors(netselect: tuple[str, ...]) -> None:
+	"""Test mirrors."""
 	print('Testing mirrors...')
 	with Live(transient=True) as live:
 		with ThreadPoolExecutor(max_workers=32) as pool:
@@ -267,23 +267,55 @@ def fetch() -> None:
 			for num, mirror in enumerate(netselect):
 				pool.submit(net_select, mirror, task, live, total, num)
 
+def check_supported(distro:str, release:str,
+	country_list: tuple[str, ...] | None) -> tuple[tuple[str, ...], str]:
+	"""Check if the distro is supported or not.
+
+	If the distro is supported return mirror list and component.
+
+	Error if the distro is not supported.
+	"""
+	if distro == DEBIAN:
+		component = 'main' if arguments.foss else 'main contrib non-free'
+		return debian_mirror(country_list), component
+	if distro == UBUNTU:
+		# It's ubuntu, you probably don't care about foss
+		return ubuntu_mirror(country_list), 'main restricted universe multiverse'
+	parser.parse_args(['fetch', '--help'])
+	print(
+		ERROR_PREFIX+f"{distro} {release} is unsupported.\n"
+		"You can specify Ubuntu or Debian manually."
+	)
+	sys.exit(ERROR_PREFIX+f"{distro} {release} is unsupported.")
+
+def fetch_checks() -> None:
+	"""Perform checks and error if we shouldn't continue."""
+	if (NALA_SOURCES.exists() and not arguments.assume_yes and
+	    not ask(f'{NALA_SOURCES.name} already exists.\ncontinue and overwrite it')
+	    ):
+		sys.exit('Abort')
+	# Make sure there aren't any shenanigans
+	if arguments.fetches not in range(1,11):
+		sys.exit('Amount of fetches has to be 1-10...')
+
+def fetch() -> None:
+	"""Fetch fast mirrors and write nala-sources.list."""
+	fetch_checks()
+
+	# If supplied a country it needs to be a list
+	country_list = (arguments.country,) if arguments.country else None
+
+	distro, release = detect_release()
+	netselect, component = check_supported(distro, release, country_list)
+
+	dprint(netselect)
+	dprint(f'Distro: {distro}, Release: {release}, Component: {component}')
+
+	test_mirrors(netselect)
 	netselect_scored.sort()
 
 	dprint(netselect_scored)
 	dprint(f'Size of original list: {len(netselect)}')
 	dprint(f'Size of scored list: {len(netselect_scored)}')
 	dprint(f'Writing from: {netselect_scored[:arguments.fetches]}')
-
-	with open(NALA_SOURCES, 'w', encoding="utf-8") as file:
-		print(f"{color('Writing:', 'GREEN')} {NALA_SOURCES}\n")
-		print('# Sources file built for nala\n', file=file)
-		arguments.fetches -= 1
-		for num, line in enumerate(netselect_scored):
-			# This splits off the score '030 http://mirror.steadfast.net/debian/'
-			line = line[line.index('h'):]
-			print(f'deb {line} {release} {component}')
-			print(f'deb-src {line} {release} {component}\n')
-			print(f'deb {line} {release} {component}', file=file)
-			print(f'deb-src {line} {release} {component}\n', file=file)
-			if num == arguments.fetches:
-				break
+	write_sources(release, component)
