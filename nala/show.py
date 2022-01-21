@@ -21,7 +21,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
-"""Functions related to the `show` command"""
+"""Functions related to the `show` command."""
 from __future__ import annotations
 
 import sys

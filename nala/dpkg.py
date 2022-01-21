@@ -238,8 +238,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc]
 		"""Exit."""
 
 	def run(self, obj: apt_pkg.PackageManager | bytes | str) -> int:
-		"""
-		Install using the `PackageManager` object `obj`.
+		"""Install using the `PackageManager` object `obj`.
 
 		returns the result of calling `obj.do_install()`
 		"""
@@ -409,7 +408,7 @@ def raw_init() -> None:
 	term.set_raw()
 
 def paren_color(match: Match[str]) -> str:
-	"""Color parenthesis"""
+	"""Color parenthesis."""
 	return color('(') if match.group(0) == '(' else color(')')
 
 def lines(line: str, zword: str, msg_color: str) -> str:

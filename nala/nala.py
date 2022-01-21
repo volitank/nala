@@ -44,7 +44,7 @@ import requests  # type: ignore[import]
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import Package, Version
 
-from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, PARTIAL_DIR
+from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR, PARTIAL_DIR
 from nala.dpkg import InstallProgress, UpdateProgress
 from nala.history import write_history, write_log
 from nala.logger import dprint
@@ -54,14 +54,13 @@ from nala.show import check_virtual, show_main
 from nala.utils import (ask, color, pkg_candidate, pkg_installed,
 				print_packages, term, unit_str, verbose_print)
 
-NALA_DIR = Path('/var/lib/nala')
-NALA_HISTORY = Path('/var/lib/nala/history')
 
 class Nala:
 	"""Manage Nala operations."""
 
 	def __init__(self,	no_update: bool = False) -> None:
 		"""Manage Nala operations."""
+		self.purge = False
 		self.deleted: list[list[str]] = []
 		self.autoremoved: list[list[str]] = []
 		# If raw_dpkg is enabled likely they want to see the update too.
@@ -79,12 +78,6 @@ class Nala:
 			self.cache = Cache(UpdateProgress())
 		except (LockFailedException, FetchFailedException) as err:
 			apt_error(err)
-
-		self.purge = False
-		self.archive_dir = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
-		"""/var/cache/apt/archives/"""
-		if not self.archive_dir:
-			sys.exit(ERROR_PREFIX+'No archive dir is set. Usually it is /var/cache/apt/archives/')
 
 	def upgrade(self, dist_upgrade: bool = False) -> None:
 		"""Upgrade pkg[s]."""
@@ -193,36 +186,18 @@ class Nala:
 
 	def get_changes(self, upgrade: bool = False, remove: bool = False) -> None:
 		"""Get packages requiring changes and process them."""
-		def pkg_name(pkg: Package) -> str:
-			"""Sort by package name."""
-			return str(pkg.name)
-
-		pkgs = sorted(self.cache.get_changes(), key=pkg_name)
+		pkgs = sorted(self.cache.get_changes(), key=sort_pkg_name)
 		if not NALA_DIR.exists():
 			NALA_DIR.mkdir()
 
-		if upgrade and not pkgs:
-			print(color("All packages are up to date."))
-			sys.exit(0)
-		elif not remove and not pkgs:
-			print(color("Nothing for Nala to do."))
-			sys.exit(0)
-		elif remove and not pkgs:
-			print(color("Nothing for Nala to remove."))
-			sys.exit(0)
+		check_work(pkgs, upgrade, remove)
+
 		if pkgs:
 			check_essential(pkgs)
 			delete_names, install_names, upgrade_names, autoremove_names = self.sort_pkg_changes(pkgs)
 			self.print_update_summary(delete_names, install_names, upgrade_names, autoremove_names)
 
-			# If we're piped or something the user should specify --assume-yes
-			# As They are aware it can be dangerous to continue
-			if not term.is_term() and not arguments.assume_yes:
-				sys.exit(ERROR_PREFIX+"It can be dangerous to continue without a terminal. Use `--assume-yes`")
-
-			if not arguments.assume_yes and not ask('Do you want to continue'):
-				print("Abort.")
-				return
+			check_term_ask()
 
 			pkgs = [
 				# Don't download packages that already exist
@@ -262,10 +237,7 @@ class Nala:
 			apt_pkg.config.set('Dpkg::Options::', '--force-confask')
 
 		try:
-			self.cache.commit(
-				UpdateProgress(),
-				InstallProgress()
-			)
+			self.cache.commit(UpdateProgress(), InstallProgress())
 		except apt_pkg.Error as err:
 			sys.exit(f'\r\n{ERROR_PREFIX+str(err)}')
 
@@ -310,60 +282,73 @@ class Nala:
 
 		print_packages(
 			['Package:', 'Version:', 'Size:'],
-			deepcopy(delete_names),
-			delete[1],
-			'bold red'
+			deepcopy(delete_names), delete[1], 'bold red'
 		)
 
 		print_packages(
 			['Package:', 'Version:', 'Size:'],
-			deepcopy(autoremove_names),
-			'Auto-Removing:',
-			'bold red'
+			deepcopy(autoremove_names), 'Auto-Removing:', 'bold red'
 		)
 
 		print_packages(
 			['Package:', 'Version:', 'Size:'],
-			deepcopy(install_names),
-			'Installing:',
-			'bold green'
+			deepcopy(install_names), 'Installing:', 'bold green'
 		)
 
 		print_packages(
 			['Package:', 'Old Version:', 'New Version:', 'Size:'],
-			deepcopy(upgrade_names),
-			'Upgrading:',
-			'bold blue'
+			deepcopy(upgrade_names), 'Upgrading:', 'bold blue'
 		)
 
-		# We need to get our width for formatting
-		width_list = [
-			len(delete_names),
-			len(install_names),
-			len(upgrade_names)
-		]
+		transaction_summary(delete[0],
+			len(delete_names), len(install_names),
+			len(upgrade_names), len(autoremove_names))
+		self.transaction_footer()
 
-		# I know this looks weird but it's how it has to be
-		width = len(str(max(width_list)))
-
-		print('='*term.columns)
-		print('Summary')
-		print('='*term.columns)
-		transaction_summary(install_names, width, 'Install')
-		transaction_summary(upgrade_names, width, 'Upgrade')
-		transaction_summary(delete_names, width, delete[0])
-
+	def transaction_footer(self) -> None:
+		"""Print transaction footer."""
+		print()
 		if self.cache.required_download > 0:
-			print(f'\nTotal download size: {unit_str(self.cache.required_download)}')
-		else:
-			# We need this extra line lol
-			print()
+			print(f'Total download size: {unit_str(self.cache.required_download)}')
 		if self.cache.required_space < 0:
 			print(f'Disk space to free: {unit_str(-int(self.cache.required_space))}')
 		else:
 			print(f'Disk space required: {unit_str(self.cache.required_space)}')
 		if arguments.download_only:
 			print("Nala will only download the packages")
+
+def sort_pkg_name(pkg: Package) -> str:
+	"""Sort by package name.
+
+	This is to be used as sorted(key=sort_pkg_name)
+	"""
+	return str(pkg.name)
+
+def check_term_ask() -> None:
+	"""Check terminal and ask user if they want to continue."""
+	# If we're piped or something the user should specify --assume-yes
+	# As They are aware it can be dangerous to continue
+	if not term.is_term() and not arguments.assume_yes:
+		sys.exit(ERROR_PREFIX+"It can be dangerous to continue without a terminal. Use `--assume-yes`")
+
+	if not arguments.assume_yes and not ask('Do you want to continue'):
+		print("Abort.")
+		sys.exit(0)
+
+def check_work(pkgs: list[Package], upgrade: bool, remove: bool) -> None:
+	"""Check if there is any work for nala to do.
+
+	Returns None if there is work, exit's successful if not.
+	"""
+	if upgrade and not pkgs:
+		print(color("All packages are up to date."))
+		sys.exit(0)
+	elif not remove and not pkgs:
+		print(color("Nothing for Nala to do."))
+		sys.exit(0)
+	elif remove and not pkgs:
+		print(color("Nothing for Nala to remove."))
+		sys.exit(0)
 
 def check_found(cache: Cache, pkg_name: str,
 	not_found: list[str], not_installed: list[str]) -> bool:
@@ -508,16 +493,26 @@ def guess_concurrent(pkgs: list[Package]) -> int:
 		max_uris = max(len(candidate.uris)*2, max_uris)
 	return max_uris
 
-def transaction_summary(names: list[list[str]], width: int, header: str) -> None:
+def transaction_summary(delete_header: str,
+	delete_total: int, install_total: int,
+	upgrade_total: int, autoremove_total: int) -> None:
 	"""Print a small transaction summary."""
-	# We should look at making this more readable
-	# Or integrating it somewhere else
-	if names:
-		print(
-			header.ljust(7),
-			f'{len(names)}'.rjust(width),
-			'Packages'
-			)
+	print('='*term.columns)
+	print('Summary')
+	print('='*term.columns)
+	table = Table.grid('', padding=(0,2))
+	table.add_column(justify='right')
+	table.add_column()
+
+	if install_total:
+		table.add_row('Install', str(install_total), 'Packages')
+	if upgrade_total:
+		table.add_row('Upgrade', str(upgrade_total), 'Packages')
+	if delete_total:
+		table.add_row(delete_header, str(delete_total), 'Packages')
+	if autoremove_total:
+		table.add_row('Auto-Remove', str(autoremove_total), 'Packages')
+	term.console.print(table)
 
 def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""

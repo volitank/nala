@@ -43,6 +43,7 @@ from nala.rich import Table, console
 
 class Terminal:
 	"""Represent the user terminal."""
+
 	# Term Constants
 	STDIN = 0
 	STDOUT = 1
@@ -73,6 +74,7 @@ class Terminal:
 		self.size = get_terminal_size()
 		self.columns = self.size.columns
 		self.lines = self.size.lines
+		self.console = console
 		self.term: bool = True
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
@@ -108,7 +110,7 @@ class Terminal:
 					sys.exit(err)
 
 	def update_size(self) -> None:
-		"""Updates the current width and length of the terminal."""
+		"""Update the current width and length of the terminal."""
 		self.size = get_terminal_size()
 		self.columns = self.size.columns
 		self.lines = self.size.lines

@@ -112,7 +112,7 @@ def ping_error(err: str, domain: str, mirror: str) -> None:
 			return
 		# 'Cannot resolve address "mirror.telepoint.bg", try verify your DNS or host file'
 		if err.startswith('Cannot resolve'):
-			print(f"{color('Warning:', 'YELLOW')} {str(err).split(',')[0]}")
+			print(f"{color('Warning:', 'YELLOW')} {str(err).split(',', maxsplit=1)[0]}")
 			return
 		print(err)
 

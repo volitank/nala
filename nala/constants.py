@@ -35,6 +35,8 @@ LICENSE = Path('/usr/share/common-licenses/GPL-3')
 """/usr/share/common-licenses/GPL-3"""
 NALA_SOURCES = Path('/etc/apt/sources.list.d/nala-sources.list')
 """/etc/apt/sources.list.d/nala-sources.list"""
+NALA_DIR = Path('/var/lib/nala')
+"""/var/lib/nala"""
 NALA_LOGDIR = Path('/var/log/nala')
 """/var/log/nala"""
 NALA_LOGFILE = NALA_LOGDIR / 'nala.log'
