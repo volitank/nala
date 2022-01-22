@@ -62,12 +62,14 @@ class Terminal:
 	DISABLE_ALT_SCREEN = b'\x1b[?1049l'
 	SHOW_CURSOR = b'\x1b[?25h'
 	HIDE_CURSOR = b'\x1b[?25l'
+	SET_CURSER = b'\x1b[?1l'
 	SAVE_TERM = b'\x1b[22;0;0t'
 	RESTORE_TERM = b'\x1b[23;0;0t'
 	APPLICATION_KEYPAD = b'\x1b='
 	NORMAL_KEYPAD = b'\x1b>'
 	CR = b'\r'
 	LF = b'\n'
+	CRLF = b'\r\n'
 
 	def __init__(self) -> None:
 		"""Represent the user terminal."""
@@ -79,6 +81,12 @@ class Terminal:
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
 		self.check()
+		if self.lines < 13 or self.columns < 31:
+			print("Terminal can't support dialog, falling back to readline")
+			os.environ["DEBIAN_FRONTEND"] = "readline"
+		# Readline is too hard to support with our fancy formatting
+		if os.environ.get("DEBIAN_FRONTEND") == "readline":
+			arguments.raw_dpkg = True
 
 	def __repr__(self) -> str:
 		"""Represent state of the user terminal as a string."""
@@ -136,6 +144,11 @@ class Terminal:
 	def is_xterm(self) -> bool:
 		"""Return True if we're in an xterm, False otherwise."""
 		return 'xterm' in self.term_type
+
+	@staticmethod
+	def is_su() -> bool:
+		"""Return True if we're super user and False if we're not."""
+		return os.geteuid() == 0
 
 term = Terminal()
 

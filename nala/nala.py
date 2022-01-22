@@ -45,7 +45,7 @@ from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import Package, Version
 
 from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR, PARTIAL_DIR
-from nala.dpkg import InstallProgress, UpdateProgress
+from nala.dpkg import InstallProgress, UpdateProgress, live as dpkg_live
 from nala.history import write_history, write_log
 from nala.logger import dprint
 from nala.options import arguments
@@ -68,16 +68,14 @@ class Nala:
 		if arguments.raw_dpkg or not term.is_xterm():
 			arguments.verbose = True
 		# We want to update the cache before we initialize it
-		if not no_update:
-			print('Updating package list...')
-			try:
-				Cache().update(UpdateProgress())
-			except (LockFailedException, FetchFailedException) as err:
-				apt_error(err)
 		try:
+			if not no_update:
+				Cache().update(UpdateProgress())
 			self.cache = Cache(UpdateProgress())
 		except (LockFailedException, FetchFailedException) as err:
 			apt_error(err)
+		finally:
+			dpkg_live.stop()
 
 	def upgrade(self, dist_upgrade: bool = False) -> None:
 		"""Upgrade pkg[s]."""
@@ -199,6 +197,13 @@ class Nala:
 
 			check_term_ask()
 
+			# Calculate our total operations for the dpkg progress bar
+			pkg_total = (
+				len(delete_names)
+				+ len(autoremove_names)
+				+ len(install_names)*2
+				+ len(upgrade_names)*2
+			)
 			pkgs = [
 				# Don't download packages that already exist
 				pkg for pkg in pkgs if not pkg.marked_delete and not check_pkg(ARCHIVE_DIR, pkg)
@@ -212,9 +217,9 @@ class Nala:
 		else:
 			write_history(delete_names, install_names, upgrade_names)
 			write_log(delete_names, install_names, upgrade_names, autoremove_names)
-			self.start_dpkg()
+			self.start_dpkg(pkg_total)
 
-	def start_dpkg(self) -> None:
+	def start_dpkg(self, pkg_total: int) -> None:
 		"""Set environment and start dpkg."""
 		# Lets get our environment variables set before we get down to business
 		if arguments.noninteractive:
@@ -237,9 +242,17 @@ class Nala:
 			apt_pkg.config.set('Dpkg::Options::', '--force-confask')
 
 		try:
-			self.cache.commit(UpdateProgress(), InstallProgress())
+			self.cache.commit(
+				UpdateProgress(install=True),
+				InstallProgress(pkg_total)
+			)
 		except apt_pkg.Error as err:
 			sys.exit(f'\r\n{ERROR_PREFIX+str(err)}')
+		finally:
+			# If dpkg quits for any reason we lose the cursor
+			# If we don't stop the live session
+			dpkg_live.stop()
+		print(color("Finished Successfully", 'GREEN'))
 
 	def sort_pkg_changes(self, pkgs: list[Package]
 		) -> tuple[list[list[str]], list[list[str]], list[list[str]], list[list[str]]]:
@@ -531,7 +544,9 @@ def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
 			print(ERROR_PREFIX+err.strip())
 		sys.exit(1)
 	print(ERROR_PREFIX+msg)
-	sys.exit('Are you root?')
+	if not term.is_su():
+		sys.exit('Are you root?')
+	sys.exit(1)
 
 class PkgDownloader:
 	"""Manage Package Downloads."""

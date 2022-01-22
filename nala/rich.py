@@ -26,8 +26,8 @@ from __future__ import annotations
 
 from rich.console import Console
 from rich.live import Live
-from rich.progress import (BarColumn, DownloadColumn,
-				Progress, Task, TextColumn, TransferSpeedColumn, filesize)
+from rich.progress import (BarColumn, DownloadColumn, Progress,
+				SpinnerColumn, Task, TextColumn, TransferSpeedColumn, filesize)
 from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Column, Table
@@ -92,6 +92,22 @@ pkg_download_progress = Progress(
 	"[bold]•",
 	NalaTransferSpeed(),
 	)
+
+dpkg_progress = Progress(
+	SpinnerColumn(style="bold white"),
+	TextColumn("[bold blue]Running dpkg ...", justify="right"),
+	BarColumn(
+		bar_width=None,
+		# The background of our bar
+		style=bar_back_style,
+		# The color completed section
+		complete_style=bar_style,
+		# The color of completely finished bar
+		finished_style=bar_style
+	),
+	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	"{task.completed}/{task.total}"
+)
 
 fetch_progress = Progress(
 	#TextColumn("[bold blue]Downloading ...", justify="right"),

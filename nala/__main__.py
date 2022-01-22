@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import sys
 from getpass import getuser
-from os import geteuid
 from typing import NoReturn
 
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
@@ -36,7 +35,7 @@ from nala.history import history, history_clear, history_info, history_undo
 from nala.logger import dprint, esyslog
 from nala.nala import Nala
 from nala.options import arguments, parser
-from nala.utils import dir_check, iter_remove
+from nala.utils import dir_check, iter_remove, term
 
 if str(ARCHIVE_DIR) == '/':
 	sys.exit(ERROR_PREFIX+"archive dir is '/'. This is dangerous and unsupported.")
@@ -57,16 +56,15 @@ def _main() -> None:
 	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
 	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None)
 
-	sudo = geteuid()
 	if arguments.command in superuser:
-		sudo_check(sudo, arguments.command)
+		sudo_check(arguments.command)
 
 	if arguments.command in apt_init:
-		apt_command(sudo)
+		apt_command()
 	else:
 		not_apt_command()
 
-def apt_command(sudo: int) -> NoReturn:
+def apt_command() -> NoReturn:
 	"""Command which require initializing the apt cache."""
 	apt = init_apt()
 	if arguments.command in ('update', 'upgrade'):
@@ -86,7 +84,7 @@ def apt_command(sudo: int) -> NoReturn:
 		apt.show(arguments.args)
 
 	elif arguments.command == 'history':
-		nala_history(apt, sudo)
+		nala_history(apt)
 
 	elif not arguments.update:
 		sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
@@ -124,7 +122,7 @@ def clean() -> None:
 	SRCPKGCACHE.unlink(missing_ok=True)
 	print("Cache has been cleaned")
 
-def nala_history(apt: Nala, sudo:int) -> None:
+def nala_history(apt: Nala) -> None:
 	"""Coordinate the history command."""
 	mode = arguments.mode
 	# Eventually we should probably make argparser better and handle this for us.
@@ -151,12 +149,12 @@ def nala_history(apt: Nala, sudo:int) -> None:
 		history_info(arguments.id)
 
 	elif mode == 'clear':
-		sudo_check(sudo, 'clear history')
+		sudo_check('clear history')
 		history_clear(arguments.id)
 
-def sudo_check(sudo: int, root_action: str) -> None:
+def sudo_check(root_action: str) -> None:
 	"""Check for root and exits if not root."""
-	if sudo != 0:
+	if not term.is_su():
 		esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
 		sys.exit(ERROR_PREFIX+f'Nala needs root to {root_action}')
 
