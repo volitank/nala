@@ -10,7 +10,7 @@ apt_generic="${lib_dir}apt_pkg.so"
 echo "checking apt_pkg library.."
 if [ ! -e $apt_pkg39 ]; then
 	if [ -e $apt_generic ]; then
-		echo "$apt_generic exists.."
+		echo "$apt_generic exists, not linking.."
 	else
 		if [ -e $apt_pkg38 ]; then
 			echo "linking ${lib_dir}apt_pkg.so"
@@ -22,5 +22,5 @@ if [ ! -e $apt_pkg39 ]; then
 		fi
 	fi
 else
-	echo "$apt_pkg39 exists.."
+	echo "$apt_pkg39 exists, not linking.."
 fi

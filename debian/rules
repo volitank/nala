@@ -25,7 +25,6 @@ override_dh_clean:
 override_dh_auto_build:
 	nuitka3 --assume-yes-for-downloads \
 	--follow-import-to=nala \
-	--follow-import-to=pyshell \
 	--follow-import-to=pythonping \
 	--follow-import-to=rich \
 	--plugin-enable=pylint-warnings \

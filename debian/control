@@ -28,8 +28,8 @@ Depends:	${shlibs:Depends},
 			python3-pexpect,
 			python3-requests,
 			python3-jsbeautifier,
-Description: commandline wrapper for the apt package manager
- nala is a wrapper for the apt package manager. It has a lot
+Description: commandline frontend for the apt package manager
+ nala is a frontend for the apt package manager. It has a lot
  of the same functionality, but formats the output to be more
  human readable. Also implements a history function to see past
  transactions and undo/redo them. Much like Fedora's dnf history.

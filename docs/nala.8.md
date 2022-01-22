@@ -2,8 +2,8 @@
 title: nala
 section: 8
 header: User Manual
-footer: nala 0.2.1
-date: 11 January 2022
+footer: nala 0.3.0
+date: 22 January 2022
 ---
 # NAME
 nala - a wrapper for the apt package manager
@@ -64,6 +64,9 @@ to add quality of life changes, and improve the output to make it more reader fr
 
 **\--no-full**
 : *\--no-full* is specific to the **update/upgrade** command. Using this switch will run an **apt** regular upgrade which won't remove packages. By default **nala** uses a *full-upgrade*
+
+**\--no-autoremove**
+: *\--no-autoremove* stops nala from autoremoving packages. Packages that need to be removed in order to continue the update will still be removed.
 
 **\--verbose**
 : *\--verbose* prints more information that sticks around. By default we use "Progress Bars" to hide some things I would consider unnecessary. Using *--verbose* removes the progress bars and prints that information
