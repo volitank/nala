@@ -56,7 +56,6 @@ PARENTHESIS_PATTERN = re.compile(r'[()]')
 spinner = Spinner('dots', text='Initializing', style="bold blue")
 scroll_list: list[str] = []
 notice: set[str] = set()
-live = Live(auto_refresh=False)
 
 class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc]
 	"""Class for getting cache update status and printing to terminal."""
@@ -71,6 +70,7 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 		self._width = 80
 		self.old_op = "" # OpProgress setting
 		self.install = install
+		self.live = Live(auto_refresh=False)
 		if arguments.debug:
 			arguments.verbose=True
 
@@ -117,7 +117,10 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 				if arguments.verbose:
 					print(msg)
 					break
-				scroll_bar(msg, install=self.install, update_spinner=True, use_bar=False)
+				scroll_bar(
+					self, msg, install=self.install,
+					update_spinner=True, use_bar=False
+				)
 				break
 
 		else:
@@ -133,10 +136,10 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 				pulse.insert(last-2, ' '*fill)
 				msg = ' '.join(pulse)
 			if 'Fetched' in msg:
-				scroll_bar(msg, install=self.install, use_bar=False)
+				scroll_bar(self, msg, install=self.install, use_bar=False)
 				return
 			spinner.text = Text.from_ansi(msg)
-			scroll_bar(install=self.install,
+			scroll_bar(self, install=self.install,
 				update_spinner=True, use_bar=False
 			)
 
@@ -188,22 +191,23 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 		# Get the window size.
 		self._winch()
 		self._id = 1
-		live.start()
+		self.live.start()
+
+	def final_msg(self) -> str:
+		"""Print closing fetched message."""
+		fetched = apt_pkg.size_to_str(self.fetched_bytes)
+		elapsed = apt_pkg.time_to_str(self.elapsed_time)
+		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
+		return color(f"Fetched {fetched}B in {elapsed} ({speed}B/s)")
 
 	def stop(self) -> None:
 		"""Invoke when the Acquire process stops running."""
 		base.AcquireProgress.stop(self)
-		# Trick for getting a translation from apt
-		fetched = apt_pkg.size_to_str(self.fetched_bytes)
-		elapsed = apt_pkg.time_to_str(self.elapsed_time)
-		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
-		msg = color(f"Fetched {fetched}B in {elapsed} ({speed}B/s)")
-		self._write(msg)
-
+		if self.fetched_bytes != 0:
+			self._write(self.final_msg())
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
-		if not self.install:
-			live.stop()
+		self.live.stop()
 
 class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disable=too-many-instance-attributes
 	"""Class for getting dpkg status and printing to terminal."""
@@ -220,6 +224,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		self.pkg_total = pkg_total
 		self.task: TaskID
 		self._dpkg_log: TextIO
+		self.live = Live(auto_refresh=False)
 		# If we detect we're piped it's probably best to go raw.
 		if not term.is_term():
 			arguments.raw_dpkg = True
@@ -231,14 +236,13 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 	def start_update(self) -> None:
 		"""Start update."""
 		if not arguments.raw_dpkg:
-			live.start()
+			self.live.start()
 			self.task = dpkg_progress.add_task('', total=self.pkg_total)
 
-	@staticmethod
-	def finish_update() -> None:
+	def finish_update(self) -> None:
 		"""Call when update has finished."""
 		if not arguments.raw_dpkg:
-			live.stop()
+			self.live.stop()
 		if notice:
 			print('\n'+color('Notices:', 'YELLOW'))
 			for notice_msg in notice:
@@ -335,7 +339,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 						spinner.text = Text.from_ansi(
 							color(msg.decode().strip())
 						)
-						scroll_bar(update_spinner=True)
+						scroll_bar(self, update_spinner=True)
 				self.dpkg_log(term.LF.decode())
 				return True
 		return False
@@ -403,7 +407,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		if arguments.verbose:
 			print(msg)
 		else:
-			scroll_bar(msg)
+			scroll_bar(self, msg)
 
 		self.set_last_line(rawline)
 
@@ -414,7 +418,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		if term.RESTORE_TERM in rawline or self.conf_end(rawline):
 			self.raw = False
 			term.restore_mode()
-			live.start()
+			self.live.start()
 		self.set_last_line(rawline)
 
 	def set_last_line(self, rawline: bytes) -> None:
@@ -426,10 +430,11 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 
 	def advance_progress(self, line: str) -> None:
 		"""Advance the dpkg progress bar."""
-		if 'Setting up' in line or 'Unpacking' in line or 'Removing' in line:
+		if ('Setting up' in line or 'Unpacking' in line
+		    or 'Removing' in line and '(' in line):
 			dpkg_progress.advance(self.task)
 		if arguments.verbose:
-			live.update(
+			self.live.update(
 				Panel.fit(
 					dpkg_progress.get_renderable(), border_style='bold green', padding=(0,0)
 				), refresh=True
@@ -441,9 +446,9 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		# This prevents weird artifacts from the progress bar after debconf prompts
 		if self.raw:
 			return
-		live.update('', refresh=True)
+		self.live.update('', refresh=True)
 		term.write(term.CURSER_UP+term.CLEAR_LINE)
-		live.stop()
+		self.live.stop()
 		term.set_raw()
 		self.raw = True
 
@@ -534,7 +539,8 @@ def slice_list() -> None:
 		total = size - max(scroll_lines, 10)
 		scroll_list = scroll_list[total:]
 
-def scroll_bar(msg: str = '', install: bool = True,
+def scroll_bar(self: UpdateProgress | InstallProgress,
+	msg: str = '', install: bool = True,
 	update_spinner: bool = False, use_bar: bool = True) -> None:
 	"""Print msg to our scroll bar live display."""
 	if msg:
@@ -555,9 +561,9 @@ def scroll_bar(msg: str = '', install: bool = True,
 		table.add_row(Panel(panel_group, padding=(0,0), border_style=bar_style))
 	# We don't need to build the extra panel if we're not scrolling
 	if arguments.verbose:
-		live.update(table, refresh=True)
+		self.live.update(table, refresh=True)
 		return
-	live.update(Panel(
+	self.live.update(Panel(
 		table, title=scroll_title, title_align='left',
 		padding=(0,0), border_style='bold green'
 		), refresh=True)
@@ -626,10 +632,5 @@ class AptExpect(fdspawn): # type: ignore[misc]
 			except KeyboardInterrupt:
 				warn = color("Warning: ", 'YELLOW')
 				warn += "quitting now could break your system!"
-				if live.is_started:
-					scroll_list.append(warn)
-					scroll_list.append(color("Ctrl+C twice quickly will exit...", 'RED'))
-					scroll_bar()
-				else:
-					term.write(b'\n'+warn.encode())
+				print(color("Ctrl+C twice quickly will exit...", 'RED'))
 				sleep(0.5)

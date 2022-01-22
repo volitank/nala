@@ -45,7 +45,7 @@ from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import Package, Version
 
 from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR, PARTIAL_DIR
-from nala.dpkg import InstallProgress, UpdateProgress, live as dpkg_live
+from nala.dpkg import InstallProgress, UpdateProgress
 from nala.history import write_history, write_log
 from nala.logger import dprint
 from nala.options import arguments
@@ -75,7 +75,8 @@ class Nala:
 		except (LockFailedException, FetchFailedException) as err:
 			apt_error(err)
 		finally:
-			dpkg_live.stop()
+			term.restore_mode()
+			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
 
 	def upgrade(self, dist_upgrade: bool = False) -> None:
 		"""Upgrade pkg[s]."""
@@ -249,9 +250,9 @@ class Nala:
 		except apt_pkg.Error as err:
 			sys.exit(f'\r\n{ERROR_PREFIX+str(err)}')
 		finally:
+			term.restore_mode()
 			# If dpkg quits for any reason we lose the cursor
-			# If we don't stop the live session
-			dpkg_live.stop()
+			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
 		print(color("Finished Successfully", 'GREEN'))
 
 	def sort_pkg_changes(self, pkgs: list[Package]
@@ -329,6 +330,17 @@ class Nala:
 			print(f'Disk space required: {unit_str(self.cache.required_space)}')
 		if arguments.download_only:
 			print("Nala will only download the packages")
+
+def get_pkg_name(candidate: Version) -> str:
+	"""Return the package name.
+
+	Checks if we need and epoch in the path.
+	"""
+	if ':' in candidate.version:
+		index = candidate.version.index(':')
+		epoch = '_'+candidate.version[:index]+r'%3a'
+		return Path(candidate.filename).name.replace('_', epoch, 1)
+	return Path(candidate.filename).name
 
 def sort_pkg_name(pkg: Package) -> str:
 	"""Sort by package name.
@@ -425,7 +437,7 @@ def check_pkg(directory: Path, candidate: Package | Version) -> bool:
 	"""Check if file exists, is correct, and run check hash."""
 	if isinstance(candidate, Package):
 		candidate = pkg_candidate(candidate)
-	path = directory / Path(candidate.filename).name
+	path = directory / get_pkg_name(candidate)
 	if not path.exists() or path.stat().st_size != candidate.size:
 		return False
 	hash_type, hash_value = get_hash(candidate)
@@ -468,7 +480,7 @@ def process_downloads(pkgs: list[Package]) -> bool:
 	"""Process the downloaded packages."""
 	link_success = True
 	for pkg in pkgs:
-		filename = Path(pkg_candidate(pkg).filename).name
+		filename = get_pkg_name(pkg_candidate(pkg))
 		destination = ARCHIVE_DIR / filename
 		source = PARTIAL_DIR / filename
 		try:
@@ -601,7 +613,7 @@ class PkgDownloader:
 
 	def _download_pkg(self, candidate: Version, url: str) -> None:
 		"""Download package and update progress."""
-		dest = PARTIAL_DIR / Path(candidate.filename).name
+		dest = PARTIAL_DIR / get_pkg_name(candidate)
 		verbose_print(f"{color('Starting Download:', 'GREEN')} {url}")
 		with requests.get(url, stream=True) as download:
 			download.raise_for_status()
