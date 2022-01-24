@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from random import shuffle
 
 from apt.cache import Cache
@@ -194,37 +195,41 @@ def format_sources(candidate: Version, pkg: Package) -> str:
 	"""Show apt sources."""
 	origin = candidate.origins[0]
 	if origin.archive == 'now':
-		source = 'local install'
-		if candidate.section == 'Pacstall':
-			source = parse_pacstall(pkg.shortname)
-		return f'{color("APT-Sources:")} {source}'
-
-	for mirror in candidate.uris:
-		if 'mirror://' in mirror:
-			index = mirror.index('/pool')
-			url = mirror[:index]
-			break
-	else:
-		uris = candidate.uris[:]
-		shuffle(uris)
-		index = uris[0].index('/pool')
-		url = uris[0][:index]
+		return f'{color("APT-Sources:")} {get_local_source(pkg.shortname)}'
 
 	return (
-		f"{color('APT-Sources:')} {url} {origin.archive}/"
+		f"{color('APT-Sources:')} {source_url(candidate.uris)} {origin.archive}/"
 		f"{origin.component} {candidate.architecture} Packages"
 	)
 
-def parse_pacstall(pkg_name: str) -> str:
+def source_url(uris: list[str]) -> str:
+	"""Return the source url."""
+	for mirror in uris:
+		if 'mirror://' in mirror:
+			index = mirror.index('/pool')
+			return mirror[:index]
+
+	shuffle(uris)
+	index = uris[0].index('/pool')
+	return uris[0][:index]
+
+def get_local_source(pkg_name: str) -> str:
+	"""Determine the local source and return it."""
+	postfixes = ('', '-deb', '-git', '-bin', '-app')
+	for postfix in postfixes:
+		metadata = PACSTALL_METADATA / (pkg_name + postfix)
+		if metadata.exists():
+			return parse_pacstall(metadata)
+	return 'local install'
+
+def parse_pacstall(pacdata: Path) -> str:
 	"""Parse pacstall metadata file."""
-	metadata = PACSTALL_METADATA / pkg_name
-	if metadata.exists():
-		remote = '_remoterepo='
-		# _remoterepo="https://github.com/pacstall/pacstall-programs"
-		for line in metadata.read_text().splitlines():
-			if line.startswith(remote):
-				index = line.index('=') + 1
-				return color(line[index:].strip('"'), 'BLUE')
+	remote = '_remoterepo='
+	# _remoterepo="https://github.com/pacstall/pacstall-programs"
+	for line in pacdata.read_text().splitlines():
+		if line.startswith(remote):
+			index = line.index('=') + 1
+			return color(line[index:].strip('"'), 'BLUE')
 	return color('https://github.com/pacstall/pacstall-programs', 'BLUE')
 
 def split_deps(depend_list: list[Dependency]) -> tuple[list[Dependency], list[Dependency]]:
