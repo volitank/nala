@@ -8,12 +8,14 @@ Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
 Standards-Version: 4.6.0
 Build-Depends:	debhelper-compat (= 13),
-				nuitka (>= 0.6.18.6+ds-1~),
+				nuitka,
 				python3-apt,
 				python3-pexpect,
 				python3-requests,
 				python3-jsbeautifier,
+				python3-yaml,
 				python3-pip,
+				python3.9-dev,
 				pandoc,
 				chrpath,
 				bash-completion,

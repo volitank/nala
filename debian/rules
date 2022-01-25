@@ -22,11 +22,21 @@ override_dh_clean:
 	rm -rf nala/__pycache__
 	dh_clean
 
+execute_before_dh_auto_build:
+	pip install rich pythonping
+
 override_dh_auto_build:
 	nuitka3 --assume-yes-for-downloads \
 	--follow-import-to=nala \
 	--follow-import-to=pythonping \
 	--follow-import-to=rich \
+	--nofollow-import-to=jsbeautifier \
+	--nofollow-import-to=apt \
+	--nofollow-import-to=pygments \
+	--nofollow-import-to=pexpect \
+	--nofollow-import-to=aptsources \
+	--nofollow-import-to=colorama \
+	--nofollow-import-to=commonmark \
+	--nofollow-import-to=requests \
 	--plugin-enable=pylint-warnings \
-	--static-libpython=yes \
 	nala-cli.py -o nala-cli.build/nala

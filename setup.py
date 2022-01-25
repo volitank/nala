@@ -34,8 +34,6 @@ setup(
 		'Operating System :: POSIX :: Linux',
 		'Topic :: System :: Operating System Kernels :: Linux',
 		'Programming Language :: Python :: 3',
-		'Programming Language :: Python :: 3.6',
-		'Programming Language :: Python :: 3.7',
 		'Programming Language :: Python :: 3.8',
 		'Programming Language :: Python :: 3.9',
 		'Programming Language :: Python :: 3 :: Only',
@@ -44,6 +42,15 @@ setup(
 	keywords='nala, package management, apt',  # Optional
 	packages=['nala'],  # Required
 	python_requires='>=3.8, <4',
+	install_requires=[
+		'pexpect',
+		'requests',
+		'jsbeautifier',
+		'pyyaml',
+		'pythonping',
+		'rich'
+	],
+
 	entry_points={  # Optional
 		'console_scripts': [
 			'nala=nala.__main__:main',
