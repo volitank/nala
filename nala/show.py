@@ -55,7 +55,7 @@ def check_virtual(pkg_name: str, cache: Cache) -> None:
 	"""Check if the package is virtual."""
 	virtual = [
 		color(pkg.name, 'GREEN') for pkg in cache
-		if pkg_name in pkg.candidate.provides
+		if pkg_name in pkg_candidate(pkg).provides
 	]
 	if virtual:
 		print(
@@ -151,6 +151,7 @@ def print_dep(prefix: str,
 	"""Print dependencies for show."""
 	if isinstance(package_dependecy[0], str):
 		package_dependecy.sort()
+		package_dependecy = [str(dep) for dep in package_dependecy]
 		print(prefix, ", ".join(package_dependecy))
 		return
 
@@ -163,6 +164,7 @@ def print_dep(prefix: str,
 	for dep_list in package_dependecy:
 		dep_print = ''
 		for num, dep in enumerate(dep_list):
+			assert isinstance(dep, BaseDependency)
 			if num == 0:
 				dep_print = format_dep(dep, num)
 			else:

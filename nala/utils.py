@@ -24,19 +24,21 @@
 """Where Utilities who don't have a special home come together."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
 import termios
 import tty
+from datetime import datetime
 from pathlib import Path
 from shutil import get_terminal_size
 
 import jsbeautifier
 from apt.package import Package, Version
 
-from nala.constants import COLOR_CODES, ERROR_PREFIX, JSON_OPTIONS
-from nala.logger import dprint
+from nala.constants import (COLOR_CODES,
+				ERROR_PREFIX, JSON_OPTIONS, NALA_DEBUGLOG)
 from nala.options import arguments
 from nala.rich import Table, console
 
@@ -196,6 +198,60 @@ def iter_remove(path: Path, verbose: bool = False) -> None:
 			dprint(f'Removed: {file}')
 			file.unlink(missing_ok=True)
 
+def check_pkg(directory: Path, candidate: Package | Version) -> bool:
+	"""Check if file exists, is correct, and run check hash."""
+	if isinstance(candidate, Package):
+		candidate = pkg_candidate(candidate)
+	path = directory / get_pkg_name(candidate)
+	if not path.exists() or path.stat().st_size != candidate.size:
+		return False
+	hash_type, hash_value = get_hash(candidate)
+	try:
+		return check_hash(path, hash_type, hash_value)
+	except OSError as err:
+		print("Failed to check hash", err)
+		return False
+
+def check_hash(path: Path, hash_type: str, hash_value: str) -> bool:
+	"""Check hash value."""
+	hash_fun = hashlib.new(hash_type)
+	with path.open('rb') as file:
+		while True:
+			data = file.read(4096)
+			if not data:
+				break
+			hash_fun.update(data)
+	local_hash = hash_fun.hexdigest()
+	debugger = (
+		str(path),
+		f"Candidate Hash: {hash_type} {hash_value}",
+		f"Local Hash: {local_hash}"
+		f"Hash Success: {local_hash == hash_value}"
+	)
+	dprint(debugger)
+	return local_hash == hash_value
+
+def get_hash(version: Version) -> tuple[str, str]:
+	"""Get the correct hash value."""
+	if version.sha256:
+		return ("sha256", version.sha256)
+	if version.sha1:
+		return ("sha1", version.sha1)
+	if version.md5:
+		return ("md5", version.md5)
+	sys.exit(ERROR_PREFIX+f"{Path(version.filename).name} can't be checked for integrity.")
+
+def get_pkg_name(candidate: Version) -> str:
+	"""Return the package name.
+
+	Checks if we need and epoch in the path.
+	"""
+	if ':' in candidate.version:
+		index = candidate.version.index(':')
+		epoch = '_'+candidate.version[:index]+r'%3a'
+		return Path(candidate.filename).name.replace('_', epoch, 1)
+	return Path(candidate.filename).name
+
 def pkg_candidate(pkg: Package) -> Version:
 	"""Type enforce package candidate."""
 	assert pkg.candidate
@@ -239,7 +295,19 @@ def print_packages(
 		sep,
 		package_table)
 
-def verbose_print(msg: str) -> None:
+def vprint(msg: str) -> None:
 	"""Print message if verbose."""
 	if arguments.verbose:
 		print(msg)
+
+def dprint(msg: object) -> None:
+	"""Print message if debugging, write to log if root."""
+	if arguments.debug:
+		msg = str(msg)
+		print('DEBUG: '+msg)
+		if term.is_su():
+			timezone = datetime.utcnow().astimezone().tzinfo
+			time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
+			msg = f'[{time}] DEBUG: ' + msg
+			with open(NALA_DEBUGLOG, 'a', encoding='utf-8') as logfile:
+				logfile.write(msg+'\n')

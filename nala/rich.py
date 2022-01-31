@@ -24,10 +24,12 @@
 """Rich options for Nala output."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 from rich.console import Console
 from rich.live import Live
-from rich.progress import (BarColumn, DownloadColumn, Progress,
-				SpinnerColumn, Task, TextColumn, TransferSpeedColumn, filesize)
+from rich.progress import (BarColumn, DownloadColumn, Progress, SpinnerColumn,
+				Task, TextColumn, TimeRemainingColumn, TransferSpeedColumn, filesize)
 from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Column, Table
@@ -35,6 +37,7 @@ from rich.text import Text
 
 __all__ = ('Spinner', 'Table', 'Column', 'Live', 'Text')
 
+# pylint: disable=too-few-public-methods
 class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
 	"""Subclass of TransferSpeedColumn."""
 
@@ -71,12 +74,24 @@ class NalaDownload(DownloadColumn): # type: ignore[misc]
 		download_status = f"{completed_str}/{total_str} {suffix}"
 		return Text(download_status, style="bold green")
 
+class TimeRemaining(TimeRemainingColumn): # type: ignore[misc]
+	"""Renders estimated time remaining."""
+
+	def render(self, task: Task) -> Text:
+		"""Show time remaining."""
+		remaining = task.time_remaining
+		if remaining is None:
+			return Text("-:--:--", style="bold white")
+		remaining_delta = timedelta(seconds=int(remaining))
+		return Text(str(remaining_delta), style="white")
+
 bar_back_style = Style(color='red')
 bar_style = Style(color='cyan')
 console = Console()
 
 pkg_download_progress = Progress(
-	TextColumn("[bold blue]Downloading ...", justify="right"),
+	TextColumn("[bold green]Time Remaining:"),
+	TimeRemaining(),
 	BarColumn(
 		bar_width=None,
 		# The background of our bar
@@ -94,7 +109,7 @@ pkg_download_progress = Progress(
 	)
 
 dpkg_progress = Progress(
-	SpinnerColumn(style="bold white"),
+	SpinnerColumn(style="bold white", finished_text="[bold green]:heavy_check_mark:"),
 	TextColumn("[bold blue]Running dpkg ...", justify="right"),
 	BarColumn(
 		bar_width=None,
@@ -106,6 +121,9 @@ dpkg_progress = Progress(
 		finished_style=bar_style
 	),
 	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	"[bold]•",
+	TimeRemaining(),
+	"[bold]•",
 	"{task.completed}/{task.total}"
 )
 

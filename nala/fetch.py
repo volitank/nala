@@ -30,13 +30,13 @@ import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-import requests  # type: ignore[import]
 from apt_pkg import get_architectures
 from aptsources.distro import get_distro
+from httpx import HTTPError, get
 from pythonping import ping
 from rich.progress import TaskID
 
-from nala.constants import ERROR_PREFIX, NALA_SOURCES
+from nala.constants import ERRNO_PATTERN, ERROR_PREFIX, NALA_SOURCES
 from nala.logger import dprint
 from nala.options import arguments, parser
 from nala.rich import Live, Table, fetch_progress
@@ -47,7 +47,6 @@ netselect_scored = []
 DEBIAN = 'Debian'
 UBUNTU = 'Ubuntu'
 DOMAIN_PATTERN = re.compile(r'https?://([A-Za-z_0-9.-]+).*')
-ERRNO_PATTERN = re.compile(r'\[.*\]')
 UBUNTU_COUNTRY = re.compile(r'<mirror:countrycode>(.*)</mirror:countrycode>')
 UBUNTU_MIRROR = re.compile(r'<link>(.*)</link>')
 
@@ -156,8 +155,8 @@ def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 	"""Attempt to fetch the url and split a list based on the splitter."""
 	try:
-		mirror_list = requests.get(url).text.split(splitter)
-	except requests.ConnectionError:
+		mirror_list = get(url, timeout=15).text.split(splitter)
+	except HTTPError:
 		sys.exit(ERROR_PREFIX+f'unable to connect to {url}')
 	return tuple(mirror_list)
 

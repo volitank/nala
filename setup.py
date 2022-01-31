@@ -44,11 +44,12 @@ setup(
 	python_requires='>=3.8, <4',
 	install_requires=[
 		'pexpect',
-		'requests',
+		'aiofiles',
 		'jsbeautifier',
 		'pyyaml',
-		'pythonping',
-		'rich'
+		'pythonping==1.1.1',
+		'rich==11.1.0',
+		'httpx==0.22.0',
 	],
 
 	entry_points={  # Optional

@@ -87,7 +87,7 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 			self.old_op = self.op
 
 	# OpProgress Method
-	def done(self, _dummy_variable:None = None) -> None:
+	def done(self, _dummy_variable:None = None) -> None: # type: ignore[override]
 		"""Call once an operation has been completed."""
 		base.OpProgress.done(self)
 		if arguments.verbose:
@@ -95,21 +95,25 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 				self._write(f"\r{self.old_op}... Done", True, True)
 			self.old_op = ""
 
+	def apt_write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
+		"""Write original apt update message."""
+		self._file.write("\r")
+		self._file.write(msg)
+
+		# Fill remaining stuff with whitespace
+		if self._width > len(msg):
+			self._file.write((self._width - len(msg)) * ' ')
+		elif maximize:  # Needed for OpProgress.
+			self._width = max(self._width, len(msg))
+		if newline:
+			self._file.write("\n")
+		else:
+			self._file.flush()
+
 	def _write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
 		"""Write the message on the terminal, fill remaining space."""
 		if arguments.raw_dpkg:
-			self._file.write("\r")
-			self._file.write(msg)
-
-			# Fill remaining stuff with whitespace
-			if self._width > len(msg):
-				self._file.write((self._width - len(msg)) * ' ')
-			elif maximize:  # Needed for OpProgress.
-				self._width = max(self._width, len(msg))
-			if newline:
-				self._file.write("\n")
-			else:
-				self._file.flush()
+			self.apt_write(msg, newline, maximize)
 			return
 
 		for item in ['Updated:', 'Ignored:', 'Error:', 'No Change:']:
@@ -117,29 +121,26 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 				if arguments.verbose:
 					print(msg)
 					break
-				scroll_bar(
-					self, msg, install=self.install,
+				scroll_bar(self,
+					msg, install=self.install, fetch=self.install,
 					update_spinner=True, use_bar=False
 				)
 				break
-
 		else:
 			# For the pulse messages we need to do some formatting
 			# End of the line will look like '51.8 mB/s 2s'
 			if msg.endswith('s'):
-				pulse = msg.split()
-				last = len(pulse) - 1
-				fill = sum(len(line) for line in pulse) + last
-				# Set fill width to fit inside the rich panel
-				fill = ((self._width - fill) - 4 if arguments.verbose else
-				        (self._width - fill) - 6)
-				pulse.insert(last-2, ' '*fill)
-				msg = ' '.join(pulse)
+				msg = fill_pulse(msg.split())
+
 			if 'Fetched' in msg:
-				scroll_bar(self, msg, install=self.install, use_bar=False)
+				scroll_bar(self,
+					msg, install=self.install,
+					fetch=self.install, use_bar=False
+				)
 				return
 			spinner.text = Text.from_ansi(msg)
-			scroll_bar(self, install=self.install,
+			scroll_bar(self,
+				install=self.install, fetch=self.install,
 				update_spinner=True, use_bar=False
 			)
 
@@ -154,7 +155,8 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 		if item.owner.status == item.owner.STAT_DONE:
 			self._write(f"{color('Ignored:  ', 'YELLOW')} {item.description}")
 		else:
-			self._write(ERROR_PREFIX+item.description)
+			# spaces are to make the error message consistent with other messages.
+			self._write(ERROR_PREFIX+'    '+item.description)
 			self._write(f"  {item.owner.error_text}")
 
 	def fetch(self, item: apt_pkg.AcquireItemDesc) -> None:
@@ -206,7 +208,7 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 		if self.fetched_bytes != 0:
 			self._write(self.final_msg())
 		# Delete the signal again.
-		signal.signal(signal.SIGWINCH, self._signal)
+		signal.signal(signal.SIGWINCH, self._signal) # type: ignore[arg-type]
 		self.live.stop()
 
 class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disable=too-many-instance-attributes
@@ -221,7 +223,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		self.child_fd: int
 		self.child_pid: int
 		self.line_fix: list[bytes] = []
-		self.pkg_total = pkg_total
+		self.pkg_total = pkg_total + 1
 		self.task: TaskID
 		self._dpkg_log: TextIO
 		self.live = Live(auto_refresh=False)
@@ -242,6 +244,8 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 	def finish_update(self) -> None:
 		"""Call when update has finished."""
 		if not arguments.raw_dpkg:
+			dpkg_progress.advance(self.task)
+			scroll_bar(self)
 			self.live.stop()
 		if notice:
 			print('\n'+color('Notices:', 'YELLOW'))
@@ -256,7 +260,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 
 		returns the result of calling `obj.do_install()`
 		"""
-		pid, self.child_fd = self.fork()
+		pid, self.child_fd = fork()
 		if pid == 0:
 			try:
 				# We ignore this with mypy because the attr is there
@@ -280,10 +284,6 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		with open(DPKG_LOG, 'w', encoding="utf-8") as self._dpkg_log:
 			self.child.interact(self.pre_filter)
 		return os.WEXITSTATUS(self.wait_child())
-
-	def fork(self) -> tuple[int, int]:
-		"""Fork pty or regular."""
-		return (os.fork(), 0) if arguments.raw_dpkg else pty.fork()
 
 	def wait_child(self) -> int:
 		"""Wait for child progress to exit."""
@@ -484,6 +484,24 @@ def format_version(match: list[str], line: str) -> str:
 			line = line.replace(ver, new_ver)
 	return line
 
+def fill_pulse(pulse: list[str]) -> str:
+	"""Fill the pulse message."""
+	last = len(pulse) - 1
+	fill = sum(len(line) for line in pulse) + last
+	# Set fill width to fit inside the rich panel
+	fill = ((term.columns - fill) - 5 if arguments.verbose else
+			(term.columns - fill) - 7)
+	# Make sure we insert the filler in the right spot
+	# In case of extra 1 min as shown below.
+	# ['2407', 'kB/s', '30s']
+	# ['895', 'kB/s', '1min', '18s']
+	index = last-2
+	if '/s' in pulse[index]:
+		index = last-3
+
+	pulse.insert(index, ' '*fill)
+	return ' '.join(pulse)
+
 def msg_formatter(line: str) -> str:
 	"""Format dpkg output."""
 	if line.endswith('...'):
@@ -503,17 +521,21 @@ def msg_formatter(line: str) -> str:
 		return format_version(match, line)
 	return line
 
-def get_title(install: bool) -> str:
+def get_title(install: bool, fetch: bool) -> str:
 	"""Get the title for our panel."""
-	scroll_title = '[bold white]Updating Package List'
-	if arguments.command and install:
+	if arguments.command and install and not fetch:
 		if arguments.command in ('remove', 'purge'):
-			scroll_title = scroll_title = '[bold white]Removing Packages'
-		elif arguments.command in ('update', 'upgrade'):
-			scroll_title = scroll_title = '[bold white]Updating Packages'
-		elif arguments.command == 'install':
-			scroll_title = scroll_title = '[bold white]Installing Packages'
-	return scroll_title
+			return '[bold white]Removing Packages'
+		if arguments.command in ('update', 'upgrade'):
+			return '[bold white]Updating Packages'
+		if arguments.command == 'install':
+			return '[bold white]Installing Packages'
+		if arguments.command == 'history':
+			title = f'History {str(arguments.mode).capitalize()} {arguments.id}'
+			return '[bold white]' + title
+	if install and fetch:
+		return '[bold white]Fetching Missed Packages'
+	return '[bold white]Updating Package List'
 
 def get_group(update_spinner: bool, use_bar: bool) -> Group:
 	"""Get the group for our panel."""
@@ -539,15 +561,15 @@ def slice_list() -> None:
 		total = size - max(scroll_lines, 10)
 		scroll_list = scroll_list[total:]
 
-def scroll_bar(self: UpdateProgress | InstallProgress,
-	msg: str = '', install: bool = True,
+def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-many-arguments
+	msg: str = '', install: bool = True, fetch: bool = False,
 	update_spinner: bool = False, use_bar: bool = True) -> None:
 	"""Print msg to our scroll bar live display."""
 	if msg:
 		scroll_list.append(msg)
 
 	slice_list()
-	scroll_title = get_title(install)
+	scroll_title = get_title(install, fetch)
 
 	bar_style = 'bold green' if arguments.verbose else 'bold blue'
 	table = Table.grid()
@@ -580,6 +602,10 @@ def setwinsize(file_descriptor: int, rows: int, cols: int) -> None:
 	# Note, assume ws_xpixel and ws_ypixel are zero.
 	size = struct.pack('HHHH', rows, cols, 0, 0)
 	fcntl.ioctl(file_descriptor, tiocswinz, size)
+
+def fork() -> tuple[int, int]:
+	"""Fork pty or regular."""
+	return (os.fork(), 0) if arguments.raw_dpkg else pty.fork()
 
 class AptExpect(fdspawn): # type: ignore[misc]
 	"""Subclass of fdspawn to add the interact method."""

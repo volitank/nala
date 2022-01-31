@@ -40,6 +40,7 @@ repos:
     hooks:
       - id: mypy
         args: [
+          "--python-executable=/usr/bin/python3",
           "--ignore-missing-imports",
           "--strict",
           "--pretty",

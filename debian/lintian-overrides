@@ -1,2 +1,0 @@
-# Nala is a package manager that uses dpkg.
-nala: uses-dpkg-database-directly usr/bin/nala
