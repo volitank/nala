@@ -1,3 +1,27 @@
+nala (0.4.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Replace threaded downloader with an async one
+  * Add estimated time to download and dpkg progress bars
+  * On dpkg completion change spinner to green check mark
+  * Add `-a` `--all-versions` switch for `show` command
+  * Add `--remove-essential` switch to allow breaking your system
+  * Add initial support for installing local debs
+
+  [ Bug Fixes ]
+  * Nala not showing `pacstall` `-deb` packages properly
+  * Filler sometimes inserted wrong during list update
+  * History not logging files that were auto-removed
+  * `dpkg` panel title saying updating during a history operation
+  * Progress bar showing `100%` when all operations haven't completed
+  * Scroll bar title `Updating Packages` when it is fetching archives
+  * Nala throwing exception on broken packages
+  * Several bugs related to operations on packages with no candidate
+  * Fetch not working on Pop!_OS
+  * History file corrupting if Nala is interrupted at just the right moment
+
+ -- Blake Lee <blake@volian.org>  Mon, 07 Feb 2022 15:39:23 -0500
+
 nala (0.3.0) unstable; urgency=medium
 
   * Replaced aria2 with internal downloader
