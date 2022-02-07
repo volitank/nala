@@ -44,7 +44,6 @@ setup(
 	python_requires='>=3.8, <4',
 	install_requires=[
 		'pexpect',
-		'aiofiles',
 		'jsbeautifier',
 		'pyyaml',
 		'pythonping==1.1.1',
