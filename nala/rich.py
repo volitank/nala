@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from rich.columns import Columns
 from rich.console import Console
 from rich.live import Live
 from rich.progress import (BarColumn, DownloadColumn, Progress, SpinnerColumn,
@@ -35,7 +36,7 @@ from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
 
-__all__ = ('Spinner', 'Table', 'Column', 'Live', 'Text')
+__all__ = ('Spinner', 'Table', 'Column', 'Columns', 'Live', 'Text')
 
 # pylint: disable=too-few-public-methods
 class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]

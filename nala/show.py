@@ -24,20 +24,43 @@
 """Functions related to the `show` command."""
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from random import shuffle
+from typing import cast
 
 from apt.cache import Cache
 from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import PACSTALL_METADATA
-from nala.utils import color, pkg_candidate, unit_str
+from nala.options import arguments
+from nala.utils import color, term, unit_str
 
 
-def show_main(pkg: Package) -> None:
+def print_sep() -> None:
+	"""Print separator."""
+	print()
+	print('='*term.columns)
+	print()
+
+def show(num: int, pkg: Package) -> int:
+	"""Orchestrate show command with support for all_versions."""
+	if num:
+		print_sep()
+	count = len(pkg.versions)
+	versions = pkg.versions if arguments.all_versions else [pkg.candidate]
+	for ver_num, ver in enumerate(versions):
+		if ver is None:
+			print(color(pkg.name, 'YELLOW'), 'has no candidate')
+			continue
+		if ver_num and not num:
+			print_sep()
+		count -= 1
+		show_main(ver)
+	return count
+
+def show_main(candidate: Version) -> None:
 	"""Start show functions."""
-	candidate = pkg_candidate(pkg)
+	pkg = candidate.package
 	for pkg_info in show_format(pkg, candidate):
 		if pkg_info:
 			print(pkg_info)
@@ -51,19 +74,20 @@ def show_main(pkg: Package) -> None:
 	if candidate._translated_records:
 		print(color('Description:'), candidate._translated_records.long_desc)
 
-def check_virtual(pkg_name: str, cache: Cache) -> None:
+def check_virtual(pkg_name: str, cache: Cache) -> bool:
 	"""Check if the package is virtual."""
-	virtual = [
-		color(pkg.name, 'GREEN') for pkg in cache
-		if pkg_name in pkg_candidate(pkg).provides
-	]
-	if virtual:
+	if cache.is_virtual_package(pkg_name):
+		virtual = [
+			color(pkg.name, 'GREEN')
+			for pkg in cache.get_providing_packages(pkg_name)
+		]
 		print(
 			color(pkg_name, 'YELLOW'),
 			"is a virtual package satisfied by the following:\n"
 			f"{', '.join(virtual)}"
 		)
-		sys.exit(0)
+		return True
+	return False
 
 def show_related(candidate: Version) -> None:
 	"""Show relational packages."""
@@ -96,24 +120,21 @@ def show_related(candidate: Version) -> None:
 
 def additional_related(candidate: Version) -> None:
 	"""Show breaks, conflicts, replaces."""
-	breaks = candidate.get_dependencies('Breaks')
-	conflicts = candidate.get_dependencies('Conflicts')
-	replaces = candidate.get_dependencies('Replaces')
-
-	if replaces:
+	if replaces := candidate.get_dependencies('Replaces'):
 		print_dep(
 			color('Replaces:'),
 			[color(pkg[0].name, 'GREEN') for pkg in replaces],
 		)
-	if conflicts:
+	if conflicts := candidate.get_dependencies('Conflicts'):
 		print_dep(color('Conflicts:'), conflicts)
-	if breaks:
+	if breaks := candidate.get_dependencies('Breaks'):
 		print_dep(color('Breaks:'), breaks)
 
 def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
 	"""Format main section for show command."""
 	installed = 'yes' if pkg.is_installed else 'no'
 	essential = 'yes' if pkg.essential else 'no'
+	maintainer = format_maintainer(str(candidate.record.get('Maintainer')).split())
 	original_maintainer, bugs, origin, installed_size = filter_empty(candidate)
 
 	return (
@@ -126,15 +147,27 @@ def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
 		f"{color('Section:')} {candidate.section}",
 		f"{color('Source:')} {candidate.source_name}",
 		origin,
-		f"{color('Maintainer:')} {candidate.record.get('Maintainer')}",
+		f"{color('Maintainer:')} {maintainer}",
 		original_maintainer,
 		bugs,
 		installed_size,
 	)
 
+def format_maintainer(maintainer: list[str]) -> str:
+	"""Format email in maintainer line."""
+	maint_list = []
+	for line in maintainer:
+		if '>' in line:
+			line = color(line[1:-1], 'BLUE')
+			line = color('<') + line + color('>')
+		maint_list.append(line)
+	return ' '.join(maint_list)
+
 def filter_empty(candidate: Version) -> tuple[str, str, str, str]:
 	"""Filter empty information blocks."""
 	original_maintainer = candidate.record.get('Original-Maintainer')
+	if original_maintainer:
+		original_maintainer = format_maintainer(str(original_maintainer).split())
 	bugs = candidate.record.get('Bugs')
 	origin = candidate.origins[0].origin
 	installed_size = candidate.installed_size
@@ -151,10 +184,10 @@ def print_dep(prefix: str,
 	"""Print dependencies for show."""
 	if isinstance(package_dependecy[0], str):
 		package_dependecy.sort()
-		package_dependecy = [str(dep) for dep in package_dependecy]
-		print(prefix, ", ".join(package_dependecy))
+		print(prefix, ", ".join(cast(list[str], package_dependecy)))
 		return
 
+	package_dependecy = dedupe_deps(cast(list[Dependency], package_dependecy))
 	join_list = []
 	same_line = True
 	if len(package_dependecy) > 4:
@@ -244,3 +277,22 @@ def split_deps(depend_list: list[Dependency]) -> tuple[list[Dependency], list[De
 			continue
 		depends.append(depend)
 	return depends, pre_depends
+
+def dedupe_deps(duplicates: list[Dependency]) -> list[Dependency]:
+	"""Remove duplicate entries from a list while maintaining the order."""
+	deduped = []
+	dep_names = []
+	for dep in duplicates:
+		if dep.rawstr not in dep_names:
+			dep_names.append(dep.rawstr)
+			deduped.append(dep)
+	return deduped
+
+def additional_notice(additional_records: int) -> None:
+	"""Print notice of additional records."""
+	all_versions = color("'-a'", 'YELLOW')
+	print(
+		color('Notice:', 'YELLOW'),
+		f"There are {color(str(additional_records), 'YELLOW')} additional records.",
+		f"Please use the {all_versions} switch to see them."
+	)

@@ -27,18 +27,20 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import signal
 import sys
 import termios
 import tty
 from datetime import datetime
 from pathlib import Path
 from shutil import get_terminal_size
+from types import FrameType
 
 import jsbeautifier
 from apt.package import Package, Version
 
-from nala.constants import (COLOR_CODES,
-				ERROR_PREFIX, JSON_OPTIONS, NALA_DEBUGLOG)
+from nala.constants import (COLOR_CODES, ERROR_PREFIX,
+				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG)
 from nala.options import arguments
 from nala.rich import Table, console
 
@@ -152,16 +154,38 @@ class Terminal:
 		"""Return True if we're super user and False if we're not."""
 		return os.geteuid() == 0
 
+class DelayedKeyboardInterrupt:
+	"""Context manager to delay KeyboardInterrupt.
+
+	Keyboard Interrupts will be delayed until out of scope.
+	"""
+
+	def __init__(self) -> None:
+		"""Context manager to delay KeyboardInterrupt."""
+		self.signal_received: tuple[int, FrameType | None] | bool
+		self.old_handler: HANDLER
+
+	def __enter__(self) -> None:
+		"""Enter context."""
+		self.signal_received = False
+		self.old_handler = signal.signal(signal.SIGINT, self.handler)
+
+	def handler(self, sig: int, frame: FrameType | None) -> None:
+		"""Handle sigint signals."""
+		self.signal_received = (sig, frame)
+		dprint('SIGINT received. Delaying KeyboardInterrupt.')
+
+	def __exit__(self, _type: None, _value: None, _traceback: None) -> None:
+		"""Exit context."""
+		signal.signal(signal.SIGINT, self.old_handler)
+		if isinstance(self.signal_received, tuple) and callable(self.old_handler):
+			self.old_handler(*self.signal_received)
+
 term = Terminal()
 
 def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
 	return f'\x1b[1;{COLOR_CODES[text_color]}m' + text + str(COLOR_CODES['RESET'])
-
-def dir_check(path: Path, msg: str) -> None:
-	"""Check to see if the directory exists in apt config."""
-	if not path:
-		sys.exit(ERROR_PREFIX+msg)
 
 def ask(question: str, default_no: bool = False) -> bool:
 	"""Ask the user {question}.

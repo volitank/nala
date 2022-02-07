@@ -35,7 +35,7 @@ import sys
 import termios
 from time import sleep
 from types import FrameType
-from typing import Callable, Match, TextIO
+from typing import Callable, Match, TextIO, cast
 
 import apt_pkg
 from apt.progress import base, text
@@ -45,7 +45,7 @@ from rich.console import Group
 from rich.panel import Panel
 from rich.progress import TaskID
 
-from nala.constants import DPKG_LOG, DPKG_MSG, ERROR_PREFIX, SPAM
+from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM
 from nala.options import arguments
 from nala.rich import Live, Spinner, Table, Text, dpkg_progress
 from nala.utils import color, term
@@ -57,26 +57,18 @@ spinner = Spinner('dots', text='Initializing', style="bold blue")
 scroll_list: list[str] = []
 notice: set[str] = set()
 
-class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc]
-	"""Class for getting cache update status and printing to terminal."""
+class OpProgress(base.OpProgress, text.TextProgress):
+	"""Operation progress reporting.
 
-	def __init__(self, install: bool = False) -> None:
-		"""Class for getting cache update status and printing to terminal."""
-		text.AcquireProgress.__init__(self)
+	This closely resembles OpTextProgress in libapt-pkg.
+	"""
+
+	def __init__(self) -> None:
+		"""Operation progress reporting."""
+		text.TextProgress.__init__(self)
 		base.OpProgress.__init__(self)
-		self._file = sys.stdout
-		self._signal = None
-		self._id = 1
-		self._width = 80
-		self.old_op = "" # OpProgress setting
-		self.install = install
-		self.live = Live(auto_refresh=False)
-		if arguments.debug:
-			arguments.verbose=True
+		self.old_op = ""
 
-		spinner.text = Text('Initializing Cache')
-		scroll_list.clear()
-	# OpProgress Method
 	def update(self, percent: float | None = None) -> None:
 		"""Call periodically to update the user interface."""
 		base.OpProgress.update(self, percent)
@@ -86,14 +78,31 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 			self._write(f"{self.op}... {self.percent}%\r", False, True)
 			self.old_op = self.op
 
-	# OpProgress Method
-	def done(self, _dummy_variable:None = None) -> None: # type: ignore[override]
+	def done(self) -> None:
 		"""Call once an operation has been completed."""
 		base.OpProgress.done(self)
 		if arguments.verbose:
 			if self.old_op:
 				self._write(f"\r{self.old_op}... Done", True, True)
 			self.old_op = ""
+
+class UpdateProgress(text.AcquireProgress):
+	"""Class for getting cache update status and printing to terminal."""
+
+	def __init__(self, live: Live | None = None, install: bool = False) -> None:
+		"""Class for getting cache update status and printing to terminal."""
+		text.AcquireProgress.__init__(self)
+		self._file = sys.__stdout__
+		self._signal: HANDLER = None
+		self._id = 1
+		self._width = 80
+		self.install = install
+		self.live = live or Live(auto_refresh=False)
+		if arguments.debug:
+			arguments.verbose=True
+
+		spinner.text = Text('Initializing Cache')
+		scroll_list.clear()
 
 	def apt_write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
 		"""Write original apt update message."""
@@ -189,11 +198,10 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 		window resize signals. And it also sets id to 1.
 		"""
 		base.AcquireProgress.start(self)
-		self._signal = signal.signal(signal.SIGWINCH, self._winch) # type: ignore[assignment]
+		self._signal = signal.signal(signal.SIGWINCH, self._winch)
 		# Get the window size.
 		self._winch()
 		self._id = 1
-		self.live.start()
 
 	def final_msg(self) -> str:
 		"""Print closing fetched message."""
@@ -208,25 +216,25 @@ class UpdateProgress(text.AcquireProgress, base.OpProgress): # type: ignore[misc
 		if self.fetched_bytes != 0:
 			self._write(self.final_msg())
 		# Delete the signal again.
-		signal.signal(signal.SIGWINCH, self._signal) # type: ignore[arg-type]
-		self.live.stop()
+		signal.signal(signal.SIGWINCH, self._signal)
 
-class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disable=too-many-instance-attributes
+# We don't call super init because it opens some File Descriptors we don't need
+# There is no functionality we miss out on by doing a super init
+# pylint: disable=too-many-instance-attributes, super-init-not-called
+class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
 
-	def __init__(self, pkg_total: int) -> None:
+	def __init__(self, dpkg_log: TextIO, live: Live, task: TaskID) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
-		base.InstallProgress.__init__(self)
+		self.task = task
+		self._dpkg_log = dpkg_log
+		self.live = live
 		self.raw = False
 		self.last_line = b''
 		self.child: AptExpect
 		self.child_fd: int
 		self.child_pid: int
 		self.line_fix: list[bytes] = []
-		self.pkg_total = pkg_total + 1
-		self.task: TaskID
-		self._dpkg_log: TextIO
-		self.live = Live(auto_refresh=False)
 		# If we detect we're piped it's probably best to go raw.
 		if not term.is_term():
 			arguments.raw_dpkg = True
@@ -235,23 +243,13 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		if not term.is_xterm() and not arguments.raw_dpkg:
 			os.environ["TERM"] = 'xterm'
 
-	def start_update(self) -> None:
-		"""Start update."""
-		if not arguments.raw_dpkg:
-			self.live.start()
-			self.task = dpkg_progress.add_task('', total=self.pkg_total)
-
 	def finish_update(self) -> None:
 		"""Call when update has finished."""
 		if not arguments.raw_dpkg:
 			dpkg_progress.advance(self.task)
 			scroll_bar(self)
-			self.live.stop()
-		if notice:
-			print('\n'+color('Notices:', 'YELLOW'))
-			for notice_msg in notice:
-				print(notice_msg)
 
+	# Exit is overridden because it closes those file descriptors we don't init with
 	def __exit__(self, _type: object, value: object, traceback: object) -> None:
 		"""Exit."""
 
@@ -265,11 +263,14 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 			try:
 				# We ignore this with mypy because the attr is there
 				os._exit(obj.do_install()) # type: ignore[union-attr]
+			except AttributeError:
+				# nosec because this isn't really a security issue. We're just running dpkg
+				# Also we need this line for installing local debs
+				os._exit(os.spawnlp(os.P_WAIT, "dpkg", "dpkg", "-i", cast(str, obj))) # nosec
 			# We need to catch every exception here.
 			# If we don't the code continues in the child,
 			# And bugs will be very confusing
-			# pylint: disable=broad-except
-			except Exception as err:
+			except Exception as err: # pylint: disable=broad-except
 				sys.stderr.write(f"{err}\n")
 				os._exit(1)
 
@@ -281,8 +282,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		self.child = AptExpect(self.child_fd, timeout=None)
 
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
-		with open(DPKG_LOG, 'w', encoding="utf-8") as self._dpkg_log:
-			self.child.interact(self.pre_filter)
+		self.child.interact(self.pre_filter)
 		return os.WEXITSTATUS(self.wait_child())
 
 	def wait_child(self) -> int:
@@ -305,8 +305,9 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 	def sigwinch_passthrough(self, _sig_dummy: int, _data_dummy: FrameType | None) -> None:
 		"""Pass through sigwinch signals to dpkg."""
 		buffer = struct.pack("HHHH", 0, 0, 0, 0)
-		term_size = struct.unpack('hhhh', fcntl.ioctl(term.STDIN,
-			termios.TIOCGWINSZ , buffer))
+		term_size = struct.unpack(
+			'hhhh', fcntl.ioctl(term.STDIN, termios.TIOCGWINSZ , buffer)
+		)
 		if not self.child.closed:
 			setwinsize(self.child_fd, term_size[0], term_size[1])
 
@@ -359,9 +360,6 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 			if self.dpkg_status(data):
 				return
 
-			if check_line_spam(data.decode(), data):
-				return
-
 			if not data.endswith(term.CRLF):
 				self.line_fix.append(data)
 				return
@@ -398,6 +396,9 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 		"""Handle text operations for not a rawline."""
 		line = rawline.decode().strip()
 
+		if check_line_spam(line, rawline):
+			return
+
 		if line == '':
 			return
 		# Main format section for making things pretty
@@ -431,7 +432,7 @@ class InstallProgress(base.InstallProgress): # type: ignore[misc] # pylint: disa
 	def advance_progress(self, line: str) -> None:
 		"""Advance the dpkg progress bar."""
 		if ('Setting up' in line or 'Unpacking' in line
-		    or 'Removing' in line and '(' in line):
+			or 'Removing' in line and '(' in line):
 			dpkg_progress.advance(self.task)
 		if arguments.verbose:
 			self.live.update(
@@ -516,8 +517,7 @@ def msg_formatter(line: str) -> str:
 	elif line.startswith('Processing'):
 		line = lines(line, 'Processing', 'GREEN')
 
-	match = re.findall(VERSION_PATTERN, line)
-	if match:
+	if match := re.findall(VERSION_PATTERN, line):
 		return format_version(match, line)
 	return line
 
@@ -638,25 +638,37 @@ class AptExpect(fdspawn): # type: ignore[misc]
 		while self.isalive():
 			try:
 				ready = poll_ignore_interrupts([self.child_fd, term.STDIN])
-				if self.child_fd in ready:
-					try:
-						data = os.read(self.child_fd, 1000)
-					except OSError as err:
-						if err.args[0] == errno.EIO:
-							# Linux-style EOF
-							break
-						raise
-					if data == b'':
-						# BSD-style EOF
-						break
-					output_filter(data)
+				if self.child_fd in ready and not self._read(output_filter):
+					break
 				if term.STDIN in ready:
-					data = os.read(term.STDIN, 1000)
-					while data != b'' and self.isalive():
-						split = os.write(self.child_fd, data)
-						data = data[split:]
+					self._write()
 			except KeyboardInterrupt:
-				warn = color("Warning: ", 'YELLOW')
-				warn += "quitting now could break your system!"
+				term.write(term.CURSER_UP+term.CLEAR_LINE)
+				print(
+					color("Warning:", 'YELLOW'),
+					"Quitting now could break your system!"
+				)
 				print(color("Ctrl+C twice quickly will exit...", 'RED'))
 				sleep(0.5)
+
+	def _read(self, output_filter: Callable[[bytes], None]) -> bool:
+		"""Read data from the pty and send it for formatting."""
+		try:
+			data = os.read(self.child_fd, 1000)
+		except OSError as err:
+			if err.args[0] == errno.EIO:
+				# Linux-style EOF
+				return False
+			raise
+		if data == b'':
+			# BSD-style EOF
+			return False
+		output_filter(data)
+		return True
+
+	def _write(self) -> None:
+		"""Write user inputs into the pty."""
+		data = os.read(term.STDIN, 1000)
+		while data != b'' and self.isalive():
+			split = os.write(self.child_fd, data)
+			data = data[split:]

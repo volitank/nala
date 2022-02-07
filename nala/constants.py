@@ -26,6 +26,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from signal import Handlers  # pylint: disable=no-name-in-module #Codacy
+from types import FrameType
+from typing import Any, Callable, Optional, Union
 
 import apt_pkg
 import jsbeautifier
@@ -66,12 +69,24 @@ PKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::pkgcache'))
 """/var/cache/apt/pkgcache.bin"""
 SRCPKGCACHE = Path(apt_pkg.config.find_dir('Dir::Cache::srcpkgcache'))
 """/var/cache/apt/srcpkgcache.bin"""
+SOURCELIST = Path(apt_pkg.config.find_file('Dir::Etc::sourcelist'))
+"""/etc/apt/sources.list"""
+SOURCEPARTS = Path(apt_pkg.config.find_dir('Dir::Etc::sourceparts'))
+"""/etc/apt/sources.list.d"""
 
 JSON_OPTIONS = jsbeautifier.BeautifierOptions(options={'indent_with_tabs' : True})
 ERROR_PREFIX = '\x1b[1;31mError: \x1b[0m'
 
+HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
+
 # Compiled Regex
 ERRNO_PATTERN = re.compile(r'\[.*\]')
+
+class ExitCode: # pylint: disable=too-few-public-methods
+	"""Constants for Exit Codes."""
+
+	SIGINT = 130
+	SIGTERM = 143
 
 COLOR_CODES: dict[str, str | int] = {
 	'RESET' : '\x1b[0m',

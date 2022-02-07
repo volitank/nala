@@ -29,24 +29,27 @@ from __future__ import annotations
 import asyncio
 import re
 import sys
-from asyncio import Semaphore, gather
+from asyncio import AbstractEventLoop, Semaphore, gather
 from errno import ENOENT
+from functools import partial
 from pathlib import Path
 from random import shuffle
+from signal import Signals  # pylint: disable=no-name-in-module #Codacy
+from signal import SIGINT, SIGTERM
 from typing import Pattern
 
-import aiofiles
 import apt_pkg
+from anyio import open_file
 from apt.package import Package, Version
 from httpx import (URL, AsyncClient, ConnectError, ConnectTimeout, HTTPError,
 				HTTPStatusError, Proxy, RemoteProtocolError, RequestError, get)
 from rich.panel import Panel
 
-from nala.constants import (ARCHIVE_DIR,
-				ERRNO_PATTERN, ERROR_PREFIX, PARTIAL_DIR)
+from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
+				ERROR_PREFIX, PARTIAL_DIR, ExitCode)
 from nala.rich import Live, Table, Text, pkg_download_progress
 from nala.utils import (check_pkg, color, dprint,
-				get_pkg_name, pkg_candidate, unit_str, vprint)
+				get_pkg_name, pkg_candidate, term, unit_str, vprint)
 
 MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')
 
@@ -69,6 +72,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		self.pkg_urls = sorted(self.pkg_urls, key=sort_pkg_size, reverse=True)
 		self.proxy: dict[URL | str, URL | str | Proxy | None] = {}
 		self.failed: list[str] = []
+		self.exit: int | bool = False
 		self._set_proxy()
 
 	async def start_download(self) -> bool:
@@ -84,19 +88,18 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 						self._init_download(client, urls, semaphore)
 					) for urls in self.pkg_urls
 				)
-				await gather(*tasks)
+				# Setup handlers for Interrupts
+				for signal_enum in (SIGINT, SIGTERM):
+					exit_func = partial(self.interrupt, signal_enum, loop)
+					loop.add_signal_handler(signal_enum, exit_func)
 
-				return all(
-					await gather(
-						*(process_downloads(pkg) for pkg in self.pkgs)
-					)
-				)
+				return all(await gather(*tasks))
 
 	async def _stream_deb(self, client: AsyncClient, url: str, dest: Path) -> int:
 		"""Stream the deb package and write it to file."""
 		total_data = 0
 		async with client.stream('GET', url) as response:
-			async with aiofiles.open(dest, mode="wb") as file:
+			async with await open_file(dest, mode="wb") as file:
 				async for data in response.aiter_bytes():
 					if data:
 						await file.write(data)
@@ -141,7 +144,10 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 			try:
 				total_data = await self._download(client, semaphore, candidate, url)
 
-				if not check_pkg(PARTIAL_DIR, candidate):
+				if not await process_downloads(candidate):
+					await self._update_progress(total_data, failed=True)
+					continue
+				if not check_pkg(ARCHIVE_DIR, candidate):
 					await self._update_progress(total_data, failed=True)
 					continue
 
@@ -159,17 +165,24 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 				self.download_error(error, num, urls, candidate)
 				continue
 
+	def interrupt(self, signal_enum: Signals, loop: AbstractEventLoop) -> None:
+		"""Shutdown the loop."""
+		self.exit = 128+signal_enum.real
+		if self.exit == ExitCode.SIGINT:
+			term.write(term.CURSER_UP+term.CLEAR_LINE)
+
+		self.live.stop()
+		for task in asyncio.all_tasks(loop):
+			task.cancel()
+		print(f'Exiting due to {signal_enum.name}')
+
 	def _set_proxy(self) -> None:
 		"""Set proxy configuration."""
-		http_proxy = apt_pkg.config.find('Acquire::http::Proxy')
-		https_proxy = apt_pkg.config.find('Acquire::https::Proxy', http_proxy)
-		ftp_proxy = apt_pkg.config.find('Acquire::ftp::Proxy')
-
-		if http_proxy:
+		if http_proxy := apt_pkg.config.find('Acquire::http::Proxy'):
 			self.proxy['http://'] = http_proxy
-		if https_proxy:
+		if https_proxy := apt_pkg.config.find('Acquire::https::Proxy', http_proxy):
 			self.proxy['https://'] = https_proxy
-		if ftp_proxy:
+		if ftp_proxy := apt_pkg.config.find('Acquire::ftp::Proxy'):
 			self.proxy['ftp://'] = ftp_proxy
 
 	def _set_pkg_urls(self) -> None:
@@ -188,8 +201,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		urls: list[str] = []
 		for uri in candidate.uris:
 			# Regex to check if we're using mirror.txt
-			regex = pattern.search(uri)
-			if regex:
+			if regex := pattern.search(uri):
 				domain = regex.group(1)
 				if not self.mirrors:
 					try:
@@ -257,9 +269,9 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		pkg_download_progress.advance(self.task, advance=len_data)
 		self.live.update(self._gen_table())
 
-async def process_downloads(pkg: Package) -> bool:
+async def process_downloads(candidate: Version) -> bool:
 	"""Process the downloaded packages."""
-	filename = get_pkg_name(pkg_candidate(pkg))
+	filename = get_pkg_name(candidate)
 	destination = ARCHIVE_DIR / filename
 	source = PARTIAL_DIR / filename
 	try:

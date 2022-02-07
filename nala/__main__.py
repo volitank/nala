@@ -29,13 +29,13 @@ from getpass import getuser
 from typing import NoReturn
 
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
-				LISTS_DIR, LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
+				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
 from nala.fetch import fetch
 from nala.history import history, history_clear, history_info, history_undo
 from nala.logger import dprint, esyslog
 from nala.nala import Nala
 from nala.options import arguments, parser
-from nala.utils import dir_check, iter_remove, term
+from nala.utils import iter_remove, term
 
 if str(ARCHIVE_DIR) == '/':
 	sys.exit(ERROR_PREFIX+"archive dir is '/'. This is dangerous and unsupported.")
@@ -45,12 +45,6 @@ def _main() -> None:
 	if not arguments.command and not arguments.update:
 		parser.print_help()
 		sys.exit(1)
-
-	# Make sure these are set, they probably are, but we will error early if not
-	dir_check(ARCHIVE_DIR, 'No archive dir is set. Usually it is /var/cache/apt/archives/')
-	dir_check(LISTS_DIR, 'No lists dir is set. Usually it is /var/lib/apt/lists/')
-	dir_check(PKGCACHE, 'No pkgcache file is set. Usually it is /var/cache/apt/pkgcache.bin')
-	dir_check(SRCPKGCACHE, 'No srcpkgcache file is set. Usually it is /var/cache/apt/srcpkgcache.bin')
 
 	dprint(f"Argparser = {arguments}")
 	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
@@ -77,6 +71,7 @@ def apt_command() -> NoReturn:
 	elif arguments.command in ('remove', 'purge'):
 		purge = arguments.command == 'purge'
 		args = arguments.args
+		arg_check(arguments.args, arguments.command)
 		apt.remove(args, purge=purge)
 
 	elif arguments.command == 'show':
@@ -103,9 +98,17 @@ def not_apt_command() -> NoReturn:
 	sys.exit(0)
 
 def arg_check(args: list[str], msg: str) -> None:
-	"""Check arguments and errors if no packages are specified."""
+	"""Check arguments and errors if no packages are specified.
+
+	If args exists then duplicates will be removed.
+	"""
 	if not args:
 		sys.exit(ERROR_PREFIX+f'You must specify a package to {msg}')
+	dedupe = []
+	for arg in arguments.args:
+		if arg not in dedupe:
+			dedupe.append(arg)
+	arguments.args = dedupe
 
 def clean() -> None:
 	"""Find and delete cache files."""
@@ -129,20 +132,21 @@ def nala_history(apt: Nala) -> None:
 	if mode and mode not in ('undo', 'redo', 'info', 'clear'):
 		sys.exit(ERROR_PREFIX+f"'{mode}' isn't a valid history command")
 	if mode and not arguments.id:
-		sys.exit(ERROR_PREFIX+'We need a transaction ID..')
-
+		sys.exit(ERROR_PREFIX+'We need a transaction ID...')
 	if mode in ('undo', 'redo', 'info'):
 		try:
 			# We are basically just type checking here
 			int(arguments.id)
 		except ValueError:
-			sys.exit(ERROR_PREFIX+'Option must be a number..')
+			sys.exit(ERROR_PREFIX+'Option must be a number...')
 	if not mode:
 		history()
 	if mode == 'undo':
+		sudo_check('undo history')
 		history_undo(apt, arguments.id)
 
 	elif mode == 'redo':
+		sudo_check('redo history')
 		history_undo(apt, arguments.id, redo=True)
 
 	elif mode == 'info':

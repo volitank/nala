@@ -40,6 +40,7 @@ class NalaParser(argparse.ArgumentParser):
 
 	def error(self, message: str) -> NoReturn:
 		"""Send `--help` on error."""
+		message = message.replace(r", 'moo')", ')')
 		sys.stderr.write(f'error: {message}\n')
 		self.print_help()
 		sys.exit(1)
@@ -78,7 +79,7 @@ class GPLv3(argparse.Action):
 			print('https://www.gnu.org/licenses/gpl-3.0.txt')
 		parser.exit()
 
-def remove_options(argparser: NalaParser, **kwargs: bool) -> None:
+def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 	"""Remove options that we do not want in our help message.
 
 	If an argument is True it will remove the option.
@@ -89,7 +90,7 @@ def remove_options(argparser: NalaParser, **kwargs: bool) -> None:
 		'assume_yes' : True, 'download_only' : True,
 		'update' : True, 'no_update' : True,
 		'raw_dpkg' : True, 'noninteractive' : True,
-		'no_autoremove' : True
+		'no_autoremove' : True, 'remove_essential' : True
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -115,7 +116,7 @@ global_options = NalaParser(add_help=False)
 global_options.add_argument(
 	'-y', '--assume-yes',
 	action='store_true',
-	help="assume 'yes' to all prompts and run non-interactively."
+	help="assume 'yes' to all prompts and run non-interactively"
 )
 global_options.add_argument(
 	'-d', '--download-only',
@@ -125,7 +126,7 @@ global_options.add_argument(
 global_options.add_argument(
 	'-v', '--verbose',
 	action='store_true',
-	help='Logs extra information for debugging'
+	help='logs extra information for debugging'
 )
 global_options.add_argument(
 	'--no-update',
@@ -135,7 +136,12 @@ global_options.add_argument(
 global_options.add_argument(
 	'--no-autoremove',
 	action='store_true',
-	help='stops nala from autoremoving packages.'
+	help='stops nala from autoremoving packages'
+)
+global_options.add_argument(
+	'--remove-essential',
+	action='store_true',
+	help="allows the removal of essential packages"
 )
 global_options.add_argument(
 	'--raw-dpkg',
@@ -150,7 +156,7 @@ global_options.add_argument(
 global_options.add_argument(
 	'--debug',
 	action='store_true',
-	help='Logs extra information for debugging'
+	help='logs extra information for debugging'
 )
 global_options.add_argument(
 	'--version',
@@ -165,11 +171,11 @@ global_options.add_argument(
 interactive_options = NalaParser(add_help=False)
 interactive_options.add_argument(
 	'--no-aptlist', action='store_true',
-	help="sets 'APT_LISTCHANGES_FRONTEND=none'. apt-listchanges will not bug you"
+	help="sets 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges will not bug you"
 )
 interactive_options.add_argument(
 	'--noninteractive', action='store_true',
-	help="sets 'DEBIAN_FRONTEND=noninteractive'. this also disables apt-listchanges"
+	help="sets 'DEBIAN_FRONTEND=noninteractive', this also disables apt-listchanges"
 )
 interactive_options.add_argument(
 	'--noninteractive-full', action='store_true',
@@ -189,7 +195,7 @@ interactive_options.add_argument(
 )
 interactive_options.add_argument(
 	'--confmiss', action='store_true',
-	help="always install the missing conffile without prompting. this is dangerous"
+	help="always install the missing conffile without prompting. This is dangerous!"
 )
 interactive_options.add_argument(
 	'--confask', action='store_true',
@@ -215,22 +221,25 @@ install_parser = subparsers.add_parser('install',
 	formatter_class=formatter,
 	help='install packages',
 	parents=[global_options, interactive_options],
-	usage=f'{bin_name} install [--options] pkg1 [pkg2 ...]'
+	usage=f'{bin_name} install [--options] [pkg1 pkg2 ...]'
 	)
 
-install_parser.add_argument('args', metavar='pkg(s)', nargs='*', help='package(s) to install')
+install_parser.add_argument('args',
+	metavar='pkg(s)',
+	nargs='*',
+	help='package(s) to install')
 
-remove_options(install_parser, no_update=True)
+remove_help_options(install_parser, no_update=True)
 
 # Parser for the remove command
 remove_parser = subparsers.add_parser('remove',
 	formatter_class=formatter,
 	help='remove packages', parents=[global_options, interactive_options],
-	usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
+	usage=f'{bin_name} remove [--options] [pkg1 pkg2 ...]'
 )
 
 # Remove Global options that I don't want to see in remove --help
-remove_options(remove_parser, download_only=True, no_update=True)
+remove_help_options(remove_parser, download_only=True, no_update=True)
 
 remove_parser.add_argument('args',
 	metavar='pkg(s)',
@@ -241,11 +250,11 @@ remove_parser.add_argument('args',
 purge_parser = subparsers.add_parser('purge',
 	formatter_class=formatter,
 	help='purge packages', parents=[global_options, interactive_options],
-	usage=f'{bin_name} remove [--options] pkg1 [pkg2 ...]'
+	usage=f'{bin_name} purge [--options] [pkg1 pkg2 ...]'
 )
 
 # Remove Global options that I don't want to see in purge --help
-remove_options(purge_parser, download_only=True, no_update=True)
+remove_help_options(purge_parser, download_only=True, no_update=True)
 
 purge_parser.add_argument(
 	'args',
@@ -261,7 +270,7 @@ update_options = NalaParser(add_help=False)
 update_options.add_argument(
 	'--no-full',
 	action='store_false',
-	help="R|runs a normal upgrade instead of full-upgrade\n\n"
+	help="runs a normal upgrade instead of full-upgrade"
 )
 
 # Parser for the update/upgrade command
@@ -273,7 +282,7 @@ update_parser = subparsers.add_parser(
 	usage=f'{bin_name} update [--options]'
 )
 
-remove_options(
+remove_help_options(
 	update_parser, update=True,
 )
 
@@ -285,64 +294,70 @@ upgrade_parser = subparsers.add_parser(
 	usage=f'{bin_name} upgrade [--options]'
 )
 
-remove_options(
+remove_help_options(
 	upgrade_parser, update=True,
-)
-
-# We do the same thing that we did with update options
-fetch_options = NalaParser(add_help=False)
-fetch_options.add_argument(
-	'--fetches',
-	metavar='number',
-	type=int, default=3,
-	help="number of mirrors to fetch"
-)
-fetch_options.add_argument(
-	'--debian',
-	metavar='sid',
-	help="choose the Debian release"
-)
-fetch_options.add_argument(
-	'--ubuntu',
-	metavar='jammy',
-	help="choose an Ubuntu release"
-)
-fetch_options.add_argument(
-	'--country',
-	metavar='US',
-	help="choose only mirrors of a specific ISO country code"
-)
-fetch_options.add_argument(
-	'--foss',
-	action='store_true',
-	help="omits contrib and non-free repos\n\n"
 )
 
 # Parser for the fetch command
 fetch_parser = subparsers.add_parser('fetch',
 	formatter_class=formatter,
 	description=(
-	'nala will fetch mirrors with the lowest latency.\n'
-	'for Debian https://www.debian.org/mirror/list-full\n'
-	'for Ubuntu https://launchpad.net/ubuntu/+archivemirrors'
+	'Nala will fetch mirrors with the lowest latency.\n'
+	'For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n'
+	'For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss'
 	),
 	help='fetches fast mirrors to speed up downloads',
-	parents=[fetch_options, global_options],
+	parents=[global_options],
 	usage=f'{bin_name} fetch [--options]'
 )
+fetch_parser.add_argument(
+	'--fetches',
+	metavar='number',
+	type=int, default=3,
+	help="number of mirrors to fetch"
+)
+fetch_parser.add_argument(
+	'--debian',
+	metavar='sid',
+	help="choose the Debian release"
+)
+fetch_parser.add_argument(
+	'--ubuntu',
+	metavar='jammy',
+	help="choose an Ubuntu release"
+)
+fetch_parser.add_argument(
+	'--country',
+	metavar='US',
+	help="choose only mirrors of a specific ISO country code"
+)
+fetch_parser.add_argument(
+	'--foss',
+	action='store_true',
+	help="omits contrib and non-free repos"
+)
+
 # Remove Global options that I don't want to see in fetch --help
-remove_options(fetch_parser)
+remove_help_options(fetch_parser)
 remove_interactive_options(fetch_parser)
+
+# We do the same thing that we did with update options
+show_options = NalaParser(add_help=False)
+show_options.add_argument(
+	'-a', '--all-versions',
+	action='store_true',
+	help="Show all versions of a package"
+)
 
 # Parser for the show command
 show_parser = subparsers.add_parser(
 	'show',
 	help='show package details',
-	parents=[global_options, interactive_options],
-	usage=f'{bin_name} show [--options] pkg1 [pkg2 ...]'
+	parents=[show_options, global_options, interactive_options],
+	usage=f'{bin_name} show [--options] [pkg1 pkg2 ...]'
 )
 # Remove Global options that I don't want to see in show --help
-remove_options(
+remove_help_options(
 	show_parser, assume_yes=True,
 	download_only=True, no_update=True,
 	raw_dpkg=True, noninteractive=True,
@@ -362,7 +377,7 @@ history_parser = subparsers.add_parser(
 	usage=f'{bin_name} history [--options] <command> <id|all>'
 )
 # Remove Global options that I don't want to see in history --help
-remove_options(
+remove_help_options(
 	history_parser, assume_yes=True,
 	download_only=True, no_update=True,
 	raw_dpkg=True, noninteractive=True,
@@ -375,7 +390,7 @@ history_parser.add_argument(
 	'mode',
 	metavar='info <id>',
 	nargs='?',
-	help='action you would like to do on the history'
+	help='show information about a specific transaction'
 )
 history_parser.add_argument(
 	'id',
@@ -399,13 +414,13 @@ history_parser.add_argument(
 # Parser for the show command
 clean_parser = subparsers.add_parser(
 	'clean',
-	help='clears out the local repository of retrieved package files.',
+	help='clears out the local repository of retrieved package files',
 	parents=[global_options],
 	usage=f'{bin_name} show [--options]'
 )
 
 # Remove Global options that I don't want to see in clean --help
-remove_options(clean_parser)
+remove_help_options(clean_parser)
 
 # This is just moo, but we can't cause are cat
 moo_parser = subparsers.add_parser(

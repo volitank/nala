@@ -29,24 +29,29 @@ from __future__ import annotations
 import errno
 import fnmatch
 import sys
-from asyncio import run
+from asyncio import CancelledError, run
 from copy import deepcopy
 from os import environ
 from typing import NoReturn
 
 import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
+from apt.debfile import DebPackage
 from apt.package import Package
 
-from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR, PARTIAL_DIR
+from nala.constants import (ARCHIVE_DIR, DPKG_LOG,
+				ERROR_PREFIX, NALA_DIR, PARTIAL_DIR, ExitCode)
 from nala.downloader import PkgDownloader
-from nala.dpkg import InstallProgress, UpdateProgress
+from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
 from nala.history import write_history, write_log
+from nala.install import (broken_error, check_broken,
+				install_local, package_manager, split_local)
 from nala.options import arguments
-from nala.rich import Table
-from nala.show import check_virtual, show_main
-from nala.utils import (ask, check_pkg, color, dprint, get_pkg_name,
-				pkg_candidate, pkg_installed, print_packages, term, unit_str)
+from nala.rich import Columns, Live, Table, Text, console, dpkg_progress
+from nala.show import additional_notice, check_virtual, show
+from nala.utils import (DelayedKeyboardInterrupt, ask,
+				check_pkg, color, dprint, get_pkg_name, pkg_candidate,
+				pkg_installed, print_packages, term, unit_str)
 
 
 class Nala:
@@ -57,20 +62,12 @@ class Nala:
 		self.purge = False
 		self.deleted: list[str] = []
 		self.autoremoved: list[str] = []
+		self.local_debs: list[DebPackage] = []
 		# If raw_dpkg is enabled likely they want to see the update too.
 		# Turn off Rich scrolling if we don't have XTERM.
 		if arguments.raw_dpkg or not term.is_xterm():
 			arguments.verbose = True
-		# We want to update the cache before we initialize it
-		try:
-			if not no_update:
-				Cache().update(UpdateProgress())
-			self.cache = Cache(UpdateProgress())
-		except (LockFailedException, FetchFailedException) as err:
-			apt_error(err)
-		finally:
-			term.restore_mode()
-			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+		self.cache = setup_cache(no_update)
 
 	def upgrade(self, dist_upgrade: bool = False) -> None:
 		"""Upgrade pkg[s]."""
@@ -78,78 +75,50 @@ class Nala:
 		self.auto_remover()
 		self.get_changes(upgrade=True)
 
-	def glob_filter(self, pkg_names: list[str]) -> list[str]:
-		"""Filter provided packages and glob *."""
-		packages = self.cache.keys()
-		new_packages: list[str] = []
-
-		for pkg_name in pkg_names:
-			if '*' in pkg_name:
-				dprint(f'Globbing: {pkg_name}')
-				new_packages.extend(
-					fnmatch.filter(packages, pkg_name)
-				)
-			else:
-				new_packages.append(pkg_name)
-
-		dprint(f'List after globbing: {new_packages}')
-		return new_packages
-
 	def install(self, pkg_names: list[str]) -> None:
 		"""Install pkg[s]."""
 		dprint(f"Install pkg_names: {pkg_names}")
-		not_found = []
+		self.local_debs, pkg_names, not_exist = split_local(pkg_names, self.cache)
+		local_names = install_local(self.local_debs) if self.local_debs else []
 
-		# We only want to glob if we detect an *
-		if '*' in str(pkg_names):
-			pkg_names = self.glob_filter(pkg_names)
+		pkg_names = glob_filter(pkg_names, self.cache.keys())
 
-		for pkg_name in pkg_names:
-			if pkg_name not in self.cache:
-				not_found.append(pkg_name)
-			else:
-				pkg = self.cache[pkg_name]
-				if not pkg.installed:
-					pkg.mark_install()
-					dprint(f"Marked Install: {pkg.name}")
-				elif pkg.is_upgradable:
-					pkg.mark_upgrade()
-					dprint(f"Marked upgrade: {pkg.name}")
-				else:
-					print(f"Package {color(pkg.name, 'GREEN')}",
-					'is already at the latest version',
-					color(pkg.installed.version, 'BLUE'))
+		broken, not_found = check_broken(pkg_names, self.cache)
+		not_found.extend(not_exist)
 
 		if not_found:
 			pkg_error(not_found, 'not found', terminate=True)
 
+		if not package_manager(pkg_names, self.cache):
+			broken_error(broken)
+
 		self.auto_remover()
-		self.get_changes()
+		self.get_changes(local_names=local_names)
 
 	def remove(self, pkg_names: list[str], purge: bool = False) -> None:
 		"""Remove or Purge pkg[s]."""
 		dprint(f"Remove pkg_names: {pkg_names}")
 		not_found: list[str] = []
-		not_installed: list[str] = []
 		self.purge = purge
 
-		# We only want to glob if we detect an *
-		if '*' in str(pkg_names):
-			pkg_names = self.glob_filter(pkg_names)
+		pkg_names = glob_filter(pkg_names, self.cache.keys())
+		broken, not_found = check_broken(
+			pkg_names, self.cache, remove=True, purge=purge
+		)
 
-		for pkg_name in pkg_names:
-			if check_found(self.cache, pkg_name, not_found, not_installed):
-
-				pkg = self.cache[pkg_name]
-				pkg.mark_delete(purge=self.purge)
-				# Add name to deleted for autoremove checking.
-				self.deleted.append(pkg.name)
-		dprint(f"Marked delete: {self.deleted}")
-
-		if not_installed:
-			pkg_error(not_installed, 'not installed')
 		if not_found:
 			pkg_error(not_found, 'not found')
+
+		if not package_manager(
+			pkg_names, self.cache,
+			remove=True, deleted=self.deleted, purge=purge):
+
+			broken_error(
+				broken,
+				tuple(pkg for pkg in self.cache if pkg.is_installed and pkg_installed(pkg).dependencies)
+			)
+
+		dprint(f"Marked delete: {self.deleted}")
 
 		self.auto_remover()
 		self.get_changes(remove=True)
@@ -157,14 +126,25 @@ class Nala:
 	def show(self, pkg_names: list[str]) -> None:
 		"""Show package information."""
 		dprint(f"Show pkg_names: {pkg_names}")
+		not_found: list[str] = []
+		additional_records = 0
 		for num, pkg_name in enumerate(pkg_names):
 			if pkg_name in self.cache:
-				if num > 0:
-					print()
-				show_main(self.cache[pkg_name])
-			else:
-				check_virtual(pkg_name, self.cache)
-				sys.exit(f"{ERROR_PREFIX}{color(pkg_name, 'YELLOW')} not found")
+				pkg = self.cache[pkg_name]
+				additional_records += show(num, pkg)
+				continue
+
+			if check_virtual(pkg_name, self.cache):
+				continue
+			not_found.append(f"{ERROR_PREFIX}{color(pkg_name, 'YELLOW')} not found")
+
+		if additional_records and not arguments.all_versions:
+			additional_notice(additional_records)
+
+		if not_found:
+			for error in not_found:
+				print(error)
+			sys.exit(1)
 
 	def auto_remover(self) -> None:
 		"""Handle auto removal of packages."""
@@ -177,7 +157,8 @@ class Nala:
 
 			dprint(f"Pkgs marked by autoremove: {self.autoremoved}")
 
-	def get_changes(self, upgrade: bool = False, remove: bool = False) -> None:
+	def get_changes(self,
+		upgrade: bool = False, remove: bool = False, local_names: list[list[str]] | None = None) -> None:
 		"""Get packages requiring changes and process them."""
 		pkgs = sorted(self.cache.get_changes(), key=sort_pkg_name)
 		if not NALA_DIR.exists():
@@ -188,6 +169,8 @@ class Nala:
 		if pkgs:
 			check_essential(pkgs)
 			delete_names, install_names, upgrade_names, autoremove_names = self.sort_pkg_changes(pkgs)
+			if local_names:
+				install_names.extend(local_names)
 			self.print_update_summary(delete_names, install_names, upgrade_names, autoremove_names)
 
 			check_term_ask()
@@ -214,25 +197,44 @@ class Nala:
 		"""Set environment and start dpkg."""
 		set_env()
 		try:
-			self.cache.commit(
-				UpdateProgress(install=True),
-				InstallProgress(pkg_total)
-			)
-
-		except apt_pkg.Error as error:
-			sys.exit(f'\r\n{ERROR_PREFIX+str(error)}')
-
+			self.commit_pkgs(pkg_total)
+		# Catch system error because if dpkg fails it'll throw this
+		except (apt_pkg.Error, SystemError) as error:
+			sys.exit(f'\r\n{ERROR_PREFIX + str(error)}')
 		except FetchFailedException as error:
-			# Apt sends us one big long string of errors separated by '\n'
 			for failed in str(error).splitlines():
-				print(ERROR_PREFIX+failed)
+				print(ERROR_PREFIX + failed)
 			sys.exit(1)
-
+		except KeyboardInterrupt:
+			print("Exiting due to SIGINT")
+			sys.exit(ExitCode.SIGINT)
 		finally:
 			term.restore_mode()
 			# If dpkg quits for any reason we lose the cursor
 			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+			if notice:
+				print('\n'+color('Notices:', 'YELLOW'))
+				for notice_msg in notice:
+					print(notice_msg)
 		print(color("Finished Successfully", 'GREEN'))
+
+	def commit_pkgs(self, pkg_total: int) -> None:
+		"""Commit the package changes to the cache."""
+		if self.local_debs:
+			# Add one because we start a new instance of InstallProgress
+			pkg_total += 1
+
+		task = dpkg_progress.add_task('', total=pkg_total + 1)
+		with Live(auto_refresh=False) as live:
+			with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
+				if arguments.raw_dpkg:
+					live.stop()
+				self.cache.commit(
+					UpdateProgress(live, install=True),
+					InstallProgress(dpkg_log, live, task)
+				)
+				for deb in self.local_debs:
+					deb.install(InstallProgress(dpkg_log, live, task))
 
 	def sort_pkg_changes(self, pkgs: list[Package]
 		) -> tuple[list[list[str]], list[list[str]], list[list[str]], list[list[str]]]:
@@ -243,7 +245,6 @@ class Nala:
 		autoremove_names: list[list[str]] = []
 
 		for pkg in pkgs:
-			candidate = pkg_candidate(pkg)
 			if pkg.marked_delete:
 				installed = pkg_installed(pkg)
 				if pkg.name not in self.autoremoved:
@@ -254,8 +255,10 @@ class Nala:
 					autoremove_names.append(
 						[pkg.name, installed.version, str(installed.size)]
 					)
+				continue
 
-			elif pkg.marked_install:
+			candidate = pkg_candidate(pkg)
+			if pkg.marked_install:
 				install_names.append(
 					[pkg.name, candidate.version, str(candidate.size)]
 				)
@@ -310,6 +313,23 @@ class Nala:
 		if arguments.download_only:
 			print("Nala will only download the packages")
 
+def setup_cache(no_update: bool) -> Cache:
+	"""Update the cache if necessary, and then return the Cache."""
+	try:
+		if not no_update:
+			with DelayedKeyboardInterrupt():
+				with Live(auto_refresh=False) as live:
+					Cache().update(UpdateProgress(live))
+	except (LockFailedException, FetchFailedException) as err:
+		apt_error(err)
+	except KeyboardInterrupt:
+		print('Exiting due to SIGINT')
+		sys.exit(ExitCode.SIGINT)
+	finally:
+		term.restore_mode()
+		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+	return Cache(OpProgress())
+
 def sort_pkg_name(pkg: Package) -> str:
 	"""Sort by package name.
 
@@ -343,61 +363,50 @@ def check_work(pkgs: list[Package], upgrade: bool, remove: bool) -> None:
 		print(color("Nothing for Nala to remove."))
 		sys.exit(0)
 
-def check_found(cache: Cache, pkg_name: str,
-	not_found: list[str], not_installed: list[str]) -> bool:
-	"""Check if package is in the cache or installed.
-
-	Return True if the package is found.
-	"""
-	if pkg_name not in cache:
-		not_found.append(pkg_name)
-		return False
-
-	pkg = cache[pkg_name]
-	if not pkg.installed:
-		not_installed.append(pkg_name)
-		return False
-	return True
-
 def check_essential(pkgs: list[Package]) -> None:
 	"""Check removal of essential packages."""
-	essential: list[str] = []
-	nala_check: bool = False
-	banter: str = 'apt'
+	if arguments.remove_essential:
+		return
+	essential: list[Text] = []
 	for pkg in pkgs:
 		if pkg.is_installed:
 			# do not allow the removal of essential or required packages
 			if pkg_installed(pkg).priority == 'required' and pkg.marked_delete:
-				essential.append(pkg.name)
+				essential.append(
+					Text.from_ansi(color(pkg.name, 'RED'))
+				)
 			# do not allow the removal of nala
 			elif pkg.shortname in 'nala' and pkg.marked_delete:
-				nala_check = True
-				banter = 'auto_preservation'
-				essential.append('nala')
+				essential.append(
+					Text.from_ansi(color('nala', 'RED'))
+				)
 
-	if essential or nala_check:
-		pkg_error(essential, 'cannot be removed', banter=banter, terminate=True)
+	if essential:
+		essential_error(essential)
 
-def pkg_error(pkg_list: list[str], msg: str, banter: str = '', terminate: bool = False) -> None:
-	"""Print error for package in list.
+def essential_error(pkg_list: list[Text]) -> NoReturn:
+	"""Print error message for essential packages and exit."""
+	the_following = color('The Following Packages are')
+	essential_package = f"You have attempted to remove {color('essential packages', 'RED')}"
+	if len(pkg_list) == 1:
+		the_following = color('The Following Package is')
+		essential_package = f"You have attempted to remove an {color('essential package', 'RED')}"
+	print('='*term.columns)
+	print(the_following, color('Essential!', 'RED'))
+	print('='*term.columns)
+	console.print(Columns(pkg_list, padding=(0,2), equal=True))
 
-	banter is optional and can be one of::
+	print('='*term.columns)
+	switch = color('--remove-essential', 'YELLOW')
+	print(ERROR_PREFIX+essential_package)
+	print(ERROR_PREFIX+f"Please use {switch} if you are sure you want too.")
+	sys.exit(1)
 
-		apt: "Maybe apt will let you"
-		auto_essential: "Whatever you did tried to auto mark essential packages"
-		auto_preservation: "Whatever you did would have resulted in my own removal!"
-	"""
+def pkg_error(pkg_list: list[str], msg: str = '', terminate: bool = False) -> None:
+	"""Print error for package in list."""
 	for pkg in pkg_list:
 		print(ERROR_PREFIX+color(pkg, 'YELLOW'), msg)
-	if banter:
-		if banter == 'apt':
-			print(f"Maybe {color('apt', 'RED')} will let you")
 
-		elif banter == 'auto_essential':
-			print("Whatever you did tried to auto mark essential packages")
-
-		elif banter == 'auto_preservation':
-			print("This would have resulted in my own removal!")
 	if terminate:
 		sys.exit(1)
 
@@ -465,7 +474,12 @@ def download(pkgs: list[Package]) -> None:
 	Does not return if in Download Only mode.
 	"""
 	downloader = PkgDownloader(pkgs)
-	run(downloader.start_download())
+	try:
+		run(downloader.start_download())
+	except CancelledError as error:
+		if downloader.exit:
+			sys.exit(downloader.exit)
+		raise error
 
 	if arguments.download_only:
 		if downloader.failed:
@@ -479,10 +493,41 @@ def download(pkgs: list[Package]) -> None:
 	if downloader.failed:
 		print("Some downloads failed. Falling back to apt_pkg.")
 
+def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
+	"""Filter provided packages and glob *.
+
+	Returns a new list of packages matching the glob.
+
+	If there is nothing to glob it returns the original list.
+	"""
+	if '*' not in str(pkg_names):
+		return pkg_names
+
+	new_packages: list[str] = []
+	glob_failed = False
+	for pkg_name in pkg_names:
+		if '*' in pkg_name:
+			dprint(f'Globbing: {pkg_name}')
+			glob = fnmatch.filter(cache_keys, pkg_name)
+			if not glob:
+				glob_failed = True
+				print(ERROR_PREFIX+f"unable to find any packages by globbing {color(pkg_name, 'YELLOW')}")
+				continue
+			new_packages.extend(
+				fnmatch.filter(cache_keys, pkg_name)
+			)
+		else:
+			new_packages.append(pkg_name)
+
+	dprint(f'List after globbing: {new_packages}')
+	if glob_failed:
+		sys.exit(1)
+	return new_packages
+
 def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""
 	msg = str(apt_err)
-	if msg == '':
+	if not msg:
 		# Sometimes python apt gives us literally nothing to work with.
 		# Probably an issue with sources.list. Needs further testing.
 		sys.exit(

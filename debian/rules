@@ -25,6 +25,7 @@ override_dh_clean:
 
 execute_before_dh_auto_build:
 	pip install --no-warn-script-location \
+	anyio==3.5.0 \
 	rich==11.1.0 \
 	pythonping==1.1.1 \
 	httpx==0.22.0 \
@@ -43,7 +44,6 @@ override_dh_auto_build:
 	--nofollow-import-to=certifi \
 	--nofollow-import-to=sniffio \
 	--nofollow-import-to=idna \
-	--nofollow-import-to=aiofiles \
 	--nofollow-import-to=jsbeautifier \
 	--nofollow-import-to=apt \
 	--nofollow-import-to=pygments \

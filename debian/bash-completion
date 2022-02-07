@@ -110,7 +110,12 @@ _nala()
 						--foss'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
-				show|history|clean)
+				show)
+					COMPREPLY=( $( compgen -W '
+						-a --all-versions'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				history|clean)
 					COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
