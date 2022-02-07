@@ -5,16 +5,20 @@ set -e
 lib_dir="/usr/lib/python3/dist-packages/"
 apt_pkg39="${lib_dir}apt_pkg.cpython-39-x86_64-linux-gnu.so"
 apt_pkg38="${lib_dir}apt_pkg.cpython-38-x86_64-linux-gnu.so"
-apt_generic="${lib_dir}apt_pkg.so"
+apt_pkg="${lib_dir}apt_pkg.so"
+
+apt_inst39="${lib_dir}apt_inst.cpython-39-x86_64-linux-gnu.so"
+apt_inst38="${lib_dir}apt_inst.cpython-38-x86_64-linux-gnu.so"
+apt_inst="${lib_dir}apt_inst.so"
 
 echo "checking apt_pkg library.."
 if [ ! -e $apt_pkg39 ]; then
-	if [ -e $apt_generic ]; then
-		echo "$apt_generic exists, not linking.."
+	if [ -e $apt_pkg ]; then
+		echo "$apt_pkg exists, not linking.."
 	else
 		if [ -e $apt_pkg38 ]; then
 			echo "linking ${lib_dir}apt_pkg.so"
-			ln -s "$apt_pkg38" "$apt_generic"
+			ln -s "$apt_pkg38" "$apt_pkg"
 			echo "linking complete.."
 		else
 			echo "error: can't find a suitable library.."
@@ -24,3 +28,22 @@ if [ ! -e $apt_pkg39 ]; then
 else
 	echo "$apt_pkg39 exists, not linking.."
 fi
+
+echo "checking apt_inst library.."
+if [ ! -e $apt_inst39 ]; then
+	if [ -e $apt_inst ]; then
+		echo "$apt_inst exists, not linking.."
+	else
+		if [ -e $apt_inst38 ]; then
+			echo "linking ${lib_dir}apt_inst.so"
+			ln -s "$apt_inst38" "$apt_inst"
+			echo "linking complete.."
+		else
+			echo "error: can't find a suitable library.."
+			exit 1
+		fi
+	fi
+else
+	echo "$apt_inst39 exists, not linking.."
+fi
+

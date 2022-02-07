@@ -3,9 +3,15 @@
 set -e
 
 lib_dir="/usr/lib/python3/dist-packages/"
-apt_generic="${lib_dir}apt_pkg.so"
+apt_pkg="${lib_dir}apt_pkg.so"
+apt_inst="${lib_dir}apt_inst.so"
 
-if [ -L $apt_generic ];then
+if [ -L $apt_pkg ];then
 	echo "removing apt_pkg.so link.."
-	rm "$apt_generic"
+	rm "$apt_pkg"
+fi
+
+if [ -L $apt_inst ];then
+	echo "removing apt_inst.so link.."
+	rm "$apt_inst"
 fi
