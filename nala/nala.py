@@ -531,14 +531,19 @@ def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
 		# Sometimes python apt gives us literally nothing to work with.
 		# Probably an issue with sources.list. Needs further testing.
 		sys.exit(
-			ERROR_PREFIX+f"python-apt gave us '{repr(apt_err)}'\n"
-			"This isn't a proper error as it's empty"
+			f"{ERROR_PREFIX}python-apt gave us '{repr(apt_err)}'\nThis isn't a proper error as it's empty"
 			)
-	if '.,' in msg:
+	if ',' in msg:
 		err_list = set(msg.split(','))
 		for err in err_list:
-			err = err.replace('E:', '')
-			print(ERROR_PREFIX+err.strip())
+			if 'E:' in err:
+				err = err.replace('E:', '')
+				print(ERROR_PREFIX+err.strip())
+				continue
+			if 'W:' in err:
+				err = err.replace('W:', '')
+				print(color('Warning: ', 'YELLOW')+err.strip())
+				continue
 		sys.exit(1)
 	print(ERROR_PREFIX+msg)
 	if not term.is_su():
