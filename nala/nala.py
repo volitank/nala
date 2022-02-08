@@ -320,7 +320,7 @@ def setup_cache(no_update: bool) -> Cache:
 			with DelayedKeyboardInterrupt():
 				with Live(auto_refresh=False) as live:
 					Cache().update(UpdateProgress(live))
-	except (LockFailedException, FetchFailedException) as err:
+	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
 		apt_error(err)
 	except KeyboardInterrupt:
 		print('Exiting due to SIGINT')
@@ -524,7 +524,7 @@ def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
 		sys.exit(1)
 	return new_packages
 
-def apt_error(apt_err: FetchFailedException | LockFailedException) -> NoReturn:
+def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Error) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""
 	msg = str(apt_err)
 	if not msg:
