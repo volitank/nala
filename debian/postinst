@@ -46,4 +46,3 @@ if [ ! -e $apt_inst39 ]; then
 else
 	echo "$apt_inst39 exists, not linking.."
 fi
-
