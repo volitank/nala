@@ -372,7 +372,7 @@ def check_essential(pkgs: list[Package]) -> None:
 	for pkg in pkgs:
 		if pkg.is_installed:
 			# do not allow the removal of essential or required packages
-			if pkg_installed(pkg).priority == 'required' and pkg.marked_delete:
+			if pkg.essential and pkg.marked_delete:
 				essential.append(
 					Text.from_ansi(color(pkg.name, 'RED'))
 				)
