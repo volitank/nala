@@ -164,9 +164,9 @@ class Nala:
 		if not NALA_DIR.exists():
 			NALA_DIR.mkdir()
 
-		check_work(pkgs, upgrade, remove)
+		check_work(pkgs, self.local_debs, upgrade, remove)
 
-		if pkgs:
+		if pkgs or self.local_debs:
 			check_essential(pkgs)
 			delete_names, install_names, upgrade_names, autoremove_names = self.sort_pkg_changes(pkgs)
 			if local_names:
@@ -348,7 +348,8 @@ def check_term_ask() -> None:
 		print("Abort.")
 		sys.exit(0)
 
-def check_work(pkgs: list[Package], upgrade: bool, remove: bool) -> None:
+def check_work(pkgs: list[Package], local_debs: list[DebPackage],
+	upgrade: bool, remove: bool) -> None:
 	"""Check if there is any work for nala to do.
 
 	Returns None if there is work, exit's successful if not.
@@ -356,7 +357,7 @@ def check_work(pkgs: list[Package], upgrade: bool, remove: bool) -> None:
 	if upgrade and not pkgs:
 		print(color("All packages are up to date."))
 		sys.exit(0)
-	elif not remove and not pkgs:
+	elif not remove and not pkgs and not local_debs:
 		print(color("Nothing for Nala to do."))
 		sys.exit(0)
 	elif remove and not pkgs:
