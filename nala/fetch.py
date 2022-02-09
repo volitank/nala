@@ -29,9 +29,9 @@ import re
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from subprocess import run
 
 from apt_pkg import get_architectures
-from aptsources.distro import get_distro
 from httpx import HTTPError, get
 from pythonping import ping
 from rich.progress import TaskID
@@ -226,11 +226,33 @@ def ubuntu_parser(mirror: str) -> str | None:
 			return result.group(1)
 	return None
 
-def detect_release() -> tuple[str, str]:
+def _lsb_release() -> tuple[str | None, str | None]:
+	"""Run `lsb_release` and get the distro information."""
+	lsb_id = None
+	lsb_codename = None
+	try:
+		lsb_release = run(
+			['lsb_release', '-idrc'],
+			capture_output=True,
+			check=True
+		).stdout.decode()
+	except OSError as error:
+		dprint(error)
+		return lsb_id, lsb_codename
+
+	for line in lsb_release.splitlines():
+		if 'Distributor ID' in line:
+			index = line.index('\t') + 1
+			lsb_id = line[index:]
+		if 'Codename' in line:
+			index = line.index('\t') + 1
+			lsb_codename = line[index:]
+	return lsb_id, lsb_codename
+
+def detect_release() -> tuple[str | None, str | None]:
 	"""Detect the distro and release."""
 	if not arguments.debian and not arguments.ubuntu:
-		lsb = get_distro()
-		return lsb.id, lsb.codename
+		return _lsb_release()
 
 	if arguments.debian:
 		return DEBIAN, arguments.debian
@@ -282,7 +304,7 @@ def test_mirrors(netselect: tuple[str, ...]) -> None:
 			for num, mirror in enumerate(netselect):
 				pool.submit(net_select, mirror, task, live, total, num)
 
-def check_supported(distro:str, release:str,
+def check_supported(distro:str | None, release:str | None,
 	country_list: tuple[str, ...] | None) -> tuple[tuple[str, ...], str]:
 	"""Check if the distro is supported or not.
 
@@ -296,10 +318,13 @@ def check_supported(distro:str, release:str,
 	if distro in (UBUNTU, 'Pop'):
 		# It's ubuntu, you probably don't care about foss
 		return ubuntu_mirror(country_list), 'main restricted universe multiverse'
-	print(
-		ERROR_PREFIX+f"{distro} {release} is unsupported.\n"
-		"You can specify Ubuntu or Debian manually."
-	)
+	if distro is None or release is None:
+		sys.stderr.write(ERROR_PREFIX+'There was an issue detecting release. You can specify manually\n')
+	else:
+		sys.stderr.write(
+			ERROR_PREFIX+f"{distro} {release} is unsupported.\n"
+			"You can specify Ubuntu or Debian manually.\n"
+		)
 	parser.parse_args(['fetch', '--help'])
 	sys.exit(1)
 
@@ -322,6 +347,7 @@ def fetch() -> None:
 
 	distro, release = detect_release()
 	netselect, component = check_supported(distro, release, country_list)
+	assert distro and release
 
 	dprint(netselect)
 	dprint(f'Distro: {distro}, Release: {release}, Component: {component}')
