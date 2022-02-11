@@ -389,6 +389,12 @@ class InstallProgress(base.InstallProgress):
 		# Set to raw if we have a conf prompt
 		self.conf_check(data)
 
+		# This is a work around for a hang in noninteractive mode
+		# https://github.com/liske/needrestart/issues/129
+		if (os.environ.get("DEBIAN_FRONTEND") == "noninteractive"
+			and b'so you should consider rebooting. [Return]' in data):
+			os.write(self.child_fd, term.CRLF)
+
 		# Save Term for debconf and Bracked Paste for the start of the shell
 		if term.SAVE_TERM in data or term.ENABLE_BRACKETED_PASTE in data:
 			self.raw_init()
