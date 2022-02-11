@@ -39,8 +39,8 @@ from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.debfile import DebPackage
 from apt.package import Package
 
-from nala.constants import (ARCHIVE_DIR, DPKG_LOG,
-				ERROR_PREFIX, NALA_DIR, PARTIAL_DIR, ExitCode)
+from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
+				NEED_RESTART, PARTIAL_DIR, REBOOT_PKGS, REBOOT_REQUIRED, ExitCode)
 from nala.downloader import PkgDownloader
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
 from nala.history import write_history, write_log
@@ -219,10 +219,9 @@ class Nala:
 			term.restore_mode()
 			# If dpkg quits for any reason we lose the cursor
 			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
-			if notice:
-				print('\n'+color('Notices:', 'YELLOW'))
-				for notice_msg in notice:
-					print(notice_msg)
+			print_notices(notice)
+			if need_reboot():
+				print(f"{color('Notice:')} A reboot is required.")
 		print(color("Finished Successfully", 'GREEN'))
 
 	def commit_pkgs(self, pkg_total: int) -> None:
@@ -319,6 +318,27 @@ class Nala:
 			print(f'Disk space required: {unit_str(self.cache.required_space)}')
 		if arguments.download_only:
 			print("Nala will only download the packages")
+
+def need_reboot() -> bool:
+	"""Check if the system needs a reboot and notify the user."""
+	if REBOOT_REQUIRED.exists():
+		if REBOOT_PKGS.exists():
+			print(f"{color('Notice:')} The following packages require a reboot.")
+			for pkg in REBOOT_PKGS.read_text(encoding='utf-8').splitlines():
+				print(f"  {color(pkg, 'GREEN')}")
+		return True
+	if NEED_RESTART.exists():
+		return True
+	return False
+
+def print_notices(notices: Iterable[str]) -> None:
+	"""Print notices from dpkg."""
+	if notices:
+		if REBOOT_REQUIRED.exists() or NEED_RESTART.exists():
+			notices = [msg for msg in notices if 'reboot' not in msg]
+		print('\n'+color('Notices:', 'YELLOW'))
+		for notice_msg in notices:
+			print(notice_msg)
 
 def setup_cache(no_update: bool) -> Cache:
 	"""Update the cache if necessary, and then return the Cache."""

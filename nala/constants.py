@@ -55,6 +55,12 @@ NALA_HISTORY = Path('/var/lib/nala/history.json')
 """/var/lib/nala/history.json"""
 PACSTALL_METADATA = Path('/var/log/pacstall/metadata')
 """/var/log/pacstall/metadata"""
+REBOOT_REQUIRED = Path('/var/run/reboot-required')
+"""/var/run/reboot-required"""
+REBOOT_PKGS = Path('/var/run/reboot-required.pkgs')
+"""'/var/run/reboot-required.pkgs'"""
+NEED_RESTART = Path('/var/run/needrestart')
+"""/var/run/needrestart"""
 
 # Apt Directories
 ARCHIVE_DIR = Path(apt_pkg.config.find_dir('Dir::Cache::Archives'))
@@ -114,10 +120,8 @@ CONF_MESSAGE = (
 )
 CONF_ANSWER = (b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',)
 NOTICES = (
-	b'A reboot is required to replace the running dbus-daemon.',
-	b'Please reboot the system when convenient.',
+	b'reboot',
 	b'The currently running kernel version is not the expected kernel version',
-	b'so you should consider rebooting.',
 	b'Please remove.',
 	b'NOTICE:',
 	b'Warning:'
