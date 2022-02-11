@@ -71,7 +71,14 @@ class Nala:
 
 	def upgrade(self, dist_upgrade: bool = False) -> None:
 		"""Upgrade pkg[s]."""
+		is_upgrade = [pkg for pkg in self.cache if pkg.is_upgradable]
 		self.cache.upgrade(dist_upgrade=dist_upgrade)
+
+		if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
+			for pkg in kept_back:
+				print(f"{color(pkg.name, 'YELLOW')} was kept back")
+			check_term_ask()
+
 		self.auto_remover()
 		self.get_changes(upgrade=True)
 
