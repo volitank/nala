@@ -165,7 +165,7 @@ class UpdateProgress(text.AcquireProgress):
 			self._write(f"{color('Ignored:  ', 'YELLOW')} {item.description}")
 		else:
 			# spaces are to make the error message consistent with other messages.
-			self._write(ERROR_PREFIX+'    '+item.description)
+			self._write(f'{ERROR_PREFIX}    {item.description}')
 			self._write(f"  {item.owner.error_text}")
 
 	def fetch(self, item: apt_pkg.AcquireItemDesc) -> None:
@@ -584,7 +584,7 @@ def get_title(install: bool, fetch: bool) -> str:
 			return '[bold white]Installing Packages'
 		if arguments.command == 'history':
 			title = f'History {str(arguments.mode).capitalize()} {arguments.id}'
-			return '[bold white]' + title
+			return f'[bold white]{title}'
 	if install and fetch:
 		return '[bold white]Fetching Missed Packages'
 	return '[bold white]Updating Package List'

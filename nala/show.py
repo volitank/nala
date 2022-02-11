@@ -222,7 +222,7 @@ def format_dep(dep: BaseDependency, iteration: int) -> str:
 	version = color(dep.version, 'BLUE')
 	indent = color(' | ') if iteration > 0 else '  '
 
-	final = name+' '+open_paren+relation+' '+version+close_paren
+	final = f'{name} {open_paren}{relation} {version}{close_paren}'
 
 	return indent+final if dep.relation else indent+name
 

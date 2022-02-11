@@ -185,7 +185,7 @@ term = Terminal()
 
 def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
-	return f'\x1b[1;{COLOR_CODES[text_color]}m' + text + str(COLOR_CODES['RESET'])
+	return f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
 
 def ask(question: str, default_no: bool = False) -> bool:
 	"""Ask the user {question}.
@@ -263,7 +263,9 @@ def get_hash(version: Version) -> tuple[str, str]:
 		return ("sha1", version.sha1)
 	if version.md5:
 		return ("md5", version.md5)
-	sys.exit(ERROR_PREFIX+f"{Path(version.filename).name} can't be checked for integrity.")
+	sys.exit(
+	    f"{ERROR_PREFIX}{Path(version.filename).name} can't be checked for integrity."
+	)
 
 def get_pkg_name(candidate: Version) -> str:
 	"""Return the package name.
@@ -272,7 +274,7 @@ def get_pkg_name(candidate: Version) -> str:
 	"""
 	if ':' in candidate.version:
 		index = candidate.version.index(':')
-		epoch = '_'+candidate.version[:index]+r'%3a'
+		epoch = f'_{candidate.version[:index]}%3a'
 		return Path(candidate.filename).name.replace('_', epoch, 1)
 	return Path(candidate.filename).name
 
@@ -328,10 +330,10 @@ def dprint(msg: object) -> None:
 	"""Print message if debugging, write to log if root."""
 	if arguments.debug:
 		msg = str(msg)
-		print('DEBUG: '+msg)
+		print(f'DEBUG: {msg}')
 		if term.is_su():
 			timezone = datetime.utcnow().astimezone().tzinfo
 			time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
-			msg = f'[{time}] DEBUG: ' + msg
+			msg = f'[{time}] DEBUG: {msg}'
 			with open(NALA_DEBUGLOG, 'a', encoding='utf-8') as logfile:
 				logfile.write(msg+'\n')

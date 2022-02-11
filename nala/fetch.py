@@ -77,9 +77,9 @@ def netping(domain: str, mirror: str, debugger: list[str]) -> bool:
 	res = str(int(ping(domain, count=4, match=True, timeout=1).rtt_avg_ms))
 	debugger.append(f'Ping ms: {res}')
 	if len(res) == 2:
-		res = '0'+res
+		res = f'0{res}'
 	elif len(res) == 1:
-		res = '00'+res
+		res = f'00{res}'
 	elif len(res) > 3:
 		debugger.append('Mirror too slow')
 		dprint(debugger)
@@ -158,7 +158,7 @@ def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 	try:
 		mirror_list = get(url, timeout=15).text.split(splitter)
 	except HTTPError:
-		sys.exit(ERROR_PREFIX+f'unable to connect to {url}')
+		sys.exit(f'{ERROR_PREFIX}unable to connect to {url}')
 	return tuple(mirror_list)
 
 def parse_mirror(
@@ -263,13 +263,13 @@ def parse_sources() -> list[str]:
 	sources: list[str] = []
 	for file in SOURCEPARTS.iterdir():
 		if file != NALA_SOURCES:
-			for line in file.read_text(encoding='utf-8').splitlines():
-				if not line.startswith('#') and line:
-					sources.append(line)
+			sources.extend(
+			    line for line in file.read_text(encoding='utf-8').splitlines()
+			    if not line.startswith('#') and line)
 	if SOURCELIST.exists():
-		for line in SOURCELIST.read_text(encoding='utf-8').splitlines():
-			if not line.startswith('#') and line:
-				sources.append(line)
+		sources.extend(
+		    line for line in SOURCELIST.read_text(encoding='utf-8').splitlines()
+		    if not line.startswith('#') and line)
 	return sources
 
 def write_sources(release: str, component: str, sources: list[str]) -> None:
@@ -322,7 +322,7 @@ def check_supported(distro:str | None, release:str | None,
 		sys.stderr.write(ERROR_PREFIX+'There was an issue detecting release. You can specify manually\n')
 	else:
 		sys.stderr.write(
-			ERROR_PREFIX+f"{distro} {release} is unsupported.\n"
+			f"{ERROR_PREFIX}{distro} {release} is unsupported.\n"
 			"You can specify Ubuntu or Debian manually.\n"
 		)
 	parser.parse_args(['fetch', '--help'])

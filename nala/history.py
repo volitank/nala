@@ -59,7 +59,9 @@ def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]
 		assert isinstance(check, dict)
 		return check
 	except JSONDecodeError:
-		sys.exit(ERROR_PREFIX+f"History file seems corrupt. You should try removing {NALA_HISTORY}")
+		sys.exit(
+		    f'{ERROR_PREFIX}History file seems corrupt. You should try removing {NALA_HISTORY}'
+		)
 
 def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str]]]]) -> None:
 	"""Write history to file."""
@@ -174,7 +176,7 @@ def history_undo(apt: Nala, hist_id: str, redo: bool = False) -> None:
 	def hist_pkg_sort(key: str) -> list[str]:
 		packages = transaction.get(key)
 		if packages is None:
-			sys.exit(ERROR_PREFIX+f"Something is wrong with history entry: {hist_id}")
+			sys.exit(f'{ERROR_PREFIX}Something is wrong with history entry: {hist_id}')
 		return [str(pkg[0]) for pkg in packages]
 
 	if command == 'remove':
@@ -243,4 +245,4 @@ def get_history(hist_id: str) -> dict[str, str | list[str] | list[list[str]]]:
 	)
 	if transaction := history_file.get(hist_id):
 		return transaction
-	sys.exit(ERROR_PREFIX+f"Transaction {hist_id} doesn't exist.")
+	sys.exit(f"{ERROR_PREFIX}Transaction {hist_id} doesn't exist.")

@@ -207,7 +207,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 					try:
 						self.mirrors = get(f"http://{domain}/mirrors.txt").text.splitlines()
 					except HTTPError:
-						sys.exit(ERROR_PREFIX+f'unable to connect to http://{domain}/mirrors.txt')
+						sys.exit(f'{ERROR_PREFIX}unable to connect to http://{domain}/mirrors.txt')
 				urls.extend([link+candidate.filename for link in self.mirrors])
 				continue
 			urls.append(uri)
@@ -278,10 +278,9 @@ async def process_downloads(candidate: Version) -> bool:
 		dprint(f'Moving {source} -> {destination}')
 		source.rename(destination)
 	except OSError as error:
-		# We don't need to bug the user if the file doesn't exist, apt fetch will get it
 		if error.errno != ENOENT:
 			print(
-				ERROR_PREFIX+"Failed to move archive file, "
+			    f"{ERROR_PREFIX}Failed to move archive file, "
 				f"{error.strerror}: '{error.filename}' -> '{error.filename2}'"
 			)
 		return False

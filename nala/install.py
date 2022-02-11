@@ -229,7 +229,7 @@ def broken_error(broken: list[Package],
 			)
 
 	print(f"\n{color('Notice:', 'YELLOW')} The information above may be able to help")
-	sys.exit(ERROR_PREFIX + 'You have held broken packages')
+	sys.exit(f'{ERROR_PREFIX}You have held broken packages')
 
 def print_broken(pkg_name: str, candidate: Version) -> None:
 	"""Print broken packages information."""

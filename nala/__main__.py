@@ -103,7 +103,7 @@ def arg_check(args: list[str], msg: str) -> None:
 	If args exists then duplicates will be removed.
 	"""
 	if not args:
-		sys.exit(ERROR_PREFIX+f'You must specify a package to {msg}')
+		sys.exit(f'{ERROR_PREFIX}You must specify a package to {msg}')
 	dedupe = []
 	for arg in arguments.args:
 		if arg not in dedupe:
@@ -130,15 +130,15 @@ def nala_history(apt: Nala) -> None:
 	mode = arguments.mode
 	# Eventually we should probably make argparser better and handle this for us.
 	if mode and mode not in ('undo', 'redo', 'info', 'clear'):
-		sys.exit(ERROR_PREFIX+f"'{mode}' isn't a valid history command")
+		sys.exit(f"{ERROR_PREFIX}'{mode}' isn't a valid history command")
 	if mode and not arguments.id:
-		sys.exit(ERROR_PREFIX+'We need a transaction ID...')
+		sys.exit(f'{ERROR_PREFIX}We need a transaction ID...')
 	if mode in ('undo', 'redo', 'info'):
 		try:
 			# We are basically just type checking here
 			int(arguments.id)
 		except ValueError:
-			sys.exit(ERROR_PREFIX+'Option must be a number...')
+			sys.exit(f'{ERROR_PREFIX}Option must be a number...')
 	if not mode:
 		history()
 	if mode == 'undo':
@@ -160,7 +160,7 @@ def sudo_check(root_action: str) -> None:
 	"""Check for root and exits if not root."""
 	if not term.is_su():
 		esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
-		sys.exit(ERROR_PREFIX+f'Nala needs root to {root_action}')
+		sys.exit(f'{ERROR_PREFIX}Nala needs root to {root_action}')
 
 def init_apt() -> Nala:
 	"""Initialize Nala and determines if we update the cache or not."""
