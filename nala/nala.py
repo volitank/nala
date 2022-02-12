@@ -339,9 +339,9 @@ def process_downloads(pkgs: list[Package]) -> bool:
 
 def set_env() -> None:
 	"""Set environment."""
-	if arguments.noninteractive:
+	if arguments.non_interactive:
 		environ["DEBIAN_FRONTEND"] = "noninteractive"
-	if arguments.noninteractive_full:
+	if arguments.non_interactive_full:
 		environ["DEBIAN_FRONTEND"] = "noninteractive"
 		apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
 		apt_pkg.config.set('Dpkg::Options::', '--force-confold')

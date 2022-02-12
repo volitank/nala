@@ -389,7 +389,7 @@ class InstallProgress(base.InstallProgress):
 		# Set to raw if we have a conf prompt
 		self.conf_check(data)
 
-		# This is a work around for a hang in noninteractive mode
+		# This is a work around for a hang in non-interactive mode
 		# https://github.com/liske/needrestart/issues/129
 		if (os.environ.get("DEBIAN_FRONTEND") == "noninteractive"
 			and b'so you should consider rebooting. [Return]' in data):

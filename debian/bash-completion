@@ -41,8 +41,8 @@ _nala()
 
 	local DPKG_OPTIONS='
 		--no-aptlist
-		--noninteractive
-		--noninteractive-full
+		--non-interactive
+		--non-interactive-full
 		--confold
 		--confnew
 		--confdef

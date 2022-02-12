@@ -85,12 +85,12 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 	If an argument is True it will remove the option.
 	False to keep it.
 	"""
-	if len(kwargs.items()) == 0:
+	if not kwargs:
 		kwargs = {
 		'assume_yes' : True, 'download_only' : True,
 		'update' : True, 'no_update' : True,
-		'raw_dpkg' : True, 'noninteractive' : True,
-		'no_autoremove' : True, 'remove_essential' : True
+		'raw_dpkg' : True, 'no_autoremove' : True,
+		'remove_essential' : True
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -174,12 +174,12 @@ interactive_options.add_argument(
 	help="sets 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges will not bug you"
 )
 interactive_options.add_argument(
-	'--noninteractive', action='store_true',
+	'--non-interactive', action='store_true',
 	help="sets 'DEBIAN_FRONTEND=noninteractive', this also disables apt-listchanges"
 )
 interactive_options.add_argument(
-	'--noninteractive-full', action='store_true',
-	help="an alias for --noninteractive --confdef --confold"
+	'--non-interactive-full', action='store_true',
+	help="an alias for --non-interactive --confdef --confold"
 )
 interactive_options.add_argument(
 	'--confold', action='store_true',
@@ -360,8 +360,7 @@ show_parser = subparsers.add_parser(
 remove_help_options(
 	show_parser, assume_yes=True,
 	download_only=True, no_update=True,
-	raw_dpkg=True, noninteractive=True,
-	no_autoremove=True
+	raw_dpkg=True, no_autoremove=True
 )
 
 remove_interactive_options(show_parser)
@@ -380,8 +379,7 @@ history_parser = subparsers.add_parser(
 remove_help_options(
 	history_parser, assume_yes=True,
 	download_only=True, no_update=True,
-	raw_dpkg=True, noninteractive=True,
-	no_autoremove=True
+	raw_dpkg=True, no_autoremove=True
 )
 
 remove_interactive_options(history_parser)

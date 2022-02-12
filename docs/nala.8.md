@@ -106,11 +106,11 @@ The following options are advanced options to control what dpkg does during **in
 **\--no-aptlist**
 : *\--no-aptlist* sets 'APT_LISTCHANGES_FRONTEND=none'. With this option apt-listchanges will not bug you if you have it installed.
 
-**\--noninteractive**
-: *\--noninteractive* sets 'DEBIAN_FRONTEND=noninteractive'. Accepts the default answers for everything. This also disables apt-listchanges.
+**\--non-interactive**
+: *\--non-interactive* sets 'DEBIAN_FRONTEND=non-interactive'. Accepts the default answers for everything. This also disables apt-listchanges.
 
-**\--noninteractive-full**
-: *\--noninteractive-full* an alias for --noninteractive --confdef --confold.
+**\--non-interactive-full**
+: *\--non-interactive-full* an alias for --non-interactive --confdef --confold.
 
 **\--confold**
 : *\--confold* If a conffile has been modified and the version in the package did change, always keep the old version without prompting, unless the --force-confdef is also specified, in which case the default action is preferred.
