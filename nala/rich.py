@@ -36,7 +36,7 @@ from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
 
-__all__ = ('Spinner', 'Table', 'Column', 'Columns', 'Live', 'Text')
+__all__ = ('Spinner', 'Table', 'Column', 'Columns', 'Console', 'Live', 'Text')
 
 # pylint: disable=too-few-public-methods
 class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
@@ -88,7 +88,6 @@ class TimeRemaining(TimeRemainingColumn): # type: ignore[misc]
 
 bar_back_style = Style(color='red')
 bar_style = Style(color='cyan')
-console = Console()
 
 pkg_download_progress = Progress(
 	TextColumn("[bold green]Time Remaining:"),

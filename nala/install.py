@@ -32,9 +32,13 @@ from apt import Cache, Package, Version
 from apt.debfile import DebPackage
 from apt_pkg import DepCache, Error as AptError
 
-from nala.constants import ERROR_PREFIX
+from nala.constants import DPKG_LOG, ERROR_PREFIX
+from nala.dpkg import InstallProgress, UpdateProgress
+from nala.options import arguments
+from nala.rich import Live, Table, dpkg_progress
 from nala.show import print_dep
-from nala.utils import color, dprint, pkg_installed, term
+from nala.utils import (NalaPackage, PackageHandler, color, dprint,
+				pkg_candidate, pkg_installed, print_packages, term, unit_str)
 
 
 def install_pkg(pkg: Package) -> None:
@@ -53,6 +57,31 @@ def remove_pkg(pkg: Package, deleted: list[str], purge: bool = False) -> None:
 		dprint(f"Marked Remove: {pkg.name}")
 		deleted.append(pkg.name)
 
+def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
+	"""Handle auto removal of packages."""
+	if not arguments.no_autoremove:
+		for pkg in cache:
+			# We have to check both of these. Sometimes weird things happen
+			if pkg.is_installed and pkg.is_auto_removable and pkg.name not in nala_pkgs.deleted:
+				pkg.mark_delete(purge=purge)
+				nala_pkgs.autoremoved.append(pkg.name)
+
+		dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
+
+def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
+	"""Commit the package changes to the cache."""
+	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total + 1)
+	with Live(auto_refresh=False) as live:
+		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
+			if arguments.raw_dpkg:
+				live.stop()
+			cache.commit(
+				UpdateProgress(live, install=True),
+				InstallProgress(dpkg_log, live, task)
+			)
+			for deb in nala_pkgs.local_debs:
+				deb.install(InstallProgress(dpkg_log, live, task))
+
 def local_missing_dep(pkg: DebPackage) -> None:
 	"""Print missing depends for .deb that can't be satisfied."""
 	cache = Cache(memonly=True)
@@ -64,35 +93,35 @@ def local_missing_dep(pkg: DebPackage) -> None:
 			if name not in cache:
 				print(f"  {color (name, 'GREEN')} {color(operand)} {color(ver, 'BLUE')}")
 
-def install_local(local_debs: list[DebPackage]) -> list[list[str]]:
+def install_local(nala_pkgs: PackageHandler) -> None:
 	"""Mark the depends for local debs to be installed.
 
 	Dependencies that are marked will be marked auto installed.
 
 	Returns local_names to be printed in the transaction summary.
 	"""
-	local_names: list[list[str]] = []
 	failed = False
-	for pkg in local_debs:
+	for pkg in nala_pkgs.local_debs[:]:
 		if not check_local_version(pkg):
+			nala_pkgs.local_debs.remove(pkg)
 			continue
 		if not pkg.check():
 			failed = True
 			local_missing_dep(pkg)
+			nala_pkgs.local_debs.remove(pkg)
 			continue
 
-		local_names.append(
-			[pkg.pkgname, pkg._sections["Version"], pkg._sections["Installed-Size"]]
+		nala_pkgs.local_pkgs.append(
+			NalaPackage(pkg.pkgname, pkg._sections["Version"], int(pkg._sections["Installed-Size"]))
 		)
 	if failed:
 		sys.exit(1)
-	return local_names
 
 def check_local_version(pkg: DebPackage) -> bool:
 	"""Check if the version installed is better than the .deb."""
 	if pkg_compare := pkg.compare_to_version_in_cache() == pkg.VERSION_SAME:
 		print(
-			f"Package {color(pkg.pkgname, 'GREEN')}",
+			f"{color(pkg.pkgname, 'GREEN')}",
 			'is already at the latest version',
 			color(pkg._sections["Version"], 'BLUE')
 		)
@@ -113,22 +142,21 @@ def check_local_version(pkg: DebPackage) -> bool:
 	return True
 
 def split_local(
-	pkg_names: list[str], cache: Cache) -> tuple[list[DebPackage], list[str], list[str]]:
+	pkg_names: list[str], cache: Cache, local_debs: list[DebPackage]) -> list[str]:
 	"""Split pkg_names into either Local debs, regular install or they don't exist."""
-	local_debs: list[DebPackage] = []
-	cache_debs: list[str] = []
 	not_exist: list[str] = []
-	for name in pkg_names:
+	for name in pkg_names[:]:
 		if '.deb' in name:
 			if not Path(name).exists():
 				not_exist.append(name)
+				pkg_names.remove(name)
 				continue
 			local_debs.append(
 				DebPackage(name, cache)
 			)
+			pkg_names.remove(name)
 			continue
-		cache_debs.append(name)
-	return local_debs, cache_debs, not_exist
+	return not_exist
 
 def package_manager(pkg_names: list[str], cache: Cache,
 	deleted: list[str] | None = None, remove: bool = False, purge: bool = False) -> bool:
@@ -146,7 +174,7 @@ def package_manager(pkg_names: list[str], cache: Cache,
 				except AptError as error:
 					if ('broken packages' not in str(error)
 					and 'held packages' not in str(error)):
-						raise error
+						raise error from error
 					return False
 	return True
 
@@ -251,3 +279,103 @@ def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 			if name in dep.rawstr:
 				print(' ', color(pkg.name, 'GREEN'))
 				break
+
+def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
+	"""Sort a list of packages and splits them based on the action to take."""
+	for pkg in pkgs:
+		if pkg.marked_delete:
+			installed = pkg_installed(pkg)
+			if pkg.name not in nala_pkgs.autoremoved:
+				nala_pkgs.delete_pkgs.append(
+					NalaPackage(pkg.name, installed.version, installed.size),
+				)
+			else:
+				nala_pkgs.autoremove_pkgs.append(
+					NalaPackage(pkg.name, installed.version, installed.size)
+				)
+			continue
+
+		candidate = pkg_candidate(pkg)
+		if pkg.marked_install:
+			nala_pkgs.install_pkgs.append(
+				NalaPackage(pkg.name, candidate.version, candidate.size)
+			)
+
+		elif pkg.marked_upgrade:
+			installed = pkg_installed(pkg)
+			nala_pkgs.upgrade_pkgs.append(
+				NalaPackage(
+					pkg.name, installed.version,
+					candidate.size, old_version=candidate.version
+				)
+			)
+
+def print_update_summary(nala_pkgs: PackageHandler, cache: Cache, history: bool = False) -> None:
+	"""Print our transaction summary."""
+	delete, deleting = (
+		('Purge', 'Purging:')
+		if arguments.command == 'purge'
+		else ('Remove', 'Removing:')
+	)
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.delete_pkgs, deleting, 'bold red'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.autoremove_pkgs, 'Auto-Removing:', 'bold red'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.extended_install, 'Installing:', 'bold green'
+	)
+
+	print_packages(
+		['Package:', 'Old Version:', 'New Version:', 'Size:'],
+		nala_pkgs.upgrade_pkgs, 'Upgrading:', 'bold blue'
+	)
+
+	transaction_summary(delete, nala_pkgs, history)
+	if not history:
+		transaction_footer(cache)
+
+def transaction_summary(
+	delete_header: str, nala_pkgs: PackageHandler, history: bool = False) -> None:
+	"""Print a small transaction summary."""
+	print('='*term.columns)
+	print('Summary')
+	print('='*term.columns)
+	table = Table.grid('', padding=(0,2))
+	table.add_column(justify='right')
+	table.add_column()
+
+	if nala_pkgs.install_total:
+		table.add_row(
+			'Install' if not history else 'Installed',
+			str(nala_pkgs.install_total), 'Packages')
+
+	if nala_pkgs.upgrade_total:
+		table.add_row(
+			'Upgrade' if not history else 'Upgraded',
+			str(nala_pkgs.upgrade_total),'Packages')
+
+	if nala_pkgs.delete_total:
+		table.add_row(delete_header, str(nala_pkgs.delete_total), 'Packages')
+
+	if nala_pkgs.autoremove_total:
+		table.add_row('Auto-Remove', str(nala_pkgs.autoremove_total), 'Packages')
+	term.console.print(table)
+
+def transaction_footer(cache: Cache) -> None:
+	"""Print transaction footer."""
+	print()
+	if cache.required_download > 0:
+		print(f'Total download size: {unit_str(cache.required_download)}')
+	if cache.required_space < 0:
+		print(f'Disk space to free: {unit_str(-int(cache.required_space))}')
+	else:
+		print(f'Disk space required: {unit_str(cache.required_space)}')
+	if arguments.download_only:
+		print("Nala will only download the packages")

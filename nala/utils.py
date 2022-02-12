@@ -37,12 +37,13 @@ from shutil import get_terminal_size
 from types import FrameType
 
 import jsbeautifier
+from apt.debfile import DebPackage
 from apt.package import Package, Version
 
 from nala.constants import (COLOR_CODES, ERROR_PREFIX,
 				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG)
 from nala.options import arguments
-from nala.rich import Table, console
+from nala.rich import Console, Table
 
 
 class Terminal:
@@ -80,7 +81,7 @@ class Terminal:
 		self.size = get_terminal_size()
 		self.columns = self.size.columns
 		self.lines = self.size.lines
-		self.console = console
+		self.console = Console()
 		self.term: bool = True
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
@@ -181,7 +182,90 @@ class DelayedKeyboardInterrupt:
 		if isinstance(self.signal_received, tuple) and callable(self.old_handler):
 			self.old_handler(*self.signal_received)
 
+class PackageHandler: # pylint: disable=too-many-instance-attributes
+	"""Class for storing package lists."""
+
+	def __init__(self) -> None:
+		"""Class for storing package lists."""
+		self.deleted: list[str] = []
+		self.autoremoved: list[str] = []
+		self.local_debs: list[DebPackage] = []
+		self.local_pkgs: list[NalaPackage] = []
+		self.delete_pkgs: list[NalaPackage] = []
+		self.install_pkgs: list[NalaPackage] = []
+		self.upgrade_pkgs: list[NalaPackage] = []
+		self.autoremove_pkgs: list[NalaPackage] = []
+
+	@property
+	def extended_install(self) -> list[NalaPackage]:
+		"""Return install_pkgs + local_pkgs."""
+		return self.install_pkgs+self.local_pkgs
+
+	@property
+	def extended_deleted(self) -> list[NalaPackage]:
+		"""Return deleted_pkgs + autoremove_pkgs."""
+		return self.delete_pkgs+self.autoremove_pkgs
+
+	@property
+	def delete_total(self) -> int:
+		"""Return total deleted pkgs."""
+		return len(self.delete_pkgs)
+
+	@property
+	def install_total(self) -> int:
+		"""Return total installed pkgs."""
+		return len(self.install_pkgs)
+
+	@property
+	def upgrade_total(self) -> int:
+		"""Return total upgraded pkgs."""
+		return len(self.upgrade_pkgs)
+
+	@property
+	def autoremove_total(self) -> int:
+		"""Return total autoremoved pkgs."""
+		return len(self.autoremove_pkgs)
+
+	@property
+	def local_total(self) -> int:
+		"""Return total local pkgs."""
+		return len(self.local_pkgs)
+
+	@property
+	def dpkg_progress_total(self) -> int:
+		"""Calculate our total operations for the dpkg progress bar."""
+		return (
+			self.delete_total
+			+ self.autoremove_total
+			# We add an extra for each install due to Unpacking: and Setting up:
+			+ self.install_total*2
+			+ self.upgrade_total*2
+			# For local deb installs we add 1 more because of having to start
+			# and stop InstallProgress an extra time for each package
+			+ self.local_total*3
+		)
+
+class NalaPackage:
+	"""Class that represents a Nala package."""
+
+	def __init__(self, name: str, version: str, size: int, old_version: str | None = None) -> None:
+		"""Class that represents a Nala package."""
+		self.name = name
+		self.version = version
+		self.size = size
+		self.old_version = old_version
+
+	def __repr__(self) -> str:
+		"""Return string representation of the object."""
+		return f"NalaPackage: name:{self.name} version:{self.version}"
+
+	@property
+	def unit_size(self) -> str:
+		"""Return the size as a readable unit. Example 12MB."""
+		return unit_str(int(self.size))
+
 term = Terminal()
+nala_pkgs = PackageHandler()
 
 def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
@@ -264,7 +348,7 @@ def get_hash(version: Version) -> tuple[str, str]:
 	if version.md5:
 		return ("md5", version.md5)
 	sys.exit(
-	    f"{ERROR_PREFIX}{Path(version.filename).name} can't be checked for integrity."
+		f"{ERROR_PREFIX}{Path(version.filename).name} can't be checked for integrity."
 	)
 
 def get_pkg_name(candidate: Version) -> str:
@@ -289,10 +373,10 @@ def pkg_installed(pkg: Package) -> Version:
 	return pkg.installed
 
 def print_packages(
-	headers: list[str], names: list[list[str]],
+	headers: list[str], nala_packages: list[NalaPackage],
 	title: str, style: str | None = None) -> None:
 	"""Print package transactions in a pretty format."""
-	if not names:
+	if not nala_packages:
 		return
 
 	package_table = Table(padding=(0,2), box=None)
@@ -305,17 +389,15 @@ def print_packages(
 		else:
 			package_table.add_column(header)
 
-	# Get the size and change it to size
-	for package in names:
-		size = package.pop()
-		package.append(unit_str(int(size)))
-
 	# Add our packages
-	for name in names:
-		package_table.add_row(*name)
+	for pkg in nala_packages:
+		if pkg.old_version:
+			package_table.add_row(pkg.name, pkg.old_version, pkg.version, pkg.unit_size)
+			continue
+		package_table.add_row(pkg.name, pkg.version, pkg.unit_size)
 
 	sep = '='*term.columns
-	console.print(
+	term.console.print(
 		sep,
 		title,
 		sep,

@@ -128,7 +128,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 				# Before we're done, so we catch this and try one more time.
 				except RemoteProtocolError as error:
 					if 'Server disconnected' not in str(error) or second_attempt:
-						raise error
+						raise error from error
 					mirror = url[:url.index('/pool')]
 					vprint(f"{ERROR_PREFIX}{mirror} {error}")
 					continue

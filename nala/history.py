@@ -34,12 +34,15 @@ from pwd import getpwnam
 from typing import TYPE_CHECKING
 
 import jsbeautifier
+from apt import Cache
 
 from nala.constants import (ERROR_PREFIX,
 				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE)
+from nala.install import print_update_summary
 from nala.logger import dprint
-from nala.rich import Column, Table, console
-from nala.utils import DelayedKeyboardInterrupt, print_packages, term
+from nala.rich import Column, Table
+from nala.utils import (DelayedKeyboardInterrupt,
+				NalaPackage, PackageHandler, term)
 
 if TYPE_CHECKING:
 	from nala.nala import Nala
@@ -80,8 +83,8 @@ def history() -> None:
 	for key, entry in history_file.items():
 		command = get_hist_list(entry, 'Command')
 		if command[0] in ('update', 'upgrade'):
-			for package in get_hist_package(entry, 'Upgraded'):
-				command.append(package[0])
+			for pkg in get_hist_package(entry, 'Upgraded'):
+				command.append(pkg.name)
 		names.append(
 				(key, ' '.join(command), str(entry.get('Date')), str(entry.get('Altered')))
 		)
@@ -97,12 +100,25 @@ def history() -> None:
 
 	for item in names:
 		history_table.add_row(*item)
-	console.print(history_table)
+	term.console.print(history_table)
 
 def get_hist_package(
-	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str) -> list[list[str]]:
+	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str) -> list[NalaPackage]:
 	"""Type enforce history package is list of lists."""
-	return [pkg_list for pkg_list in hist_entry[key] if isinstance(pkg_list, list)]
+	nala_pkgs = []
+	for pkg_list in hist_entry[key]:
+		if isinstance(pkg_list, list):
+			if len(pkg_list) == 4:
+				name, old_version, new_version, size = pkg_list
+				nala_pkgs.append(
+					NalaPackage(name, new_version, int(size), old_version)
+				)
+				continue
+			name, new_version, size = pkg_list
+			nala_pkgs.append(
+				NalaPackage(name, new_version, int(size))
+			)
+	return nala_pkgs
 
 def get_hist_list(
 	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str) -> list[str]:
@@ -114,29 +130,12 @@ def history_info(hist_id: str) -> None:
 	dprint(f"History info {hist_id}")
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")
+	nala_pkgs = PackageHandler()
+	nala_pkgs.delete_pkgs = get_hist_package(hist_entry, 'Removed')
+	nala_pkgs.install_pkgs = get_hist_package(hist_entry, 'Installed')
+	nala_pkgs.upgrade_pkgs = get_hist_package(hist_entry, 'Upgraded')
 
-	delete_names = get_hist_package(hist_entry, 'Removed')
-	install_names = get_hist_package(hist_entry, 'Installed')
-	upgrade_names = get_hist_package(hist_entry, 'Upgraded')
-
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		delete_names, 'Removed:', 'bold red')
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		install_names, 'Installed:', 'bold green')
-	print_packages(
-		['Package:', 'Old Version:', 'New Version:', 'Size:'],
-		upgrade_names, 'Upgraded:', 'bold blue'
-	)
-
-	print('='*term.columns)
-	if delete_names:
-		print(f'Removed {len(delete_names)} Packages')
-	if install_names:
-		print(f'Installed {len(install_names)} Packages')
-	if upgrade_names:
-		print(f'Upgraded {len(upgrade_names)} Packages')
+	print_update_summary(nala_pkgs, Cache(), history=True)
 
 def history_clear(hist_id: str) -> None:
 	"""Show command."""
@@ -195,30 +194,32 @@ def history_undo(apt: Nala, hist_id: str, redo: bool = False) -> None:
 	else:
 		print('Undo for operations other than install or remove are not currently supported')
 
-def write_history(delete_names: list[list[str]],
-	install_names: list[list[str]], upgrade_names: list[list[str]]) -> None:
+def write_history(handler: PackageHandler) -> None:
 	"""Prepare history for writing."""
 	# We don't need only downloads in the history
 	timezone = datetime.utcnow().astimezone().tzinfo
 	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
 	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
 	hist_id = str(len(history_dict) + 1 if history_dict else 1)
-	altered = len(delete_names) + len(install_names) + len(upgrade_names)
+	altered = (
+		len(handler.extended_deleted)
+		+ len(handler.extended_install)
+		+ handler.upgrade_total
+	)
 
 	transaction: dict[str, str | list[str] | list[list[str]]] = {
 		'Date' : time,
 		'Command' : sys.argv[1:],
 		'Altered' : str(altered),
-		'Removed' : delete_names,
-		'Installed' : install_names,
-		'Upgraded' : upgrade_names,
+		'Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.extended_deleted],
+		'Installed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.extended_install],
+		'Upgraded' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.upgrade_pkgs],
 	}
 
 	history_dict[hist_id] = transaction
 	write_history_file(history_dict)
 
-def write_log(delete_names: list[list[str]], install_names: list[list[str]],
-	upgrade_names: list[list[str]], autoremove_names: list[list[str]]) -> None:
+def write_log(nala_pkgs: PackageHandler) -> None:
 	"""Write information to the log file."""
 	timezone = datetime.utcnow().astimezone().tzinfo
 	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
@@ -227,10 +228,10 @@ def write_log(delete_names: list[list[str]], install_names: list[list[str]],
 		'Date' : time,
 		'Requested-By' : f'{USER} ({UID})',
 		'Command' : sys.argv[1:],
-		'Removed' : delete_names,
-		'Auto-Removed' : autoremove_names,
-		'Installed' : install_names,
-		'Upgraded' : upgrade_names,
+		'Removed' : [[pkg.name, pkg.version, pkg.size] for pkg in nala_pkgs.delete_pkgs],
+		'Auto-Removed' : [[pkg.name, pkg.version, pkg.size] for pkg in nala_pkgs.autoremove_pkgs],
+		'Installed' : [[pkg.name, pkg.version, pkg.size] for pkg in nala_pkgs.install_pkgs],
+		'Upgraded' : [[pkg.name, pkg.version, pkg.size] for pkg in nala_pkgs.upgrade_pkgs],
 	}
 	with NALA_LOGFILE.open('a', encoding='utf-8') as file:
 		file.write(jsbeautifier.beautify(json.dumps(log), JSON_OPTIONS))
