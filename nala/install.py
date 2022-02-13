@@ -44,7 +44,7 @@ from nala.utils import (NalaPackage, PackageHandler, color, dprint, vprint,
 def install_pkg(pkg: Package) -> None:
 	"""Mark package for installation or upgrade."""
 	if not pkg.installed:
-		pkg.mark_install()
+		pkg.mark_install(auto_fix=arguments.no_fix_broken)
 		dprint(f"Marked Install: {pkg.name}")
 	elif pkg.is_upgradable:
 		pkg.mark_upgrade()
@@ -53,7 +53,7 @@ def install_pkg(pkg: Package) -> None:
 def remove_pkg(pkg: Package, deleted: list[str], purge: bool = False) -> None:
 	"""Mark package for removal."""
 	if pkg.installed:
-		pkg.mark_delete(purge=purge)
+		pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
 		dprint(f"Marked Remove: {pkg.name}")
 		deleted.append(pkg.name)
 
@@ -63,7 +63,7 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -
 		for pkg in cache:
 			# We have to check both of these. Sometimes weird things happen
 			if pkg.is_installed and pkg.is_auto_removable and pkg.name not in nala_pkgs.deleted:
-				pkg.mark_delete(purge=purge)
+				pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
 				nala_pkgs.autoremoved.append(pkg.name)
 
 		dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")

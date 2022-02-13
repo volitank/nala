@@ -97,6 +97,9 @@ Nala - A prettier front-end for libapt-pkg
 **-f, \--fix-broken**
 : >*\--fix-broken* attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala --fix-broken**.
 
+**\--no-fix-broken**
+: >*\--no-fix-broken* can be used if you don't want Nala to attempt to fix broken packages. This switch does nothing if used with **nala --fix-broken**.
+
 **\--no-update**
 : >*\--no-update* skips updating the package cache if for whatever reason you would like to skip that.
 

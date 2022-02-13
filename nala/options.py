@@ -91,6 +91,7 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 		'update' : True, 'no_update' : True,
 		'raw_dpkg' : True, 'no_autoremove' : True,
 		'remove_essential' : True, 'fix_broken' : True,
+		'no_fix_broken' : True
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -132,6 +133,11 @@ global_options.add_argument(
 	'-f', '--fix-broken',
 	action='store_true',
 	help="attempts to fix broken packages"
+)
+global_options.add_argument(
+	'--no-fix-broken',
+	action='store_false',
+	help="skips attempting to fix broken packages"
 )
 global_options.add_argument(
 	'--no-update',
@@ -217,7 +223,7 @@ parser = NalaParser(
 	parents=[global_options, interactive_options]
 )
 remove_interactive_options(parser)
-
+remove_help_options(parser, no_fix_broken=True)
 # Define our subparser
 subparsers = parser.add_subparsers(metavar='', dest='command')
 assert parser._subparsers
@@ -297,7 +303,8 @@ upgrade_parser = subparsers.add_parser(
 
 for parse in (update_parser, upgrade_parser):
 	remove_help_options(
-		parse, update=True, fix_broken=True
+		parse, update=True,
+		fix_broken=True, no_fix_broken=True
 	)
 
 # Parser for the fetch command
@@ -363,7 +370,8 @@ remove_help_options(
 	show_parser, assume_yes=True,
 	download_only=True, no_update=True,
 	raw_dpkg=True, no_autoremove=True,
-	remove_essential=True, fix_broken=True
+	remove_essential=True, fix_broken=True,
+	no_fix_broken=True,
 )
 
 remove_interactive_options(show_parser)
@@ -398,7 +406,8 @@ remove_help_options(
 	search_parser, assume_yes=True,
 	download_only=True, no_update=True,
 	raw_dpkg=True, no_autoremove=True,
-	remove_essential=True, fix_broken=True
+	remove_essential=True, fix_broken=True,
+	no_fix_broken=True
 )
 
 remove_interactive_options(search_parser)

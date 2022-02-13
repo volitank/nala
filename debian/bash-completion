@@ -79,6 +79,7 @@ _nala()
 						-d --download-only
 						--raw-dpkg
 						--no-autoremove
+						--no-fix-broken
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
@@ -88,6 +89,7 @@ _nala()
 						-d --download-only
 						--raw-dpkg
 						--no-autoremove
+						--no-fix-broken
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
