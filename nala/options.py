@@ -360,12 +360,46 @@ show_parser = subparsers.add_parser(
 remove_help_options(
 	show_parser, assume_yes=True,
 	download_only=True, no_update=True,
-	raw_dpkg=True, no_autoremove=True
+	raw_dpkg=True, no_autoremove=True,
+	remove_essential=True
 )
 
 remove_interactive_options(show_parser)
 
 show_parser.add_argument('args', metavar='pkg(s)', nargs='*', help='package(s) to show')
+
+# Parser for the show command
+search_parser = subparsers.add_parser(
+	'search',
+	help='search package names and descriptions',
+	parents=[show_options, global_options, interactive_options],
+	usage=f'{bin_name} search [--options] regex'
+)
+search_parser.add_argument('args', metavar='regex', nargs='?', help='regex or word to search for')
+search_parser.add_argument(
+	'--names',
+	action='store_true',
+	help="Search only package names"
+)
+search_parser.add_argument(
+	'--installed',
+	action='store_true',
+	help="Search only installed packages"
+)
+search_parser.add_argument(
+	'--full',
+	action='store_true',
+	help="Show the full description of packages found"
+)
+# Remove Global options that I don't want to see in show --help
+remove_help_options(
+	search_parser, assume_yes=True,
+	download_only=True, no_update=True,
+	raw_dpkg=True, no_autoremove=True,
+	remove_essential=True
+)
+
+remove_interactive_options(search_parser)
 
 # Parser for the History command
 history_parser = subparsers.add_parser(

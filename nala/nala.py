@@ -28,15 +28,16 @@ from __future__ import annotations
 
 import errno
 import fnmatch
+import re
 import sys
 from asyncio import CancelledError, run
 from os import environ
-from typing import Iterable, NoReturn
+from typing import Iterable, NoReturn, Pattern
 
 import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.debfile import DebPackage
-from apt.package import Package
+from apt.package import Package, Version
 
 from nala.constants import (ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR,
 				NEED_RESTART, PARTIAL_DIR, REBOOT_PKGS, REBOOT_REQUIRED, ExitCode)
@@ -47,10 +48,11 @@ from nala.install import (auto_remover, broken_error,
 				check_broken, commit_pkgs, install_local, package_manager,
 				print_update_summary, sort_pkg_changes, split_local)
 from nala.options import arguments
-from nala.rich import Columns, Live, Text
+from nala.rich import Columns, Live, Text, Tree, escape, search_progress
 from nala.show import additional_notice, check_virtual, show
-from nala.utils import (DelayedKeyboardInterrupt, ask, check_pkg, color,
-				dprint, get_pkg_name, nala_pkgs, pkg_candidate, pkg_installed, term)
+from nala.utils import (DelayedKeyboardInterrupt, ask,
+				check_pkg, color, dprint, get_pkg_name, get_version,
+				nala_pkgs, pkg_candidate, pkg_installed, term)
 
 
 class Nala:
@@ -146,6 +148,27 @@ class Nala:
 			for error in not_found:
 				print(error)
 			sys.exit(1)
+
+	def search(self, search_term: str) -> None:
+		"""Search command entry point."""
+		found: list[tuple[Package, Version]] = []
+		if search_term == '*':
+			search_term = '.*'
+		search_pattern = re.compile(search_term, re.IGNORECASE)
+		with search_progress as progress:
+			task = progress.add_task('Searching...', total=len(self.cache))
+			arches = apt_pkg.get_architectures()
+			for pkg in self.cache:
+				if arguments.installed and not pkg.installed:
+					progress.advance(task)
+					continue
+				if pkg.architecture() in arches:
+					search_name(pkg, search_pattern, found)
+				progress.advance(task)
+		if not found:
+			print(f"{ERROR_PREFIX}{color(search_term, 'YELLOW')} was not found.")
+		for item in found:
+			print_search(*item)
 
 	def get_changes(self,
 		upgrade: bool = False, remove: bool = False) -> None:
@@ -251,7 +274,7 @@ def check_term_ask() -> None:
 	# As They are aware it can be dangerous to continue
 	if not term.is_term() and not arguments.assume_yes:
 		sys.exit(
-		    f'{ERROR_PREFIX}It can be dangerous to continue without a terminal. Use `--assume-yes`'
+			f'{ERROR_PREFIX}It can be dangerous to continue without a terminal. Use `--assume-yes`'
 		)
 
 	if not arguments.assume_yes and not ask('Do you want to continue'):
@@ -294,6 +317,44 @@ def check_essential(pkgs: list[Package]) -> None:
 
 	if essential:
 		essential_error(essential)
+
+def search_name(pkg: Package,
+	search_pattern: Pattern[str], found: list[tuple[Package, Version]]) -> None:
+	"""Search the package name and description."""
+	version = get_version(pkg)
+	searches = [pkg.name]
+	if not arguments.names:
+		searches.extend([version.raw_description, version.source_name])
+	for string in searches:
+		if re.findall(search_pattern, string):
+			found.append((pkg, version))
+			break
+
+def print_search(pkg: Package, version: Version) -> None:
+	"""Print the search results to the terminal."""
+	first_line = f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}"
+	tree = get_search_origin(first_line, version)
+	if pkg.is_installed:
+		if not pkg.is_upgradable:
+			tree.add('is installed')
+		else:
+			tree.add(f"is upgradable from {color(pkg_installed(pkg).version, 'BLUE')}")
+
+	if arguments.full and version._translated_records:
+		tree.add(version._translated_records.long_desc)
+	else:
+		tree.add(f"{version.raw_description.splitlines()[0]}")
+	term.console.print(tree)
+	print()
+
+def get_search_origin(first_line: str, version: Version) -> Tree:
+	"""Return the origin of the package to print."""
+	if (origin := version.origins[0]).component == 'now':
+		return Tree(f"{first_line} {escape('[local]')}")
+	return Tree(
+		f"{first_line} {escape(f'[{origin.label}/{origin.codename} {origin.component}]')}"
+	)
+
 
 def essential_error(pkg_list: list[Text]) -> NoReturn:
 	"""Print error message for essential packages and exit."""
@@ -402,7 +463,7 @@ def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
 			if not glob:
 				glob_failed = True
 				print(
-				    f'{ERROR_PREFIX}unable to find any packages by globbing {color(pkg_name, "YELLOW")}'
+					f'{ERROR_PREFIX}unable to find any packages by globbing {color(pkg_name, "YELLOW")}'
 				)
 				continue
 			new_packages.extend(

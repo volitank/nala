@@ -48,7 +48,7 @@ def _main() -> None:
 
 	dprint(f"Argparser = {arguments}")
 	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
-	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', None)
+	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', 'search', None)
 
 	if arguments.command in superuser:
 		sudo_check(arguments.command)
@@ -77,6 +77,9 @@ def apt_command() -> NoReturn:
 	elif arguments.command == 'show':
 		arg_check(arguments.args, 'show')
 		apt.show(arguments.args)
+
+	elif arguments.command == 'search':
+		apt.search(arguments.args)
 
 	elif arguments.command == 'history':
 		nala_history(apt)
@@ -164,7 +167,7 @@ def sudo_check(root_action: str) -> None:
 
 def init_apt() -> Nala:
 	"""Initialize Nala and determines if we update the cache or not."""
-	no_update_list = ('remove', 'show', 'history', 'install', 'purge')
+	no_update_list = ('remove', 'show', 'search', 'history', 'install', 'purge')
 	no_update = arguments.no_update
 	if arguments.command in no_update_list:
 		no_update = True

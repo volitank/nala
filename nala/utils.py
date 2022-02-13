@@ -351,6 +351,17 @@ def get_hash(version: Version) -> tuple[str, str]:
 		f"{ERROR_PREFIX}{Path(version.filename).name} can't be checked for integrity."
 	)
 
+def get_version(pkg: Package) -> Version:
+	"""Get the version, any version of a package."""
+	if pkg.candidate:
+		return pkg.candidate
+	if pkg.installed:
+		return pkg.installed
+	for version in pkg.versions:
+		return version
+	# It would be really weird if we ever actually hit this error
+	sys.exit(f"{ERROR_PREFIX}Can't find version for {pkg.name}")
+
 def get_pkg_name(candidate: Version) -> str:
 	"""Return the package name.
 

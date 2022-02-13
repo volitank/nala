@@ -29,14 +29,21 @@ from datetime import timedelta
 from rich.columns import Columns
 from rich.console import Console
 from rich.live import Live
+from rich.markup import escape
 from rich.progress import (BarColumn, DownloadColumn, Progress, SpinnerColumn,
 				Task, TextColumn, TimeRemainingColumn, TransferSpeedColumn, filesize)
 from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
+from rich.tree import Tree
 
-__all__ = ('Spinner', 'Table', 'Column', 'Columns', 'Console', 'Live', 'Text')
+__all__ = (
+	'Spinner', 'Table',
+	'Column', 'Columns',
+	'Console', 'Tree',
+	'Live', 'Text', 'escape'
+)
 
 # pylint: disable=too-few-public-methods
 class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
@@ -125,6 +132,24 @@ dpkg_progress = Progress(
 	TimeRemaining(),
 	"[bold]•",
 	"{task.completed}/{task.total}"
+)
+
+search_progress = Progress(
+	SpinnerColumn(style="bold blue"),
+	TextColumn("[bold white]Searching ...", justify="right"),
+	BarColumn(
+		#bar_width=None,
+		# The background of our bar
+		style=bar_back_style,
+		# The color completed section
+		complete_style=bar_style,
+		# The color of completely finished bar
+		finished_style=bar_style
+	),
+	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	"[bold]•",
+	TimeRemaining(),
+	transient=True
 )
 
 fetch_progress = Progress(

@@ -40,6 +40,15 @@ to add quality of life changes, and improve the output to make it more reader fr
 **show**
 : **show** works exactly like the **apt** version except our output is a little easier to read. **show** will accept multiple packages as arguments.
 
+**search**
+: all packages in the cache with a regex string. By default searches package names, source names, and descriptions.
+
+	*\--names* will search only package names. This is much faster than searching everything.
+
+	*\--installed* will search only installed packages. This is much faster than searching all packages
+
+	*\--full* will print the full description of each package found rather than just the short description.
+
 **history**
 : **history** is our other new command. Every **install**, **remove**, or **upgrade** command is stored with an id. You can use **history** to view these in a summary style view, and even go more in depth with **history info [id]**. If you're familiar with how *Fedora's* **dnf history** command works, then you'll feel right at home. That's what we drew inspiration from.
 
