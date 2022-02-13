@@ -90,7 +90,7 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 		'assume_yes' : True, 'download_only' : True,
 		'update' : True, 'no_update' : True,
 		'raw_dpkg' : True, 'no_autoremove' : True,
-		'remove_essential' : True
+		'remove_essential' : True, 'fix_broken' : True,
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -127,6 +127,11 @@ global_options.add_argument(
 	'-v', '--verbose',
 	action='store_true',
 	help='logs extra information for debugging'
+)
+global_options.add_argument(
+	'-f', '--fix-broken',
+	action='store_true',
+	help="attempts to fix broken packages"
 )
 global_options.add_argument(
 	'--no-update',
@@ -229,7 +234,7 @@ install_parser.add_argument('args',
 	nargs='*',
 	help='package(s) to install')
 
-remove_help_options(install_parser, no_update=True)
+remove_help_options(install_parser, no_update=True, fix_broken=True)
 
 # Parser for the remove command
 remove_parser = subparsers.add_parser('remove',
@@ -239,7 +244,7 @@ remove_parser = subparsers.add_parser('remove',
 )
 
 # Remove Global options that I don't want to see in remove --help
-remove_help_options(remove_parser, download_only=True, no_update=True)
+remove_help_options(remove_parser, download_only=True, no_update=True, fix_broken=True)
 
 remove_parser.add_argument('args',
 	metavar='pkg(s)',
@@ -254,7 +259,7 @@ purge_parser = subparsers.add_parser('purge',
 )
 
 # Remove Global options that I don't want to see in purge --help
-remove_help_options(purge_parser, download_only=True, no_update=True)
+remove_help_options(purge_parser, download_only=True, no_update=True, fix_broken=True)
 
 purge_parser.add_argument(
 	'args',
@@ -282,10 +287,6 @@ update_parser = subparsers.add_parser(
 	usage=f'{bin_name} update [--options]'
 )
 
-remove_help_options(
-	update_parser, update=True,
-)
-
 upgrade_parser = subparsers.add_parser(
 	'upgrade',
 	formatter_class=formatter,
@@ -294,9 +295,10 @@ upgrade_parser = subparsers.add_parser(
 	usage=f'{bin_name} upgrade [--options]'
 )
 
-remove_help_options(
-	upgrade_parser, update=True,
-)
+for parse in (update_parser, upgrade_parser):
+	remove_help_options(
+		parse, update=True, fix_broken=True
+	)
 
 # Parser for the fetch command
 fetch_parser = subparsers.add_parser('fetch',
@@ -361,7 +363,7 @@ remove_help_options(
 	show_parser, assume_yes=True,
 	download_only=True, no_update=True,
 	raw_dpkg=True, no_autoremove=True,
-	remove_essential=True
+	remove_essential=True, fix_broken=True
 )
 
 remove_interactive_options(show_parser)
@@ -396,7 +398,7 @@ remove_help_options(
 	search_parser, assume_yes=True,
 	download_only=True, no_update=True,
 	raw_dpkg=True, no_autoremove=True,
-	remove_essential=True
+	remove_essential=True, fix_broken=True
 )
 
 remove_interactive_options(search_parser)
@@ -411,9 +413,9 @@ history_parser = subparsers.add_parser(
 )
 # Remove Global options that I don't want to see in history --help
 remove_help_options(
-	history_parser, assume_yes=True,
+	history_parser,
 	download_only=True, no_update=True,
-	raw_dpkg=True, no_autoremove=True
+	fix_broken=True
 )
 
 remove_interactive_options(history_parser)

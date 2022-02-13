@@ -94,6 +94,9 @@ Nala - A prettier front-end for libapt-pkg
 **-v, \--verbose**
 : >*\--verbose* prints more information that sticks around. By default we use "Progress Bars" to hide some things we consider unnecessary. Using *\--verbose* removes the progress bars and prints that information.
 
+**-f, \--fix-broken**
+: >*\--fix-broken* attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala --fix-broken**.
+
 **\--no-update**
 : >*\--no-update* skips updating the package cache if for whatever reason you would like to skip that.
 

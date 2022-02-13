@@ -44,7 +44,7 @@ from nala.constants import (ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR,
 from nala.downloader import PkgDownloader
 from nala.dpkg import OpProgress, UpdateProgress, notice
 from nala.history import write_history, write_log
-from nala.install import (auto_remover, broken_error,
+from nala.install import (auto_remover, broken_error, installed_found_deps, installed_missing_dep,
 				check_broken, commit_pkgs, install_local, package_manager,
 				print_update_summary, sort_pkg_changes, split_local)
 from nala.options import arguments
@@ -125,6 +125,32 @@ class Nala:
 
 		auto_remover(self.cache, nala_pkgs, purge)
 		self.get_changes(remove=True)
+
+	def fix_broken(self) -> None:
+		"""Attempt to fix broken packages, if any."""
+		broken: list[Package] = []
+		fixable: list[Package] = []
+		fixer = apt_pkg.ProblemResolver(self.cache._depcache)
+		for pkg in self.cache:
+			if pkg.is_now_broken:
+				try:
+					pkg.mark_install()
+					fixable.append(pkg)
+				except apt_pkg.Error as error:
+					if 'broken packages' not in str(error):
+						raise error from error
+					broken.append(pkg)
+					self.cache.clear()
+					fixer.clear(pkg._pkg)
+					fixer.resolve(True)
+
+		for pkg in broken:
+			installed_missing_dep(pkg)
+		for pkg in fixable:
+			installed_found_deps(pkg, self.cache)
+
+		auto_remover(self.cache, nala_pkgs)
+		self.get_changes()
 
 	def show(self, pkg_names: list[str]) -> None:
 		"""Show package information."""

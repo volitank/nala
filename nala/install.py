@@ -37,7 +37,7 @@ from nala.dpkg import InstallProgress, UpdateProgress
 from nala.options import arguments
 from nala.rich import Live, Table, dpkg_progress
 from nala.show import print_dep
-from nala.utils import (NalaPackage, PackageHandler, color, dprint,
+from nala.utils import (NalaPackage, PackageHandler, color, dprint, vprint,
 				pkg_candidate, pkg_installed, print_packages, term, unit_str)
 
 
@@ -231,6 +231,25 @@ def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, .
 				if dep.name not in total_deps:
 					total_deps.append(dep.name)
 	return tuple(total_deps)
+
+def installed_missing_dep(pkg: Package) -> None:
+	"""Print missing deps for broken package."""
+	if pkg.installed:
+		for depends in pkg_installed(pkg).dependencies:
+			for dep in depends:
+				if not dep.target_versions:
+					ver_msg = f"{color(dep.name, 'YELLOW')} {color(dep.relation_deb)} {color(dep.version, 'BLUE')}"
+					print(f"{color(pkg.name, 'GREEN')} is missing {ver_msg}")
+		if pkg.marked_delete:
+			print(F"{color(pkg.name, 'GREEN')} will be {color('removed', 'RED')}")
+
+def installed_found_deps(pkg: Package, cache: Cache) -> None:
+	"""Print depends that will be installed to fix the package."""
+	vprint(f"{color(pkg.name, 'GREEN')} is fixable")
+	for depends in pkg_installed(pkg).dependencies:
+		for dep in depends:
+			if cache[dep.name].marked_install:
+				vprint(f"  {color(dep.name, 'GREEN')} will be {color('installed', 'GREEN')}")
 
 def broken_error(broken: list[Package],
 	installed_pkgs: bool | tuple[Package, ...] = False) -> NoReturn:

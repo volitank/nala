@@ -42,7 +42,7 @@ if str(ARCHIVE_DIR) == '/':
 
 def _main() -> None:
 	"""Nala Main."""
-	if not arguments.command and not arguments.update:
+	if not arguments.command and not any((arguments.update, arguments.fix_broken)):
 		parser.print_help()
 		sys.exit(1)
 
@@ -52,6 +52,11 @@ def _main() -> None:
 
 	if arguments.command in superuser:
 		sudo_check(arguments.command)
+	elif not arguments.command:
+		if arguments.update:
+			sudo_check('update package list')
+		if arguments.fix_broken:
+			sudo_check('fix broken packages')
 
 	if arguments.command in apt_init:
 		apt_command()
@@ -83,6 +88,9 @@ def apt_command() -> NoReturn:
 
 	elif arguments.command == 'history':
 		nala_history(apt)
+
+	elif not arguments.command and arguments.fix_broken:
+		apt.fix_broken()
 
 	elif not arguments.update:
 		sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
@@ -170,6 +178,8 @@ def init_apt() -> Nala:
 	no_update_list = ('remove', 'show', 'search', 'history', 'install', 'purge')
 	no_update = arguments.no_update
 	if arguments.command in no_update_list:
+		no_update = True
+	if not arguments.command and arguments.fix_broken:
 		no_update = True
 	if arguments.update:
 		no_update = False
