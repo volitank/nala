@@ -86,12 +86,7 @@ class Terminal:
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
 		self.check()
-		if self.lines < 13 or self.columns < 31:
-			print("Terminal can't support dialog, falling back to readline")
-			os.environ["DEBIAN_FRONTEND"] = "readline"
-		# Readline is too hard to support with our fancy formatting
-		if os.environ.get("DEBIAN_FRONTEND") == "readline":
-			arguments.raw_dpkg = True
+		self.set_environment()
 
 	def __repr__(self) -> str:
 		"""Represent state of the user terminal as a string."""
@@ -122,6 +117,15 @@ class Terminal:
 				else:
 					sys.exit(err)
 
+	def set_environment(self) -> None:
+		"""Check and set various environment variables."""
+		if self.lines < 13 or self.columns < 31:
+			print("Terminal can't support dialog, falling back to readline")
+			os.environ["DEBIAN_FRONTEND"] = "readline"
+		# Readline is too hard to support with our fancy formatting
+		if os.environ.get("DEBIAN_FRONTEND") == "readline":
+			arguments.raw_dpkg = True
+
 	def update_size(self) -> None:
 		"""Update the current width and length of the terminal."""
 		self.size = get_terminal_size()
@@ -149,6 +153,10 @@ class Terminal:
 	def is_xterm(self) -> bool:
 		"""Return True if we're in an xterm, False otherwise."""
 		return 'xterm' in self.term_type
+
+	@property
+	def is_utf8(self) -> bool:
+		return sys.stdout.encoding == 'utf-8'
 
 	@staticmethod
 	def is_su() -> bool:

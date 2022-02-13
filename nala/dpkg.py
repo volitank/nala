@@ -47,13 +47,12 @@ from rich.progress import TaskID
 
 from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM
 from nala.options import arguments
-from nala.rich import Live, Spinner, Table, Text, dpkg_progress
+from nala.rich import Live, spinner, Table, Text, dpkg_progress
 from nala.utils import color, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
 
-spinner = Spinner('dots', text='Initializing', style="bold blue")
 scroll_list: list[str] = []
 notice: set[str] = set()
 
