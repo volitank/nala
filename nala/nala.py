@@ -44,9 +44,9 @@ from nala.constants import (ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR,
 from nala.downloader import PkgDownloader
 from nala.dpkg import OpProgress, UpdateProgress, notice
 from nala.history import write_history, write_log
-from nala.install import (auto_remover, broken_error, installed_found_deps, installed_missing_dep,
-				check_broken, commit_pkgs, install_local, package_manager,
-				print_update_summary, sort_pkg_changes, split_local)
+from nala.install import (auto_remover, broken_error, check_broken,
+				commit_pkgs, install_local, installed_found_deps, installed_missing_dep,
+				package_manager, print_update_summary, sort_pkg_changes, split_local)
 from nala.options import arguments
 from nala.rich import Columns, Live, Text, Tree, escape, search_progress
 from nala.show import additional_notice, check_virtual, show

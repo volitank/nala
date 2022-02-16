@@ -37,8 +37,8 @@ from nala.dpkg import InstallProgress, UpdateProgress
 from nala.options import arguments
 from nala.rich import Live, Table, dpkg_progress
 from nala.show import print_dep
-from nala.utils import (NalaPackage, PackageHandler, color, dprint, vprint,
-				pkg_candidate, pkg_installed, print_packages, term, unit_str)
+from nala.utils import (NalaPackage, PackageHandler, color, dprint,
+				pkg_candidate, pkg_installed, print_packages, term, unit_str, vprint)
 
 
 def install_pkg(pkg: Package) -> None:
