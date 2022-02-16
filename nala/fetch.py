@@ -26,22 +26,22 @@ from __future__ import annotations
 
 import itertools
 import re
-import socket
 import sys
-from concurrent.futures import ThreadPoolExecutor
+from asyncio import (Semaphore, create_subprocess_exec,
+				gather, get_event_loop, run as aiorun)
+from asyncio.streams import StreamReader
+from asyncio.subprocess import PIPE, Process
 from subprocess import run
+from typing import cast
 
 from apt_pkg import get_architectures
 from httpx import HTTPError, get
-from pythonping import ping
-from rich.progress import TaskID
+from rich.progress import Progress, TaskID
 
-from nala.constants import (ERRNO_PATTERN, ERROR_PREFIX,
-				NALA_SOURCES, SOURCELIST, SOURCEPARTS)
-from nala.logger import dprint
+from nala.constants import ERROR_PREFIX, NALA_SOURCES, SOURCELIST, SOURCEPARTS
 from nala.options import arguments, parser
-from nala.rich import Live, Table, fetch_progress
-from nala.utils import ask, color
+from nala.rich import fetch_progress
+from nala.utils import ask, color, dprint
 
 netselect_scored = []
 
@@ -51,30 +51,75 @@ DOMAIN_PATTERN = re.compile(r'https?://([A-Za-z_0-9.-]+).*')
 UBUNTU_COUNTRY = re.compile(r'<mirror:countrycode>(.*)</mirror:countrycode>')
 UBUNTU_MIRROR = re.compile(r'<link>(.*)</link>')
 
-def net_select(mirror: str, task: TaskID, live: Live, total: int, num: int) -> None:
+async def ping_output(proc: Process, mirror: str) -> list[str] | bool:
+	"""Read the output of the ping process."""
+	lines: list[str] = []
+	no_answer = 0
+	while True:
+		line = await cast(StreamReader, proc.stdout).readline()
+		if line == b'':
+			break
+		if b'no answer yet' in line:
+			no_answer += 1
+			if no_answer == 2:
+				proc.terminate()
+				ping_error('', mirror)
+				return False
+		lines.append(
+			line.decode('utf-8').rstrip()
+		)
+	return lines
+
+async def ping(mirror: str) -> float | bool:
+	"""Ping 5 times and return the result."""
+	proc = await create_subprocess_exec(
+		'ping', '-c', '5', '-W', '1', '-O', mirror,
+		stdout=PIPE,
+		stderr=PIPE
+	)
+
+	lines = await ping_output(proc, mirror)
+	if isinstance(lines, bool):
+		return False
+
+	if await proc.wait() != 0:
+		error = await cast(StreamReader, proc.stderr).read()
+		ping_error(error.decode('utf-8').strip(), mirror)
+		return False
+
+	stats = ''
+	for line in lines:
+		if line.startswith('rtt'):
+			stats = line
+	# 'rtt min/avg/max/mdev = 37.701/43.665/52.299/4.887 ms'
+	return round(float(stats.split(' = ')[1].split('/')[1]))
+
+async def net_select(
+	mirror: str, task: TaskID, progress: Progress, semp: Semaphore) -> None:
 	"""Take a URL, ping the domain and score the latency."""
-	debugger = [f'Thread: {num}', f'Current Mirror: {mirror}']
-	ping_progress(live, task, total, num)
-
-	# Regex to get the domain
-	regex = re.search(DOMAIN_PATTERN, mirror)
-	if not regex:
-		debugger.append('Regex Failed')
-		dprint(debugger)
-		return
-	domain = regex.group(1)
-	debugger.append(f'Pinged: {domain}')
-	try:
-		if not netping(domain, mirror, debugger):
+	async with semp:
+		debugger = [f'Current Mirror: {mirror}']
+		# Regex to get the domain
+		regex = re.search(DOMAIN_PATTERN, mirror)
+		if not regex:
+			progress.advance(task)
+			debugger.append('Regex Failed')
+			dprint(debugger)
 			return
-	except (socket.gaierror, RuntimeError) as err:
-		ping_error(str(err), domain, mirror)
+		domain = regex.group(1)
+		debugger.append(f'Pinged: {domain}')
+		await netping(domain, mirror, debugger)
+		progress.advance(task)
 
-def netping(domain: str, mirror: str, debugger: list[str]) -> bool:
+async def netping(domain: str, mirror: str, debugger: list[str]) -> bool:
 	"""Ping the domain and score it."""
 	# We convert the float to integer in order to get rid of the decimal
 	# From there we convert it to a string so we can prefix zeros for sorting
-	res = str(int(ping(domain, count=4, match=True, timeout=1).rtt_avg_ms))
+	if not (res := str(await ping(domain))):
+		debugger.append('Ping ms: Packet Loss')
+		dprint(debugger)
+		return False
+
 	debugger.append(f'Ping ms: {res}')
 	if len(res) == 2:
 		res = f'0{res}'
@@ -90,31 +135,13 @@ def netping(domain: str, mirror: str, debugger: list[str]) -> bool:
 	netselect_scored.append(f'{res} {mirror}')
 	return True
 
-def ping_progress(live: Live, task: TaskID, total: int, num: int) -> None:
-	"""Update fetch progress bar."""
-	if not arguments.debug:
-		table = Table.grid()
-		table.add_row(f"{color('Mirror:', 'GREEN')} {num}/{total}")
-		table.add_row(fetch_progress.get_renderable())
-
-		fetch_progress.advance(task)
-		live.update(table)
-
-def ping_error(err: str, domain: str, mirror: str) -> None:
+def ping_error(error: str, mirror: str) -> None:
 	"""Handle error on ping."""
 	if arguments.verbose:
-		# socket.gaierror: [Errno -2] Name or service not known
-		if 'Errno' in err:
-			print(
-				f"{color(re.sub(ERRNO_PATTERN, '', err), 'YELLOW')}: {domain}",
-				f"{color('URL:', 'YELLOW')} {mirror}\n"
-			)
+		if not error:
+			print(f"{color('Packets were lost:', 'RED')} {mirror}")
 			return
-		# 'Cannot resolve address "mirror.telepoint.bg", try verify your DNS or host file'
-		if err.startswith('Cannot resolve'):
-			print(f"{color('Warning:', 'YELLOW')} {str(err).split(',', maxsplit=1)[0]}")
-			return
-		print(err)
+		print(f"{color(error, 'RED')}")
 
 def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	"""Get and parse the Ubuntu mirror list."""
@@ -264,12 +291,12 @@ def parse_sources() -> list[str]:
 	for file in SOURCEPARTS.iterdir():
 		if file != NALA_SOURCES:
 			sources.extend(
-			    line for line in file.read_text(encoding='utf-8').splitlines()
-			    if not line.startswith('#') and line)
+				line for line in file.read_text(encoding='utf-8').splitlines()
+				if not line.startswith('#') and line)
 	if SOURCELIST.exists():
 		sources.extend(
-		    line for line in SOURCELIST.read_text(encoding='utf-8').splitlines()
-		    if not line.startswith('#') and line)
+			line for line in SOURCELIST.read_text(encoding='utf-8').splitlines()
+			if not line.startswith('#') and line)
 	return sources
 
 def write_sources(release: str, component: str, sources: list[str]) -> None:
@@ -293,16 +320,19 @@ def write_sources(release: str, component: str, sources: list[str]) -> None:
 			if num == arguments.fetches:
 				break
 
-def test_mirrors(netselect: tuple[str, ...]) -> None:
+async def test_mirrors(netselect: tuple[str, ...]) -> None:
 	"""Test mirrors."""
-	print('Testing mirrors...')
-	with Live(transient=True) as live:
-		with ThreadPoolExecutor(max_workers=32) as pool:
-			total = len(netselect)
-			task = fetch_progress.add_task('', total=total)
-
-			for num, mirror in enumerate(netselect):
-				pool.submit(net_select, mirror, task, live, total, num)
+	semp = Semaphore(256)
+	with fetch_progress as progress:
+		total = len(netselect)
+		task = progress.add_task('', total=total)
+		loop = get_event_loop()
+		tasks = (
+			loop.create_task(
+				net_select(mirror, task, progress, semp)
+				) for mirror in netselect
+		)
+		await gather(*tasks)
 
 def check_supported(distro:str | None, release:str | None,
 	country_list: tuple[str, ...] | None) -> tuple[tuple[str, ...], str]:
@@ -331,8 +361,8 @@ def check_supported(distro:str | None, release:str | None,
 def fetch_checks() -> None:
 	"""Perform checks and error if we shouldn't continue."""
 	if (NALA_SOURCES.exists() and not arguments.assume_yes and
-	    not ask(f'{NALA_SOURCES.name} already exists.\ncontinue and overwrite it')
-	    ):
+		not ask(f'{NALA_SOURCES.name} already exists.\ncontinue and overwrite it')
+		):
 		sys.exit('Abort')
 	# Make sure there aren't any shenanigans
 	if arguments.fetches not in range(1,11):
@@ -352,7 +382,7 @@ def fetch() -> None:
 	dprint(netselect)
 	dprint(f'Distro: {distro}, Release: {release}, Component: {component}')
 
-	test_mirrors(netselect)
+	aiorun(test_mirrors(netselect))
 	netselect_scored.sort()
 
 	dprint(netselect_scored)

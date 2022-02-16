@@ -24,6 +24,7 @@
 """Rich options for Nala output."""
 from __future__ import annotations
 
+import sys
 from datetime import timedelta
 
 from rich.columns import Columns
@@ -37,8 +38,6 @@ from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
-
-from nala.utils import term
 
 __all__ = (
 	'Spinner', 'Table',
@@ -98,12 +97,13 @@ class TimeRemaining(TimeRemainingColumn): # type: ignore[misc]
 bar_back_style = Style(color='red')
 bar_style = Style(color='cyan')
 # Perform checks to see if we need to fall back to ascii.
-separator = "[bold]•" if term.is_utf8 else "[bold]+"
-spin_type = 'dots' if term.is_utf8 else 'simpleDots'
-finished_text="[bold green]:heavy_check_mark:" if term.is_utf8 else " "
+is_utf8 = sys.stdout.encoding == 'utf-8'
+SEPARATOR = "[bold]•" if is_utf8 else "[bold]+"
+SPIN_TYPE = 'dots' if is_utf8 else 'simpleDots'
+FINISHED_TEXT = "[bold green]:heavy_check_mark:" if is_utf8 else " "
 
 spinner = Spinner(
-	spin_type,
+	SPIN_TYPE,
 	text='Initializing',
 	style="bold blue"
 )
@@ -121,14 +121,14 @@ pkg_download_progress = Progress(
 		finished_style=bar_style
 	),
 	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
-	separator,
+	SEPARATOR,
 	NalaDownload(),
-	separator,
+	SEPARATOR,
 	NalaTransferSpeed(),
 	)
 
 dpkg_progress = Progress(
-	SpinnerColumn(spin_type, style="bold white", finished_text=finished_text),
+	SpinnerColumn(SPIN_TYPE, style="bold white", finished_text=FINISHED_TEXT),
 	TextColumn("[bold blue]Running dpkg ...", justify="right"),
 	BarColumn(
 		bar_width=None,
@@ -140,14 +140,14 @@ dpkg_progress = Progress(
 		finished_style=bar_style
 	),
 	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
-	separator,
+	SEPARATOR,
 	TimeRemaining(),
-	separator,
+	SEPARATOR,
 	"{task.completed}/{task.total}"
 )
 
 search_progress = Progress(
-	SpinnerColumn(spin_type, style="bold blue"),
+	SpinnerColumn(SPIN_TYPE, style="bold blue"),
 	TextColumn("[bold white]Searching ...", justify="right"),
 	BarColumn(
 		#bar_width=None,
@@ -159,19 +159,25 @@ search_progress = Progress(
 		finished_style=bar_style
 	),
 	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
-	separator,
+	SEPARATOR,
 	TimeRemaining(),
 	transient=True
 )
 
 fetch_progress = Progress(
-	#TextColumn("[bold blue]Downloading ...", justify="right"),
+	SpinnerColumn(SPIN_TYPE, style="bold blue"),
+	TextColumn("[bold white]Testing Mirrors ...", justify="right"),
 	BarColumn(
-	bar_width=None,
-	# The background of our bar
-	style=bar_back_style,
-	# The color completed section
-	complete_style=bar_style,
-	# The color of completely finished bar
-	finished_style=bar_style),
+		#bar_width=None,
+		# The background of our bar
+		style=bar_back_style,
+		# The color completed section
+		complete_style=bar_style,
+		# The color of completely finished bar
+		finished_style=bar_style
+	),
+	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	SEPARATOR,
+	"{task.completed}/{task.total}",
+	transient=True
 )

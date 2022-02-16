@@ -154,10 +154,6 @@ class Terminal:
 		"""Return True if we're in an xterm, False otherwise."""
 		return 'xterm' in self.term_type
 
-	@property
-	def is_utf8(self) -> bool:
-		return sys.stdout.encoding == 'utf-8'
-
 	@staticmethod
 	def is_su() -> bool:
 		"""Return True if we're super user and False if we're not."""
