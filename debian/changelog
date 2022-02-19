@@ -1,3 +1,10 @@
+nala (0.4.2) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Formatting breaks with `apt-listbugs` if bugs aren't present
+
+ -- Blake Lee <blake@volian.org>  Sat, 19 Feb 2022 07:40:34 -0500
+
 nala (0.4.1) unstable; urgency=medium
 
   [ Bug Fixes ]
