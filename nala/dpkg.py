@@ -41,13 +41,13 @@ import apt_pkg
 from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
-from rich.console import Group
 from rich.panel import Panel
 from rich.progress import TaskID
 
 from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM
 from nala.options import arguments
-from nala.rich import Live, Table, Text, dpkg_progress, spinner
+from nala.rich import (Group, Live, Table,
+				Text, dpkg_progress, from_ansi, spinner)
 from nala.utils import color, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
@@ -146,7 +146,7 @@ class UpdateProgress(text.AcquireProgress):
 					fetch=self.install, use_bar=False
 				)
 				return
-			spinner.text = Text.from_ansi(msg)
+			spinner.text = from_ansi(msg)
 			scroll_bar(self,
 				install=self.install, fetch=self.install,
 				update_spinner=True, use_bar=False
@@ -346,7 +346,7 @@ class InstallProgress(base.InstallProgress):
 					self.dpkg_log(f"Status_Split = {repr(statuses)}\n")
 				for msg in statuses:
 					if msg != b'':
-						spinner.text = Text.from_ansi(
+						spinner.text = from_ansi(
 							color(msg.decode().strip())
 						)
 						scroll_bar(self, update_spinner=True)
@@ -357,7 +357,7 @@ class InstallProgress(base.InstallProgress):
 	def apt_diff_pulse(self, data: bytes) -> bool:
 		"""Handle pulse messages from apt-listdifferences."""
 		if data.startswith(b'\r') and data.endswith(b's'):
-			spinner.text = Text.from_ansi(
+			spinner.text = from_ansi(
 				color(fill_pulse(data.decode().split()))
 			)
 			scroll_bar(self, update_spinner=True)
@@ -377,7 +377,7 @@ class InstallProgress(base.InstallProgress):
 				continue
 			pulse = [msg for msg in line.decode().split() if msg]
 			self.dpkg_log(f"Difference = [{pulse}]\n")
-			spinner.text = Text.from_ansi(
+			spinner.text = from_ansi(
 				color(' '.join(pulse))
 			)
 			scroll_bar(self, update_spinner=True)
@@ -457,7 +457,7 @@ class InstallProgress(base.InstallProgress):
 		if arguments.verbose:
 			print(msg)
 		elif 'Fetched:' in msg:
-			spinner.text = Text.from_ansi(
+			spinner.text = from_ansi(
 				color(' '.join(line.split()[1:]))
 			)
 			scroll_bar(self, msg, update_spinner=True)
@@ -632,7 +632,7 @@ def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-man
 	table = Table.grid()
 	table.add_column(no_wrap=True, width=term.columns)
 	for item in scroll_list:
-		table.add_row(Text.from_ansi(item))
+		table.add_row(from_ansi(item))
 
 	panel_group = get_group(update_spinner, use_bar)
 

@@ -48,7 +48,8 @@ from nala.install import (auto_remover, broken_error, check_broken,
 				commit_pkgs, install_local, installed_found_deps, installed_missing_dep,
 				package_manager, print_update_summary, sort_pkg_changes, split_local)
 from nala.options import arguments
-from nala.rich import Columns, Live, Text, Tree, escape, search_progress
+from nala.rich import (Columns, Live, Text,
+				Tree, escape, from_ansi, search_progress)
 from nala.show import additional_notice, check_virtual, show
 from nala.utils import (DelayedKeyboardInterrupt, ask,
 				check_pkg, color, dprint, get_pkg_name, get_version,
@@ -333,12 +334,12 @@ def check_essential(pkgs: list[Package]) -> None:
 			# do not allow the removal of essential or required packages
 			if pkg.essential and pkg.marked_delete:
 				essential.append(
-					Text.from_ansi(color(pkg.name, 'RED'))
+					from_ansi(color(pkg.name, 'RED'))
 				)
 			# do not allow the removal of nala
 			elif pkg.shortname in 'nala' and pkg.marked_delete:
 				essential.append(
-					Text.from_ansi(color('nala', 'RED'))
+					from_ansi(color('nala', 'RED'))
 				)
 
 	if essential:

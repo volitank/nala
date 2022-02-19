@@ -47,7 +47,7 @@ from rich.panel import Panel
 
 from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
 				ERROR_PREFIX, PARTIAL_DIR, ExitCode)
-from nala.rich import Live, Table, Text, pkg_download_progress
+from nala.rich import Live, Table, from_ansi, pkg_download_progress
 from nala.utils import (check_pkg, color, dprint,
 				get_pkg_name, pkg_candidate, term, unit_str, vprint)
 
@@ -81,7 +81,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 			return True
 		semaphore = Semaphore(min(guess_concurrent(self.pkg_urls), 16))
 		with Live(get_renderable=self._gen_table) as self.live:
-			async with AsyncClient(follow_redirects=True, timeout=20, proxies=self.proxy) as client:
+			async with AsyncClient(timeout=20, proxies=self.proxy) as client:
 				loop = asyncio.get_running_loop()
 				tasks = (
 					loop.create_task(
@@ -218,14 +218,14 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		table = Table.grid()
 
 		table.add_row(
-			Text.from_ansi(f"{color('Total Packages:', 'GREEN')} {self.count}/{self.total_pkgs}")
+			from_ansi(f"{color('Total Packages:', 'GREEN')} {self.count}/{self.total_pkgs}")
 		)
 		if not self.last_completed:
 			table.add_row(
-					Text.from_ansi(color('Starting Downloads...', 'BLUE'))
+					from_ansi(color('Starting Downloads...', 'BLUE'))
 			)
 		else:
-			table.add_row(Text.from_ansi(f"{color('Last Completed:', 'GREEN')} {self.last_completed}"))
+			table.add_row(from_ansi(f"{color('Last Completed:', 'GREEN')} {self.last_completed}"))
 
 		pkg_download_progress.advance(self.task, advance=0)
 		table.add_row(pkg_download_progress.get_renderable())

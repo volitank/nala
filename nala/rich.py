@@ -28,6 +28,15 @@ import sys
 from datetime import timedelta
 
 from rich.columns import Columns
+
+try:
+	from rich.console import Group  # type: ignore[attr-defined]
+# Rich 11.0.0 changed RenderGroup to Group
+# python3-rich in debian bullseye is 9.11.0
+except ImportError:
+	from rich.console import RenderGroup as Group  # type: ignore[attr-defined, no-redef]
+
+from rich.ansi import AnsiDecoder
 from rich.console import Console
 from rich.live import Live
 from rich.markup import escape
@@ -43,7 +52,8 @@ __all__ = (
 	'Spinner', 'Table',
 	'Column', 'Columns',
 	'Console', 'Tree',
-	'Live', 'Text', 'escape'
+	'Live', 'Text',
+	'escape', 'Group'
 )
 
 # pylint: disable=too-few-public-methods
@@ -52,7 +62,7 @@ class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
 
 	def render(self, task: Task) -> Text:
 		"""Show data transfer speed."""
-		speed = task.finished_speed or task.speed
+		speed = task.speed
 		if speed is None:
 			return Text("?", style="progress.data.speed")
 		data_speed = filesize.decimal(int(speed))
@@ -101,6 +111,12 @@ is_utf8 = sys.stdout.encoding == 'utf-8'
 SEPARATOR = "[bold]•" if is_utf8 else "[bold]+"
 SPIN_TYPE = 'dots' if is_utf8 else 'simpleDots'
 FINISHED_TEXT = "[bold green]:heavy_check_mark:" if is_utf8 else " "
+PROGRESS_PERCENT = "[bold blue]{task.percentage:>3.1f}%"
+COMPLETED_TOTAL = "{task.completed}/{task.total}"
+
+def from_ansi(msg: str) -> Text:
+	"""Convert ansi coded text into Rich Text."""
+	return Text().join(AnsiDecoder().decode(msg))
 
 spinner = Spinner(
 	SPIN_TYPE,
@@ -120,7 +136,7 @@ pkg_download_progress = Progress(
 		# The color of completely finished bar
 		finished_style=bar_style
 	),
-	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	PROGRESS_PERCENT,
 	SEPARATOR,
 	NalaDownload(),
 	SEPARATOR,
@@ -139,11 +155,11 @@ dpkg_progress = Progress(
 		# The color of completely finished bar
 		finished_style=bar_style
 	),
-	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	PROGRESS_PERCENT,
 	SEPARATOR,
 	TimeRemaining(),
 	SEPARATOR,
-	"{task.completed}/{task.total}"
+	COMPLETED_TOTAL
 )
 
 search_progress = Progress(
@@ -158,7 +174,7 @@ search_progress = Progress(
 		# The color of completely finished bar
 		finished_style=bar_style
 	),
-	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	PROGRESS_PERCENT,
 	SEPARATOR,
 	TimeRemaining(),
 	transient=True
@@ -176,8 +192,8 @@ fetch_progress = Progress(
 		# The color of completely finished bar
 		finished_style=bar_style
 	),
-	"[progress.percentage][bold blue]{task.percentage:>3.1f}%",
+	PROGRESS_PERCENT,
 	SEPARATOR,
-	"{task.completed}/{task.total}",
+	COMPLETED_TOTAL,
 	transient=True
 )

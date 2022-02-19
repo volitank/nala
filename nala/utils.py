@@ -389,7 +389,7 @@ def pkg_installed(pkg: Package) -> Version:
 
 def print_packages(
 	headers: list[str], nala_packages: list[NalaPackage],
-	title: str, style: str | None = None) -> None:
+	title: str, style: str) -> None:
 	"""Print package transactions in a pretty format."""
 	if not nala_packages:
 		return
