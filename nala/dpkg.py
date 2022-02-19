@@ -316,7 +316,7 @@ class InstallProgress(base.InstallProgress):
 		"""Check if we get a conf prompt."""
 		if b"Configuration file '" in rawline and b'is obsolete.' not in rawline:
 			self.raw_init()
-		if b"Parsing Found/Fixed information... Done" in rawline:
+		if b"Parsing Found/Fixed information... Done" in rawline and b'bugs' in rawline:
 			self.bug_list = True
 			self.raw_init()
 
