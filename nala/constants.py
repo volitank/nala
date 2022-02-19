@@ -129,15 +129,21 @@ SPAM = (
 	'Selecting previously unselected package', # 'Selecting previously unselected package chafa.'
 	'Preparing to unpack', # 'Preparing to unpack .../2-chafa_1.8.0-1_amd64.deb ...'
 	'Extracting templates from packages:',
+	'Fetched',
 )
 DPKG_STATUS = (
 	b'Scanning processes...',
 	b'Scanning candidates...',
 	b'Scanning linux images...',
 	b'Extracting templates from packages',
-	b'Reading changelogs...'
+	b'Reading changelogs...',
+	b'Retrieving bug reports...',
+	b'Parsing Found/Fixed information...',
+	b'[Working]',
+	b'[Connecting',
+	b'[Waiting for headers]',
+	b'[Connected to',
 )
-
 # ASCII Art
 LION_1 = (
 r"""

@@ -230,6 +230,7 @@ class InstallProgress(base.InstallProgress):
 		self._dpkg_log = dpkg_log
 		self.live = live
 		self.raw = False
+		self.bug_list = False
 		self.last_line = b''
 		self.child: AptExpect
 		self.child_fd: int
@@ -315,9 +316,16 @@ class InstallProgress(base.InstallProgress):
 		"""Check if we get a conf prompt."""
 		if b"Configuration file '" in rawline and b'is obsolete.' not in rawline:
 			self.raw_init()
+		if b"Parsing Found/Fixed information... Done" in rawline:
+			self.bug_list = True
+			self.raw_init()
 
 	def conf_end(self, rawline: bytes) -> bool:
 		"""Check to see if the conf prompt is over."""
+		if self.bug_list:
+			return rawline == term.CRLF and (
+				b'[Y/n/?/...]' in self.last_line or self.last_line in (b'y', b'Y')
+			)
 		return rawline == term.CRLF and (
 			b'*** config.inc.php (Y/I/N/O/D/Z) [default=N] ?' in self.last_line
 			or self.last_line in DPKG_MSG['CONF_ANSWER']
@@ -332,6 +340,8 @@ class InstallProgress(base.InstallProgress):
 		"""Handle any status messages."""
 		for status in DPKG_MSG['DPKG_STATUS']:
 			if status in data:
+				if status in (b'[Working]', b'[Connecting', b'[Waiting for headers]', b'[Connected to'):
+					return True
 				statuses = data.split(b'\r')
 				if len(statuses) > 2:
 					self.dpkg_log(f"Status_Split = {repr(statuses)}\n")
@@ -344,6 +354,35 @@ class InstallProgress(base.InstallProgress):
 				self.dpkg_log(term.LF.decode())
 				return True
 		return False
+
+	def apt_diff_pulse(self, data: bytes) -> bool:
+		"""Handle pulse messages from apt-listdifferences."""
+		if data.startswith(b'\r') and data.endswith(b's'):
+			spinner.text = Text.from_ansi(
+				color(fill_pulse(data.decode().split()))
+			)
+			scroll_bar(self, update_spinner=True)
+			return True
+		return False
+
+	def apt_differences(self, data: bytes) -> bool:
+		"""Handle messages from apt-listdifferences."""
+		if not data.strip().endswith((b'%', b'%]')):
+			return False
+		for line in data.splitlines():
+			if any(item in line.decode() for item in SPAM) or not line:
+				continue
+			if b'Get' in line:
+				self.dpkg_log(f"Get = [{repr(line)}]\n")
+				self.format_dpkg_output(line)
+				continue
+			pulse = [msg for msg in line.decode().split() if msg]
+			self.dpkg_log(f"Difference = [{pulse}]\n")
+			spinner.text = Text.from_ansi(
+				color(' '.join(pulse))
+			)
+			scroll_bar(self, update_spinner=True)
+		return True
 
 	def pre_filter(self, data: bytes) -> None:
 		"""Filter data from interact."""
@@ -358,6 +397,8 @@ class InstallProgress(base.InstallProgress):
 
 		if not self.raw:
 			if self.dpkg_status(data):
+				return
+			if self.apt_diff_pulse(data) or self.apt_differences(data):
 				return
 
 			if not data.endswith(term.CRLF):
@@ -380,7 +421,9 @@ class InstallProgress(base.InstallProgress):
 		self.dpkg_log(f"Data_Split = {repr(data_split)}\n")
 		for line in data_split:
 			if line != b'':
-				self.format_dpkg_output(line)
+				for new_line in line.split(b'\r'):
+					if line:
+						self.format_dpkg_output(new_line)
 
 	def format_dpkg_output(self, rawline: bytes) -> None:
 		"""Facilitate what needs to happen to dpkg output."""
@@ -399,7 +442,8 @@ class InstallProgress(base.InstallProgress):
 		if check_line_spam(line, rawline):
 			return
 
-		if line == '':
+		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
+		if line == '' or '% [' in line:
 			return
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
@@ -407,6 +451,11 @@ class InstallProgress(base.InstallProgress):
 		# If verbose we just send it. No bars
 		if arguments.verbose:
 			print(msg)
+		elif 'Fetched:' in msg:
+			spinner.text = Text.from_ansi(
+				color(' '.join(line.split()[1:]))
+			)
+			scroll_bar(self, msg, update_spinner=True)
 		else:
 			scroll_bar(self, msg)
 
@@ -418,6 +467,7 @@ class InstallProgress(base.InstallProgress):
 		# Once we write we can check if we need to pop out of raw mode
 		if term.RESTORE_TERM in rawline or self.conf_end(rawline):
 			self.raw = False
+			self.bug_list = False
 			term.restore_mode()
 			self.live.start()
 		self.set_last_line(rawline)
@@ -516,6 +566,8 @@ def msg_formatter(line: str) -> str:
 		line = lines(line, 'Setting up', 'GREEN')
 	elif line.startswith('Processing'):
 		line = lines(line, 'Processing', 'GREEN')
+	elif line.startswith('Get'):
+		line = f"{color('Fetched:', 'BLUE')} {' '.join(line.split()[1:])}"
 
 	if match := re.findall(VERSION_PATTERN, line):
 		return format_version(match, line)
