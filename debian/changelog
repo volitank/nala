@@ -1,3 +1,11 @@
+nala (0.4.1) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Nala deadlocking due to `apt-listbugs`
+  * Nala not formatting `apt-listdifferences` properly
+
+ -- Blake Lee <blake@volian.org>  Fri, 18 Feb 2022 23:08:15 -0500
+
 nala (0.4.0) unstable; urgency=medium
 
   [ Changes ]
