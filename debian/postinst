@@ -2,47 +2,52 @@
 #DEBHELPER#
 set -e
 
+link() {
+	find_apt=$1
+	link_apt=$2
+
+	if [ -e "$link_apt" ]; then
+		echo "$link_apt exists, not linking.."
+	else
+		if [ -e "$find_apt" ]; then
+			echo "linking $link_apt"
+
+			if ln -s "$find_apt" "$link_apt"; then
+				echo "linking complete.."
+			else
+				echo "error: linking failed.."
+			fi
+		else
+			echo "error: can't find a suitable library.."
+			exit 1
+		fi
+	fi
+}
+
 lib_dir="/usr/lib/python3/dist-packages/"
-apt_pkg39="${lib_dir}apt_pkg.cpython-39-x86_64-linux-gnu.so"
-apt_pkg38="${lib_dir}apt_pkg.cpython-38-x86_64-linux-gnu.so"
+
 apt_pkg="${lib_dir}apt_pkg.so"
+find_apt_pkg=$(find ${lib_dir}apt_pkg.cpython*.so | head -n 1)
+echo "checking apt_pkg library..."
+for file in "$lib_dir"apt_pkg.cpython-39-*-linux-gnu.so
+do
+	if [ -e "$file" ]; then
+		echo "$file exists. not linking..."
+		break
+	else
+		link "$find_apt_pkg" $apt_pkg
+	fi
+done
 
-apt_inst39="${lib_dir}apt_inst.cpython-39-x86_64-linux-gnu.so"
-apt_inst38="${lib_dir}apt_inst.cpython-38-x86_64-linux-gnu.so"
 apt_inst="${lib_dir}apt_inst.so"
-
-echo "checking apt_pkg library.."
-if [ ! -e $apt_pkg39 ]; then
-	if [ -e $apt_pkg ]; then
-		echo "$apt_pkg exists, not linking.."
+find_apt_inst=$(find ${lib_dir}apt_inst.cpython*.so | head -n 1)
+echo "checking apt_inst library..."
+for file in "$lib_dir"apt_inst.cpython-39-*-linux-gnu.so
+do
+	if [ -e "$file" ]; then
+		echo "$file exists. not linking..."
+		break
 	else
-		if [ -e $apt_pkg38 ]; then
-			echo "linking ${lib_dir}apt_pkg.so"
-			ln -s "$apt_pkg38" "$apt_pkg"
-			echo "linking complete.."
-		else
-			echo "error: can't find a suitable library.."
-			exit 1
-		fi
+		link "$find_apt_inst" $apt_inst
 	fi
-else
-	echo "$apt_pkg39 exists, not linking.."
-fi
-
-echo "checking apt_inst library.."
-if [ ! -e $apt_inst39 ]; then
-	if [ -e $apt_inst ]; then
-		echo "$apt_inst exists, not linking.."
-	else
-		if [ -e $apt_inst38 ]; then
-			echo "linking ${lib_dir}apt_inst.so"
-			ln -s "$apt_inst38" "$apt_inst"
-			echo "linking complete.."
-		else
-			echo "error: can't find a suitable library.."
-			exit 1
-		fi
-	fi
-else
-	echo "$apt_inst39 exists, not linking.."
-fi
+done
