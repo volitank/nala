@@ -128,7 +128,7 @@ global_options.add_argument(
 global_options.add_argument(
 	'-v', '--verbose',
 	action='store_true',
-	help='logs extra information for debugging'
+	help='disable scrolling text and print extra information'
 )
 global_options.add_argument(
 	'-f', '--fix-broken',
