@@ -30,6 +30,17 @@ repos:
           "--ensure-newline-before-comments", # Inserts a blank line before a comment following an import.
           "--project=nala" # Force isort to recognize a module as being part of the current python project.
         ]
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.1.1
+    hooks:
+      - id: pydocstyle
   - repo: https://github.com/asottile/pyupgrade
     rev: v2.31.0
     hooks:
