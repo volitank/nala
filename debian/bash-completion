@@ -22,13 +22,23 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
+_get_first_arg()
+{
+	local i
+
+	arg=
+	for ((i = 1; i < COMP_CWORD; i++)); do
+		if [[ ${COMP_WORDS[i]} != -* ]]; then
+			arg=${COMP_WORDS[i]}
+			break
+		fi
+	done
+}
+
 _nala()
 {
-	local sourcesdir="/etc/apt/sources.list.d"
-	local cur prev words cword split
-	_init_completion -s || return
-
-	local command i
+	local cur=${COMP_WORDS[COMP_CWORD]}
+	local prev=${COMP_WORDS[1]}
 
 	local GLOBAL_OPTIONS='
 		-h --help
@@ -38,7 +48,7 @@ _nala()
 		--version
 		--license
 		--update
-    '
+	'
 
 	local DPKG_OPTIONS='
 		--no-aptlist
@@ -51,25 +61,21 @@ _nala()
 		--confask
 	'
 
-    case $prev in
-        --help | --version | --license | -!(-*)[chslSbopitT])
-            return
-            ;;
-    esac
-
-    $split && return
+	case $prev in
+		--help | --version | --license | -!(-*)[chslSbopitT])
+			return
+			;;
+	esac
 
 	local arg
 	_get_first_arg
-    if [[ -z $arg ]]; then
-        if [[ $cur == -* ]]; then
-            COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
-        else
-			COMPREPLY=( $( compgen -W 'show install remove purge update upgrade fetch history clean moo' -- "$cur") )
+	if [[ -z $arg ]]; then
+		if [[ $cur == -* ]]; then
+			COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
+		else
+			COMPREPLY=( $( compgen -W 'show search install remove purge update upgrade fetch history clean moo' -- "$cur") )
 		fi
-    else
-		local args
-		_count_args "" "-!(-*)[chslSbopitTdM]"
+	else
 		# supported options per command
 		if [[ "$cur" == -* ]]; then
 			case $arg in
@@ -129,53 +135,38 @@ _nala()
 					;;
 			esac
 		else
-			local args
-			_count_args "" "-!(-*)[chslSbopitTdM]"
 			case $arg in
 				install)
-					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" \
-						2> /dev/null ) )
+					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" 2> /dev/null ) )
 					if [[ "$cur" == ./* || "$cur" == /* ]]; then
 						_filedir "deb"
 					fi
 					return 0
 					;;
 				remove)
-					if [[ -f /etc/debian_version ]]; then
-						# Debian system
-						COMPREPLY=( $( \
-							_xfunc dpkg _comp_dpkg_installed_packages $cur ) )
-					else
-						# assume RPM based
-						_xfunc rpm _rpm_installed_packages
-					fi
+					COMPREPLY=( $( _xfunc dpkg _comp_dpkg_installed_packages $cur ) )
 					return 0
 					;;
 				history)
-					case $args in
-						2)
-							COMPREPLY=( $( compgen -W 'info undo redo clear' \
-								-- "$cur" ) )
-							return 0
-							;;
-						3)
-							return 0
-							;;
-					esac
+					if [[ -z $cur ]]; then
+						if [[ -z ${COMP_WORDS[2]} ]]; then
+							COMPREPLY=( $( compgen -W 'info undo redo clear' -- "$cur" ) )
+						fi
+
+					fi
+					return 0
 					;;
 				show|list)
-					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" \
-						2> /dev/null ) )
+					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" 2> /dev/null ) )
 					return 0
 					;;
 					moo)
-					COMPREPLY=( $( compgen -W 'moo' \
-						-- "$cur" ) )
+					COMPREPLY=( $( compgen -W 'moo' -- "$cur" ) )
 					return 0
 					;;
 			esac
 		fi
-    fi
+	fi
 
 } &&
 complete -F _nala nala

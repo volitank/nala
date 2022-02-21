@@ -5,6 +5,7 @@
 
 # Nala
 ======
+
 Nala is a front-end for ``libapt-pkg``. Specifically we interface using the ``python-apt`` api.
 
 Especially for newer users it can be hard to understand what ``apt`` is trying to do when installing or upgrading.
@@ -17,6 +18,7 @@ show specifically what will happen with a package during install, removal, or an
 
 # Parallel Downloads
 ====================
+
 Outside of pretty formatting, the number 1 reason to use Nala over ``apt`` is parallel downloads.
 
 ``apt`` downloads 1 package at a time, where as we download multiple.
@@ -42,6 +44,7 @@ Nala then will choose the fastest 3 mirrors (configurable) and write them to a f
 
 # History
 =========
+
 Our last big feature is the ``nala history`` command.
 
 If you're familiar with ``dnf`` this works much in the same way.
@@ -108,6 +111,19 @@ Or
 
 There isn't a documentation site setup at the moment, but our man page explains things well enough for now.
 
+# Zsh completions
+==========================
+
+Nala's bash-completion is compatible with Zsh.
+
+To enable it make sure the following are in your ``.zshrc`` file
+
+.. code-block:: console
+
+	autoload bashcompinit
+	bashcompinit
+	source /usr/share/bash-completion/completions/nala
+
 # Additional Images
 ===================
 
@@ -116,6 +132,7 @@ There isn't a documentation site setup at the moment, but our man page explains 
 
 # Bug Reports or Feature Requests
 =================================
+
 Nala is mirrored to several sites such as GitHub and even Debian Salsa.
 
 The official repository is https://gitlab.com/volian/nala
