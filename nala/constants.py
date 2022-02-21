@@ -219,13 +219,6 @@ The full licence for each library can be found in:
 After this page the full GPLv3 will be displayed.
 
 ==============================================================================
-PythonPing: https://github.com/alessandromaggio/pythonping
-==============================================================================
-
-MIT License
-Copyright (c) 2018 Alessandro Maggio
-
-==============================================================================
 Rich: https://github.com/Textualize/rich
 ==============================================================================
 
