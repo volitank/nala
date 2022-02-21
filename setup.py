@@ -23,7 +23,7 @@ setup(
 	long_description_content_type='text/reStructuredText',  # Optional (see note above)
 	url='https://gitlab.com/volian/nala',  # Optional
 	author='Blake Lee (volitank)',  # Optional
-	author_email='blake@volitank.com',  # Optional
+	author_email='blake@volian.org',  # Optional
 	classifiers=[  # Optional
 	# List of classifiers https://gist.github.com/nazrulworld/3800c84e28dc464b2b30cec8bc1287fc
 		'Development Status :: 3 - Alpha',
@@ -43,12 +43,11 @@ setup(
 	packages=['nala'],  # Required
 	python_requires='>=3.8, <4',
 	install_requires=[
-		'pexpect',
-		'jsbeautifier',
-		'pyyaml',
-		'pythonping==1.1.1',
-		'rich==11.1.0',
-		'httpx==0.22.0',
+		# Target Debian Stable versions
+		'pexpect==4.8.0',
+		'jsbeautifier==1.13.0',
+		'rich==9.11.0',
+		'httpx==0.16.1',
 	],
 
 	entry_points={  # Optional
