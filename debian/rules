@@ -23,23 +23,15 @@ override_dh_clean:
 	rm -rf nala/__pycache__
 	dh_clean
 
-execute_before_dh_auto_build:
-	pip install --no-warn-script-location \
-	anyio==3.5.0 \
-	rich==11.1.0 \
-	pythonping==1.1.1 \
-	httpx==0.22.0 \
-
 override_dh_auto_build:
 	nuitka3 --assume-yes-for-downloads \
 	--follow-import-to=nala \
-	--follow-import-to=pythonping \
 	--follow-import-to=rich \
 	--follow-import-to=httpx \
 	--follow-import-to=httpcore \
-	--follow-import-to=charset_normalizer \
 	--follow-import-to=h11 \
 	--include-module=anyio \
+	--nofollow-import-to=typing_extensions \
 	--nofollow-import-to=rfc3986 \
 	--nofollow-import-to=certifi \
 	--nofollow-import-to=sniffio \
