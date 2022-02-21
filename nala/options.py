@@ -91,7 +91,8 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 		'update' : True, 'no_update' : True,
 		'raw_dpkg' : True, 'no_autoremove' : True,
 		'remove_essential' : True, 'fix_broken' : True,
-		'no_fix_broken' : True
+		'no_fix_broken' : True, 'install_suggests' : True,
+		'no_install_recommended' : True
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -143,6 +144,16 @@ global_options.add_argument(
 	'--no-update',
 	action='store_true',
 	help="skips updating the package list"
+)
+global_options.add_argument(
+	'--no-install-recommends',
+	action='store_true',
+	help="stops the installation of recommended packages"
+)
+global_options.add_argument(
+	'--install-suggests',
+	action='store_true',
+	help="installs suggested packages"
 )
 global_options.add_argument(
 	'--no-autoremove',
@@ -361,6 +372,7 @@ show_options.add_argument(
 # Parser for the show command
 show_parser = subparsers.add_parser(
 	'show',
+	formatter_class=formatter,
 	help='show package details',
 	parents=[show_options, global_options, interactive_options],
 	usage=f'{bin_name} show [--options] [pkg1 pkg2 ...]'
@@ -371,7 +383,8 @@ remove_help_options(
 	download_only=True, no_update=True,
 	raw_dpkg=True, no_autoremove=True,
 	remove_essential=True, fix_broken=True,
-	no_fix_broken=True,
+	no_fix_broken=True, install_suggests=True,
+	no_install_recommended=True
 )
 
 remove_interactive_options(show_parser)
@@ -381,6 +394,7 @@ show_parser.add_argument('args', metavar='pkg(s)', nargs='*', help='package(s) t
 # Parser for the show command
 search_parser = subparsers.add_parser(
 	'search',
+	formatter_class=formatter,
 	help='search package names and descriptions',
 	parents=[show_options, global_options, interactive_options],
 	usage=f'{bin_name} search [--options] regex'
@@ -407,7 +421,8 @@ remove_help_options(
 	download_only=True, no_update=True,
 	raw_dpkg=True, no_autoremove=True,
 	remove_essential=True, fix_broken=True,
-	no_fix_broken=True
+	no_fix_broken=True, install_suggests=True,
+	no_install_recommended=True
 )
 
 remove_interactive_options(search_parser)
@@ -415,6 +430,7 @@ remove_interactive_options(search_parser)
 # Parser for the History command
 history_parser = subparsers.add_parser(
 	'history',
+	formatter_class=formatter,
 	help='show transaction history',
 	description="'history' without additional arguments will list a history summary",
 	parents=[global_options, interactive_options],
@@ -424,7 +440,8 @@ history_parser = subparsers.add_parser(
 remove_help_options(
 	history_parser,
 	download_only=True, no_update=True,
-	fix_broken=True
+	fix_broken=True, install_suggests=True,
+	no_install_recommended=True
 )
 
 remove_interactive_options(history_parser)
@@ -457,6 +474,7 @@ history_parser.add_argument(
 # Parser for the show command
 clean_parser = subparsers.add_parser(
 	'clean',
+	formatter_class=formatter,
 	help='clears out the local repository of retrieved package files',
 	parents=[global_options],
 	usage=f'{bin_name} show [--options]'
@@ -468,6 +486,7 @@ remove_help_options(clean_parser)
 # This is just moo, but we can't cause are cat
 moo_parser = subparsers.add_parser(
 	'moo',
+	formatter_class=formatter,
 	description='nala is unfortunately unable to moo',
 	parents=[global_options],
 	usage=f'{bin_name} moo [--options]'

@@ -43,7 +43,7 @@ from apt.package import Package, Version
 from nala.constants import (COLOR_CODES, ERROR_PREFIX,
 				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG)
 from nala.options import arguments
-from nala.rich import Console, Table
+from nala.rich import Console, Group, Table, Tree
 
 
 class Terminal:
@@ -199,6 +199,8 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 		self.install_pkgs: list[NalaPackage] = []
 		self.upgrade_pkgs: list[NalaPackage] = []
 		self.autoremove_pkgs: list[NalaPackage] = []
+		self.recommend_pkgs: list[NalaPackage | list[NalaPackage]] = []
+		self.suggest_pkgs: list[NalaPackage | list[NalaPackage]] = []
 
 	@property
 	def extended_install(self) -> list[NalaPackage]:
@@ -388,7 +390,8 @@ def pkg_installed(pkg: Package) -> Version:
 	return pkg.installed
 
 def print_packages(
-	headers: list[str], nala_packages: list[NalaPackage],
+	headers: list[str],
+	nala_packages: list[NalaPackage] | list[NalaPackage | list[NalaPackage]],
 	title: str, style: str) -> None:
 	"""Print package transactions in a pretty format."""
 	if not nala_packages:
@@ -406,10 +409,17 @@ def print_packages(
 
 	# Add our packages
 	for pkg in nala_packages:
+		if isinstance(pkg, list):
+			continue
 		if pkg.old_version:
 			package_table.add_row(pkg.name, pkg.old_version, pkg.version, pkg.unit_size)
 			continue
 		package_table.add_row(pkg.name, pkg.version, pkg.unit_size)
+
+	# We iterate again so or_deps will be grouped at the bottom
+	for pkg in nala_packages:
+		if isinstance(pkg, list):
+			package_table.add_row(*summary_or_depends(pkg))
 
 	sep = '='*term.columns
 	term.console.print(
@@ -417,6 +427,18 @@ def print_packages(
 		title,
 		sep,
 		package_table)
+
+def summary_or_depends(pkg: list[NalaPackage]) -> tuple[Tree, Table, Table]:
+	"""Format Recommend and Suggests or dependencies."""
+	pkg_tree = Tree('[white]Either:', guide_style='white')
+	for npkg in pkg:
+		pkg_tree.add(npkg.name)
+	ver_table = Table('', border_style='bold blue', box=None, pad_edge=False)
+	ver_table.add_row(Group(*(npkg.version for npkg in pkg)))
+	size_table = Table('', border_style='bold blue', box=None, pad_edge=False)
+	size_table.add_row(Group(*(npkg.unit_size for npkg in pkg)))
+
+	return pkg_tree, ver_table, size_table
 
 def vprint(msg: str) -> None:
 	"""Print message if verbose."""

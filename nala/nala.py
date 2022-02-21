@@ -44,9 +44,10 @@ from nala.constants import (ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR,
 from nala.downloader import PkgDownloader
 from nala.dpkg import OpProgress, UpdateProgress, notice
 from nala.history import write_history, write_log
-from nala.install import (auto_remover, broken_error, check_broken,
-				commit_pkgs, install_local, installed_found_deps, installed_missing_dep,
-				package_manager, print_update_summary, sort_pkg_changes, split_local)
+from nala.install import (auto_remover, broken_error,
+				check_broken, commit_pkgs, get_extra_pkgs, install_local,
+				installed_found_deps, installed_missing_dep, package_manager,
+				print_update_summary, sort_pkg_changes, split_local)
 from nala.options import arguments
 from nala.rich import (Columns, Live, Text,
 				Tree, escape, from_ansi, search_progress)
@@ -87,12 +88,16 @@ class Nala:
 		install_local(nala_pkgs)
 
 		pkg_names = glob_filter(pkg_names, self.cache.keys())
-
 		broken, not_found = check_broken(pkg_names, self.cache)
 		not_found.extend(not_exist)
 
 		if not_found:
 			pkg_error(not_found, 'not found', terminate=True)
+
+		if arguments.no_install_recommends:
+			get_extra_pkgs('Recommends', pkg_names, self.cache, nala_pkgs.recommend_pkgs)
+		if not arguments.install_suggests:
+			get_extra_pkgs('Suggests', pkg_names, self.cache, nala_pkgs.suggest_pkgs)
 
 		if not package_manager(pkg_names, self.cache):
 			broken_error(broken)
@@ -225,8 +230,7 @@ class Nala:
 		self.start_dpkg()
 
 	def start_dpkg(self) -> None:
-		"""Set environment and start dpkg."""
-		set_env()
+		"""Start dpkg."""
 		try:
 			commit_pkgs(self.cache, nala_pkgs)
 		# Catch system error because if dpkg fails it'll throw this
@@ -273,6 +277,11 @@ def print_notices(notices: Iterable[str]) -> None:
 
 def setup_cache(no_update: bool) -> Cache:
 	"""Update the cache if necessary, and then return the Cache."""
+	if arguments.no_install_recommends:
+		apt_pkg.config.set('APT::Install-Recommends', '0')
+	if arguments.install_suggests:
+		apt_pkg.config.set('APT::Install-Suggests', '1')
+	set_env()
 	try:
 		if not no_update:
 			with DelayedKeyboardInterrupt():

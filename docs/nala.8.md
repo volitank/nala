@@ -100,6 +100,12 @@ Nala - A prettier front-end for libapt-pkg
 **\--no-fix-broken**
 : >*\--no-fix-broken* can be used if you don't want Nala to attempt to fix broken packages. This switch does nothing if used with **nala --fix-broken**.
 
+**\--no-install-recommends**
+: >*\--no-install-recommends* stops the installation of recommended packages. If this option is selected Nala will display the recommended packages that won't be installed.
+
+**\--install-suggests**
+: >*\--install-suggests* installs suggested package. If this option is not selected Nala will display the suggested packages that won't be installed.
+
 **\--no-update**
 : >*\--no-update* skips updating the package cache if for whatever reason you would like to skip that.
 

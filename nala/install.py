@@ -178,6 +178,27 @@ def package_manager(pkg_names: list[str], cache: Cache,
 					return False
 	return True
 
+def get_extra_pkgs(extra_type: str, pkg_names: list[str],
+	cache: Cache, npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:
+	"""Get Recommended or Suggested Packages."""
+	for pkg_name in pkg_names:
+		pkg = cache[pkg_name]
+		if pkg.candidate and (recommends := pkg.candidate.get_dependencies(extra_type)):
+			for dep in recommends:
+				if len(dep) == 1:
+					ver = dep.target_versions[0]
+					npkg_list.append(
+						NalaPackage(ver.package.name, ver.version, ver.size)
+					)
+					continue
+				npkg_list.append(
+					[NalaPackage(
+						base_dep.target_versions[0].package.name,
+						base_dep.target_versions[0].version,
+						base_dep.target_versions[0].size
+					) for base_dep in dep]
+				)
+
 def check_broken(pkg_names: list[str], cache: Cache,
 	remove: bool = False, purge: bool = False) -> tuple[list[Package], list[str]]:
 	"""Check if packages will be broken."""
@@ -354,6 +375,16 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache, history: bool 
 	print_packages(
 		['Package:', 'Old Version:', 'New Version:', 'Size:'],
 		nala_pkgs.upgrade_pkgs, 'Upgrading:', 'bold blue'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.recommend_pkgs, 'Recommended, Will Not Be Installed:', 'bold magenta'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.suggest_pkgs, 'Suggested, Will Not Be Installed:', 'bold magenta'
 	)
 
 	transaction_summary(delete, nala_pkgs, history)
