@@ -84,6 +84,8 @@ def apt_command() -> NoReturn:
 		apt.show(arguments.args)
 
 	elif arguments.command == 'search':
+		if not arguments.args:
+			sys.exit(f'{ERROR_PREFIX}You must specify a pattern to search')
 		apt.search(arguments.args)
 
 	elif arguments.command == 'history':
