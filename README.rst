@@ -1,7 +1,14 @@
+.. image:: https://img.shields.io/discord/923757419253882920?color=5865F2&label=Discord&logo=discord&logoColor=FFFFFF&style=flat-square
+	:target: https://discord.gg/yzrjXJV6K8
+	:alt: Discord
+.. image:: https://app.codacy.com/project/badge/Grade/686108742fe042c6b31965b5cf51a042
+	:target: https://www.codacy.com/gl/volian/nala/dashboard?utm_source=gitlab.com&amp;utm_medium=referral&amp;utm_content=volian/nala&amp;utm_campaign=Badge_Grade
+	:alt: Codacy
+
 .. contents:: Table of Contents
-   :depth: 1
-   :local:
-   :backlinks: none
+	:depth: 1
+	:local:
+	:backlinks: none
 
 # Nala
 ======
