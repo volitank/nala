@@ -381,8 +381,10 @@ def print_search(pkg: Package, version: Version) -> None:
 
 	if arguments.full and version._translated_records:
 		tree.add(version._translated_records.long_desc)
-	else:
+	elif version.raw_description:
 		tree.add(f"{version.raw_description.splitlines()[0]}")
+	else:
+		tree.add("[italic]No Description[/italic]")
 	term.console.print(tree)
 	print()
 
