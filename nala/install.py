@@ -196,7 +196,7 @@ def get_extra_pkgs(extra_type: str, pkg_names: list[str],
 						base_dep.target_versions[0].package.name,
 						base_dep.target_versions[0].version,
 						base_dep.target_versions[0].size
-					) for base_dep in dep]
+					) for base_dep in dep if base_dep.target_versions]
 				)
 
 def check_broken(pkg_names: list[str], cache: Cache,
