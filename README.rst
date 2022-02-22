@@ -30,6 +30,7 @@ If a mirror fails for whatever reason, we just try the next until all defined mi
 
 # Fetch
 =======
+
 Which brings us to our next standout feature, ``nala fetch``.
 
 This command works similar to how most people use ``netselect`` and ``netselect-apt``.
@@ -68,7 +69,7 @@ Install the Volian Scar repo and then install Nala.
 
 .. code-block:: console
 
-	echo "deb [arch=amd64] http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+	echo "deb [arch=amd64,arm64,armhf] http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
 	wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
 	sudo apt update && sudo apt install nala
 
