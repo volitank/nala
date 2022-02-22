@@ -119,6 +119,13 @@ _nala()
 						--foss'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
+				search)
+					COMPREPLY=( $( compgen -W '
+						--names
+						--installed
+						--full'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
 				show)
 					COMPREPLY=( $( compgen -W '
 						-a --all-versions'"$GLOBAL_OPTIONS" -- "$cur" ) )
