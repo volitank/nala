@@ -186,7 +186,10 @@ class Nala:
 		found: list[tuple[Package, Version]] = []
 		if search_term == '*':
 			search_term = '.*'
-		search_pattern = re.compile(search_term, re.IGNORECASE)
+		try:
+			search_pattern = re.compile(search_term, re.IGNORECASE)
+		except re.error as error:
+			sys.exit(f"{ERROR_PREFIX}Failed Regex Compilation '{error.msg} at position {error.pos}'")
 		with search_progress as progress:
 			task = progress.add_task('Searching...', total=len(self.cache))
 			arches = apt_pkg.get_architectures()
@@ -390,7 +393,6 @@ def get_search_origin(first_line: str, version: Version) -> Tree:
 	return Tree(
 		f"{first_line} {escape(f'[{origin.label}/{origin.codename} {origin.component}]')}"
 	)
-
 
 def essential_error(pkg_list: list[Text]) -> NoReturn:
 	"""Print error message for essential packages and exit."""
