@@ -44,9 +44,12 @@ setup(
 	python_requires='>=3.8, <4',
 	install_requires=[
 		# Target Debian Stable versions
-		'pexpect==4.8.0',
-		'jsbeautifier==1.13.0',
-		'rich==9.11.0',
+		'anyio>=2.0.2,<3.0.0',
+		'pexpect>=4.8.0,<5.0.0',
+		'jsbeautifier>=1.13.0,<2.0.0',
+		'rich>=9.11.0,<10.0.0',
+		# Httpx has to be version locked.
+		# They seems to want to add breaking changes on minor version
 		'httpx==0.16.1',
 	],
 
