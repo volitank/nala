@@ -56,7 +56,8 @@ If there is something in the history file that you don't want you can use the ``
 Alternatively for the ``clear`` command we accept ``all`` as an argument which will remove the entire history.
 
 .. image:: /imgs/nala-history-info.png
-.. image:: /imgs/nala-history-undo.png
+.. image:: /imgs/nala-history-undo-1.png
+.. image:: /imgs/nala-history-undo-2.png
 
 # Installation
 ==============
