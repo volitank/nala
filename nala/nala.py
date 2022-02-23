@@ -39,7 +39,7 @@ from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.debfile import DebPackage
 from apt.package import Package, Version
 
-from nala.constants import (ARCHIVE_DIR, ERROR_PREFIX, NALA_DIR,
+from nala.constants import (ARCHIVE_DIR, COLOR_CODES, ERROR_PREFIX, NALA_DIR,
 				NEED_RESTART, PARTIAL_DIR, REBOOT_PKGS, REBOOT_REQUIRED, ExitCode)
 from nala.downloader import PkgDownloader
 from nala.dpkg import OpProgress, UpdateProgress, notice
@@ -50,7 +50,7 @@ from nala.install import (auto_remover, broken_error,
 				print_update_summary, sort_pkg_changes, split_local)
 from nala.options import arguments
 from nala.rich import (Columns, Live, Text,
-				Tree, escape, from_ansi, search_progress)
+				ascii_replace, from_ansi, is_utf8, search_progress)
 from nala.show import additional_notice, check_virtual, show
 from nala.utils import (DelayedKeyboardInterrupt, ask,
 				check_pkg, color, dprint, get_pkg_name, get_version,
@@ -201,9 +201,8 @@ class Nala:
 					search_name(pkg, search_pattern, found)
 				progress.advance(task)
 		if not found:
-			print(f"{ERROR_PREFIX}{color(search_term, 'YELLOW')} was not found.")
-		for item in found:
-			print_search(*item)
+			sys.exit(f"{ERROR_PREFIX}{color(search_term, 'YELLOW')} was not found.")
+		print_search(found)
 
 	def get_changes(self,
 		upgrade: bool = False, remove: bool = False) -> None:
@@ -369,32 +368,51 @@ def search_name(pkg: Package,
 			found.append((pkg, version))
 			break
 
-def print_search(pkg: Package, version: Version) -> None:
+def print_search(found: list[tuple[Package, Version]]) -> None:
 	"""Print the search results to the terminal."""
-	first_line = f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}"
-	tree = get_search_origin(first_line, version)
-	if pkg.is_installed:
-		if not pkg.is_upgradable:
-			tree.add('is installed')
-		else:
-			tree.add(f"is upgradable from {color(pkg_installed(pkg).version, 'BLUE')}")
+	top_line = "├── " if is_utf8 else "+-- "
+	bot_line = "└── " if is_utf8 else "`-- "
+	for item in found:
+		pkg, version = item
+		print(
+			ascii_replace(
+				set_search_description(
+					set_search_installed(
+						set_search_origin(
+							f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}", version
+						),
+						top_line, pkg
+					),
+					bot_line, version
+				)
+			),
+			end='\n\n'
+		)
 
+def set_search_origin(line: str, version: Version) -> str:
+	"""Return the provided string with the origin information."""
+	if origin := version._cand.file_list[0][0]:
+		if origin.component == 'now':
+			return f"{line} [local]"
+		return f"{line} [{origin.label}/{origin.codename} {origin.component}]"
+	return line
+
+def set_search_installed(line: str, top_line: str, pkg: Package) -> str:
+	"""Return the provided string with install and upgrade information."""
+	if not pkg.is_installed:
+		return line
+	if pkg.is_upgradable:
+		return f"{line}\n{top_line}is upgradable from {color(pkg_installed(pkg).version, 'BLUE')}"
+	return f'{line}\n{top_line}is installed'
+
+def set_search_description(line: str, bot_line: str, version: Version) -> str:
+	"""Return the provided string with the package description."""
 	if arguments.full and version._translated_records:
-		tree.add(version._translated_records.long_desc)
-	elif version.raw_description:
-		tree.add(f"{version.raw_description.splitlines()[0]}")
-	else:
-		tree.add("[italic]No Description[/italic]")
-	term.console.print(tree)
-	print()
-
-def get_search_origin(first_line: str, version: Version) -> Tree:
-	"""Return the origin of the package to print."""
-	if (origin := version.origins[0]).component == 'now':
-		return Tree(f"{first_line} {escape('[local]')}")
-	return Tree(
-		f"{first_line} {escape(f'[{origin.label}/{origin.codename} {origin.component}]')}"
-	)
+		desc = '\n    '.join(version._translated_records.long_desc.splitlines())
+		return f"{line}\n{bot_line}{desc}"
+	if version.summary:
+		return f'{line}\n{bot_line}{version.summary}'
+	return f"{line}\n{bot_line}{COLOR_CODES['ITALIC']}No Description{COLOR_CODES['RESET']}"
 
 def essential_error(pkg_list: list[Text]) -> NoReturn:
 	"""Print error message for essential packages and exit."""

@@ -118,6 +118,10 @@ def from_ansi(msg: str) -> Text:
 	"""Convert ansi coded text into Rich Text."""
 	return Text().join(AnsiDecoder().decode(msg))
 
+def ascii_replace(string: str) -> str:
+	"""If terminal is in ascii mode replace unicode characters."""
+	return string if is_utf8 else string.encode('ascii', 'replace').decode('ascii')
+
 spinner = Spinner(
 	SPIN_TYPE,
 	text='Initializing',

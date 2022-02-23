@@ -33,6 +33,7 @@ from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import PACSTALL_METADATA
 from nala.options import arguments
+from nala.rich import ascii_replace
 from nala.utils import color, term, unit_str
 
 
@@ -72,7 +73,7 @@ def show_main(candidate: Version) -> None:
 		print(color('Download-Size:'), unit_str(candidate.size, 1))
 	print(format_sources(candidate, pkg))
 	if candidate._translated_records:
-		print(color('Description:'), candidate._translated_records.long_desc)
+		print(color('Description:'), ascii_replace(candidate._translated_records.long_desc))
 
 def check_virtual(pkg_name: str, cache: Cache) -> bool:
 	"""Check if the package is virtual."""
