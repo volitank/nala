@@ -102,44 +102,42 @@ def install_local(nala_pkgs: PackageHandler) -> None:
 	"""
 	failed = False
 	for pkg in nala_pkgs.local_debs[:]:
-		if not check_local_version(pkg):
-			nala_pkgs.local_debs.remove(pkg)
-			continue
-		if not pkg.check():
+		check_local_version(pkg, nala_pkgs)
+		if not pkg.check(allow_downgrade=True):
 			failed = True
 			local_missing_dep(pkg)
 			nala_pkgs.local_debs.remove(pkg)
 			continue
-
-		nala_pkgs.local_pkgs.append(
-			NalaPackage(pkg.pkgname, pkg._sections["Version"], int(pkg._sections["Installed-Size"]))
-		)
+		if pkg.pkgname not in [pkg.name for pkg in nala_pkgs.upgrade_pkgs]:
+			nala_pkgs.local_pkgs.append(
+				NalaPackage(pkg.pkgname, pkg._sections["Version"], int(pkg._sections["Installed-Size"]))
+			)
 	if failed:
 		sys.exit(1)
 
-def check_local_version(pkg: DebPackage) -> bool:
+def check_local_version(pkg: DebPackage, nala_pkgs: PackageHandler) -> None:
 	"""Check if the version installed is better than the .deb."""
-	if pkg_compare := pkg.compare_to_version_in_cache() == pkg.VERSION_SAME:
-		print(
-			f"{color(pkg.pkgname, 'GREEN')}",
-			'is already at the latest version',
-			color(pkg._sections["Version"], 'BLUE')
-		)
-		return False
+	if pkg_compare := pkg.compare_to_version_in_cache():
+		cache_pkg = pkg._cache[pkg.pkgname]
 
-	if pkg_compare == pkg.VERSION_NEWER:
-		deb_ver = (
-			color('(') + color(pkg._sections['Version'], 'BLUE') + color(')')
-		)
-		install_ver = (
-			color('(') + pkg_installed(pkg._cache[pkg.pkgname]).version + color(')')
-		)
-		print(
-			f"Package {color(pkg.pkgname, 'GREEN')}",
-			f"is older {deb_ver} than the version installed {install_ver}"
-		)
-		return False
-	return True
+		if pkg_compare == pkg.VERSION_SAME and cache_pkg.is_installed:
+			deb_ver = color(pkg._sections['Version'], 'BLUE')
+			print(f"{color(pkg.pkgname, 'GREEN')} {deb_ver} will be re-installed")
+			return
+
+		# Eventually we'll make a Downgrades and Re-Install Column
+		if pkg_compare == pkg.VERSION_OUTDATED:
+			install_ver = color(pkg_installed(cache_pkg).version, 'BLUE')
+			print(f"Package {color(pkg.pkgname, 'GREEN')} {install_ver} will be downgraded")
+			return
+
+		if pkg_compare == pkg.VERSION_NEWER and cache_pkg.is_installed:
+			nala_pkgs.upgrade_pkgs.append(
+				NalaPackage(
+					pkg.pkgname, pkg._sections['Version'],
+					int(pkg._sections["Installed-Size"]), pkg_installed(cache_pkg).version
+				)
+			)
 
 def split_local(
 	pkg_names: list[str], cache: Cache, local_debs: list[DebPackage]) -> list[str]:
