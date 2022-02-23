@@ -73,7 +73,7 @@ Alternatively for the ``clear`` command we accept ``all`` as an argument which w
 
 Install the Volian Scar repo and then install Nala.
 
-`Note: Currently only amd64 packages are supported`
+`Note: Currently only amd64, arm64 and armhf packages are supported`
 
 .. code-block:: console
 
