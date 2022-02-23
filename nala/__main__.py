@@ -48,7 +48,7 @@ def _main() -> None:
 
 	dprint(f"Argparser = {arguments}")
 	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
-	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'history', 'purge', 'search', None)
+	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'purge', 'search', None)
 
 	if arguments.command in superuser:
 		sudo_check(arguments.command)
@@ -88,9 +88,6 @@ def apt_command() -> NoReturn:
 			sys.exit(f'{ERROR_PREFIX}You must specify a pattern to search')
 		apt.search(arguments.args)
 
-	elif arguments.command == 'history':
-		nala_history(apt)
-
 	elif not arguments.command and arguments.fix_broken:
 		apt.fix_broken()
 
@@ -106,6 +103,8 @@ def not_apt_command() -> NoReturn:
 		fetch()
 	elif arguments.command == 'moo':
 		moo_pls()
+	elif arguments.command == 'history':
+		nala_history()
 	else:
 		sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
 	sys.exit(0)
@@ -138,7 +137,7 @@ def clean() -> None:
 	SRCPKGCACHE.unlink(missing_ok=True)
 	print("Cache has been cleaned")
 
-def nala_history(apt: Nala) -> None:
+def nala_history() -> None:
 	"""Coordinate the history command."""
 	mode = arguments.mode
 	# Eventually we should probably make argparser better and handle this for us.
@@ -156,11 +155,11 @@ def nala_history(apt: Nala) -> None:
 		history()
 	if mode == 'undo':
 		sudo_check('undo history')
-		history_undo(apt, arguments.id)
+		history_undo(init_apt(), arguments.id)
 
 	elif mode == 'redo':
 		sudo_check('redo history')
-		history_undo(apt, arguments.id, redo=True)
+		history_undo(init_apt(), arguments.id, redo=True)
 
 	elif mode == 'info':
 		history_info(arguments.id)
