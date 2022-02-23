@@ -54,7 +54,7 @@ VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
 
 scroll_list: list[str] = []
-notice: set[str] = set()
+notice: list[str] = []
 
 class OpProgress(base.OpProgress, text.TextProgress):
 	"""Operation progress reporting.
@@ -510,11 +510,11 @@ class InstallProgress(base.InstallProgress):
 def check_line_spam(line: str, rawline: bytes, last_line: bytes) -> bool:
 	"""Check for, and handle, notices and spam."""
 	for message in DPKG_MSG['NOTICES']:
-		if message in rawline:
-			notice.add(line)
+		if message in rawline and line not in notice:
+			notice.append(line)
 			return False
 	if b'but it can still be activated by:' in last_line:
-		notice.add(f"  {line}")
+		notice.append(f"  {line}")
 		return False
 
 	return any(item in line for item in SPAM)
