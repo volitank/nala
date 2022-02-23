@@ -96,6 +96,7 @@ class ExitCode: # pylint: disable=too-few-public-methods
 
 COLOR_CODES: dict[str, str | int] = {
 	'RESET' : '\x1b[0m',
+	'ITALIC' : '\x1b[3m',
 	'RED' : 31,
 	'GREEN' : 32,
 	'YELLOW' : 33,
