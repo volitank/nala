@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
 from getpass import getuser
 from json.decoder import JSONDecodeError
 from os import environ, getuid
@@ -42,7 +41,7 @@ from nala.install import print_update_summary
 from nala.logger import dprint
 from nala.rich import Column, Table
 from nala.utils import (DelayedKeyboardInterrupt,
-				NalaPackage, PackageHandler, term)
+				NalaPackage, PackageHandler, get_date, term)
 
 if TYPE_CHECKING:
 	from nala.nala import Nala
@@ -92,7 +91,7 @@ def history() -> None:
 	max_width = term.columns - 50
 	history_table = Table(
 				'ID',
-				Column('Command', no_wrap=True, max_width=max_width),
+				Column('Command', no_wrap=True, max_width=max_width, overflow=term.overflow),
 				'Date and Time',
 				'Altered',
 				padding=(0,2), box=None
@@ -196,9 +195,6 @@ def history_undo(apt: Nala, hist_id: str, redo: bool = False) -> None:
 
 def write_history(handler: PackageHandler) -> None:
 	"""Prepare history for writing."""
-	# We don't need only downloads in the history
-	timezone = datetime.utcnow().astimezone().tzinfo
-	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
 	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
 	hist_id = str(len(history_dict) + 1 if history_dict else 1)
 	altered = (
@@ -208,7 +204,7 @@ def write_history(handler: PackageHandler) -> None:
 	)
 
 	transaction: dict[str, str | list[str] | list[list[str]]] = {
-		'Date' : time,
+		'Date' : get_date(),
 		'Command' : sys.argv[1:],
 		'Altered' : str(altered),
 		'Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.extended_deleted],
@@ -221,11 +217,8 @@ def write_history(handler: PackageHandler) -> None:
 
 def write_log(nala_pkgs: PackageHandler) -> None:
 	"""Write information to the log file."""
-	timezone = datetime.utcnow().astimezone().tzinfo
-	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
-
 	log = {
-		'Date' : time,
+		'Date' : get_date(),
 		'Requested-By' : f'{USER} ({UID})',
 		'Command' : sys.argv[1:],
 		'Removed' : [[pkg.name, pkg.version, pkg.size] for pkg in nala_pkgs.delete_pkgs],

@@ -41,13 +41,11 @@ import apt_pkg
 from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
-from rich.panel import Panel
-from rich.progress import TaskID
 
 from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM
 from nala.options import arguments
-from nala.rich import (Group, Live, Table,
-				Text, dpkg_progress, from_ansi, spinner)
+from nala.rich import (Group, Live, Panel, RenderableType, Table,
+				TaskID, Text, ascii_replace, dpkg_progress, from_ansi, spinner)
 from nala.utils import color, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
@@ -124,15 +122,9 @@ class UpdateProgress(text.AcquireProgress):
 			self.apt_write(msg, newline, maximize)
 			return
 
-		for item in ['Updated:', 'Ignored:', 'Error:', 'No Change:']:
+		for item in ('Updated:', 'Ignored:', 'Error:', 'No Change:'):
 			if item in msg:
-				if arguments.verbose:
-					print(msg)
-					break
-				scroll_bar(self,
-					msg, install=self.install, fetch=self.install,
-					update_spinner=True, use_bar=False
-				)
+				self.table_print(msg)
 				break
 		else:
 			# For the pulse messages we need to do some formatting
@@ -141,16 +133,31 @@ class UpdateProgress(text.AcquireProgress):
 				msg = fill_pulse(msg.split())
 
 			if 'Fetched' in msg:
-				scroll_bar(self,
-					msg, install=self.install,
-					fetch=self.install, use_bar=False
-				)
+				self.table_print(msg, fetched=True)
 				return
+			# Hash Sum is an error message that is multilined.
+			# An exception at the end is caught and printed,
+			# but there is no harm in printing it correctly when it hits.
+			if 'Hash Sum' in msg:
+				for line in msg.splitlines():
+					self.table_print(line)
+				return
+
 			spinner.text = from_ansi(msg)
 			scroll_bar(self,
 				install=self.install, fetch=self.install,
 				update_spinner=True, use_bar=False
 			)
+
+	def table_print(self, line:str, fetched: bool = False) -> None:
+		"""Print the messages to the table and not the spinner."""
+		if arguments.verbose and not fetched:
+			print(line)
+			return
+		scroll_bar(self,
+			line, install=self.install,
+			fetch=self.install, use_bar=False
+		)
 
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is update (e.g. not modified on the server)."""
@@ -449,7 +456,7 @@ class InstallProgress(base.InstallProgress):
 
 	def line_handler(self, rawline: bytes) -> None:
 		"""Handle text operations for not a rawline."""
-		line = rawline.decode().strip()
+		line = ascii_replace(rawline.decode().strip())
 
 		if check_line_spam(line, rawline, self.last_line):
 			return
@@ -467,6 +474,8 @@ class InstallProgress(base.InstallProgress):
 		if arguments.verbose:
 			print(msg)
 		elif 'Fetched:' in msg:
+			# This is some magic for apt-listdifferences to put
+			# the fetched message in the spinner since it gets spammy
 			spinner.text = from_ansi(
 				color(' '.join(line.split()[1:]))
 			)
@@ -559,6 +568,9 @@ def fill_pulse(pulse: list[str]) -> str:
 	# Set fill width to fit inside the rich panel
 	fill = ((term.columns - fill) - 5 if arguments.verbose else
 			(term.columns - fill) - 7)
+	# Minus 2 more to account for ascii simpleDots on the spinner
+	if term.console.options.ascii_only:
+		fill -= 2
 	# Make sure we insert the filler in the right spot
 	# In case of extra 1 min as shown below.
 	# ['2407', 'kB/s', '30s']
@@ -606,20 +618,17 @@ def get_title(install: bool, fetch: bool) -> str:
 		return '[bold white]Fetching Missed Packages'
 	return '[bold white]Updating Package List'
 
-def get_group(update_spinner: bool, use_bar: bool) -> Group:
+def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
 	"""Get the group for our panel."""
 	if update_spinner and use_bar:
-		return Group(
+		# We have to set no-any-return due to our compatibility imports in nala.rich
+		return Group( # type: ignore[no-any-return]
 			spinner,
 			dpkg_progress.get_renderable(),
 		)
 	if update_spinner:
-		return Group(
-			spinner
-		)
-	return Group(
-		dpkg_progress.get_renderable(),
-	)
+		return spinner
+	return dpkg_progress.get_renderable()
 
 def slice_list() -> None:
 	"""Set scroll bar to take up only 1/3 of the screen."""
@@ -642,7 +651,7 @@ def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-man
 
 	bar_style = 'bold green' if arguments.verbose else 'bold blue'
 	table = Table.grid()
-	table.add_column(no_wrap=True, width=term.columns)
+	table.add_column(no_wrap=True, width=term.columns, overflow=term.overflow)
 	for item in scroll_list:
 		table.add_row(from_ansi(item))
 
