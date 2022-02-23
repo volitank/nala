@@ -33,7 +33,6 @@ from pwd import getpwnam
 from typing import TYPE_CHECKING
 
 import jsbeautifier
-from apt import Cache
 
 from nala.constants import (ERROR_PREFIX,
 				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE)
@@ -134,7 +133,7 @@ def history_info(hist_id: str) -> None:
 	nala_pkgs.install_pkgs = get_hist_package(hist_entry, 'Installed')
 	nala_pkgs.upgrade_pkgs = get_hist_package(hist_entry, 'Upgraded')
 
-	print_update_summary(nala_pkgs, Cache(), history=True)
+	print_update_summary(nala_pkgs)
 
 def history_clear(hist_id: str) -> None:
 	"""Show command."""

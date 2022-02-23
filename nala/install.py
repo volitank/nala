@@ -351,7 +351,7 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 				)
 			)
 
-def print_update_summary(nala_pkgs: PackageHandler, cache: Cache, history: bool = False) -> None:
+def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
 	"""Print our transaction summary."""
 	delete, deleting = (
 		('Purge', 'Purging:')
@@ -388,8 +388,8 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache, history: bool 
 		nala_pkgs.suggest_pkgs, 'Suggested, Will Not Be Installed:', 'bold magenta'
 	)
 
-	transaction_summary(delete, nala_pkgs, history)
-	if not history:
+	transaction_summary(delete, nala_pkgs, not cache)
+	if cache:
 		transaction_footer(cache)
 
 def transaction_summary(
