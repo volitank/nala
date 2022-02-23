@@ -343,8 +343,8 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 			installed = pkg_installed(pkg)
 			nala_pkgs.upgrade_pkgs.append(
 				NalaPackage(
-					pkg.name, installed.version,
-					candidate.size, old_version=candidate.version
+					pkg.name, candidate.version,
+					candidate.size, old_version=installed.version
 				)
 			)
 
