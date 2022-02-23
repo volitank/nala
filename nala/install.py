@@ -399,8 +399,8 @@ def transaction_summary(
 	print('Summary')
 	print('='*term.columns)
 	table = Table.grid('', padding=(0,2))
-	table.add_column(justify='right')
-	table.add_column()
+	table.add_column(justify='right', overflow=term.overflow)
+	table.add_column(overflow=term.overflow)
 
 	if nala_pkgs.install_total:
 		table.add_row(

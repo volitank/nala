@@ -35,6 +35,7 @@ from datetime import datetime
 from pathlib import Path
 from shutil import get_terminal_size
 from types import FrameType
+from typing import Literal, cast
 
 import jsbeautifier
 from apt.debfile import DebPackage
@@ -153,6 +154,14 @@ class Terminal:
 	def is_xterm(self) -> bool:
 		"""Return True if we're in an xterm, False otherwise."""
 		return 'xterm' in self.term_type
+
+	@property
+	def overflow(self) -> Literal['crop']:
+		"""Return overflow method for Rich."""
+		# We only cast Literal['crop'] here to make mypy happy.
+		return cast(
+			Literal['crop'], "crop" if self.console.options.ascii_only else "ellipsis"
+		)
 
 	@staticmethod
 	def is_su() -> bool:
@@ -406,11 +415,11 @@ def print_packages(
 	# Setup rich table and columns
 	for header in headers:
 		if header == 'Package:':
-			package_table.add_column(header, style=style)
+			package_table.add_column(header, style=style, overflow=term.overflow)
 		elif header == 'Size:':
-			package_table.add_column(header, justify='right')
+			package_table.add_column(header, justify='right', overflow=term.overflow)
 		else:
-			package_table.add_column(header)
+			package_table.add_column(header, overflow='fold')
 
 	# Add our packages
 	for pkg in nala_packages:

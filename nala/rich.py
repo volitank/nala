@@ -37,11 +37,13 @@ except ImportError:
 	from rich.console import RenderGroup as Group  # type: ignore[attr-defined, no-redef]
 
 from rich.ansi import AnsiDecoder
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.markup import escape
-from rich.progress import (BarColumn, DownloadColumn, Progress, SpinnerColumn,
-				Task, TextColumn, TimeRemainingColumn, TransferSpeedColumn, filesize)
+from rich.panel import Panel
+from rich.progress import (BarColumn, DownloadColumn,
+				Progress, SpinnerColumn, Task, TaskID, TextColumn,
+				TimeRemainingColumn, TransferSpeedColumn, filesize)
 from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Column, Table
@@ -49,11 +51,10 @@ from rich.text import Text
 from rich.tree import Tree
 
 __all__ = (
-	'Spinner', 'Table',
-	'Column', 'Columns',
-	'Console', 'Tree',
-	'Live', 'Text',
-	'escape', 'Group'
+	'Spinner', 'Table', 'Column', 'Columns',
+	'Console', 'Tree', 'Live', 'Text',
+	'escape', 'Group', 'TaskID', 'Panel',
+	'Progress', 'RenderableType'
 )
 
 # pylint: disable=too-few-public-methods
