@@ -421,11 +421,11 @@ def transaction_summary(
 def transaction_footer(cache: Cache) -> None:
 	"""Print transaction footer."""
 	print()
-	if cache.required_download > 0:
-		print(f'Total download size: {unit_str(cache.required_download)}')
-	if cache.required_space < 0:
-		print(f'Disk space to free: {unit_str(-int(cache.required_space))}')
+	if (download := cache.required_download) > 0:
+		print(f'Total download size: {unit_str(download)}')
+	if (space := cache.required_space) < 0:
+		print(f'Disk space to free: {unit_str(-int(space))}')
 	else:
-		print(f'Disk space required: {unit_str(cache.required_space)}')
+		print(f'Disk space required: {unit_str(space)}')
 	if arguments.download_only:
 		print("Nala will only download the packages")
