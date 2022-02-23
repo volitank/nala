@@ -444,7 +444,7 @@ class InstallProgress(base.InstallProgress):
 		"""Handle text operations for not a rawline."""
 		line = rawline.decode().strip()
 
-		if check_line_spam(line, rawline):
+		if check_line_spam(line, rawline, self.last_line):
 			return
 
 		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
@@ -508,12 +508,15 @@ class InstallProgress(base.InstallProgress):
 		term.set_raw()
 		self.raw = True
 
-def check_line_spam(line: str, rawline: bytes) -> bool:
+def check_line_spam(line: str, rawline: bytes, last_line: bytes) -> bool:
 	"""Check for, and handle, notices and spam."""
 	for message in DPKG_MSG['NOTICES']:
 		if message in rawline:
 			notice.add(line)
 			return False
+	if b'but it can still be activated by:' in last_line:
+		notice.add(f"  {line}")
+		return False
 
 	return any(item in line for item in SPAM)
 
