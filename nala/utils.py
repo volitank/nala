@@ -295,6 +295,11 @@ def ask(question: str, default_no: bool = False) -> bool:
 			return not default_no
 		print("Not a valid choice kiddo")
 
+def get_date() -> str:
+	"""Return the formatted Date and Time."""
+	timezone = str(datetime.utcnow().astimezone().tzinfo)
+	return f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {timezone}"
+
 def unit_str(val: int, just: int = 7) -> str:
 	"""Check integer and figure out what format it should be."""
 	if val > 1000**2:

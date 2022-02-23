@@ -51,6 +51,8 @@ DPKG_LOG = NALA_LOGDIR / 'dpkg-debug.log'
 """/var/log/nala/dpkg-debug.log"""
 DPKG_STATUS_LOG = NALA_LOGDIR / 'dpkg-status.log'
 """/var/log/nala/dpkg-status.log"""
+NALA_TERM_LOG = Path('/var/log/nala/term.log')
+"""/var/log/nala/term.log"""
 NALA_HISTORY = Path('/var/lib/nala/history.json')
 """/var/lib/nala/history.json"""
 PACSTALL_METADATA = Path('/var/log/pacstall/metadata')

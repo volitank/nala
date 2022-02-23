@@ -223,10 +223,12 @@ class UpdateProgress(text.AcquireProgress):
 class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
 
-	def __init__(self, dpkg_log: TextIO, live: Live, task: TaskID) -> None:
+	def __init__(self, dpkg_log: TextIO,
+		term_log: TextIO, live: Live, task: TaskID) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
 		self.task = task
 		self._dpkg_log = dpkg_log
+		self._term_log = term_log
 		self.live = live
 		self.raw = False
 		self.bug_list = False
@@ -334,6 +336,11 @@ class InstallProgress(base.InstallProgress):
 		"""Write to dpkg-debug.log and flush."""
 		self._dpkg_log.write(msg)
 		self._dpkg_log.flush()
+
+	def term_log(self, msg: bytes) -> None:
+		"""Write to term.log and flush."""
+		self._term_log.write(f"{msg.decode('utf-8').strip()}\n")
+		self._term_log.flush()
 
 	def dpkg_status(self, data: bytes) -> bool:
 		"""Handle any status messages."""
@@ -450,6 +457,9 @@ class InstallProgress(base.InstallProgress):
 		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
 		if line == '' or '% [' in line:
 			return
+
+		self.term_log(rawline)
+
 		self.advance_progress(line)
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
