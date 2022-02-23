@@ -270,9 +270,6 @@ def need_reboot() -> bool:
 def print_notices(notices: Iterable[str]) -> None:
 	"""Print notices from dpkg."""
 	if notices:
-		if REBOOT_REQUIRED.exists() or NEED_RESTART.exists():
-			if not (notices := [msg for msg in notices if 'reboot' not in msg]):
-				return
 		print('\n'+color('Notices:', 'YELLOW'))
 		for notice_msg in notices:
 			print(notice_msg)

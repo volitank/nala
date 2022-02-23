@@ -121,7 +121,6 @@ CONF_MESSAGE = (
 )
 CONF_ANSWER = (b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',)
 NOTICES = (
-	b'reboot',
 	b'The currently running kernel version is not the expected kernel version',
 	b'Please remove.',
 	b'NOTICE:',
