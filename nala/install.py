@@ -32,12 +32,12 @@ from apt import Cache, Package, Version
 from apt.debfile import DebPackage
 from apt_pkg import DepCache, Error as AptError
 
-from nala.constants import DPKG_LOG, ERROR_PREFIX
+from nala.constants import DPKG_LOG, ERROR_PREFIX, NALA_TERM_LOG
 from nala.dpkg import InstallProgress, UpdateProgress
 from nala.options import arguments
 from nala.rich import Live, Table, dpkg_progress
 from nala.show import print_dep
-from nala.utils import (NalaPackage, PackageHandler, color, dprint,
+from nala.utils import (NalaPackage, PackageHandler, color, dprint, get_date,
 				pkg_candidate, pkg_installed, print_packages, term, unit_str, vprint)
 
 
@@ -73,14 +73,17 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total + 1)
 	with Live(auto_refresh=False) as live:
 		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
-			if arguments.raw_dpkg:
-				live.stop()
-			cache.commit(
-				UpdateProgress(live, install=True),
-				InstallProgress(dpkg_log, live, task)
-			)
-			for deb in nala_pkgs.local_debs:
-				deb.install(InstallProgress(dpkg_log, live, task))
+			with open(NALA_TERM_LOG, 'a', encoding="utf-8") as term_log:
+				term_log.write(f"Log Started: [{get_date()}]\n")
+				if arguments.raw_dpkg:
+					live.stop()
+				cache.commit(
+					UpdateProgress(live, install=True),
+					InstallProgress(dpkg_log, term_log, live, task)
+				)
+				for deb in nala_pkgs.local_debs:
+					deb.install(InstallProgress(dpkg_log, term_log, live, task))
+				term_log.write(f"Log Ended: [{get_date()}]\n\n")
 
 def local_missing_dep(pkg: DebPackage) -> None:
 	"""Print missing depends for .deb that can't be satisfied."""
