@@ -450,9 +450,9 @@ class InstallProgress(base.InstallProgress):
 		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
 		if line == '' or '% [' in line:
 			return
+		self.advance_progress(line)
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
-		self.advance_progress(line)
 		# If verbose we just send it. No bars
 		if arguments.verbose:
 			print(msg)
@@ -486,8 +486,7 @@ class InstallProgress(base.InstallProgress):
 
 	def advance_progress(self, line: str) -> None:
 		"""Advance the dpkg progress bar."""
-		if ('Setting up' in line or 'Unpacking' in line
-			or 'Removing' in line and '(' in line):
+		if line.startswith(('Setting up', 'Unpacking', 'Removing')) and '(' in line:
 			dpkg_progress.advance(self.task)
 		if arguments.verbose:
 			self.live.update(
