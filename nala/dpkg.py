@@ -124,7 +124,7 @@ class UpdateProgress(text.AcquireProgress):
 
 		for item in ('Updated:', 'Ignored:', 'Error:', 'No Change:'):
 			if item in msg:
-				self.table_print(msg)
+				self.table_print(msg, update_spinner=True)
 				break
 		else:
 			# For the pulse messages we need to do some formatting
@@ -140,22 +140,21 @@ class UpdateProgress(text.AcquireProgress):
 			# but there is no harm in printing it correctly when it hits.
 			if 'Hash Sum' in msg:
 				for line in msg.splitlines():
-					self.table_print(line)
+					self.table_print(line, update_spinner=True)
 				return
 
 			spinner.text = from_ansi(msg)
-			scroll_bar(self,
-				install=self.install, fetch=self.install,
-				update_spinner=True, use_bar=False
-			)
+			self.table_print(update_spinner=True)
 
-	def table_print(self, line:str, fetched: bool = False) -> None:
-		"""Print the messages to the table and not the spinner."""
-		if arguments.verbose and not fetched:
-			print(line)
+	def table_print(self, msg: str = '',
+		fetched: bool = False, update_spinner: bool = False) -> None:
+		"""Update wrapper for the scroll bar."""
+		if arguments.verbose and not fetched and msg:
+			print(msg)
 			return
-		scroll_bar(self,
-			line, install=self.install,
+		scroll_bar(self, msg,
+			install=self.install,
+			update_spinner=update_spinner,
 			fetch=self.install, use_bar=False
 		)
 
