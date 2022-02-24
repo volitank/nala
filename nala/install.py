@@ -24,21 +24,28 @@
 """Functions for the Nala Install command."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
-from typing import NoReturn, cast
+from typing import Iterable, cast
 
-from apt import Cache, Package, Version
+import apt_pkg
+from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.debfile import DebPackage
+from apt.package import Package
 from apt_pkg import DepCache, Error as AptError
 
-from nala.constants import DPKG_LOG, ERROR_PREFIX, NALA_TERM_LOG
-from nala.dpkg import InstallProgress, UpdateProgress
+from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
+				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, ExitCode)
+from nala.downloader import download
+from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
+from nala.error import apt_error, essential_error
+from nala.history import write_history, write_log
 from nala.options import arguments
-from nala.rich import Live, Table, dpkg_progress
-from nala.show import print_dep
-from nala.utils import (NalaPackage, PackageHandler, color, dprint, get_date,
-				pkg_candidate, pkg_installed, print_packages, term, unit_str, vprint)
+from nala.rich import Live, Text, dpkg_progress, from_ansi
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
+				PackageHandler, ask, check_pkg, color, dprint, get_date,
+				pkg_candidate, pkg_installed, print_update_summary, term, vprint)
 
 
 def install_pkg(pkg: Package) -> None:
@@ -84,6 +91,56 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				for deb in nala_pkgs.local_debs:
 					deb.install(InstallProgress(dpkg_log, term_log, live, task))
 				term_log.write(f"Log Ended: [{get_date()}]\n\n")
+
+def get_changes(cache: Cache, nala_pkgs: PackageHandler,
+	upgrade: bool = False, remove: bool = False) -> None:
+	"""Get packages requiring changes and process them."""
+	pkgs = sorted(cache.get_changes(), key=sort_pkg_name)
+	if not NALA_DIR.exists():
+		NALA_DIR.mkdir()
+
+	check_work(pkgs, nala_pkgs.local_debs, upgrade, remove)
+
+	if pkgs or nala_pkgs.local_debs:
+		check_essential(pkgs)
+		sort_pkg_changes(pkgs, nala_pkgs)
+		print_update_summary(nala_pkgs, cache)
+
+		check_term_ask()
+
+		pkgs = [
+			# Don't download packages that already exist
+			pkg for pkg in pkgs if not pkg.marked_delete and not check_pkg(ARCHIVE_DIR, pkg)
+		]
+
+	download(pkgs)
+
+	write_history(nala_pkgs)
+	write_log(nala_pkgs)
+	start_dpkg(cache, nala_pkgs)
+
+def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
+	"""Start dpkg."""
+	try:
+		commit_pkgs(cache, nala_pkgs)
+	# Catch system error because if dpkg fails it'll throw this
+	except (apt_pkg.Error, SystemError) as error:
+		sys.exit(f'\r\n{ERROR_PREFIX + str(error)}')
+	except FetchFailedException as error:
+		for failed in str(error).splitlines():
+			print(ERROR_PREFIX + failed)
+		sys.exit(1)
+	except KeyboardInterrupt:
+		print("Exiting due to SIGINT")
+		sys.exit(ExitCode.SIGINT)
+	finally:
+		term.restore_mode()
+		# If dpkg quits for any reason we lose the cursor
+		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+		print_notices(notice)
+		if need_reboot():
+			print(f"{color('Notice:', 'YELLOW')} A reboot is required.")
+	print(color("Finished Successfully", 'GREEN'))
 
 def local_missing_dep(pkg: DebPackage) -> None:
 	"""Print missing depends for .deb that can't be satisfied."""
@@ -241,19 +298,6 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 	depcache.mark_install(pkg._pkg, False, True)
 	return True
 
-def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
-	"""Iterate installed pkgs and return all of their deps in a list.
-
-	This is so we can reduce iterations when checking reverse depends.
-	"""
-	total_deps = []
-	for pkg in installed_pkgs:
-		for deps in pkg_installed(pkg).dependencies:
-			for dep in deps:
-				if dep.name not in total_deps:
-					total_deps.append(dep.name)
-	return tuple(total_deps)
-
 def installed_missing_dep(pkg: Package) -> None:
 	"""Print missing deps for broken package."""
 	if pkg.installed:
@@ -272,54 +316,6 @@ def installed_found_deps(pkg: Package, cache: Cache) -> None:
 		for dep in depends:
 			if cache[dep.name].marked_install:
 				vprint(f"  {color(dep.name, 'GREEN')} will be {color('installed', 'GREEN')}")
-
-def broken_error(broken: list[Package],
-	installed_pkgs: bool | tuple[Package, ...] = False) -> NoReturn:
-	"""Handle printing of errors due to broken packages."""
-	if isinstance(installed_pkgs, tuple):
-		total_deps = get_installed_dep_names(installed_pkgs)
-
-	for pkg in broken:
-		if pkg.candidate is None:
-			for version in pkg.versions:
-				print_broken(pkg.name, version)
-				if installed_pkgs and pkg.name in total_deps:
-					print_rdeps(
-						pkg.name,
-						cast(tuple[Package], installed_pkgs)
-					)
-			continue
-
-		print_broken(pkg.name, pkg.candidate)
-		if installed_pkgs and pkg.name in total_deps:
-			print_rdeps(
-				pkg.name,
-				cast(tuple[Package], installed_pkgs)
-			)
-
-	print(f"\n{color('Notice:', 'YELLOW')} The information above may be able to help")
-	sys.exit(f'{ERROR_PREFIX}You have held broken packages')
-
-def print_broken(pkg_name: str, candidate: Version) -> None:
-	"""Print broken packages information."""
-	print('='*term.columns)
-	version = color('(') + color(candidate.version, 'BLUE') + color(')')
-	print(f"{color('Package:', 'YELLOW')} {color(pkg_name, 'GREEN')} {version}")
-	if conflicts := candidate.get_dependencies('Conflicts'):
-		print_dep(color('Conflicts:', 'YELLOW'), conflicts)
-	if breaks := candidate.get_dependencies('Breaks'):
-		print_dep(color('Breaks:', 'YELLOW'), breaks)
-	if candidate.dependencies:
-		print_dep(color('Depends:', 'YELLOW'), candidate.dependencies)
-
-def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
-	"""Print the installed reverse depends of a package."""
-	print(color('Installed Packages Depend On This:', 'YELLOW'))
-	for pkg in installed_pkgs:
-		for dep in pkg_installed(pkg).dependencies:
-			if name in dep.rawstr:
-				print(' ', color(pkg.name, 'GREEN'))
-				break
 
 def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 	"""Sort a list of packages and splits them based on the action to take."""
@@ -351,82 +347,134 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 				)
 			)
 
-def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
-	"""Print our transaction summary."""
-	delete, deleting = (
-		('Purge', 'Purging:')
-		if arguments.command == 'purge'
-		else ('Remove', 'Removing:')
-	)
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.delete_pkgs, deleting, 'bold red'
-	)
+def need_reboot() -> bool:
+	"""Check if the system needs a reboot and notify the user."""
+	if REBOOT_REQUIRED.exists():
+		if REBOOT_PKGS.exists():
+			print(f"{color('Notice:', 'YELLOW')} The following packages require a reboot.")
+			for pkg in REBOOT_PKGS.read_text(encoding='utf-8').splitlines():
+				print(f"  {color(pkg, 'GREEN')}")
+			return False
+		return True
+	if NEED_RESTART.exists():
+		return True
+	return False
 
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.autoremove_pkgs, 'Auto-Removing:', 'bold red'
-	)
+def print_notices(notices: Iterable[str]) -> None:
+	"""Print notices from dpkg."""
+	if notices:
+		print('\n'+color('Notices:', 'YELLOW'))
+		for notice_msg in notices:
+			print(notice_msg)
 
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.extended_install, 'Installing:', 'bold green'
-	)
+def setup_cache() -> Cache:
+	"""Update the cache if necessary, and then return the Cache."""
+	if arguments.no_install_recommends:
+		apt_pkg.config.set('APT::Install-Recommends', '0')
+	if arguments.install_suggests:
+		apt_pkg.config.set('APT::Install-Suggests', '1')
+	set_env()
+	try:
+		if not check_update():
+			with DelayedKeyboardInterrupt():
+				with Live(auto_refresh=False) as live:
+					Cache().update(UpdateProgress(live))
+	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
+		apt_error(err)
+	except KeyboardInterrupt:
+		print('Exiting due to SIGINT')
+		sys.exit(ExitCode.SIGINT)
+	finally:
+		term.restore_mode()
+		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+	return Cache(OpProgress())
 
-	print_packages(
-		['Package:', 'Old Version:', 'New Version:', 'Size:'],
-		nala_pkgs.upgrade_pkgs, 'Upgrading:', 'bold blue'
-	)
+def check_update() -> bool:
+	"""Check if we should update the cache or not."""
+	no_update_list = ('remove', 'show', 'search', 'history', 'install', 'purge')
+	no_update = cast(bool, arguments.no_update)
+	if arguments.command in no_update_list:
+		no_update = True
+	if not arguments.command and arguments.fix_broken:
+		no_update = True
+	if arguments.update:
+		no_update = False
+	return no_update
 
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.recommend_pkgs, 'Recommended, Will Not Be Installed:', 'bold magenta'
-	)
+def sort_pkg_name(pkg: Package) -> str:
+	"""Sort by package name.
 
-	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.suggest_pkgs, 'Suggested, Will Not Be Installed:', 'bold magenta'
-	)
+	This is to be used as sorted(key=sort_pkg_name)
+	"""
+	return str(pkg.name)
 
-	transaction_summary(delete, nala_pkgs, not cache)
-	if cache:
-		transaction_footer(cache)
+def check_term_ask() -> None:
+	"""Check terminal and ask user if they want to continue."""
+	# If we're piped or something the user should specify --assume-yes
+	# As They are aware it can be dangerous to continue
+	if not term.is_term() and not arguments.assume_yes:
+		sys.exit(
+			f'{ERROR_PREFIX}It can be dangerous to continue without a terminal. Use `--assume-yes`'
+		)
 
-def transaction_summary(
-	delete_header: str, nala_pkgs: PackageHandler, history: bool = False) -> None:
-	"""Print a small transaction summary."""
-	print('='*term.columns)
-	print('Summary')
-	print('='*term.columns)
-	table = Table.grid('', padding=(0,2))
-	table.add_column(justify='right', overflow=term.overflow)
-	table.add_column(overflow=term.overflow)
+	if not arguments.assume_yes and not ask('Do you want to continue'):
+		print("Abort.")
+		sys.exit(0)
 
-	if nala_pkgs.install_total:
-		table.add_row(
-			'Install' if not history else 'Installed',
-			str(nala_pkgs.install_total), 'Packages')
+def check_work(pkgs: list[Package], local_debs: list[DebPackage],
+	upgrade: bool, remove: bool) -> None:
+	"""Check if there is any work for nala to do.
 
-	if nala_pkgs.upgrade_total:
-		table.add_row(
-			'Upgrade' if not history else 'Upgraded',
-			str(nala_pkgs.upgrade_total),'Packages')
+	Returns None if there is work, exit's successful if not.
+	"""
+	if upgrade and not pkgs:
+		print(color("All packages are up to date."))
+		sys.exit(0)
+	elif not remove and not pkgs and not local_debs:
+		print(color("Nothing for Nala to do."))
+		sys.exit(0)
+	elif remove and not pkgs:
+		print(color("Nothing for Nala to remove."))
+		sys.exit(0)
 
-	if nala_pkgs.delete_total:
-		table.add_row(delete_header, str(nala_pkgs.delete_total), 'Packages')
+def check_essential(pkgs: list[Package]) -> None:
+	"""Check removal of essential packages."""
+	if arguments.remove_essential:
+		return
+	essential: list[Text] = []
+	for pkg in pkgs:
+		if pkg.is_installed:
+			# do not allow the removal of essential or required packages
+			if pkg.essential and pkg.marked_delete:
+				essential.append(
+					from_ansi(color(pkg.name, 'RED'))
+				)
+			# do not allow the removal of nala
+			elif pkg.shortname in 'nala' and pkg.marked_delete:
+				essential.append(
+					from_ansi(color('nala', 'RED'))
+				)
 
-	if nala_pkgs.autoremove_total:
-		table.add_row('Auto-Remove', str(nala_pkgs.autoremove_total), 'Packages')
-	term.console.print(table)
+	if essential:
+		essential_error(essential)
 
-def transaction_footer(cache: Cache) -> None:
-	"""Print transaction footer."""
-	print()
-	if (download := cache.required_download) > 0:
-		print(f'Total download size: {unit_str(download)}')
-	if (space := cache.required_space) < 0:
-		print(f'Disk space to free: {unit_str(-int(space))}')
-	else:
-		print(f'Disk space required: {unit_str(space)}')
-	if arguments.download_only:
-		print("Nala will only download the packages")
+def set_env() -> None:
+	"""Set environment."""
+	if arguments.non_interactive:
+		os.environ["DEBIAN_FRONTEND"] = "noninteractive"
+	if arguments.non_interactive_full:
+		os.environ["DEBIAN_FRONTEND"] = "noninteractive"
+		apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
+		apt_pkg.config.set('Dpkg::Options::', '--force-confold')
+	if arguments.no_aptlist:
+		os.environ["APT_LISTCHANGES_FRONTEND"] = "none"
+	if arguments.confdef:
+		apt_pkg.config.set('Dpkg::Options::', '--force-confdef')
+	if arguments.confold:
+		apt_pkg.config.set('Dpkg::Options::', '--force-confold')
+	if arguments.confnew:
+		apt_pkg.config.set('Dpkg::Options::', '--force-confnew')
+	if arguments.confmiss:
+		apt_pkg.config.set('Dpkg::Options::', '--force-confmiss')
+	if arguments.confask:
+		apt_pkg.config.set('Dpkg::Options::', '--force-confask')

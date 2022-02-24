@@ -30,20 +30,14 @@ from getpass import getuser
 from json.decoder import JSONDecodeError
 from os import environ, getuid
 from pwd import getpwnam
-from typing import TYPE_CHECKING
 
 import jsbeautifier
 
 from nala.constants import (ERROR_PREFIX,
 				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE)
-from nala.install import print_update_summary
-from nala.logger import dprint
 from nala.rich import Column, Table
-from nala.utils import (DelayedKeyboardInterrupt,
-				NalaPackage, PackageHandler, get_date, term)
-
-if TYPE_CHECKING:
-	from nala.nala import Nala
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
+				PackageHandler, dprint, get_date, print_update_summary, term)
 
 USER: str = environ.get("DOAS_USER", '')
 UID: int = 0
@@ -70,7 +64,7 @@ def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str
 		with open(NALA_HISTORY, 'w', encoding='utf-8') as file:
 			file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
 
-def history() -> None:
+def history_summary() -> None:
 	"""History command."""
 	if not NALA_HISTORY.exists():
 		print("No history exists...")
@@ -159,8 +153,10 @@ def history_clear(hist_id: str) -> None:
 	print('History has been altered...')
 	write_history_file(history_edit)
 
-def history_undo(apt: Nala, hist_id: str, redo: bool = False) -> None:
+def history_undo(hist_id: str, redo: bool = False) -> None:
 	"""History undo/redo commands."""
+	from nala.nala import (  # pylint: disable=cyclic-import, import-outside-toplevel
+					install, remove)
 	if redo:
 		dprint(f"History: redo {hist_id}")
 	else:
@@ -179,18 +175,19 @@ def history_undo(apt: Nala, hist_id: str, redo: bool = False) -> None:
 	if command == 'remove':
 		pkgs = hist_pkg_sort('Removed')
 		if redo:
-			apt.remove(pkgs)
-		else:
-			apt.install(pkgs)
+			remove(pkgs)
+			return
+		install(pkgs)
+		return
 
-	elif command == 'install':
+	if command == 'install':
 		pkgs = hist_pkg_sort('Installed')
 		if redo:
-			apt.install(pkgs)
-		else:
-			apt.remove(pkgs)
-	else:
-		print('Undo for operations other than install or remove are not currently supported')
+			install(pkgs)
+			return
+		remove(pkgs)
+		return
+	print('Undo for operations other than install or remove are not currently supported')
 
 def write_history(handler: PackageHandler) -> None:
 	"""Prepare history for writing."""

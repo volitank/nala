@@ -24,6 +24,7 @@
 """Where Utilities who don't have a special home come together."""
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import os
@@ -38,6 +39,7 @@ from types import FrameType
 from typing import Literal, cast
 
 import jsbeautifier
+from apt.cache import Cache
 from apt.debfile import DebPackage
 from apt.package import Package, Version
 
@@ -280,7 +282,6 @@ class NalaPackage:
 		return unit_str(int(self.size))
 
 term = Terminal()
-nala_pkgs = PackageHandler()
 
 def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
@@ -303,6 +304,11 @@ def ask(question: str, default_no: bool = False) -> bool:
 		if resp == '':
 			return not default_no
 		print("Not a valid choice kiddo")
+
+def sudo_check(root_action: str) -> None:
+	"""Check for root and exits if not root."""
+	if not term.is_su():
+		sys.exit(f'{ERROR_PREFIX}Nala needs root to {root_action}')
 
 def get_date() -> str:
 	"""Return the formatted Date and Time."""
@@ -402,6 +408,155 @@ def pkg_installed(pkg: Package) -> Version:
 	"""Type enforce package installed."""
 	assert pkg.installed
 	return pkg.installed
+
+def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
+	"""Iterate installed pkgs and return all of their deps in a list.
+
+	This is so we can reduce iterations when checking reverse depends.
+	"""
+	total_deps = []
+	for pkg in installed_pkgs:
+		for deps in pkg_installed(pkg).dependencies:
+			for dep in deps:
+				if dep.name not in total_deps:
+					total_deps.append(dep.name)
+	return tuple(total_deps)
+
+def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
+	"""Print the installed reverse depends of a package."""
+	print(color('Installed Packages Depend On This:', 'YELLOW'))
+	for pkg in installed_pkgs:
+		for dep in pkg_installed(pkg).dependencies:
+			if name in dep.rawstr:
+				print(' ', color(pkg.name, 'GREEN'))
+				break
+
+def arg_check() -> None:
+	"""Check arguments and errors if no packages are specified.
+
+	If args exists then duplicates will be removed.
+	"""
+	if arguments.command in ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean'):
+		if not arguments.args:
+			sys.exit(f'{ERROR_PREFIX}You must specify a package to {arguments.command}')
+		dedupe = []
+		for arg in arguments.args:
+			if arg not in dedupe:
+				dedupe.append(arg)
+		arguments.args = dedupe
+
+def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
+	"""Filter provided packages and glob *.
+
+	Returns a new list of packages matching the glob.
+
+	If there is nothing to glob it returns the original list.
+	"""
+	if '*' not in str(pkg_names):
+		return pkg_names
+
+	new_packages: list[str] = []
+	glob_failed = False
+	for pkg_name in pkg_names:
+		if '*' in pkg_name:
+			dprint(f'Globbing: {pkg_name}')
+			glob = fnmatch.filter(cache_keys, pkg_name)
+			if not glob:
+				glob_failed = True
+				print(
+					f'{ERROR_PREFIX}unable to find any packages by globbing {color(pkg_name, "YELLOW")}'
+				)
+				continue
+			new_packages.extend(
+				fnmatch.filter(cache_keys, pkg_name)
+			)
+		else:
+			new_packages.append(pkg_name)
+
+	dprint(f'List after globbing: {new_packages}')
+	if glob_failed:
+		sys.exit(1)
+	return new_packages
+
+def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
+	"""Print our transaction summary."""
+	delete, deleting = (
+		('Purge', 'Purging:')
+		if arguments.command == 'purge'
+		else ('Remove', 'Removing:')
+	)
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.delete_pkgs, deleting, 'bold red'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.autoremove_pkgs, 'Auto-Removing:', 'bold red'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.extended_install, 'Installing:', 'bold green'
+	)
+
+	print_packages(
+		['Package:', 'Old Version:', 'New Version:', 'Size:'],
+		nala_pkgs.upgrade_pkgs, 'Upgrading:', 'bold blue'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.recommend_pkgs, 'Recommended, Will Not Be Installed:', 'bold magenta'
+	)
+
+	print_packages(
+		['Package:', 'Version:', 'Size:'],
+		nala_pkgs.suggest_pkgs, 'Suggested, Will Not Be Installed:', 'bold magenta'
+	)
+
+	transaction_summary(delete, nala_pkgs, not cache)
+	if cache:
+		transaction_footer(cache)
+
+def transaction_summary(
+	delete_header: str, nala_pkgs: PackageHandler, history: bool = False) -> None:
+	"""Print a small transaction summary."""
+	print('='*term.columns)
+	print('Summary')
+	print('='*term.columns)
+	table = Table.grid('', padding=(0,2))
+	table.add_column(justify='right', overflow=term.overflow)
+	table.add_column(overflow=term.overflow)
+
+	if nala_pkgs.install_total:
+		table.add_row(
+			'Install' if not history else 'Installed',
+			str(nala_pkgs.install_total), 'Packages')
+
+	if nala_pkgs.upgrade_total:
+		table.add_row(
+			'Upgrade' if not history else 'Upgraded',
+			str(nala_pkgs.upgrade_total),'Packages')
+
+	if nala_pkgs.delete_total:
+		table.add_row(delete_header, str(nala_pkgs.delete_total), 'Packages')
+
+	if nala_pkgs.autoremove_total:
+		table.add_row('Auto-Remove', str(nala_pkgs.autoremove_total), 'Packages')
+	term.console.print(table)
+
+def transaction_footer(cache: Cache) -> None:
+	"""Print transaction footer."""
+	print()
+	if (download := cache.required_download) > 0:
+		print(f'Total download size: {unit_str(download)}')
+	if (space := cache.required_space) < 0:
+		print(f'Disk space to free: {unit_str(-int(space))}')
+	else:
+		print(f'Disk space required: {unit_str(space)}')
+	if arguments.download_only:
+		print("Nala will only download the packages")
 
 def print_packages(
 	headers: list[str],

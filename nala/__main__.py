@@ -25,184 +25,53 @@
 from __future__ import annotations
 
 import sys
-from getpass import getuser
-from typing import NoReturn
 
-from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
-				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
+# pylint: disable=unused-import
+from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR
 from nala.fetch import fetch
-from nala.history import history, history_clear, history_info, history_undo
-from nala.logger import dprint, esyslog
-from nala.nala import Nala
+from nala.install import setup_cache
+from nala.nala import (clean, fix_broken, history,
+				install, moo, purge, remove, search, show, upgrade)
 from nala.options import arguments, parser
-from nala.utils import iter_remove, term
+from nala.utils import arg_check, dprint, sudo_check, term
 
 if str(ARCHIVE_DIR) == '/':
 	sys.exit(ERROR_PREFIX+"archive dir is '/'. This is dangerous and unsupported.")
 
 def _main() -> None:
 	"""Nala Main."""
-	if not arguments.command and not any((arguments.update, arguments.fix_broken)):
-		parser.print_help()
-		sys.exit(1)
+	if arguments.raw_dpkg or not term.is_xterm():
+		arguments.verbose = True
+	if arguments.command == 'update':
+		arguments.command = 'upgrade'
+
+	if term.is_su() and not NALA_LOGDIR.exists():
+		NALA_LOGDIR.mkdir()
 
 	dprint(f"Argparser = {arguments}")
-	superuser= ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean')
-	apt_init = ('update', 'upgrade', 'install', 'remove', 'show', 'purge', 'search', None)
-
-	if arguments.command in superuser:
+	if arguments.command in ('upgrade', 'install', 'remove', 'fetch', 'clean'):
 		sudo_check(arguments.command)
 	elif not arguments.command:
 		if arguments.update:
 			sudo_check('update package list')
+			setup_cache()
+			return
 		if arguments.fix_broken:
 			sudo_check('fix broken packages')
+			fix_broken()
+			return
+		parser.print_help()
+		sys.exit(1)
 
-	if arguments.command in apt_init:
-		apt_command()
-	else:
-		not_apt_command()
-
-def apt_command() -> NoReturn:
-	"""Command which require initializing the apt cache."""
-	apt = init_apt()
-	if arguments.command in ('update', 'upgrade'):
-		apt.upgrade(dist_upgrade=arguments.no_full)
-
-	elif arguments.command == 'install':
-		arg_check(arguments.args, 'install')
-		apt.install(arguments.args)
-
-	elif arguments.command in ('remove', 'purge'):
-		purge = arguments.command == 'purge'
-		args = arguments.args
-		arg_check(arguments.args, arguments.command)
-		apt.remove(args, purge=purge)
-
-	elif arguments.command == 'show':
-		arg_check(arguments.args, 'show')
-		apt.show(arguments.args)
-
-	elif arguments.command == 'search':
-		if not arguments.args:
-			sys.exit(f'{ERROR_PREFIX}You must specify a pattern to search')
-		apt.search(arguments.args)
-
-	elif not arguments.command and arguments.fix_broken:
-		apt.fix_broken()
-
-	elif not arguments.update:
-		sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
-	sys.exit(0)
-
-def not_apt_command() -> NoReturn:
-	"""Command which does not require initializing the apt cache."""
-	if arguments.command == 'clean':
-		clean()
-	elif arguments.command == 'fetch':
-		fetch()
-	elif arguments.command == 'moo':
-		moo_pls()
-	elif arguments.command == 'history':
-		nala_history()
-	else:
-		sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
-	sys.exit(0)
-
-def arg_check(args: list[str], msg: str) -> None:
-	"""Check arguments and errors if no packages are specified.
-
-	If args exists then duplicates will be removed.
-	"""
-	if not args:
-		sys.exit(f'{ERROR_PREFIX}You must specify a package to {msg}')
-	dedupe = []
-	for arg in arguments.args:
-		if arg not in dedupe:
-			dedupe.append(arg)
-	arguments.args = dedupe
-
-def clean() -> None:
-	"""Find and delete cache files."""
-	iter_remove(ARCHIVE_DIR, arguments.verbose)
-	iter_remove(PARTIAL_DIR, arguments.verbose)
-	iter_remove(LISTS_PARTIAL_DIR, arguments.verbose)
-	if arguments.verbose:
-		print(f'Removing {PKGCACHE}')
-		print(f'Removing {SRCPKGCACHE}')
-	elif arguments.debug:
-		dprint(f'Removing {PKGCACHE}')
-		dprint(f'Removing {SRCPKGCACHE}')
-	PKGCACHE.unlink(missing_ok=True)
-	SRCPKGCACHE.unlink(missing_ok=True)
-	print("Cache has been cleaned")
-
-def nala_history() -> None:
-	"""Coordinate the history command."""
-	mode = arguments.mode
-	# Eventually we should probably make argparser better and handle this for us.
-	if mode and mode not in ('undo', 'redo', 'info', 'clear'):
-		sys.exit(f"{ERROR_PREFIX}'{mode}' isn't a valid history command")
-	if mode and not arguments.id:
-		sys.exit(f'{ERROR_PREFIX}We need a transaction ID...')
-	if mode in ('undo', 'redo', 'info'):
-		try:
-			# We are basically just type checking here
-			int(arguments.id)
-		except ValueError:
-			sys.exit(f'{ERROR_PREFIX}Option must be a number...')
-	if not mode:
-		history()
-	if mode == 'undo':
-		sudo_check('undo history')
-		history_undo(init_apt(), arguments.id)
-
-	elif mode == 'redo':
-		sudo_check('redo history')
-		history_undo(init_apt(), arguments.id, redo=True)
-
-	elif mode == 'info':
-		history_info(arguments.id)
-
-	elif mode == 'clear':
-		sudo_check('clear history')
-		history_clear(arguments.id)
-
-def sudo_check(root_action: str) -> None:
-	"""Check for root and exits if not root."""
-	if not term.is_su():
-		esyslog(f'{getuser()} tried to run [{" ".join(sys.argv)}] without permission')
-		sys.exit(f'{ERROR_PREFIX}Nala needs root to {root_action}')
-
-def init_apt() -> Nala:
-	"""Initialize Nala and determines if we update the cache or not."""
-	no_update_list = ('remove', 'show', 'search', 'history', 'install', 'purge')
-	no_update = arguments.no_update
-	if arguments.command in no_update_list:
-		no_update = True
-	if not arguments.command and arguments.fix_broken:
-		no_update = True
-	if arguments.update:
-		no_update = False
-
-	return Nala(no_update)
-
-def moo_pls() -> None:
-	"""I beg, pls moo."""
-	moos = arguments.moo
-	moos = moos.count('moo')
-	dprint(f"moo number is {moos}")
-	if moos == 1:
-		print(CAT_ASCII['2'])
-	elif moos == 2:
-		print(CAT_ASCII['3'])
-	else:
-		print(CAT_ASCII['1'])
-	print('..."I can\'t moo for I\'m a cat"...')
-	if arguments.no_update:
-		print("...What did you expect no-update to do?...")
-	if arguments.update:
-		print("...What did you expect to update?...")
+	arg_check()
+	if arguments.command in ('install', 'show', 'search', 'remove', 'purge'):
+		# eval should be safe here considering the commands are specifically defined.
+		eval(f"{arguments.command}({arguments.args})") # pylint: disable=eval-used
+		return
+	if arguments.command in ('upgrade', 'clean', 'fetch', 'moo', 'history'):
+		eval(f"{arguments.command}()") # pylint: disable=eval-used
+		return
+	sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
 
 def main() -> None:
 	"""Nala function to reference from the entry point."""

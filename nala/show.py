@@ -43,7 +43,7 @@ def print_sep() -> None:
 	print('='*term.columns)
 	print()
 
-def show(num: int, pkg: Package) -> int:
+def show_main(num: int, pkg: Package) -> int:
 	"""Orchestrate show command with support for all_versions."""
 	if num:
 		print_sep()
@@ -56,10 +56,10 @@ def show(num: int, pkg: Package) -> int:
 		if ver_num and not num:
 			print_sep()
 		count -= 1
-		show_main(ver)
+		show_pkg(ver)
 	return count
 
-def show_main(candidate: Version) -> None:
+def show_pkg(candidate: Version) -> None:
 	"""Start show functions."""
 	pkg = candidate.package
 	for pkg_info in show_format(pkg, candidate):

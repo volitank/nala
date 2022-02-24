@@ -27,8 +27,6 @@ from __future__ import annotations
 import sys
 from datetime import timedelta
 
-from rich.columns import Columns
-
 try:
 	from rich.console import Group  # type: ignore[attr-defined]
 # Rich 11.0.0 changed RenderGroup to Group
@@ -37,6 +35,7 @@ except ImportError:
 	from rich.console import RenderGroup as Group  # type: ignore[attr-defined, no-redef]
 
 from rich.ansi import AnsiDecoder
+from rich.columns import Columns
 from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.markup import escape

@@ -5,11 +5,9 @@
 #  |___|  (____  /____(____  /
 #       \/     \/          \/
 #
-# Copyright (C) 2010 Tatsuhiro Tsujikawa
 # Copyright (C) 2021, 2022 Blake Lee
 #
 # This file is part of nala
-# nala is based upon apt-metalink https://github.com/tatsuhiro-t/apt-metalink
 #
 # nala is program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +27,7 @@ from __future__ import annotations
 import asyncio
 import re
 import sys
-from asyncio import AbstractEventLoop, Semaphore, gather
+from asyncio import AbstractEventLoop, CancelledError, Semaphore, gather, run
 from errno import ENOENT
 from functools import partial
 from pathlib import Path
@@ -47,6 +45,7 @@ from rich.panel import Panel
 
 from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
 				ERROR_PREFIX, PARTIAL_DIR, ExitCode)
+from nala.options import arguments
 from nala.rich import Live, Table, from_ansi, pkg_download_progress
 from nala.utils import (check_pkg, color, dprint,
 				get_pkg_name, pkg_candidate, term, unit_str, vprint)
@@ -302,3 +301,28 @@ def sort_pkg_size(pkg_url: list[Version | str]) -> int:
 	assert isinstance(candidate, Version)
 	assert isinstance(candidate.size, int)
 	return candidate.size
+
+def download(pkgs: list[Package]) -> None:
+	"""Run downloads and check for failures.
+
+	Does not return if in Download Only mode.
+	"""
+	downloader = PkgDownloader(pkgs)
+	try:
+		run(downloader.start_download())
+	except CancelledError as error:
+		if downloader.exit:
+			sys.exit(downloader.exit)
+		raise error from error
+
+	if arguments.download_only:
+		if downloader.failed:
+			for pkg in downloader.failed:
+				print(f'{ERROR_PREFIX}{pkg} Failed to download')
+			sys.exit(f'{ERROR_PREFIX}Some downloads failed and in download only mode.')
+
+		print("Download complete and in download only mode.")
+		sys.exit(0)
+
+	if downloader.failed:
+		print("Some downloads failed. Falling back to apt_pkg.")
