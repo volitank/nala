@@ -44,7 +44,7 @@ from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, check_virtual, show_main
-from nala.utils import (PackageHandler, color, dprint,
+from nala.utils import (PackageHandler, color, dprint, eprint,
 				glob_filter, iter_remove, pkg_installed, sudo_check)
 
 nala_pkgs = PackageHandler()
@@ -169,7 +169,7 @@ def show(pkg_names: list[str]) -> None:
 
 	if not_found:
 		for error in not_found:
-			print(error)
+			eprint(error)
 		sys.exit(1)
 
 def search(search_term: str) -> None:
@@ -230,9 +230,9 @@ def history() -> None:
 
 def clean() -> None:
 	"""Find and delete cache files."""
-	iter_remove(ARCHIVE_DIR, arguments.verbose)
-	iter_remove(PARTIAL_DIR, arguments.verbose)
-	iter_remove(LISTS_PARTIAL_DIR, arguments.verbose)
+	iter_remove(ARCHIVE_DIR)
+	iter_remove(PARTIAL_DIR)
+	iter_remove(LISTS_PARTIAL_DIR)
 	if arguments.verbose:
 		print(f'Removing {PKGCACHE}')
 		print(f'Removing {SRCPKGCACHE}')

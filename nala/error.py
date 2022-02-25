@@ -32,10 +32,11 @@ from apt.cache import FetchFailedException, LockFailedException
 from apt.package import Package, Version
 
 from nala.constants import ERROR_PREFIX
-from nala.utils import color, term
 from nala.rich import Columns, Text
-from nala.utils import get_installed_dep_names, print_rdeps
 from nala.show import print_dep
+from nala.utils import (color, eprint,
+				get_installed_dep_names, print_rdeps, term)
+
 
 def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Error) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""
@@ -51,14 +52,14 @@ def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Erro
 		for err in err_list:
 			if 'E:' in err:
 				err = err.replace('E:', '')
-				print(ERROR_PREFIX+err.strip())
+				eprint(ERROR_PREFIX+err.strip())
 				continue
 			if 'W:' in err:
 				err = err.replace('W:', '')
-				print(color('Warning: ', 'YELLOW')+err.strip())
+				eprint(color('Warning: ', 'YELLOW')+err.strip())
 				continue
 		sys.exit(1)
-	print(ERROR_PREFIX+msg)
+	eprint(ERROR_PREFIX+msg)
 	if not term.is_su():
 		sys.exit('Are you root?')
 	sys.exit(1)
@@ -77,14 +78,14 @@ def essential_error(pkg_list: list[Text]) -> NoReturn:
 
 	print('='*term.columns)
 	switch = color('--remove-essential', 'YELLOW')
-	print(ERROR_PREFIX+essential_package)
-	print(f'{ERROR_PREFIX}Please use {switch} if you are sure you want too.')
+	eprint(ERROR_PREFIX+essential_package)
+	eprint(f'{ERROR_PREFIX}Please use {switch} if you are sure you want too.')
 	sys.exit(1)
 
 def pkg_error(pkg_list: list[str], msg: str = '', terminate: bool = False) -> None:
 	"""Print error for package in list."""
 	for pkg in pkg_list:
-		print(ERROR_PREFIX+color(pkg, 'YELLOW'), msg)
+		eprint(ERROR_PREFIX+color(pkg, 'YELLOW'), msg)
 
 	if terminate:
 		sys.exit(1)

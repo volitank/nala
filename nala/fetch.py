@@ -41,7 +41,7 @@ from rich.progress import Progress, TaskID
 from nala.constants import ERROR_PREFIX, NALA_SOURCES, SOURCELIST, SOURCEPARTS
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
-from nala.utils import ask, color, dprint
+from nala.utils import ask, color, dprint, eprint
 
 netselect_scored = []
 
@@ -139,9 +139,9 @@ def ping_error(error: str, mirror: str) -> None:
 	"""Handle error on ping."""
 	if arguments.verbose:
 		if not error:
-			print(f"{color('Packets were lost:', 'RED')} {mirror}")
+			eprint(f"{color('Packets were lost:', 'RED')} {mirror}")
 			return
-		print(f"{color(error, 'RED')}")
+		eprint(f"{color(error, 'RED')}")
 
 def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	"""Get and parse the Ubuntu mirror list."""
@@ -349,9 +349,9 @@ def check_supported(distro:str | None, release:str | None,
 		# It's ubuntu, you probably don't care about foss
 		return ubuntu_mirror(country_list), 'main restricted universe multiverse'
 	if distro is None or release is None:
-		sys.stderr.write(ERROR_PREFIX+'There was an issue detecting release. You can specify manually\n')
+		eprint(ERROR_PREFIX+'There was an issue detecting release. You can specify manually\n')
 	else:
-		sys.stderr.write(
+		eprint(
 			f"{ERROR_PREFIX}{distro} {release} is unsupported.\n"
 			"You can specify Ubuntu or Debian manually.\n"
 		)

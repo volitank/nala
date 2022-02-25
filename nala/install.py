@@ -43,9 +43,9 @@ from nala.error import apt_error, essential_error
 from nala.history import write_history, write_log
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, ask, check_pkg, color, dprint, get_date,
-				pkg_candidate, pkg_installed, print_update_summary, term, vprint)
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
+				ask, check_pkg, color, dprint, eprint, get_date, pkg_candidate,
+				pkg_installed, print_update_summary, term, vprint)
 
 
 def install_pkg(pkg: Package) -> None:
@@ -128,10 +128,10 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		sys.exit(f'\r\n{ERROR_PREFIX + str(error)}')
 	except FetchFailedException as error:
 		for failed in str(error).splitlines():
-			print(ERROR_PREFIX + failed)
+			eprint(ERROR_PREFIX + failed)
 		sys.exit(1)
 	except KeyboardInterrupt:
-		print("Exiting due to SIGINT")
+		eprint("Exiting due to SIGINT")
 		sys.exit(ExitCode.SIGINT)
 	finally:
 		term.restore_mode()
@@ -382,7 +382,7 @@ def setup_cache() -> Cache:
 	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
 		apt_error(err)
 	except KeyboardInterrupt:
-		print('Exiting due to SIGINT')
+		eprint('Exiting due to SIGINT')
 		sys.exit(ExitCode.SIGINT)
 	finally:
 		term.restore_mode()
@@ -418,7 +418,7 @@ def check_term_ask() -> None:
 		)
 
 	if not arguments.assume_yes and not ask('Do you want to continue'):
-		print("Abort.")
+		eprint("Abort.")
 		sys.exit(0)
 
 def check_work(pkgs: list[Package], local_debs: list[DebPackage],

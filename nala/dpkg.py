@@ -46,7 +46,7 @@ from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM
 from nala.options import arguments
 from nala.rich import (Group, Live, Panel, RenderableType, Table,
 				TaskID, Text, ascii_replace, dpkg_progress, from_ansi, spinner)
-from nala.utils import color, term
+from nala.utils import color, eprint, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
@@ -279,7 +279,7 @@ class InstallProgress(base.InstallProgress):
 			# If we don't the code continues in the child,
 			# And bugs will be very confusing
 			except Exception as err: # pylint: disable=broad-except
-				sys.stderr.write(f"{err}\n")
+				eprint(err)
 				os._exit(1)
 
 		self.child_pid = pid

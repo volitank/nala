@@ -36,7 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from shutil import get_terminal_size
 from types import FrameType
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import jsbeautifier
 from apt.cache import Cache
@@ -323,9 +323,9 @@ def unit_str(val: int, just: int = 7) -> str:
 		return f"{round(val/1000) :.0f}".rjust(just)+" kB"
 	return f'{val :.0f}'.rjust(just)+" B"
 
-def iter_remove(path: Path, verbose: bool = False) -> None:
+def iter_remove(path: Path) -> None:
 	"""Iterate the directory supplied and remove all files."""
-	if verbose:
+	if arguments.verbose:
 		print(f'Removing files in {path}')
 	for file in path.iterdir():
 		if file.is_file():
@@ -343,7 +343,7 @@ def check_pkg(directory: Path, candidate: Package | Version) -> bool:
 	try:
 		return check_hash(path, hash_type, hash_value)
 	except OSError as err:
-		print("Failed to check hash", err)
+		eprint("Failed to check hash", err)
 		return False
 
 def check_hash(path: Path, hash_type: str, hash_value: str) -> bool:
@@ -609,19 +609,20 @@ def summary_or_depends(pkg: list[NalaPackage]) -> tuple[Tree, Table, Table]:
 
 	return pkg_tree, ver_table, size_table
 
-def vprint(msg: str) -> None:
+def vprint(*args: Any, **kwargs: Any) -> None:
 	"""Print message if verbose."""
 	if arguments.verbose:
-		print(msg)
+		print(*args, **kwargs)
 
 def dprint(msg: object) -> None:
 	"""Print message if debugging, write to log if root."""
-	if arguments.debug:
-		msg = str(msg)
-		print(f'DEBUG: {msg}')
-		if term.is_su():
-			timezone = datetime.utcnow().astimezone().tzinfo
-			time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' '+str(timezone)
-			msg = f'[{time}] DEBUG: {msg}'
-			with open(NALA_DEBUGLOG, 'a', encoding='utf-8') as logfile:
-				logfile.write(msg+'\n')
+	if not arguments.debug:
+		return
+	print(f'DEBUG: {msg}')
+	if term.is_su():
+		with open(NALA_DEBUGLOG, 'a', encoding='utf-8') as logfile:
+			logfile.write(f'[{get_date()}] DEBUG: {msg}\n')
+
+def eprint(*args: Any, **kwargs: Any) -> None:
+	"""Print message to stderr."""
+	print(*args, file=sys.stderr, **kwargs)

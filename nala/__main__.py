@@ -33,7 +33,7 @@ from nala.install import setup_cache
 from nala.nala import (clean, fix_broken, history,
 				install, moo, purge, remove, search, show, upgrade)
 from nala.options import arguments, parser
-from nala.utils import arg_check, dprint, sudo_check, term
+from nala.utils import arg_check, dprint, eprint, sudo_check, term
 
 if str(ARCHIVE_DIR) == '/':
 	sys.exit(ERROR_PREFIX+"archive dir is '/'. This is dangerous and unsupported.")
@@ -78,5 +78,5 @@ def main() -> None:
 	try:
 		_main()
 	except KeyboardInterrupt:
-		print('\nExiting at your request')
+		eprint('\nExiting at your request')
 		sys.exit(130)

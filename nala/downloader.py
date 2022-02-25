@@ -47,7 +47,7 @@ from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
 				ERROR_PREFIX, PARTIAL_DIR, ExitCode)
 from nala.options import arguments
 from nala.rich import Live, Table, from_ansi, pkg_download_progress
-from nala.utils import (check_pkg, color, dprint,
+from nala.utils import (check_pkg, color, dprint, eprint,
 				get_pkg_name, pkg_candidate, term, unit_str, vprint)
 
 MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')
@@ -278,7 +278,7 @@ async def process_downloads(candidate: Version) -> bool:
 		source.rename(destination)
 	except OSError as error:
 		if error.errno != ENOENT:
-			print(
+			eprint(
 			    f"{ERROR_PREFIX}Failed to move archive file, "
 				f"{error.strerror}: '{error.filename}' -> '{error.filename2}'"
 			)
@@ -318,7 +318,7 @@ def download(pkgs: list[Package]) -> None:
 	if arguments.download_only:
 		if downloader.failed:
 			for pkg in downloader.failed:
-				print(f'{ERROR_PREFIX}{pkg} Failed to download')
+				eprint(f'{ERROR_PREFIX}{pkg} Failed to download')
 			sys.exit(f'{ERROR_PREFIX}Some downloads failed and in download only mode.')
 
 		print("Download complete and in download only mode.")

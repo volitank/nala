@@ -29,10 +29,10 @@ from typing import Pattern
 
 from apt.package import Package, Version
 
+from nala.constants import COLOR_CODES
 from nala.options import arguments
 from nala.rich import ascii_replace, is_utf8
-from nala.constants import COLOR_CODES
-from nala.utils import get_version, color, pkg_installed
+from nala.utils import color, get_version, pkg_installed
 
 
 def search_name(pkg: Package,

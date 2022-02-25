@@ -37,7 +37,7 @@ from nala.constants import (ERROR_PREFIX,
 				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE)
 from nala.rich import Column, Table
 from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, dprint, get_date, print_update_summary, term)
+				PackageHandler, dprint, eprint, get_date, print_update_summary, term)
 
 USER: str = environ.get("DOAS_USER", '')
 UID: int = 0
@@ -67,7 +67,7 @@ def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str
 def history_summary() -> None:
 	"""History command."""
 	if not NALA_HISTORY.exists():
-		print("No history exists...")
+		eprint(f"{ERROR_PREFIX}No history exists...")
 		return
 	history_file = load_history_file()
 	names: list[tuple[str, str, str, str]] = []
@@ -133,7 +133,7 @@ def history_clear(hist_id: str) -> None:
 	"""Show command."""
 	dprint(f"History clear {hist_id}")
 	if not NALA_HISTORY.exists():
-		print("No history exists to clear...")
+		eprint("No history exists to clear...")
 		return
 
 	if hist_id == 'all':
