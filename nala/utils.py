@@ -128,6 +128,8 @@ class Terminal:
 		# Readline is too hard to support with our fancy formatting
 		if os.environ.get("DEBIAN_FRONTEND") == "readline":
 			arguments.raw_dpkg = True
+		# We have to set lang as C so we get predictable output from dpkg.
+		os.environ["LANG"] = "C" if self.console.options.ascii_only else "C.UTF-8"
 
 	def update_size(self) -> None:
 		"""Update the current width and length of the terminal."""
