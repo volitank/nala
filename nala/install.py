@@ -99,6 +99,12 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler,
 	if not NALA_DIR.exists():
 		NALA_DIR.mkdir()
 
+	if not upgrade and not remove:
+		if arguments.no_install_recommends:
+			get_extra_pkgs('Recommends', pkgs, nala_pkgs.recommend_pkgs)
+		if not arguments.install_suggests:
+			get_extra_pkgs('Suggests', pkgs, nala_pkgs.suggest_pkgs)
+
 	check_work(pkgs, nala_pkgs.local_debs, upgrade, remove)
 
 	if pkgs or nala_pkgs.local_debs:
@@ -236,26 +242,46 @@ def package_manager(pkg_names: list[str], cache: Cache,
 					return False
 	return True
 
-def get_extra_pkgs(extra_type: str, pkg_names: list[str],
-	cache: Cache, npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:
+def get_extra_pkgs(extra_type: str,
+	pkgs: list[Package], npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:
 	"""Get Recommended or Suggested Packages."""
-	for pkg_name in pkg_names:
-		pkg = cache[pkg_name]
-		if pkg.candidate and (recommends := pkg.candidate.get_dependencies(extra_type)):
-			for dep in recommends:
-				if len(dep) == 1:
-					ver = dep.target_versions[0]
+	or_name = []
+	for pkg in pkgs:
+		if not pkg.marked_install or not pkg.candidate:
+			continue
+		if not (recommends := pkg.candidate.get_dependencies(extra_type)):
+			continue
+		for dep in recommends:
+			if len(dep) == 1:
+				if not dep.target_versions:
 					npkg_list.append(
-						NalaPackage(ver.package.name, ver.version, ver.size)
+						NalaPackage(dep[0].name, 'Virtual Package', 0)
 					)
 					continue
+				ver = dep.target_versions[0]
 				npkg_list.append(
-					[NalaPackage(
-						base_dep.target_versions[0].package.name,
-						base_dep.target_versions[0].version,
-						base_dep.target_versions[0].size
-					) for base_dep in dep if base_dep.target_versions]
+					NalaPackage(ver.package.name, ver.version, ver.size)
 				)
+				continue
+			or_deps = []
+			for base_dep in dep:
+				if not base_dep.target_versions:
+					if base_dep.name in or_name:
+						continue
+					or_name.append(base_dep.name)
+					or_deps.append(
+						NalaPackage(base_dep.name, 'Virtual Package', 0)
+					)
+					continue
+				ver = base_dep.target_versions[0]
+				if ver.package.name in or_name:
+					continue
+				or_name.append(ver.package.name)
+				or_deps.append(
+					NalaPackage(ver.package.name, ver.version, ver.size)
+				)
+			if or_deps:
+				npkg_list.append(or_deps)
 
 def check_broken(pkg_names: list[str], cache: Cache,
 	remove: bool = False, purge: bool = False) -> tuple[list[Package], list[str]]:

@@ -38,8 +38,8 @@ from nala.error import broken_error, pkg_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
 from nala.install import (auto_remover, check_broken, check_term_ask,
-				get_changes, get_extra_pkgs, install_local, installed_found_deps,
-				installed_missing_dep, package_manager, setup_cache, split_local)
+				get_changes, install_local, installed_found_deps, installed_missing_dep,
+				package_manager, setup_cache, split_local)
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
@@ -76,11 +76,6 @@ def install(pkg_names: list[str]) -> None:
 
 	if not_found:
 		pkg_error(not_found, 'not found', terminate=True)
-
-	if arguments.no_install_recommends:
-		get_extra_pkgs('Recommends', pkg_names, cache, nala_pkgs.recommend_pkgs)
-	if not arguments.install_suggests:
-		get_extra_pkgs('Suggests', pkg_names, cache, nala_pkgs.suggest_pkgs)
 
 	if not package_manager(pkg_names, cache):
 		broken_error(broken)
