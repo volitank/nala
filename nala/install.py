@@ -33,7 +33,7 @@ import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.debfile import DebPackage
 from apt.package import Package
-from apt_pkg import DepCache, Error as AptError
+from apt_pkg import DepCache, Error as AptError, get_architectures
 
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
 				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, ExitCode)
@@ -241,6 +241,22 @@ def package_manager(pkg_names: list[str], cache: Cache,
 						raise error from error
 					return False
 	return True
+
+def arch_filter(pkg_names: list[str], cache: Cache) -> list[str]:
+	"""Filter package names and append arch if necessary."""
+	new_names = []
+	arches = get_architectures()
+	for pkg_name in pkg_names:
+		arch_found = False
+		if pkg_name not in cache:
+			for arch in arches:
+				arch_pkg = f"{pkg_name}:{arch}"
+				if arch_pkg in cache:
+					new_names.append(arch_pkg)
+					arch_found = True
+		if not arch_found:
+			new_names.append(pkg_name)
+	return new_names
 
 def get_extra_pkgs(extra_type: str,
 	pkgs: list[Package], npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:

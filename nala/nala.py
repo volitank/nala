@@ -37,9 +37,9 @@ from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
 from nala.error import broken_error, pkg_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
-from nala.install import (auto_remover, check_broken, check_term_ask,
-				get_changes, install_local, installed_found_deps, installed_missing_dep,
-				package_manager, setup_cache, split_local)
+from nala.install import (arch_filter, auto_remover, check_broken,
+				check_term_ask, get_changes, install_local, installed_found_deps,
+				installed_missing_dep, package_manager, setup_cache, split_local)
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
@@ -71,6 +71,7 @@ def install(pkg_names: list[str]) -> None:
 	install_local(nala_pkgs)
 
 	pkg_names = glob_filter(pkg_names, cache.keys())
+	pkg_names = arch_filter(pkg_names, cache)
 	broken, not_found = check_broken(pkg_names, cache)
 	not_found.extend(not_exist)
 
