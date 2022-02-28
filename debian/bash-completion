@@ -22,19 +22,6 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 
-_get_first_arg()
-{
-	local i
-
-	arg=
-	for ((i = 1; i < COMP_CWORD; i++)); do
-		if [[ ${COMP_WORDS[i]} != -* ]]; then
-			arg=${COMP_WORDS[i]}
-			break
-		fi
-	done
-}
-
 _nala()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
@@ -63,6 +50,24 @@ _nala()
 		--confask
 	'
 
+	_get_first_arg()
+	{
+		local i
+
+		arg=
+		for ((i = 1; i < COMP_CWORD; i++)); do
+			if [[ ${COMP_WORDS[i]} != -* ]]; then
+				arg=${COMP_WORDS[i]}
+				break
+			fi
+		done
+	}
+
+	_get_removable()
+	{
+		grep-status -P -e "^$1" -a -FStatus 'ok installed' -n -s Package
+	}
+
 	case $prev in
 		--help | --version | --license | -!(-*)[chslSbopitT])
 			return
@@ -71,6 +76,7 @@ _nala()
 
 	local arg
 	_get_first_arg
+
 	if [[ -z $arg ]]; then
 		if [[ $cur == -* ]]; then
 			COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
@@ -138,8 +144,7 @@ _nala()
 					return 0
 					;;
 				moo)
-					COMPREPLY=( $( compgen -W '
-						' -- "$cur" ) )
+					COMPREPLY=( $( compgen -W '' -- "$cur" ) )
 					return 0
 					;;
 			esac
@@ -147,13 +152,13 @@ _nala()
 			case $arg in
 				install)
 					COMPREPLY=( $( apt-cache --no-generate pkgnames "$cur" 2> /dev/null ) )
-					if [[ "$cur" == ./* || "$cur" == /* ]]; then
-						_filedir "deb"
+					if [[ "$cur" == */* ]]; then
+						COMPREPLY=( $( compgen -f -- "$cur" ) )
 					fi
 					return 0
 					;;
 				remove)
-					COMPREPLY=( $( _xfunc dpkg _comp_dpkg_installed_packages $cur ) )
+					COMPREPLY=( $( _get_removable $cur ) )
 					return 0
 					;;
 				history)
@@ -179,5 +184,3 @@ _nala()
 
 } &&
 complete -F _nala nala
-
-# vim:set ft=sh ts=4 sw=4 noet:
