@@ -51,6 +51,8 @@ _nala()
 	'
 
 	local DPKG_OPTIONS='
+		--no-install-recommends
+		--install-suggests
 		--no-aptlist
 		--non-interactive
 		--non-interactive-full
