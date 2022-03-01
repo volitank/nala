@@ -64,11 +64,11 @@ def _main() -> None:
 		sys.exit(1)
 
 	arg_check()
-	if arguments.command in ('install', 'show', 'search', 'remove', 'purge'):
+	if arguments.command in ('install', 'show', 'remove', 'purge'):
 		# eval should be safe here considering the commands are specifically defined.
 		eval(f"{arguments.command}({arguments.args})") # pylint: disable=eval-used
 		return
-	if arguments.command in ('upgrade', 'clean', 'fetch', 'moo', 'history'):
+	if arguments.command in ('upgrade', 'clean', 'fetch', 'moo', 'history', 'search'):
 		eval(f"{arguments.command}()") # pylint: disable=eval-used
 		return
 	sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')

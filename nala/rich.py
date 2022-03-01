@@ -49,6 +49,8 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
+from nala.constants import _
+
 __all__ = (
 	'Spinner', 'Table', 'Column', 'Columns',
 	'Console', 'Tree', 'Live', 'Text',
@@ -113,6 +115,23 @@ SPIN_TYPE = 'dots' if is_utf8 else 'simpleDots'
 FINISHED_TEXT = "[bold green]:heavy_check_mark:" if is_utf8 else " "
 PROGRESS_PERCENT = "[bold blue]{task.percentage:>3.1f}%"
 COMPLETED_TOTAL = "{task.completed}/{task.total}"
+BAR_MAX = BarColumn(
+	bar_width=None,
+	# The background of our bar
+	style=bar_back_style,
+	# The color completed section
+	complete_style=bar_style,
+	# The color of completely finished bar
+	finished_style=bar_style
+	)
+BAR_MIN = BarColumn(
+	# The background of our bar
+	style=bar_back_style,
+	# The color completed section
+	complete_style=bar_style,
+	# The color of completely finished bar
+	finished_style=bar_style
+	)
 
 def from_ansi(msg: str) -> Text:
 	"""Convert ansi coded text into Rich Text."""
@@ -124,78 +143,45 @@ def ascii_replace(string: str) -> str:
 
 spinner = Spinner(
 	SPIN_TYPE,
-	text='Initializing',
 	style="bold blue"
 )
-
+time_remain = _('Time Remaining:')
 pkg_download_progress = Progress(
-	TextColumn("[bold green]Time Remaining:"),
+	TextColumn(f"[bold green]{time_remain}"),
 	TimeRemaining(),
-	BarColumn(
-		bar_width=None,
-		# The background of our bar
-		style=bar_back_style,
-		# The color completed section
-		complete_style=bar_style,
-		# The color of completely finished bar
-		finished_style=bar_style
-	),
+	BAR_MAX,
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	NalaDownload(),
 	SEPARATOR,
 	NalaTransferSpeed(),
 	)
-
+running_dpkg = _('Running dpkg')
 dpkg_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold white", finished_text=FINISHED_TEXT),
-	TextColumn("[bold blue]Running dpkg ...", justify="right"),
-	BarColumn(
-		bar_width=None,
-		# The background of our bar
-		style=bar_back_style,
-		# The color completed section
-		complete_style=bar_style,
-		# The color of completely finished bar
-		finished_style=bar_style
-	),
+	TextColumn(f"[bold blue]{running_dpkg} ...", justify="right"),
+	BAR_MAX,
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	TimeRemaining(),
 	SEPARATOR,
 	COMPLETED_TOTAL
 )
-
+searching = _('Searching')
 search_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn("[bold white]Searching ...", justify="right"),
-	BarColumn(
-		#bar_width=None,
-		# The background of our bar
-		style=bar_back_style,
-		# The color completed section
-		complete_style=bar_style,
-		# The color of completely finished bar
-		finished_style=bar_style
-	),
+	TextColumn(f"[bold white]{searching} ...", justify="right"),
+	BAR_MIN,
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	TimeRemaining(),
 	transient=True
 )
-
+testing = _('Testing Mirrors')
 fetch_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn("[bold white]Testing Mirrors ...", justify="right"),
-	BarColumn(
-		#bar_width=None,
-		# The background of our bar
-		style=bar_back_style,
-		# The color completed section
-		complete_style=bar_style,
-		# The color of completely finished bar
-		finished_style=bar_style
-	),
+	TextColumn(f"[bold white]{testing} ...", justify="right"),
+	BAR_MIN,
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	COMPLETED_TOTAL,

@@ -43,14 +43,20 @@ from httpx import (URL, AsyncClient, ConnectError, ConnectTimeout, HTTPError,
 				HTTPStatusError, Proxy, RemoteProtocolError, RequestError, get)
 from rich.panel import Panel
 
-from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
-				ERROR_PREFIX, PARTIAL_DIR, ExitCode)
+from nala.constants import (ARCHIVE_DIR,
+				ERRNO_PATTERN, ERROR_PREFIX, PARTIAL_DIR, _)
+from nala.error import ExitCode
 from nala.options import arguments
 from nala.rich import Live, Table, from_ansi, pkg_download_progress
 from nala.utils import (check_pkg, color, dprint, eprint,
 				get_pkg_name, pkg_candidate, term, unit_str, vprint)
 
 MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')
+
+TOTAL_PACKAGES = color(_('Total Packages:'), 'GREEN')
+STARTING_DOWNLOADS = color(_('Starting Downloads...'), 'BLUE')
+LAST_COMPLETED = color(_('Last Completed:'), 'GREEN')
+MIRROR_TIMEOUT = color(_('Mirror Timedout:'), 'YELLOW')
 
 class PkgDownloader: # pylint: disable=too-many-instance-attributes
 	"""Manage Package Downloads."""
@@ -114,8 +120,8 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		dest = PARTIAL_DIR / get_pkg_name(candidate)
 		async with semaphore:
 			vprint(
-				color('Starting Download: ', 'BLUE')
-				+f"{url} {unit_str(candidate.size, 1)}"
+				color(_('Starting Download:'), 'BLUE')
+				+f" {url} {unit_str(candidate.size, 1)}"
 			)
 			assert isinstance(url, str)
 			second_attempt = False
@@ -151,8 +157,8 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 					continue
 
 				vprint(
-					color('Download Complete: ', 'GREEN')
-					+url
+					color(_('Download Complete:'), 'GREEN')
+					+f" {url}"
 				)
 
 				self.count += 1
@@ -173,7 +179,11 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		self.live.stop()
 		for task in asyncio.all_tasks(loop):
 			task.cancel()
-		print(f'Exiting due to {signal_enum.name}')
+		eprint(
+			_("Exiting due to {signal}").format(
+				signal=signal_enum.name
+			)
+		)
 
 	def _set_proxy(self) -> None:
 		"""Set proxy configuration."""
@@ -203,10 +213,15 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 			if regex := pattern.search(uri):
 				domain = regex.group(1)
 				if not self.mirrors:
+					url = f"http://{domain}/mirrors.txt"
 					try:
-						self.mirrors = get(f"http://{domain}/mirrors.txt").text.splitlines()
+						self.mirrors = get(url).text.splitlines()
 					except HTTPError:
-						sys.exit(f'{ERROR_PREFIX}unable to connect to http://{domain}/mirrors.txt')
+						sys.exit(
+							_("{error} unable to connect to {url}").format(
+								error=ERROR_PREFIX, url=url
+							)
+						)
 				urls.extend([link+candidate.filename for link in self.mirrors])
 				continue
 			urls.append(uri)
@@ -217,19 +232,19 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		table = Table.grid()
 
 		table.add_row(
-			from_ansi(f"{color('Total Packages:', 'GREEN')} {self.count}/{self.total_pkgs}")
+			from_ansi(f"{TOTAL_PACKAGES} {self.count}/{self.total_pkgs}")
 		)
 		if not self.last_completed:
 			table.add_row(
-					from_ansi(color('Starting Downloads...', 'BLUE'))
+					from_ansi(STARTING_DOWNLOADS)
 			)
 		else:
-			table.add_row(from_ansi(f"{color('Last Completed:', 'GREEN')} {self.last_completed}"))
+			table.add_row(from_ansi(f"{LAST_COMPLETED} {self.last_completed}"))
 
 		pkg_download_progress.advance(self.task, advance=0)
 		table.add_row(pkg_download_progress.get_renderable())
 		return Panel(
-			table, title='[bold white]Downloading...', title_align='left', border_style='bold green'
+			table, title='[bold white]'+_('Downloading...'), title_align='left', border_style='bold green'
 		)
 
 	def download_error(self,
@@ -239,26 +254,25 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		full_url = str(urls[num])
 		mirror = full_url[:full_url.index('/pool')]
 		if isinstance(error, ConnectTimeout):
-			vprint(color('Mirror Timedout: ', 'YELLOW') + mirror)
+			vprint(f"{MIRROR_TIMEOUT} {mirror}")
 		if isinstance(error, ConnectError):
 			# ConnectError: [Errno -2] Name or service not known
 			errno_replace = re.sub(ERRNO_PATTERN, '', str(error)).strip()+':'
 			vprint(f"{color(errno_replace, 'RED')} {mirror}")
 		else:
 			msg = str(error) or type(error).__name__
-			vprint(ERROR_PREFIX + msg)
+			vprint(f"{ERROR_PREFIX} {msg}")
 
 		try:
 			# Check if there is another url to try
 			next_url = urls[num+1]
 		except IndexError:
-			vprint(
-				color('No More Mirrors: ', 'RED')
-				+ color(pkg_name := Path(candidate.filename).name, 'YELLOW')
-			)
+			no_mirrors = color(_('No More Mirrors:'), 'RED')
+			vprint(f"{no_mirrors} {color(pkg_name := Path(candidate.filename).name, 'YELLOW')}")
 			self.failed.append(pkg_name)
 			return
-		vprint(color('Trying: ', 'YELLOW') + str(next_url))
+		trying = color(_('Trying:'), 'YELLOW')
+		vprint(f"{trying} {next_url}")
 
 	async def _update_progress(self, len_data: int, failed: bool = False) -> None:
 		"""Update download progress."""
@@ -279,8 +293,12 @@ async def process_downloads(candidate: Version) -> bool:
 	except OSError as error:
 		if error.errno != ENOENT:
 			eprint(
-			    f"{ERROR_PREFIX}Failed to move archive file, "
-				f"{error.strerror}: '{error.filename}' -> '{error.filename2}'"
+				_(
+					"{error} Failed to move archive file, "
+					"{str_err}: '{file1}' -> '{file2}'").format(
+					error=ERRNO_PATTERN, str_err=error.strerror,
+					file1=error.filename, file2=error.filename2
+				)
 			)
 		return False
 	return True
@@ -318,11 +336,18 @@ def download(pkgs: list[Package]) -> None:
 	if arguments.download_only:
 		if downloader.failed:
 			for pkg in downloader.failed:
-				eprint(f'{ERROR_PREFIX}{pkg} Failed to download')
-			sys.exit(f'{ERROR_PREFIX}Some downloads failed and in download only mode.')
-
-		print("Download complete and in download only mode.")
+				eprint(
+					_("{error} {pkg} Failed to download").format(
+						error=ERROR_PREFIX, pkg=pkg
+					)
+				)
+			sys.exit(
+				_("{error} Some downloads failed and in download only mode.").format(
+					error=ERROR_PREFIX
+				)
+			)
+		print(_("Download complete and in download only mode."))
 		sys.exit(0)
 
 	if downloader.failed:
-		print("Some downloads failed. Falling back to apt_pkg.")
+		eprint(_("Some downloads failed. Falling back to apt_pkg."))

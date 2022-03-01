@@ -36,10 +36,10 @@ from apt.package import Package
 from apt_pkg import DepCache, Error as AptError, get_architectures
 
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
-				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, ExitCode)
+				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, _)
 from nala.downloader import download
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
-from nala.error import apt_error, essential_error
+from nala.error import ExitCode, apt_error, essential_error
 from nala.history import write_history, write_log
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
@@ -81,7 +81,11 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	with Live(auto_refresh=False) as live:
 		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, 'a', encoding="utf-8") as term_log:
-				term_log.write(f"Log Started: [{get_date()}]\n")
+				term_log.write(
+					_("Log Started: [{date}]\n").format(
+						date=get_date
+					)
+				)
 				if arguments.raw_dpkg:
 					live.stop()
 				cache.commit(
@@ -90,7 +94,11 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 				for deb in nala_pkgs.local_debs:
 					deb.install(InstallProgress(dpkg_log, term_log, live, task))
-				term_log.write(f"Log Ended: [{get_date()}]\n\n")
+				term_log.write(
+					_("Log Ended: [{date}]\n\n").format(
+						date=get_date
+					)
+				)
 
 def get_changes(cache: Cache, nala_pkgs: PackageHandler,
 	upgrade: bool = False, remove: bool = False) -> None:
@@ -131,13 +139,13 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		commit_pkgs(cache, nala_pkgs)
 	# Catch system error because if dpkg fails it'll throw this
 	except (apt_pkg.Error, SystemError) as error:
-		sys.exit(f'\r\n{ERROR_PREFIX + str(error)}')
+		sys.exit(f'\r\n{ERROR_PREFIX} {error}')
 	except FetchFailedException as error:
 		for failed in str(error).splitlines():
-			eprint(ERROR_PREFIX + failed)
+			eprint(f"{ERROR_PREFIX} {failed}")
 		sys.exit(1)
 	except KeyboardInterrupt:
-		eprint("Exiting due to SIGINT")
+		eprint(_("Exiting due to SIGINT"))
 		sys.exit(ExitCode.SIGINT)
 	finally:
 		term.restore_mode()
@@ -145,14 +153,18 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
 		print_notices(notice)
 		if need_reboot():
-			print(f"{color('Notice:', 'YELLOW')} A reboot is required.")
-	print(color("Finished Successfully", 'GREEN'))
+			print(color('Notice:', 'YELLOW'), _('A reboot is required.'))
+	print(color(_("Finished Successfully"), 'GREEN'))
 
 def local_missing_dep(pkg: DebPackage) -> None:
 	"""Print missing depends for .deb that can't be satisfied."""
 	cache = Cache(memonly=True)
-	print(color(cast(str, pkg.filename), 'YELLOW'), "can not be installed")
-	print(color('Missing Depends:', 'YELLOW'))
+	print(
+		_("{pkg_name} can not be installed").format(
+			pkg_name=color(cast(str, pkg.filename), 'YELLOW')
+		)
+	)
+	print(color(_('Missing Depends:'), 'YELLOW'))
 	for or_group in pkg.depends:
 		for depend in or_group:
 			name, ver, operand = depend
@@ -187,14 +199,22 @@ def check_local_version(pkg: DebPackage, nala_pkgs: PackageHandler) -> None:
 		cache_pkg = pkg._cache[pkg.pkgname]
 
 		if pkg_compare == pkg.VERSION_SAME and cache_pkg.is_installed:
-			deb_ver = color(pkg._sections['Version'], 'BLUE')
-			print(f"{color(pkg.pkgname, 'GREEN')} {deb_ver} will be re-installed")
+			print(
+				_("{pkg_name} {version} will be re-installed").format(
+					pkg_name=color(pkg.pkgname, 'GREEN'),
+					version=color(pkg._sections['Version'], 'BLUE')
+				)
+			)
 			return
 
 		# Eventually we'll make a Downgrades and Re-Install Column
 		if pkg_compare == pkg.VERSION_OUTDATED:
-			install_ver = color(pkg_installed(cache_pkg).version, 'BLUE')
-			print(f"Package {color(pkg.pkgname, 'GREEN')} {install_ver} will be downgraded")
+			print(
+				_("{pkg_name} {version} will be downgraded").format(
+					pkg_name=color(pkg.pkgname, 'GREEN'),
+					version=color(pkg_installed(cache_pkg).version, 'BLUE')
+				)
+			)
 			return
 
 		if pkg_compare == pkg.VERSION_NEWER and cache_pkg.is_installed:
@@ -325,39 +345,60 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 	"""Mark Packages in depcache for broken checks."""
 	if remove:
 		if not pkg.installed:
-			print(ERROR_PREFIX+color(pkg.name, 'YELLOW'), 'not installed')
+			print(
+				_("{error} {pkg_name} is not installed").format(
+					error=ERROR_PREFIX, pkg_name=color(pkg.name, 'YELLOW')
+				)
+			)
 			return False
 		depcache.mark_delete(pkg._pkg, purge)
 		return True
 
 	if pkg.installed and not pkg.is_upgradable:
 		print(
-			f"Package {color(pkg.name, 'GREEN')}",
-			'is already at the latest version',
-			color(pkg.installed.version, 'BLUE')
+			_("{pkg_name} is already at the latest version {version}").format(
+				pkg_name=color(pkg.name, 'GREEN'), version=color(pkg.installed.version, 'BLUE')
 			)
+		)
 		return False
 	depcache.mark_install(pkg._pkg, False, True)
 	return True
 
 def installed_missing_dep(pkg: Package) -> None:
 	"""Print missing deps for broken package."""
-	if pkg.installed:
-		for depends in pkg_installed(pkg).dependencies:
-			for dep in depends:
-				if not dep.target_versions:
-					ver_msg = f"{color(dep.name, 'YELLOW')} {color(dep.relation_deb)} {color(dep.version, 'BLUE')}"
-					print(f"{color(pkg.name, 'GREEN')} is missing {ver_msg}")
-		if pkg.marked_delete:
-			print(F"{color(pkg.name, 'GREEN')} will be {color('removed', 'RED')}")
+	if not pkg.installed:
+		return
+	for depends in pkg_installed(pkg).dependencies:
+		for dep in depends:
+			if not dep.target_versions:
+				ver_msg = f"{color(dep.name, 'YELLOW')} {color(dep.relation_deb)} {color(dep.version, 'BLUE')}"
+				print(
+					_("{pkg_name} is missing {dep}").format(
+						pkg_name=color(pkg.name, 'GREEN'),
+						dep=ver_msg
+					)
+				)
+	if pkg.marked_delete:
+		print(
+			_("{pkg_name} will be {removed}").format(
+				pkg_name=color(pkg.name, 'GREEN'),
+				removed=color(_('removed'), 'RED')
+			)
+		)
+
 
 def installed_found_deps(pkg: Package, cache: Cache) -> None:
 	"""Print depends that will be installed to fix the package."""
-	vprint(f"{color(pkg.name, 'GREEN')} is fixable")
+	vprint(_("{pkg_name} is fixable").format(pkg_name=pkg.name))
 	for depends in pkg_installed(pkg).dependencies:
 		for dep in depends:
 			if cache[dep.name].marked_install:
-				vprint(f"  {color(dep.name, 'GREEN')} will be {color('installed', 'GREEN')}")
+				vprint(
+					_("  {dependency} will be {installed}").format(
+						dependency=color(dep.name, 'GREEN'),
+						installed=color(_('installed'), 'GREEN')
+					)
+				)
 
 def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 	"""Sort a list of packages and splits them based on the action to take."""
@@ -393,7 +434,11 @@ def need_reboot() -> bool:
 	"""Check if the system needs a reboot and notify the user."""
 	if REBOOT_REQUIRED.exists():
 		if REBOOT_PKGS.exists():
-			print(f"{color('Notice:', 'YELLOW')} The following packages require a reboot.")
+			print(
+				_("{notice} The following packages require a reboot,").format(
+					notice=color(_('Notice:'), 'YELLOW')
+				)
+			)
 			for pkg in REBOOT_PKGS.read_text(encoding='utf-8').splitlines():
 				print(f"  {color(pkg, 'GREEN')}")
 			return False
@@ -405,7 +450,7 @@ def need_reboot() -> bool:
 def print_notices(notices: Iterable[str]) -> None:
 	"""Print notices from dpkg."""
 	if notices:
-		print('\n'+color('Notices:', 'YELLOW'))
+		print('\n'+color(_('Notices:'), 'YELLOW'))
 		for notice_msg in notices:
 			print(notice_msg)
 
@@ -424,7 +469,7 @@ def setup_cache() -> Cache:
 	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
 		apt_error(err)
 	except KeyboardInterrupt:
-		eprint('Exiting due to SIGINT')
+		eprint(_('Exiting due to SIGINT'))
 		sys.exit(ExitCode.SIGINT)
 	finally:
 		term.restore_mode()
@@ -456,11 +501,13 @@ def check_term_ask() -> None:
 	# As They are aware it can be dangerous to continue
 	if not term.is_term() and not arguments.assume_yes:
 		sys.exit(
-			f'{ERROR_PREFIX}It can be dangerous to continue without a terminal. Use `--assume-yes`'
+			_("{error} It can be dangerous to continue without a terminal. Use `--assume-yes`").format(
+				error=ERROR_PREFIX
+			)
 		)
 
-	if not arguments.assume_yes and not ask('Do you want to continue'):
-		eprint("Abort.")
+	if not arguments.assume_yes and not ask(_('Do you want to continue')):
+		eprint(_("Abort."))
 		sys.exit(0)
 
 def check_work(pkgs: list[Package], local_debs: list[DebPackage],
@@ -470,13 +517,13 @@ def check_work(pkgs: list[Package], local_debs: list[DebPackage],
 	Returns None if there is work, exit's successful if not.
 	"""
 	if upgrade and not pkgs:
-		print(color("All packages are up to date."))
+		print(color(_("All packages are up to date.")))
 		sys.exit(0)
 	elif not remove and not pkgs and not local_debs:
-		print(color("Nothing for Nala to do."))
+		print(color(_("Nothing for Nala to do.")))
 		sys.exit(0)
 	elif remove and not pkgs:
-		print(color("Nothing for Nala to remove."))
+		print(color(_("Nothing for Nala to remove.")))
 		sys.exit(0)
 
 def check_essential(pkgs: list[Package]) -> None:

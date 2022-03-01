@@ -38,7 +38,8 @@ from apt_pkg import get_architectures
 from httpx import HTTPError, get
 from rich.progress import Progress, TaskID
 
-from nala.constants import ERROR_PREFIX, NALA_SOURCES, SOURCELIST, SOURCEPARTS
+from nala.constants import (ERROR_PREFIX,
+				NALA_SOURCES, SOURCELIST, SOURCEPARTS, _)
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
 from nala.utils import ask, color, dprint, eprint
@@ -139,13 +140,14 @@ def ping_error(error: str, mirror: str) -> None:
 	"""Handle error on ping."""
 	if arguments.verbose:
 		if not error:
-			eprint(f"{color('Packets were lost:', 'RED')} {mirror}")
+			prefix = color(_('Packets were lost:'), 'RED')
+			eprint(f"{prefix} {mirror}")
 			return
 		eprint(f"{color(error, 'RED')}")
 
 def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	"""Get and parse the Ubuntu mirror list."""
-	print('Fetching Ubuntu mirrors...')
+	print(_('Fetching Ubuntu mirrors...'))
 	ubuntu = fetch_mirrors("https://launchpad.net/ubuntu/+archivemirrors-rss", '<item>')
 	# This is what one of our "Mirrors might look like after split"
 	#      <title>Steadfast Networks</title>
@@ -165,7 +167,7 @@ def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 
 def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	"""Get and parse the Debian mirror list."""
-	print('Fetching Debian mirrors...')
+	print(_('Fetching Debian mirrors...'))
 	debian = fetch_mirrors("https://mirror-master.debian.org/status/Mirrors.masterlist", '\n\n')
 	arches = tuple(get_architectures())
 	# This is what one of our "Mirrors might look like after split"
@@ -185,7 +187,11 @@ def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 	try:
 		mirror_list = get(url, timeout=15).text.split(splitter)
 	except HTTPError:
-		sys.exit(f'{ERROR_PREFIX}unable to connect to {url}')
+		sys.exit(
+			_("{error} unable to connect to {mirror}").format(
+				error=ERROR_PREFIX, mirror=url
+			)
+		)
 	return tuple(mirror_list)
 
 def parse_mirror(
@@ -196,7 +202,7 @@ def parse_mirror(
 	"""Parse the mirror."""
 	mirror_set = set()
 	if arguments.verbose:
-		print('Parsing mirror list...')
+		print(_('Parsing mirror list...'))
 	# If no country is supplied then our list will be all countries
 	countries = country_list or get_countries(master_mirror)
 	for country, mirror in itertools.product(countries, master_mirror):
@@ -302,8 +308,9 @@ def parse_sources() -> list[str]:
 def write_sources(release: str, component: str, sources: list[str]) -> None:
 	"""Write mirrors to nala-sources.list."""
 	with open(NALA_SOURCES, 'w', encoding="utf-8") as file:
-		print(f"{color('Writing:', 'GREEN')} {NALA_SOURCES}\n")
-		print('# Sources file built for nala\n', file=file)
+		writing = color(_('Writing:'), 'GREEN')
+		print(f"{writing} {NALA_SOURCES}\n")
+		print(_('# Sources file built for nala'), file=file, end='\n\n')
 		num = 0
 		for line in netselect_scored:
 			# This splits off the score '030 http://mirror.steadfast.net/debian/'
@@ -349,11 +356,20 @@ def check_supported(distro:str | None, release:str | None,
 		# It's ubuntu, you probably don't care about foss
 		return ubuntu_mirror(country_list), 'main restricted universe multiverse'
 	if distro is None or release is None:
-		eprint(ERROR_PREFIX+'There was an issue detecting release. You can specify manually\n')
+		eprint(
+			_(
+				"{error} There was an issue detecting release. "
+				"You can specify manually\n").format(
+				error=ERROR_PREFIX
+			)
+		)
 	else:
 		eprint(
-			f"{ERROR_PREFIX}{distro} {release} is unsupported.\n"
-			"You can specify Ubuntu or Debian manually.\n"
+			_(
+				"{error} {distro} {release} is unsupported.\n"
+				"You can specify Ubuntu or Debian manually.\n").format(
+				error=ERROR_PREFIX, distro=distro, release=release
+			)
 		)
 	parser.parse_args(['fetch', '--help'])
 	sys.exit(1)
@@ -361,12 +377,16 @@ def check_supported(distro:str | None, release:str | None,
 def fetch_checks() -> None:
 	"""Perform checks and error if we shouldn't continue."""
 	if (NALA_SOURCES.exists() and not arguments.assume_yes and
-		not ask(f'{NALA_SOURCES.name} already exists.\ncontinue and overwrite it')
+		not ask(
+			_(
+				"{file} already exists.\n"
+				"Continue and overwrite it").format(file=NALA_SOURCES)
+			)
 		):
-		sys.exit('Abort')
+		sys.exit(_('Abort.'))
 	# Make sure there aren't any shenanigans
 	if arguments.fetches not in range(1,11):
-		sys.exit('Amount of fetches has to be 1-10...')
+		sys.exit(_('Amount of fetches has to be 1-10...'))
 
 def fetch() -> None:
 	"""Fetch fast mirrors and write nala-sources.list."""

@@ -34,7 +34,7 @@ from pwd import getpwnam
 import jsbeautifier
 
 from nala.constants import (ERROR_PREFIX,
-				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE)
+				JSON_OPTIONS, NALA_HISTORY, NALA_LOGFILE, _)
 from nala.rich import Column, Table
 from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
 				PackageHandler, dprint, eprint, get_date, print_update_summary, term)
@@ -55,7 +55,9 @@ def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]
 		return check
 	except JSONDecodeError:
 		sys.exit(
-		    f'{ERROR_PREFIX}History file seems corrupt. You should try removing {NALA_HISTORY}'
+			_("{error} History file seems corrupt. You should try removing {file}").format(
+				error=ERROR_PREFIX, file=NALA_HISTORY
+			)
 		)
 
 def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str]]]]) -> None:
@@ -67,7 +69,11 @@ def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str
 def history_summary() -> None:
 	"""History command."""
 	if not NALA_HISTORY.exists():
-		eprint(f"{ERROR_PREFIX}No history exists...")
+		eprint(
+			_("{error} No history exists...").format(
+				error=ERROR_PREFIX
+			)
+		)
 		return
 	history_file = load_history_file()
 	names: list[tuple[str, str, str, str]] = []
@@ -133,12 +139,12 @@ def history_clear(hist_id: str) -> None:
 	"""Show command."""
 	dprint(f"History clear {hist_id}")
 	if not NALA_HISTORY.exists():
-		eprint("No history exists to clear...")
+		eprint(_("No history exists to clear..."))
 		return
 
 	if hist_id == 'all':
 		NALA_HISTORY.unlink()
-		print("History has been cleared")
+		print(_("History has been cleared"))
 		return
 
 	history_file = load_history_file()
@@ -150,7 +156,7 @@ def history_clear(hist_id: str) -> None:
 		if key != hist_id:
 			num += 1
 			history_edit[str(num)] = value
-	print('History has been altered...')
+	print(_('History has been altered...'))
 	write_history_file(history_edit)
 
 def history_undo(hist_id: str, redo: bool = False) -> None:
@@ -169,7 +175,11 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 	def hist_pkg_sort(key: str) -> list[str]:
 		packages = transaction.get(key)
 		if packages is None:
-			sys.exit(f'{ERROR_PREFIX}Something is wrong with history entry: {hist_id}')
+			sys.exit(
+				_("{error} Something is wrong with history entry {num}").format(
+					error=ERROR_PREFIX, num=hist_id
+				)
+			)
 		return [str(pkg[0]) for pkg in packages]
 
 	if command == 'remove':
@@ -187,7 +197,7 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 			return
 		remove(pkgs)
 		return
-	print('Undo for operations other than install or remove are not currently supported')
+	print(_('Undo for operations other than install or remove are not currently supported'))
 
 def write_history(handler: PackageHandler) -> None:
 	"""Prepare history for writing."""
@@ -229,10 +239,18 @@ def get_history(hist_id: str) -> dict[str, str | list[str] | list[list[str]]]:
 	"""Get the history from file."""
 	dprint(f"Getting history {hist_id}")
 	if not NALA_HISTORY.exists():
-		sys.exit("No history exists...")
+		sys.exit(
+			_("{error} No history exists...").format(
+				error=ERROR_PREFIX
+			)
+		)
 	history_file: dict[str, dict[str, str | list[str] | list[list[str]]]] = (
 		json.loads(NALA_HISTORY.read_text(encoding='utf-8'))
 	)
 	if transaction := history_file.get(hist_id):
 		return transaction
-	sys.exit(f"{ERROR_PREFIX}Transaction {hist_id} doesn't exist.")
+	sys.exit(
+		_("{error} Transaction {num} doesn't exist.").format(
+			error=ERROR_PREFIX, num=hist_id
+		)
+	)

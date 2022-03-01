@@ -29,7 +29,7 @@ from typing import Pattern
 
 from apt.package import Package, Version
 
-from nala.constants import COLOR_CODES
+from nala.constants import COLOR_CODES, _
 from nala.options import arguments
 from nala.rich import ascii_replace, is_utf8
 from nala.utils import color, get_version, pkg_installed
@@ -49,8 +49,8 @@ def search_name(pkg: Package,
 
 def print_search(found: list[tuple[Package, Version]]) -> None:
 	"""Print the search results to the terminal."""
-	top_line = "├── " if is_utf8 else "+-- "
-	bot_line = "└── " if is_utf8 else "`-- "
+	top_line = "├──" if is_utf8 else "+--"
+	bot_line = "└──" if is_utf8 else "`--"
 	for item in found:
 		pkg, version = item
 		print(
@@ -72,7 +72,7 @@ def set_search_origin(line: str, version: Version) -> str:
 	"""Return the provided string with the origin information."""
 	if origin := version._cand.file_list[0][0]:
 		if origin.component == 'now':
-			return f"{line} [local]"
+			return _("{pkg} [local]").format(pkg=line)
 		return f"{line} [{origin.label}/{origin.codename} {origin.component}]"
 	return line
 
@@ -81,8 +81,11 @@ def set_search_installed(line: str, top_line: str, pkg: Package) -> str:
 	if not pkg.is_installed:
 		return line
 	if pkg.is_upgradable:
-		return f"{line}\n{top_line}is upgradable from {color(pkg_installed(pkg).version, 'BLUE')}"
-	return f'{line}\n{top_line}is installed'
+		return _("{pkg_name}\n{tree_start} is upgradable from {version}").format(
+			pkg_name=line, tree_start=top_line, version=color(pkg_installed(pkg).version, 'BLUE')
+		)
+	return _("{pkg_name}\n{tree_start} is installed").format(
+		pkg_name=line, tree_start=top_line)
 
 def set_search_description(line: str, bot_line: str, version: Version) -> str:
 	"""Return the provided string with the package description."""
@@ -91,4 +94,5 @@ def set_search_description(line: str, bot_line: str, version: Version) -> str:
 		return f"{line}\n{bot_line}{desc}"
 	if version.summary:
 		return f'{line}\n{bot_line}{version.summary}'
-	return f"{line}\n{bot_line}{COLOR_CODES['ITALIC']}No Description{COLOR_CODES['RESET']}"
+	no_desc = _('No Description')
+	return f"{line}\n{bot_line}{COLOR_CODES['ITALIC']}{no_desc}{COLOR_CODES['RESET']}"

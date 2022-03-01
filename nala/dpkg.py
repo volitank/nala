@@ -42,10 +42,10 @@ from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 
-from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM
+from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM, _
 from nala.options import arguments
 from nala.rich import (Group, Live, Panel, RenderableType, Table,
-				TaskID, Text, ascii_replace, dpkg_progress, from_ansi, spinner)
+				TaskID, ascii_replace, dpkg_progress, from_ansi, spinner)
 from nala.utils import color, eprint, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
@@ -53,6 +53,18 @@ PARENTHESIS_PATTERN = re.compile(r'[()]')
 
 scroll_list: list[str] = []
 notice: list[str] = []
+
+REMOVING = _('Removing')
+UNPACKING = _('Unpacking')
+SETTING_UP = _('Setting up')
+PROCESSING = _('Processing')
+FETCHED = _('Fetched')
+GET = _('GET')
+
+UPDATED = _('Updated:')
+IGNORED = _('Ignored:')
+ERROR = _('Error:')
+NO_CHANGE = _('No Change:')
 
 class OpProgress(base.OpProgress, text.TextProgress):
 	"""Operation progress reporting.
@@ -98,7 +110,6 @@ class UpdateProgress(text.AcquireProgress):
 		if arguments.debug:
 			arguments.verbose=True
 
-		spinner.text = Text('Initializing Cache')
 		scroll_list.clear()
 
 	def apt_write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
@@ -122,7 +133,7 @@ class UpdateProgress(text.AcquireProgress):
 			self.apt_write(msg, newline, maximize)
 			return
 
-		for item in ('Updated:', 'Ignored:', 'Error:', 'No Change:'):
+		for item in (UPDATED, IGNORED, ERROR, NO_CHANGE):
 			if item in msg:
 				self.table_print(msg, update_spinner=True)
 				break
@@ -132,7 +143,7 @@ class UpdateProgress(text.AcquireProgress):
 			if msg.endswith('s'):
 				msg = fill_pulse(msg.split())
 
-			if 'Fetched' in msg:
+			if FETCHED in msg:
 				self.table_print(msg, fetched=True)
 				return
 			# Hash Sum is an error message that is multilined.
@@ -161,16 +172,16 @@ class UpdateProgress(text.AcquireProgress):
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is update (e.g. not modified on the server)."""
 		base.AcquireProgress.ims_hit(self, item)
-		self.write_update('No Change:', 'GREEN', item)
+		self.write_update(NO_CHANGE, 'GREEN', item)
 
 	def fail(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is failed."""
 		base.AcquireProgress.fail(self, item)
 		if item.owner.status == item.owner.STAT_DONE:
-			self._write(f"{color('Ignored:  ', 'YELLOW')} {item.description}")
+			self._write(f"{color(IGNORED)}   {item.description}")
 		else:
 			# spaces are to make the error message consistent with other messages.
-			self._write(f'{ERROR_PREFIX}    {item.description}')
+			self._write(f'{ERROR_PREFIX}     {item.description}')
 			self._write(f"  {item.owner.error_text}")
 
 	def fetch(self, item: apt_pkg.AcquireItemDesc) -> None:
@@ -179,7 +190,7 @@ class UpdateProgress(text.AcquireProgress):
 		# It's complete already (e.g. Hit)
 		if item.owner.complete:
 			return
-		self.write_update('Updated:  ', 'BLUE', item)
+		self.write_update(f"{UPDATED}  ", 'BLUE', item)
 
 	def write_update(self, msg: str, _color: str, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Write the update from either hit or fetch."""
@@ -213,7 +224,7 @@ class UpdateProgress(text.AcquireProgress):
 		fetched = apt_pkg.size_to_str(self.fetched_bytes)
 		elapsed = apt_pkg.time_to_str(self.elapsed_time)
 		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
-		return color(f"Fetched {fetched}B in {elapsed} ({speed}B/s)")
+		return color(f"{FETCHED} {fetched}B in {elapsed} ({speed}B/s)")
 
 	def stop(self) -> None:
 		"""Invoke when the Acquire process stops running."""
@@ -504,7 +515,7 @@ class InstallProgress(base.InstallProgress):
 
 	def advance_progress(self, line: str) -> None:
 		"""Advance the dpkg progress bar."""
-		if line.startswith(('Setting up', 'Unpacking', 'Removing')) and '(' in line:
+		if line.startswith((SETTING_UP, UNPACKING, REMOVING)) and '(' in line:
 			dpkg_progress.advance(self.task)
 		if arguments.verbose:
 			self.live.update(
@@ -544,9 +555,9 @@ def paren_color(match: Match[str]) -> str:
 def lines(line: str, zword: str, msg_color: str) -> str:
 	"""Color and space our line."""
 	space = ' '
-	if zword == 'Removing':
+	if zword == REMOVING:
 		space *= 3
-	elif zword == 'Unpacking':
+	elif zword == UNPACKING:
 		space *= 2
 	return line.replace(zword, color(f'{zword}:{space}', msg_color))
 
@@ -586,16 +597,16 @@ def msg_formatter(line: str) -> str:
 	if line.endswith('...'):
 		line = line.replace('...', '')
 
-	if line.startswith('Removing'):
-		line = lines(line, 'Removing', 'RED')
-	elif line.startswith('Unpacking'):
-		line = lines(line, 'Unpacking', 'GREEN')
-	elif line.startswith('Setting up'):
-		line = lines(line, 'Setting up', 'GREEN')
-	elif line.startswith('Processing'):
-		line = lines(line, 'Processing', 'GREEN')
-	elif line.startswith('Get'):
-		line = f"{color('Fetched:', 'BLUE')} {' '.join(line.split()[1:])}"
+	if line.startswith(REMOVING):
+		line = lines(line, REMOVING, 'RED')
+	elif line.startswith(UNPACKING):
+		line = lines(line, UNPACKING, 'GREEN')
+	elif line.startswith(SETTING_UP):
+		line = lines(line, SETTING_UP, 'GREEN')
+	elif line.startswith(PROCESSING):
+		line = lines(line, PROCESSING, 'GREEN')
+	elif line.startswith(GET):
+		line = f"{color(f'{FETCHED}:', 'BLUE')} {' '.join(line.split()[1:])}"
 
 	if match := re.findall(VERSION_PATTERN, line):
 		return format_version(match, line)
@@ -605,17 +616,17 @@ def get_title(install: bool, fetch: bool) -> str:
 	"""Get the title for our panel."""
 	if arguments.command and install and not fetch:
 		if arguments.command in ('remove', 'purge'):
-			return '[bold white]Removing Packages'
+			return '[bold white]'+_('Removing Packages')
 		if arguments.command in ('update', 'upgrade'):
-			return '[bold white]Updating Packages'
+			return '[bold white]'+_('Updating Packages')
 		if arguments.command == 'install':
-			return '[bold white]Installing Packages'
+			return '[bold white]'+_('Installing Packages')
 		if arguments.command == 'history':
-			title = f'History {str(arguments.mode).capitalize()} {arguments.id}'
-			return f'[bold white]{title}'
+			title = _('History Undo') if arguments.mode == 'undo' else _('History Redo')
+			return f'[bold white]{title} {arguments.id}'
 	if install and fetch:
-		return '[bold white]Fetching Missed Packages'
-	return '[bold white]Updating Package List'
+		return '[bold white]'+_('Fetching Missed Packages')
+	return '[bold white]'+_('Updating Package List')
 
 def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
 	"""Get the group for our panel."""
@@ -722,10 +733,11 @@ class AptExpect(fdspawn): # type: ignore[misc]
 			except KeyboardInterrupt:
 				term.write(term.CURSER_UP+term.CLEAR_LINE)
 				print(
-					color("Warning:", 'YELLOW'),
-					"Quitting now could break your system!"
+					_("{warning} Quitting now could break your system!").format(
+						warning=color("Warning:", 'YELLOW')
+					)
 				)
-				print(color("Ctrl+C twice quickly will exit...", 'RED'))
+				print(color(_("Ctrl+C twice quickly will exit..."), 'RED'))
 				sleep(0.5)
 
 	def _read(self, output_filter: Callable[[bytes], None]) -> bool:

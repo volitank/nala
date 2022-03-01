@@ -44,7 +44,7 @@ from apt.debfile import DebPackage
 from apt.package import Package, Version
 
 from nala.constants import (COLOR_CODES, ERROR_PREFIX,
-				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG)
+				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG, _)
 from nala.options import arguments
 from nala.rich import Console, Group, Table, Tree
 
@@ -123,7 +123,7 @@ class Terminal:
 	def set_environment(self) -> None:
 		"""Check and set various environment variables."""
 		if self.lines < 13 or self.columns < 31:
-			print("Terminal can't support dialog, falling back to readline")
+			eprint(_("Terminal can't support dialog, falling back to readline"))
 			os.environ["DEBIAN_FRONTEND"] = "readline"
 		# Readline is too hard to support with our fancy formatting
 		if os.environ.get("DEBIAN_FRONTEND") == "readline":
@@ -305,12 +305,16 @@ def ask(question: str, default_no: bool = False) -> bool:
 			return False
 		if resp == '':
 			return not default_no
-		print("Not a valid choice kiddo")
+		print(_("Not a valid choice kiddo"))
 
 def sudo_check(root_action: str) -> None:
 	"""Check for root and exits if not root."""
 	if not term.is_su():
-		sys.exit(f'{ERROR_PREFIX}Nala needs root to {root_action}')
+		sys.exit(
+			_("{error} Nala needs root to {action}").format(
+				error=ERROR_PREFIX, action=root_action
+			)
+		)
 
 def get_date() -> str:
 	"""Return the formatted Date and Time."""
@@ -328,10 +332,13 @@ def unit_str(val: int, just: int = 7) -> str:
 def iter_remove(path: Path) -> None:
 	"""Iterate the directory supplied and remove all files."""
 	if arguments.verbose:
-		print(f'Removing files in {path}')
+		print(_("Removing files in {dir}").format(dir=path))
 	for file in path.iterdir():
 		if file.is_file():
-			dprint(f'Removed: {file}')
+			dprint(
+				_("Removed: {filename}").format(filename=file)
+			)
+			dprint(f"Removed: {file}")
 			file.unlink(missing_ok=True)
 
 def check_pkg(directory: Path, candidate: Package | Version) -> bool:
@@ -345,7 +352,7 @@ def check_pkg(directory: Path, candidate: Package | Version) -> bool:
 	try:
 		return check_hash(path, hash_type, hash_value)
 	except OSError as err:
-		eprint("Failed to check hash", err)
+		eprint(_("Failed to check hash"), err)
 		return False
 
 def check_hash(path: Path, hash_type: str, hash_value: str) -> bool:
@@ -376,7 +383,9 @@ def get_hash(version: Version) -> tuple[str, str]:
 	if version.md5:
 		return ("md5", version.md5)
 	sys.exit(
-		f"{ERROR_PREFIX}{Path(version.filename).name} can't be checked for integrity."
+		_("{error} {filename} can't be checked for integrity.").format(
+			error=ERROR_PREFIX, filename=Path(version.filename).name
+		)
 	)
 
 def get_version(pkg: Package) -> Version:
@@ -388,7 +397,11 @@ def get_version(pkg: Package) -> Version:
 	for version in pkg.versions:
 		return version
 	# It would be really weird if we ever actually hit this error
-	sys.exit(f"{ERROR_PREFIX}Can't find version for {pkg.name}")
+	sys.exit(
+		_("{error} can't find version for {pkg_name}").format(
+			error=ERROR_PREFIX, pkg_name=pkg.name
+		)
+	)
 
 def get_pkg_name(candidate: Version) -> str:
 	"""Return the package name.
@@ -426,7 +439,7 @@ def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, .
 
 def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 	"""Print the installed reverse depends of a package."""
-	print(color('Installed Packages Depend On This:', 'YELLOW'))
+	print(color(_('Installed Packages Depend On This:'), 'YELLOW'))
 	for pkg in installed_pkgs:
 		for dep in pkg_installed(pkg).dependencies:
 			if name in dep.rawstr:
@@ -438,9 +451,13 @@ def arg_check() -> None:
 
 	If args exists then duplicates will be removed.
 	"""
-	if arguments.command in ('update', 'upgrade', 'install', 'remove', 'fetch', 'clean'):
+	if arguments.command in ('install', 'remove', 'purge', 'show'):
 		if not arguments.args:
-			sys.exit(f'{ERROR_PREFIX}You must specify a package to {arguments.command}')
+			sys.exit(
+				_("{error} You must specify a package to {command}").format(
+					error=ERROR_PREFIX, command=arguments.command
+				)
+			)
 		dedupe = []
 		for arg in arguments.args:
 			if arg not in dedupe:
@@ -465,8 +482,10 @@ def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
 			glob = fnmatch.filter(cache_keys, pkg_name)
 			if not glob:
 				glob_failed = True
-				print(
-					f'{ERROR_PREFIX}unable to find any packages by globbing {color(pkg_name, "YELLOW")}'
+				eprint(
+					_("{error} unable to find any packages by globbing {pkg}").format(
+						error=ERROR_PREFIX, pkg=color(pkg_name, 'YELLOW')
+					)
 				)
 				continue
 			new_packages.extend(
@@ -483,38 +502,42 @@ def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
 def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
 	"""Print our transaction summary."""
 	delete, deleting = (
-		('Purge', 'Purging:')
+		(_('Purge'), _('Purging:'))
 		if arguments.command == 'purge'
-		else ('Remove', 'Removing:')
+		else (_('Remove'), _('Removing:'))
 	)
+
+	default_header = [_('Package:'), _('Version:'), _('Size:')]
+	upgrade_header = [_('Package:'), _('Old Version:'), _('New Version:'), _('Size:')]
+
 	print_packages(
-		['Package:', 'Version:', 'Size:'],
+		default_header,
 		nala_pkgs.delete_pkgs, deleting, 'bold red'
 	)
 
 	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.autoremove_pkgs, 'Auto-Removing:', 'bold red'
+		default_header,
+		nala_pkgs.autoremove_pkgs, _('Auto-Removing:'), 'bold red'
 	)
 
 	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.extended_install, 'Installing:', 'bold green'
+		default_header,
+		nala_pkgs.extended_install, _('Installing:'), 'bold green'
 	)
 
 	print_packages(
-		['Package:', 'Old Version:', 'New Version:', 'Size:'],
-		nala_pkgs.upgrade_pkgs, 'Upgrading:', 'bold blue'
+		upgrade_header,
+		nala_pkgs.upgrade_pkgs, _('Upgrading:'), 'bold blue'
 	)
 
 	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.recommend_pkgs, 'Recommended, Will Not Be Installed:', 'bold magenta'
+		default_header,
+		nala_pkgs.recommend_pkgs, _('Recommended, Will Not Be Installed:'), 'bold magenta'
 	)
 
 	print_packages(
-		['Package:', 'Version:', 'Size:'],
-		nala_pkgs.suggest_pkgs, 'Suggested, Will Not Be Installed:', 'bold magenta'
+		default_header,
+		nala_pkgs.suggest_pkgs, _('Suggested, Will Not Be Installed:'), 'bold magenta'
 	)
 
 	transaction_summary(delete, nala_pkgs, not cache)
@@ -525,7 +548,7 @@ def transaction_summary(
 	delete_header: str, nala_pkgs: PackageHandler, history: bool = False) -> None:
 	"""Print a small transaction summary."""
 	print('='*term.columns)
-	print('Summary')
+	print(_('Summary'))
 	print('='*term.columns)
 	table = Table.grid('', padding=(0,2))
 	table.add_column(justify='right', overflow=term.overflow)
@@ -533,32 +556,35 @@ def transaction_summary(
 
 	if nala_pkgs.install_total:
 		table.add_row(
-			'Install' if not history else 'Installed',
-			str(nala_pkgs.install_total), 'Packages')
+			_('Install') if not history else _('Installed'),
+			str(nala_pkgs.install_total), _('Packages'))
 
 	if nala_pkgs.upgrade_total:
 		table.add_row(
-			'Upgrade' if not history else 'Upgraded',
-			str(nala_pkgs.upgrade_total),'Packages')
+			_('Upgrade') if not history else _('Upgraded'),
+			str(nala_pkgs.upgrade_total), _('Packages'))
 
 	if nala_pkgs.delete_total:
-		table.add_row(delete_header, str(nala_pkgs.delete_total), 'Packages')
+		table.add_row(delete_header, str(nala_pkgs.delete_total), _('Packages'))
 
 	if nala_pkgs.autoremove_total:
-		table.add_row('Auto-Remove', str(nala_pkgs.autoremove_total), 'Packages')
+		table.add_row(_('Auto-Remove'), str(nala_pkgs.autoremove_total), _('Packages'))
 	term.console.print(table)
 
 def transaction_footer(cache: Cache) -> None:
 	"""Print transaction footer."""
 	print()
 	if (download := cache.required_download) > 0:
-		print(f'Total download size: {unit_str(download)}')
+		msg = _('Total download size:')
+		print(f"{msg} {unit_str(download)}")
 	if (space := cache.required_space) < 0:
-		print(f'Disk space to free: {unit_str(-int(space))}')
+		msg = _('Disk space to free:')
+		print(f'{msg} {unit_str(-int(space))}')
 	else:
-		print(f'Disk space required: {unit_str(space)}')
+		msg = _('Disk space required:')
+		print(f'{msg} {unit_str(space)}')
 	if arguments.download_only:
-		print("Nala will only download the packages")
+		print(_("Nala will only download the packages"))
 
 def print_packages(
 	headers: list[str],
@@ -571,9 +597,9 @@ def print_packages(
 	package_table = Table(padding=(0,2), box=None)
 	# Setup rich table and columns
 	for header in headers:
-		if header == 'Package:':
+		if header == _('Package:'):
 			package_table.add_column(header, style=style, overflow=term.overflow)
-		elif header == 'Size:':
+		elif header == _('Size:'):
 			package_table.add_column(header, justify='right', overflow=term.overflow)
 		else:
 			package_table.add_column(header, overflow='fold')
@@ -601,7 +627,8 @@ def print_packages(
 
 def summary_or_depends(pkg: list[NalaPackage]) -> tuple[Tree, Table, Table]:
 	"""Format Recommend and Suggests or dependencies."""
-	pkg_tree = Tree('[white]Either:', guide_style='white')
+	either = _('Either:')
+	pkg_tree = Tree(f"{color(either)}", guide_style='white')
 	for npkg in pkg:
 		pkg_tree.add(npkg.name)
 	ver_table = Table('', border_style='bold blue', box=None, pad_edge=False)

@@ -31,12 +31,18 @@ import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
 from apt.package import Package, Version
 
-from nala.constants import ERROR_PREFIX
+from nala.constants import ERROR_PREFIX, _
 from nala.rich import Columns, Text
-from nala.show import print_dep
+from nala.show import SHOW_INFO, show_dep
 from nala.utils import (color, eprint,
 				get_installed_dep_names, print_rdeps, term)
 
+
+class ExitCode: # pylint: disable=too-few-public-methods
+	"""Constants for Exit Codes."""
+
+	SIGINT = 130
+	SIGTERM = 143
 
 def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Error) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""
@@ -45,48 +51,59 @@ def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Erro
 		# Sometimes python apt gives us literally nothing to work with.
 		# Probably an issue with sources.list. Needs further testing.
 		sys.exit(
-			f"{ERROR_PREFIX}python-apt gave us '{repr(apt_err)}'\nThis isn't a proper error as it's empty"
+			_("{error} python-apt gave us {apt_err} This isn't a proper error as it's empty").format(
+				error=ERROR_PREFIX, apt_err=repr(apt_err)
+			)
 			)
 	if ',' in msg:
 		err_list = set(msg.split(','))
 		for err in err_list:
 			if 'E:' in err:
 				err = err.replace('E:', '')
-				eprint(ERROR_PREFIX+err.strip())
+				eprint(f"{ERROR_PREFIX} {err.strip()}")
 				continue
 			if 'W:' in err:
 				err = err.replace('W:', '')
-				eprint(color('Warning: ', 'YELLOW')+err.strip())
+				warn = color(_('Warning:'), 'YELLOW')
+				eprint(f"{warn} {err.strip()}")
 				continue
 		sys.exit(1)
 	eprint(ERROR_PREFIX+msg)
 	if not term.is_su():
-		sys.exit('Are you root?')
+		sys.exit(_('Are you root?'))
 	sys.exit(1)
 
 def essential_error(pkg_list: list[Text]) -> NoReturn:
 	"""Print error message for essential packages and exit."""
-	the_following = color('The Following Packages are')
-	essential_package = f"You have attempted to remove {color('essential packages', 'RED')}"
-	if len(pkg_list) == 1:
-		the_following = color('The Following Package is')
-		essential_package = f"You have attempted to remove an {color('essential package', 'RED')}"
 	print('='*term.columns)
-	print(the_following, color('Essential!', 'RED'))
+	print(
+		_("The Following Packages are {essential}").format(
+			essential=color('Essential!', 'RED')
+		)
+	)
 	print('='*term.columns)
 	term.console.print(Columns(pkg_list, padding=(0,2), equal=True))
-
 	print('='*term.columns)
-	switch = color('--remove-essential', 'YELLOW')
-	eprint(ERROR_PREFIX+essential_package)
-	eprint(f'{ERROR_PREFIX}Please use {switch} if you are sure you want too.')
+	eprint(
+		_("{error} You have attempted to remove {essential}").format(
+			error=ERROR_PREFIX, essential=color('essential packages', 'RED')
+		)
+	)
+	eprint(
+		_("{error} Please use {switch} if you are sure you want to.").format(
+			error=ERROR_PREFIX, switch=color('--remove-essential', 'YELLOW')
+		)
+	)
 	sys.exit(1)
 
-def pkg_error(pkg_list: list[str], msg: str = '', terminate: bool = False) -> None:
+def pkg_error(pkg_list: list[str], terminate: bool = False) -> None:
 	"""Print error for package in list."""
 	for pkg in pkg_list:
-		eprint(ERROR_PREFIX+color(pkg, 'YELLOW'), msg)
-
+		eprint(
+			_("{error} {pkg} not found").format(
+				error=ERROR_PREFIX, pkg=color(pkg, 'YELLOW')
+			)
+		)
 	if terminate:
 		sys.exit(1)
 
@@ -113,18 +130,36 @@ def broken_error(broken: list[Package],
 				pkg.name,
 				cast(tuple[Package], installed_pkgs)
 			)
-
-	print(f"\n{color('Notice:', 'YELLOW')} The information above may be able to help")
-	sys.exit(f'{ERROR_PREFIX}You have held broken packages')
+	print(
+		_("\n{notice} The information above may be able to help").format(
+			notice=color(_('Notice:'), 'YELLOW')
+		)
+	)
+	sys.exit(
+		_("{error} You have held broken packages").format(
+			error=ERROR_PREFIX
+		)
+	)
 
 def print_broken(pkg_name: str, candidate: Version) -> None:
 	"""Print broken packages information."""
 	print('='*term.columns)
 	version = color('(') + color(candidate.version, 'BLUE') + color(')')
 	print(f"{color('Package:', 'YELLOW')} {color(pkg_name, 'GREEN')} {version}")
+	msg = ''
 	if conflicts := candidate.get_dependencies('Conflicts'):
-		print_dep(color('Conflicts:', 'YELLOW'), conflicts)
+		msg += SHOW_INFO.format(
+			header=color(_('Conflicts:'), 'YELLOW'),
+			info=show_dep(conflicts)
+		)
 	if breaks := candidate.get_dependencies('Breaks'):
-		print_dep(color('Breaks:', 'YELLOW'), breaks)
+		msg += SHOW_INFO.format(
+			header=color(_('Breaks:'), 'YELLOW'),
+			info=show_dep(breaks)
+		)
 	if candidate.dependencies:
-		print_dep(color('Depends:', 'YELLOW'), candidate.dependencies)
+		msg += SHOW_INFO.format(
+			header=color(_('Depends:'), 'YELLOW'),
+			info=show_dep(candidate.dependencies)
+		)
+	print(msg)

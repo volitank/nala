@@ -24,6 +24,7 @@
 """Module for file constants."""
 from __future__ import annotations
 
+import gettext
 import re
 from pathlib import Path
 from signal import Handlers  # pylint: disable=no-name-in-module #Codacy
@@ -83,18 +84,17 @@ SOURCEPARTS = Path(apt_pkg.config.find_dir('Dir::Etc::sourceparts'))
 """/etc/apt/sources.list.d"""
 
 JSON_OPTIONS = jsbeautifier.BeautifierOptions(options={'indent_with_tabs' : True})
-ERROR_PREFIX = '\x1b[1;31mError: \x1b[0m'
-
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
+
+translate = gettext.translation('nala', './nala.pot', fallback=True)
+def _(msg: str) -> str:
+	return translate.gettext(msg)
+
+error = _('Error:')
+ERROR_PREFIX = f"\x1b[1;31m{error}\x1b[0m"
 
 # Compiled Regex
 ERRNO_PATTERN = re.compile(r'\[.*\]')
-
-class ExitCode: # pylint: disable=too-few-public-methods
-	"""Constants for Exit Codes."""
-
-	SIGINT = 130
-	SIGTERM = 143
 
 COLOR_CODES: dict[str, str | int] = {
 	'RESET' : '\x1b[0m',

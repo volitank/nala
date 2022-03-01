@@ -33,7 +33,7 @@ import apt_pkg
 from apt.package import Package, Version
 
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
-				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
+				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, _)
 from nala.error import broken_error, pkg_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
@@ -57,7 +57,11 @@ def upgrade() -> None:
 
 	if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
 		for pkg in kept_back:
-			print(f"{color(pkg.name, 'YELLOW')} was kept back")
+			print(
+				_("{pkg_name} was kept back").format(
+					pkg_name=color(pkg.name, 'YELLOW')
+				)
+			)
 		check_term_ask()
 
 	auto_remover(cache, nala_pkgs)
@@ -76,9 +80,10 @@ def install(pkg_names: list[str]) -> None:
 	not_found.extend(not_exist)
 
 	if not_found:
-		pkg_error(not_found, 'not found', terminate=True)
+		pkg_error(not_found, terminate=True)
 
-	if not package_manager(pkg_names, cache):
+	package_manager(pkg_names, cache)
+	if broken:
 		broken_error(broken)
 
 	auto_remover(cache, nala_pkgs)
@@ -97,7 +102,7 @@ def remove(pkg_names: list[str]) -> None:
 	)
 
 	if not_found:
-		pkg_error(not_found, 'not found')
+		pkg_error(not_found)
 
 	if not package_manager(
 		pkg_names, cache,
@@ -158,7 +163,11 @@ def show(pkg_names: list[str]) -> None:
 
 		if check_virtual(pkg_name, cache):
 			continue
-		not_found.append(f"{ERROR_PREFIX}{color(pkg_name, 'YELLOW')} not found")
+		not_found.append(
+			_("{error} {name} not found").format(
+				error=ERROR_PREFIX, name=pkg_name
+			)
+		)
 
 	if additional_records and not arguments.all_versions:
 		additional_notice(additional_records)
@@ -168,10 +177,14 @@ def show(pkg_names: list[str]) -> None:
 			eprint(error)
 		sys.exit(1)
 
-def search(search_term: str) -> None:
+def search() -> None:
 	"""Search command entry point."""
-	if not search_term:
-		sys.exit(f'{ERROR_PREFIX}You must specify a pattern to search')
+	if not (search_term := arguments.args):
+		sys.exit(
+			_("{error} you must specify a pattern to search").format(
+				error=ERROR_PREFIX
+			)
+		)
 	cache = setup_cache()
 	found: list[tuple[Package, Version]] = []
 	if search_term == '*':
@@ -179,9 +192,14 @@ def search(search_term: str) -> None:
 	try:
 		search_pattern = re.compile(search_term, re.IGNORECASE)
 	except re.error as error:
-		sys.exit(f"{ERROR_PREFIX}Failed Regex Compilation '{error.msg} at position {error.pos}'")
+		sys.exit(
+			_("{error} failed regex compilation '{error_msg} at position {position}").format(
+				error=ERROR_PREFIX, error_msg=error.msg, position=error.pos
+			)
+		)
 	with search_progress as progress:
-		task = progress.add_task('Searching...', total=len(cache))
+		searching = _('Searching')
+		task = progress.add_task(f"{searching}...", total=len(cache))
 		arches = apt_pkg.get_architectures()
 		for pkg in cache:
 			if arguments.installed and not pkg.installed:
@@ -191,7 +209,11 @@ def search(search_term: str) -> None:
 				search_name(pkg, search_pattern, found)
 			progress.advance(task)
 	if not found:
-		sys.exit(f"{ERROR_PREFIX}{color(search_term, 'YELLOW')} was not found.")
+		sys.exit(
+			_("{error} {regex} not found.").format(
+				error=ERROR_PREFIX, regex=search_term
+			)
+		)
 	print_search(found)
 
 def history() -> None:
@@ -199,18 +221,30 @@ def history() -> None:
 	mode = arguments.mode
 	# Eventually we should probably make argparser better and handle this for us.
 	if mode and mode not in ('undo', 'redo', 'info', 'clear'):
-		sys.exit(f"{ERROR_PREFIX}'{mode}' isn't a valid history command")
+		sys.exit(
+			_("{error} {command} isn't a valid history command").format(
+				error=ERROR_PREFIX, command=mode
+			)
+		)
 	if mode and not arguments.id:
-		sys.exit(f'{ERROR_PREFIX}We need a transaction ID...')
+		sys.exit(
+			_("{error} We need a transaction ID").format(
+				error=ERROR_PREFIX
+			)
+		)
 	if mode in ('undo', 'redo', 'info'):
 		try:
 			# We are basically just type checking here
 			int(arguments.id)
 		except ValueError:
-			sys.exit(f'{ERROR_PREFIX}Option must be a number...')
-
+			sys.exit(
+				_("{error} ID must be a number").format(
+					error=ERROR_PREFIX
+				)
+			)
 	if mode in ('undo', 'redo'):
-		sudo_check(f"{mode} history")
+		hist = _('history')
+		sudo_check(f"{mode} {hist}")
 		history_undo(arguments.id, redo=mode == 'redo')
 		return
 
@@ -219,7 +253,7 @@ def history() -> None:
 		return
 
 	if mode == 'clear':
-		sudo_check('clear history')
+		sudo_check(_('clear history'))
 		history_clear(arguments.id)
 		return
 	history_summary()
@@ -230,14 +264,21 @@ def clean() -> None:
 	iter_remove(PARTIAL_DIR)
 	iter_remove(LISTS_PARTIAL_DIR)
 	if arguments.verbose:
-		print(f'Removing {PKGCACHE}')
-		print(f'Removing {SRCPKGCACHE}')
+		print(
+			_("Removing {cache}\nRemoving {src_cache}").format(
+				cache=PKGCACHE, src_cache=SRCPKGCACHE
+			)
+		)
 	elif arguments.debug:
-		dprint(f'Removing {PKGCACHE}')
-		dprint(f'Removing {SRCPKGCACHE}')
+		dprint(
+			_("Removing {cache}\nRemoving {src_cache}").format(
+				cache=PKGCACHE, src_cache=SRCPKGCACHE
+			)
+		)
+
 	PKGCACHE.unlink(missing_ok=True)
 	SRCPKGCACHE.unlink(missing_ok=True)
-	print("Cache has been cleaned")
+	print(_("Cache has been cleaned"))
 
 def moo() -> None:
 	"""I beg, pls moo."""
@@ -250,8 +291,11 @@ def moo() -> None:
 		print(CAT_ASCII['3'])
 	else:
 		print(CAT_ASCII['1'])
-	print('..."I can\'t moo for I\'m a cat"...')
+	can_no_moo = _("I can't moo for I'm a cat")
+	print(f'..."{can_no_moo}"...')
 	if arguments.no_update:
-		print("...What did you expect no-update to do?...")
+		what_did_you_expect = _('What did you expect no-update to do?')
+		print(f"...{what_did_you_expect}...")
 	if arguments.update:
-		print("...What did you expect to update?...")
+		what_did_you_expect = _('What did you expect to update?')
+		print(f"...{what_did_you_expect}...")

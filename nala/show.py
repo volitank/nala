@@ -31,30 +31,29 @@ from typing import cast
 from apt.cache import Cache
 from apt.package import BaseDependency, Dependency, Package, Version
 
-from nala.constants import PACSTALL_METADATA
+from nala.constants import PACSTALL_METADATA, _
 from nala.options import arguments
 from nala.rich import ascii_replace
 from nala.utils import color, term, unit_str
 
-
-def print_sep() -> None:
-	"""Print separator."""
-	print()
-	print('='*term.columns)
-	print()
+SHOW_INFO = _("{header} {info}\n")
 
 def show_main(num: int, pkg: Package) -> int:
 	"""Orchestrate show command with support for all_versions."""
 	if num:
-		print_sep()
+		print(f"\n{'='*term.columns}\n")
 	count = len(pkg.versions)
 	versions = pkg.versions if arguments.all_versions else [pkg.candidate]
 	for ver_num, ver in enumerate(versions):
 		if ver is None:
-			print(color(pkg.name, 'YELLOW'), 'has no candidate')
+			print(
+				_("{pkg_name} has no candidate").format(
+					pkg_name=color(pkg.name, 'YELLOW')
+				)
+			)
 			continue
 		if ver_num and not num:
-			print_sep()
+			print(f"\n{'='*term.columns}\n")
 		count -= 1
 		show_pkg(ver)
 	return count
@@ -62,18 +61,27 @@ def show_main(num: int, pkg: Package) -> int:
 def show_pkg(candidate: Version) -> None:
 	"""Start show functions."""
 	pkg = candidate.package
-	for pkg_info in show_format(pkg, candidate):
-		if pkg_info:
-			print(pkg_info)
-
-	show_related(candidate)
+	msg = f"{show_format(pkg, candidate)}\n{show_related(candidate)}"
 	if candidate.homepage:
-		print(color('Homepage:'), candidate.homepage)
+		msg += SHOW_INFO.format(
+			header=color(_('Homepage:')),
+			info=candidate.homepage
+		)
 	if candidate.size:
-		print(color('Download-Size:'), unit_str(candidate.size, 1))
-	print(format_sources(candidate, pkg))
+		msg += SHOW_INFO.format(
+			header=color(_('Download-Size:')),
+			info=unit_str(candidate.size, 1)
+		)
+	msg += SHOW_INFO.format(
+		header=color(_('APT-Sources:')),
+		info=format_sources(candidate, pkg)
+	)
 	if candidate._translated_records:
-		print(color('Description:'), ascii_replace(candidate._translated_records.long_desc))
+		msg += SHOW_INFO.format(
+			header=color(_('Description:')),
+			info=ascii_replace(candidate._translated_records.long_desc)
+		)
+	print(msg.strip())
 
 def check_virtual(pkg_name: str, cache: Cache) -> bool:
 	"""Check if the package is virtual."""
@@ -83,76 +91,114 @@ def check_virtual(pkg_name: str, cache: Cache) -> bool:
 			for pkg in cache.get_providing_packages(pkg_name)
 		]
 		print(
-			color(pkg_name, 'YELLOW'),
-			"is a virtual package satisfied by the following:\n"
-			f"{', '.join(virtual)}"
+			_("{pkg} is a virtual package satisfied by the following:\n{providers}").format(
+				pkg=pkg_name, providers=', '.join(virtual)
+			)
 		)
 		return True
 	return False
 
-def show_related(candidate: Version) -> None:
+def show_related(candidate: Version) -> str:
 	"""Show relational packages."""
+	msg = ''
 	if candidate.provides:
-		print_dep(
-			color('Provides:'),
-			[color(name, 'GREEN') for name in candidate.provides],
+		msg += SHOW_INFO.format(
+			header=color(_('Provides:')),
+			info=show_dep([color(name, 'GREEN') for name in candidate.provides])
 		)
 
 	if candidate.enhances:
-		print_dep(
-			color('Enhances:'),
-			[color(pkg[0].name, 'GREEN') for pkg in candidate.enhances],
+		msg += SHOW_INFO.format(
+			header=color(_('Enhances:')),
+			info=show_dep([color(pkg[0].name, 'GREEN') for pkg in candidate.enhances])
 		)
 
 	if candidate.dependencies:
 		depends, pre_depends = split_deps(candidate.dependencies)
 		if pre_depends:
-			print_dep(color('Pre-Depends:'), pre_depends)
+			msg += SHOW_INFO.format(
+				header=color(_('Pre-Depends:')),
+				info=show_dep(pre_depends)
+			)
 		if depends:
-			print_dep(color('Depends:'), depends)
+			msg += SHOW_INFO.format(
+				header=color(_('Depends:')),
+				info=show_dep(depends)
+			)
 
 	if candidate.recommends:
-		print_dep(color('Recommends:'), candidate.recommends)
+		msg += SHOW_INFO.format(
+			header=color(_('Recommends:')),
+			info=show_dep(candidate.recommends)
+		)
 
 	if candidate.suggests:
-		print_dep(color('Suggests:'), candidate.suggests)
+		msg += SHOW_INFO.format(
+			header=color(_('Suggests:')),
+			info=show_dep(candidate.suggests)
+		)
 
-	additional_related(candidate)
+	return msg + additional_related(candidate)
 
-def additional_related(candidate: Version) -> None:
+def additional_related(candidate: Version) -> str:
 	"""Show breaks, conflicts, replaces."""
+	msg = ''
 	if replaces := candidate.get_dependencies('Replaces'):
-		print_dep(
-			color('Replaces:'),
-			[color(pkg[0].name, 'GREEN') for pkg in replaces],
+		msg += SHOW_INFO.format(
+			header=color(_('Replaces:')),
+			info=show_dep([color(pkg[0].name, 'GREEN') for pkg in replaces])
 		)
 	if conflicts := candidate.get_dependencies('Conflicts'):
-		print_dep(color('Conflicts:'), conflicts)
+		msg += SHOW_INFO.format(
+			header=color(_('Conflicts:')),
+			info=show_dep(conflicts)
+		)
 	if breaks := candidate.get_dependencies('Breaks'):
-		print_dep(color('Breaks:'), breaks)
+		msg += SHOW_INFO.format(
+			header=color(_('Breaks:')),
+			info=show_dep(breaks)
+		)
+	return msg
 
-def show_format(pkg: Package, candidate: Version) -> tuple[str, ...]:
+def show_format(pkg: Package, candidate: Version) -> str:
 	"""Format main section for show command."""
-	installed = 'yes' if pkg.is_installed else 'no'
-	essential = 'yes' if pkg.essential else 'no'
+	installed = _('yes') if pkg.is_installed else _('no')
+	essential = _('yes') if pkg.essential else _('no')
 	maintainer = format_maintainer(str(candidate.record.get('Maintainer')).split())
-	original_maintainer, bugs, origin, installed_size = filter_empty(candidate)
 
-	return (
-		f"{color('Package:')} {color(pkg.name, 'GREEN')}",
-		f"{color('Version:')} {color(candidate.version, 'BLUE')}",
-		f"{color('Architecture:')} {candidate.architecture}",
-		f"{color('Installed:')} {installed}",
-		f"{color('Priority:')} {candidate.priority}",
-		f"{color('Essential:')} {essential}",
-		f"{color('Section:')} {candidate.section}",
-		f"{color('Source:')} {candidate.source_name}",
-		origin,
-		f"{color('Maintainer:')} {maintainer}",
-		original_maintainer,
-		bugs,
-		installed_size,
+	show = (
+		SHOW_INFO.format(header=color(_('Package:')), info=color(pkg.name, 'GREEN'))
+		+SHOW_INFO.format(header=color(_('Version:')), info=color(candidate.version, 'BLUE'))
+		+SHOW_INFO.format(header=color(_('Architecture:')), info=candidate.architecture)
+		+SHOW_INFO.format(header=color(_('Installed:')), info=installed)
+		+SHOW_INFO.format(header=color(_('Priority:')), info=candidate.priority)
+		+SHOW_INFO.format(header=color(_('Essential:')), info=essential)
+		+SHOW_INFO.format(header=color(_('Section:')), info=candidate.section)
+		+SHOW_INFO.format(header=color(_('Source:')), info=candidate.source_name)
 	)
+	if origin := candidate.origins[0].origin:
+		show += SHOW_INFO.format(
+			header=color(_('Origin:')),
+			info=origin
+		)
+	show += SHOW_INFO.format(header=color(_('Maintainer:')), info=maintainer)
+
+	if original_maintainer := candidate.record.get('Original-Maintainer'):
+		show += SHOW_INFO.format(
+			header=color(_('Original-Maintainer:')),
+			info=format_maintainer(str(original_maintainer).split())
+		)
+	if bugs := candidate.record.get('Bugs'):
+		show += SHOW_INFO.format(
+			header=color(_('Bugs:')),
+			info=bugs
+		)
+	if installed_size := candidate.installed_size:
+		show += SHOW_INFO.format(
+			header=color(_('Installed-Size:')),
+			info=unit_str(installed_size, 1)
+		)
+	return show.strip()
 
 def format_maintainer(maintainer: list[str]) -> str:
 	"""Format email in maintainer line."""
@@ -164,36 +210,21 @@ def format_maintainer(maintainer: list[str]) -> str:
 		maint_list.append(line)
 	return ' '.join(maint_list)
 
-def filter_empty(candidate: Version) -> tuple[str, str, str, str]:
-	"""Filter empty information blocks."""
-	original_maintainer = candidate.record.get('Original-Maintainer')
-	if original_maintainer:
-		original_maintainer = format_maintainer(str(original_maintainer).split())
-	bugs = candidate.record.get('Bugs')
-	origin = candidate.origins[0].origin
-	installed_size = candidate.installed_size
-
-	return (
-		f"{color('Original-Maintainer:')} {original_maintainer}" if original_maintainer else '',
-		f"{color('Bugs:')} {bugs}" if bugs else '',
-		f"{color('Origin:')} {origin}" if origin else '',
-		f"{color('Installed-Size:')} {unit_str(installed_size, 1)}" if installed_size else ''
-	)
-
-def print_dep(prefix: str,
-	package_dependecy: list[Dependency] | list[str]) -> None:
+def show_dep(package_dependecy: list[Dependency] | list[str]) -> str:
 	"""Print dependencies for show."""
 	if isinstance(package_dependecy[0], str):
 		package_dependecy.sort()
-		print(prefix, ", ".join(cast(list[str], package_dependecy)))
-		return
+		if len(package_dependecy) > 4:
+			return "\n  "+"\n  ".join(cast(list[str], package_dependecy))
+		return ", ".join(cast(list[str], package_dependecy))
 
 	package_dependecy = dedupe_deps(cast(list[Dependency], package_dependecy))
 	join_list = []
+	msg = ''
 	same_line = True
 	if len(package_dependecy) > 4:
 		same_line = False
-		print(prefix)
+		msg += '\n'
 
 	for dep_list in package_dependecy:
 		dep_print = ''
@@ -207,10 +238,11 @@ def print_dep(prefix: str,
 		if same_line:
 			join_list.append(dep_print.strip())
 			continue
-		print(dep_print)
+		msg+=f"{dep_print}\n"
 
 	if same_line:
-		print(prefix,", ".join(join_list))
+		return ", ".join(join_list)
+	return msg.rstrip()
 
 def format_dep(dep: BaseDependency, iteration: int) -> str:
 	"""Format dependencies for show."""
@@ -231,10 +263,9 @@ def format_sources(candidate: Version, pkg: Package) -> str:
 	"""Show apt sources."""
 	origin = candidate.origins[0]
 	if origin.archive == 'now':
-		return f'{color("APT-Sources:")} {get_local_source(pkg.shortname)}'
-
+		return f"{get_local_source(pkg.shortname)}"
 	return (
-		f"{color('APT-Sources:')} {source_url(candidate.uris)} {origin.archive}/"
+		f"{source_url(candidate.uris)} {origin.archive}/"
 		f"{origin.component} {candidate.architecture} Packages"
 	)
 
@@ -256,7 +287,7 @@ def get_local_source(pkg_name: str) -> str:
 		metadata = PACSTALL_METADATA / (pkg_name + postfix)
 		if metadata.exists():
 			return parse_pacstall(metadata)
-	return 'local install'
+	return _('local install')
 
 def parse_pacstall(pacdata: Path) -> str:
 	"""Parse pacstall metadata file."""
@@ -291,9 +322,12 @@ def dedupe_deps(duplicates: list[Dependency]) -> list[Dependency]:
 
 def additional_notice(additional_records: int) -> None:
 	"""Print notice of additional records."""
-	all_versions = color("'-a'", 'YELLOW')
 	print(
-		color('Notice:', 'YELLOW'),
-		f"There are {color(str(additional_records), 'YELLOW')} additional records.",
-		f"Please use the {all_versions} switch to see them."
+		_(
+			"{notice} There are {num} additional records. "
+			"Please use the {switch} switch to see them.").format(
+			notice=color(_('Notice:'), 'YELLOW'),
+			num=color(str(additional_records), 'YELLOW'),
+			switch=color("'-a'", 'YELLOW')
+		)
 	)
