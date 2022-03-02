@@ -394,11 +394,11 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 			installed = pkg_installed(pkg)
 			if pkg.name not in nala_pkgs.autoremoved:
 				nala_pkgs.delete_pkgs.append(
-					NalaPackage(pkg.name, installed.version, installed.size),
+					NalaPackage(pkg.name, installed.version, installed.installed_size),
 				)
 			else:
 				nala_pkgs.autoremove_pkgs.append(
-					NalaPackage(pkg.name, installed.version, installed.size)
+					NalaPackage(pkg.name, installed.version, installed.installed_size)
 				)
 			continue
 
