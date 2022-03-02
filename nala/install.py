@@ -506,7 +506,7 @@ def check_term_ask() -> None:
 			)
 		)
 
-	if not arguments.assume_yes and not ask(_('Do you want to continue')):
+	if not arguments.assume_yes and not ask(_('Do you want to continue?')):
 		eprint(_("Abort."))
 		sys.exit(0)
 

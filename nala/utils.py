@@ -302,7 +302,7 @@ def ask(question: str, default_no: bool = False) -> bool:
 	N returns False
 	"""
 	while True:
-		resp = input(f'{question}? [Y/n] ')
+		resp = input(f'{question} [Y/n] ')
 		if resp in ('y', 'Y'):
 			return True
 		if resp in ('n', 'N'):

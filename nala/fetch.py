@@ -380,7 +380,7 @@ def fetch_checks() -> None:
 		not ask(
 			_(
 				"{file} already exists.\n"
-				"Continue and overwrite it").format(file=NALA_SOURCES)
+				"Continue and overwrite it?").format(file=NALA_SOURCES)
 			)
 		):
 		sys.exit(_('Abort.'))
