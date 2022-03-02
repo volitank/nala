@@ -38,9 +38,19 @@ from nala.utils import (color, color_version, dprint, eprint,
 				get_installed_dep_names, is_secret_virtual, print_rdeps, term)
 
 DEPENDS = color(_('Depends:'))
+"""'Depends:'"""
 OR_DEPENDS = color(_('Either:'))
+"""'Either:'"""
 BREAKS = color(_('Breaks:'))
+"""'Breaks:'"""
 CONFLICTS = color(_('Conflicts:'))
+"""'Conflicts:'"""
+SECRET_VIRTUAL = _("{pkg_name} is a secret virtual package, nothing provides it")
+"""'{pkg_name} is a secret virtual package, nothing provides it'"""
+BREAKS_MSG = _("{dependency} will break {pkg_name} {version}")
+"""'{dependency} will break {pkg_name} {version}'"""
+CONFLICTS_MSG = _("{dependency} conflicts with {pkg_name} {version}")
+"""'{dependency} conflicts with {pkg_name} {version}'"""
 
 class ExitCode: # pylint: disable=too-few-public-methods
 	"""Constants for Exit Codes."""
@@ -100,12 +110,18 @@ def essential_error(pkg_list: list[Text]) -> NoReturn:
 	)
 	sys.exit(1)
 
-def pkg_error(pkg_list: list[str], terminate: bool = False) -> None:
+def pkg_error(pkg_list: list[str], cache: Cache, terminate: bool = False) -> None:
 	"""Print error for package in list."""
 	for pkg in pkg_list:
+		if is_secret_virtual(pkg, cache):
+			eprint(
+				SECRET_VIRTUAL.format(
+					pkg_name = color(pkg, 'GREEN')
+				)
+			)
 		eprint(
-			_("{error} {pkg} not found").format(
-				error=ERROR_PREFIX, pkg=color(pkg, 'YELLOW')
+			_("{error} {pkg_name} not found").format(
+				error=ERROR_PREFIX, pkg_name=color(pkg, 'YELLOW')
 			)
 		)
 	if terminate:
@@ -122,24 +138,24 @@ def format_broken(dep: BaseDependency, cache:Cache, arch: str = '') -> str:
 	if cache.is_virtual_package(dep_name):
 		return ''
 	if is_secret_virtual(dep_name, cache):
-		return _("{dependency} is a secret virtual package, nothing provides it").format(
-			dependency = formatted_dep
+		return SECRET_VIRTUAL.format(
+			pkg_name = formatted_dep
 		)
 	if dep_name not in cache:
-		return _("{dependency} but it isn't in the cache").format(
-			dependency = formatted_dep
+		return _("{pkg_name} but it isn't in the cache").format(
+			pkg_name = formatted_dep
 		)
 	if (dep.version and not dep.target_versions
 		and not dep.installed_target_versions):
 		dep_pkg = cache[dep.name]
 		if dep_pkg.candidate and not apt_pkg.check_dep(
 		    dep_pkg.candidate.version, dep.relation_deb, dep.version):
-			return _("{dependency} but the cache version is {version}").format(
-				dependency = formatted_dep, version = color_version(dep_pkg.candidate.version)
+			return _("{pkg_name} but the cache version is {version}").format(
+				pkg_name= formatted_dep, version = color_version(dep_pkg.candidate.version)
 			)
 		# If none of our conditions are met we just fall back to a general error
-		return _("{dependency} but it cannont be installed").format(
-			dependency = formatted_dep
+		return _("{pkg_name} but it cannont be installed").format(
+			pkg_name = formatted_dep
 		)
 	return ''
 
@@ -155,13 +171,13 @@ def format_broken_conflict(breaks: list[Dependency], tree_name: str, arch: str =
 				formatted_dep = formatted_dep.replace(dep[0].name, f"{dep[0].name}:{arch}")
 				break_name = f"{break_name}:{break_pkg.architecture}"
 			break_pkg = dep[0].installed_target_versions[0]
-			break_conflict = _('breaks') if tree_name == BREAKS else _('conflicts')
-
+			msg = BREAKS_MSG if tree_name == BREAKS else CONFLICTS_MSG
 			break_tree.add(
 				from_ansi(
-					_("{dependency} {breaks} {pkg_name} {version}").format(
-						dependency = formatted_dep, breaks = break_conflict,
-						pkg_name = color(break_name, 'GREEN'), version = color_version(break_pkg.version)
+					msg.format(
+						dependency = formatted_dep,
+						pkg_name = color(break_name, 'GREEN'),
+						version = color_version(break_pkg.version)
 					)
 				)
 			)

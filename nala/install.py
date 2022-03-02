@@ -33,7 +33,7 @@ import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.debfile import DebPackage
 from apt.package import Package
-from apt_pkg import DepCache, Error as AptError, get_architectures
+from apt_pkg import DepCache, Error as AptError
 
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
 				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, _)
@@ -44,9 +44,12 @@ from nala.history import write_history, write_log
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
 from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
-				ask, check_pkg, color, dprint, eprint, get_date, pkg_candidate,
-				pkg_installed, print_update_summary, term, vprint)
+				ask, check_pkg, color, color_version, dprint, eprint, get_date,
+				pkg_candidate, pkg_installed, print_update_summary, term, vprint)
 
+VIRTUAL_PKG = _(
+	"{pkg_name} is a virtual package provided by:\n  {provides}\nYou should select one to install."
+)
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
 	"""Handle auto removal of packages."""
@@ -248,19 +251,29 @@ def package_manager(pkg_names: list[str], cache: Cache,
 					return False
 	return True
 
-def arch_filter(pkg_names: list[str], cache: Cache) -> list[str]:
-	"""Filter package names and append arch if necessary."""
+def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
+	"""Filter package to check if they're virtual."""
 	new_names = []
-	arches = get_architectures()
 	for pkg_name in pkg_names:
-		arch_found = False
-		if pkg_name not in cache:
-			for arch in arches:
-				arch_pkg = f"{pkg_name}:{arch}"
-				if arch_pkg in cache:
-					new_names.append(arch_pkg)
-					arch_found = True
-		if not arch_found:
+		virtual = False
+		if cache.is_virtual_package(pkg_name):
+			provides = cache.get_providing_packages(pkg_name)
+			virtual = True
+			if len(provides) == 1:
+				new_names.append(provides[0].name)
+				continue
+			if len(provides) > 1:
+				print(
+					VIRTUAL_PKG.format(
+						pkg_name = color(pkg_name, 'GREEN'),
+						provides = "\n  ".join(
+							f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
+							for pkg in provides
+						)
+					)
+				)
+				sys.exit(1)
+		if not virtual:
 			new_names.append(pkg_name)
 	dprint(f"Arch Filter: {new_names}")
 	return new_names
@@ -278,7 +291,7 @@ def get_extra_pkgs(extra_type: str,
 			if len(dep) == 1:
 				if not dep.target_versions:
 					npkg_list.append(
-						NalaPackage(dep[0].name, 'Virtual Package', 0)
+						NalaPackage(dep[0].name, _('Virtual Package'), 0)
 					)
 					continue
 				ver = dep.target_versions[0]
@@ -293,7 +306,7 @@ def get_extra_pkgs(extra_type: str,
 						continue
 					or_name.append(base_dep.name)
 					or_deps.append(
-						NalaPackage(base_dep.name, 'Virtual Package', 0)
+						NalaPackage(base_dep.name, _('Virtual Package'), 0)
 					)
 					continue
 				ver = base_dep.target_versions[0]
