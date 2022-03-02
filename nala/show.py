@@ -34,7 +34,7 @@ from apt.package import BaseDependency, Dependency, Package, Version
 from nala.constants import PACSTALL_METADATA, _
 from nala.options import arguments
 from nala.rich import ascii_replace
-from nala.utils import color, term, unit_str
+from nala.utils import color, is_secret_virtual, term, unit_str
 
 SHOW_INFO = _("{header} {info}\n")
 
@@ -92,7 +92,14 @@ def check_virtual(pkg_name: str, cache: Cache) -> bool:
 		]
 		print(
 			_("{pkg} is a virtual package satisfied by the following:\n{providers}").format(
-				pkg=pkg_name, providers=', '.join(virtual)
+				pkg=color(pkg_name, 'GREEN'), providers=', '.join(virtual)
+			)
+		)
+		return True
+	if is_secret_virtual(pkg_name, cache):
+		print(
+			_("{pkg} is a super secret virtual package!\nNothing provides it.").format(
+				pkg = color(pkg_name, 'GREEN')
 			)
 		)
 		return True

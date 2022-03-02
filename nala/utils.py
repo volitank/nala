@@ -289,6 +289,10 @@ def color(text: str, text_color: str = 'WHITE') -> str:
 	"""Return bold text in the color of your choice."""
 	return f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
 
+def color_version(version: str) -> str:
+	"""Color version number."""
+	return f"{color('(')}{color(version, 'BLUE')}{color(')')}"
+
 def ask(question: str, default_no: bool = False) -> bool:
 	"""Ask the user {question}.
 
@@ -424,6 +428,16 @@ def pkg_installed(pkg: Package) -> Version:
 	assert pkg.installed
 	return pkg.installed
 
+def is_secret_virtual(pkg_name: str, cache: Cache) -> bool:
+	"""Return True if the package is secret virtual."""
+	try:
+		pkg = cache._cache[pkg_name]
+		if not pkg.has_provides and not pkg.has_versions:
+			return True
+		return False
+	except KeyError:
+		return False
+
 def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
 	"""Iterate installed pkgs and return all of their deps in a list.
 
@@ -439,12 +453,21 @@ def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, .
 
 def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 	"""Print the installed reverse depends of a package."""
-	print(color(_('Installed Packages Depend On This:'), 'YELLOW'))
+	msg = color(_("Installed Packages that Depend on {pkg_name}\n").format(
+			pkg_name = color(name, 'GREEN')
+		), 'YELLOW')
 	for pkg in installed_pkgs:
 		for dep in pkg_installed(pkg).dependencies:
 			if name in dep.rawstr:
-				print(' ', color(pkg.name, 'GREEN'))
+				if pkg.essential:
+					msg += _("  {pkg_name} is an {essential} package!\n").format(
+						pkg_name=color(pkg.name, 'GREEN'),
+						essential = color('Essential', 'RED')
+					)
+					continue
+				msg += f"  {color(pkg.name, 'GREEN')}\n"
 				break
+	print(msg.strip())
 
 def arg_check() -> None:
 	"""Check arguments and errors if no packages are specified.

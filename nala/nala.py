@@ -34,7 +34,7 @@ from apt.package import Package, Version
 
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
 				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, _)
-from nala.error import broken_error, pkg_error
+from nala.error import broken_error, broken_pkg, pkg_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
 from nala.install import (arch_filter, auto_remover, check_broken,
@@ -56,13 +56,14 @@ def upgrade() -> None:
 	cache.upgrade(dist_upgrade=arguments.no_full)
 
 	if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
+		cache.clear()
+		print(
+			color(_("The following packages were kept back:"), 'YELLOW')
+		)
 		for pkg in kept_back:
-			print(
-				_("{pkg_name} was kept back").format(
-					pkg_name=color(pkg.name, 'YELLOW')
-				)
-			)
+			broken_pkg(pkg, cache)
 		check_term_ask()
+		cache.upgrade(dist_upgrade=arguments.no_full)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, upgrade=True)
@@ -82,9 +83,12 @@ def install(pkg_names: list[str]) -> None:
 	if not_found:
 		pkg_error(not_found, terminate=True)
 
-	package_manager(pkg_names, cache)
-	if broken:
-		broken_error(broken)
+	pkgs = [cache[pkg_name] for pkg_name in pkg_names]
+	if not package_manager(pkg_names, cache) or not all(
+		# We also check to make sure that all the packages are still
+		# Marked upgrade or install after the package manager is run
+		(pkg.marked_upgrade or pkg.marked_install) for pkg in pkgs):
+		broken_error(broken, cache)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs)
@@ -110,10 +114,9 @@ def remove(pkg_names: list[str]) -> None:
 
 		broken_error(
 			broken,
+			cache,
 			tuple(pkg for pkg in cache if pkg.is_installed and pkg_installed(pkg).dependencies)
 		)
-
-	dprint(f"Marked delete: {nala_pkgs.deleted}")
 
 	auto_remover(cache, nala_pkgs, _purge)
 	get_changes(cache, nala_pkgs, remove=True)
