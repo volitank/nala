@@ -108,10 +108,7 @@ def remove(pkg_names: list[str]) -> None:
 	if not_found:
 		pkg_error(not_found)
 
-	if not package_manager(
-		pkg_names, cache,
-		remove=True, deleted=nala_pkgs.deleted, purge=_purge):
-
+	if not package_manager(pkg_names, cache, remove=True, purge=_purge):
 		broken_error(
 			broken,
 			cache,

@@ -204,7 +204,6 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 
 	def __init__(self) -> None:
 		"""Class for storing package lists."""
-		self.deleted: list[str] = []
 		self.autoremoved: list[str] = []
 		self.local_debs: list[DebPackage] = []
 		self.local_pkgs: list[NalaPackage] = []

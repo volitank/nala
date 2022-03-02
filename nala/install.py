@@ -48,31 +48,13 @@ from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
 				pkg_installed, print_update_summary, term, vprint)
 
 
-def install_pkg(pkg: Package) -> None:
-	"""Mark package for installation or upgrade."""
-	if not pkg.installed:
-		pkg.mark_install(auto_fix=arguments.no_fix_broken)
-		dprint(f"Marked Install: {pkg.name}")
-	elif pkg.is_upgradable:
-		pkg.mark_upgrade()
-		dprint(f"Marked upgrade: {pkg.name}")
-
-def remove_pkg(pkg: Package, deleted: list[str], purge: bool = False) -> None:
-	"""Mark package for removal."""
-	if pkg.installed:
-		pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
-		dprint(f"Marked Remove: {pkg.name}")
-		deleted.append(pkg.name)
-
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
 	"""Handle auto removal of packages."""
 	if not arguments.no_autoremove:
 		for pkg in cache:
-			# We have to check both of these. Sometimes weird things happen
-			if pkg.is_installed and pkg.is_auto_removable and pkg.name not in nala_pkgs.deleted:
+			if pkg.is_installed and not pkg.marked_delete and pkg.is_auto_removable:
 				pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
 				nala_pkgs.autoremoved.append(pkg.name)
-
 		dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
@@ -243,18 +225,22 @@ def split_local(
 	return not_exist
 
 def package_manager(pkg_names: list[str], cache: Cache,
-	deleted: list[str] | None = None, remove: bool = False, purge: bool = False) -> bool:
+	remove: bool = False, purge: bool = False) -> bool:
 	"""Manage installation or removal of packages."""
 	with cache.actiongroup(): # type: ignore[attr-defined]
 		for pkg_name in pkg_names:
 			if pkg_name in cache:
 				pkg = cache[pkg_name]
 				try:
-					if remove:
-						assert isinstance(deleted, list)
-						remove_pkg(pkg, deleted, purge=purge)
-						continue
-					install_pkg(pkg)
+					if remove and pkg.installed:
+						pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
+						dprint(f"Marked Remove: {pkg.name}")
+					elif not pkg.installed:
+						pkg.mark_install(auto_fix=arguments.no_fix_broken)
+						dprint(f"Marked Install: {pkg.name}")
+					elif pkg.is_upgradable:
+						pkg.mark_upgrade()
+						dprint(f"Marked upgrade: {pkg.name}")
 				except AptError as error:
 					if ('broken packages' not in str(error)
 					and 'held packages' not in str(error)):
@@ -276,6 +262,7 @@ def arch_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 					arch_found = True
 		if not arch_found:
 			new_names.append(pkg_name)
+	dprint(f"Arch Filter: {new_names}")
 	return new_names
 
 def get_extra_pkgs(extra_type: str,
