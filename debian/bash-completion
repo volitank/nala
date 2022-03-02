@@ -38,11 +38,14 @@ _nala()
 	'
 
 	local DPKG_OPTIONS='
+		--no-autoremove
+		--no-fix-broken
 		--no-install-recommends
 		--install-suggests
 		--no-aptlist
 		--non-interactive
 		--non-interactive-full
+		--remove-essential
 		--confold
 		--confnew
 		--confdef
@@ -104,7 +107,7 @@ _nala()
 						--raw-dpkg
 						--no-autoremove
 						--no-fix-broken
-						'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				update|upgrade)
@@ -139,7 +142,11 @@ _nala()
 						-a --all-versions'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
-				history|clean)
+				history)
+					COMPREPLY=( $( compgen -W "$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				clean)
 					COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
