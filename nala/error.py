@@ -183,10 +183,11 @@ def format_broken_conflict(breaks: list[Dependency], tree_name: str, arch: str =
 			)
 	return break_tree
 
-def broken_pkg(pkg: Package, cache: Cache) -> None: # pylint: disable=too-many-branches
+def broken_pkg(pkg: Package, cache: Cache) -> int: # pylint: disable=too-many-branches
 	"""Calculate and print broken Dependencies."""
+	ret_count = 0
 	if not pkg.candidate:
-		return
+		return ret_count
 	tree = Tree(from_ansi(color(pkg.name, 'GREEN')))
 	dep_tree = Tree(from_ansi(DEPENDS))
 	arch = ''
@@ -224,16 +225,19 @@ def broken_pkg(pkg: Package, cache: Cache) -> None: # pylint: disable=too-many-b
 
 	if tree.children:
 		term.console.print(tree, soft_wrap=True)
+		ret_count += 1
 		print()
+	return ret_count
 
 def broken_error(broken_list: list[Package], cache:Cache,
-	installed_pkgs: bool | tuple[Package, ...] = False) -> NoReturn:
+	installed_pkgs: bool | tuple[Package, ...] = False) -> int | NoReturn:
 	"""Handle printing of errors due to broken packages."""
 	if isinstance(installed_pkgs, tuple):
 		total_deps = get_installed_dep_names(installed_pkgs)
 	# We have to clear the changes from the cache
 	# before we can calculate why the packages are broken.
 	cache.clear()
+	ret_count = 0
 	for pkg in broken_list:
 		# if installed_pkgs exist then we are removing.
 		if installed_pkgs and pkg.name in total_deps:
@@ -242,7 +246,9 @@ def broken_error(broken_list: list[Package], cache:Cache,
 				cast(tuple[Package], installed_pkgs)
 			)
 			continue
-		broken_pkg(pkg, cache)
+		ret_count += broken_pkg(pkg, cache)
+	if not ret_count:
+		return ret_count
 	print(
 		_("{notice} The information above may be able to help").format(
 			notice=color(_('Notice:'), 'YELLOW')
@@ -253,6 +259,30 @@ def broken_error(broken_list: list[Package], cache:Cache,
 			error=ERROR_PREFIX
 		)
 	)
+
+def unmarked_error(pkgs: list[Package]) -> None:
+	"""Print error messages related to the fixer unmarking packages requested for install."""
+	terminate = False
+	for pkg in pkgs:
+		_("{package} has been unmarked. Try {switch} if you're sure they can be installed.")
+		if not pkg.marked_upgrade or pkg.marked_install:
+			terminate = True
+			print(
+				_('{package} has been unmarked.').format(
+					package = color(pkg.name, 'GREEN'),
+				)
+			)
+	if terminate:
+		print(
+			_("Try {switch} if you're sure they can be installed.").format(
+				switch = color('--no-fix-broken', 'YELLOW')
+			)
+		)
+		sys.exit(
+			_("{error} Some packages were unable to be installed.").format(
+				error = ERROR_PREFIX
+			)
+		)
 
 def print_broken(pkg_name: str, candidate: Version) -> None:
 	"""Print broken packages information."""

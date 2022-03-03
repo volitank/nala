@@ -34,7 +34,7 @@ from apt.package import Package, Version
 
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
 				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, _)
-from nala.error import broken_error, broken_pkg, pkg_error
+from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
 from nala.install import (auto_remover, check_broken, check_term_ask,
@@ -84,11 +84,12 @@ def install(pkg_names: list[str]) -> None:
 		pkg_error(not_found, cache, terminate=True)
 
 	pkgs = [cache[pkg_name] for pkg_name in pkg_names]
-	if not package_manager(pkg_names, cache) or not all(
-		# We also check to make sure that all the packages are still
-		# Marked upgrade or install after the package manager is run
-		(pkg.marked_upgrade or pkg.marked_install) for pkg in pkgs):
-		broken_error(broken, cache)
+	if (not package_manager(pkg_names, cache)
+	# We also check to make sure that all the packages are still
+	# Marked upgrade or install after the package manager is run
+	or not all((pkg.marked_upgrade or pkg.marked_install) for pkg in pkgs)
+	) and not broken_error(broken, cache):
+		unmarked_error(pkgs)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs)
