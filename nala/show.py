@@ -34,9 +34,13 @@ from apt.package import BaseDependency, Dependency, Package, Version
 from nala.constants import PACSTALL_METADATA, _
 from nala.options import arguments
 from nala.rich import ascii_replace
-from nala.utils import color, is_secret_virtual, term, unit_str
+from nala.utils import (color, color_version,
+				is_secret_virtual, pkg_candidate, term, unit_str)
 
 SHOW_INFO = _("{header} {info}\n")
+VIRTUAL_PKG = _(
+	"{pkg_name} is a virtual package provided by:\n  {provides}\nYou should select one to show."
+)
 
 def show_main(num: int, pkg: Package) -> int:
 	"""Orchestrate show command with support for all_versions."""
@@ -86,13 +90,13 @@ def show_pkg(candidate: Version) -> None:
 def check_virtual(pkg_name: str, cache: Cache) -> bool:
 	"""Check if the package is virtual."""
 	if cache.is_virtual_package(pkg_name):
-		virtual = [
-			color(pkg.name, 'GREEN')
-			for pkg in cache.get_providing_packages(pkg_name)
-		]
 		print(
-			_("{pkg} is a virtual package satisfied by the following:\n{providers}").format(
-				pkg=color(pkg_name, 'GREEN'), providers=', '.join(virtual)
+			VIRTUAL_PKG.format(
+				pkg_name = color(pkg_name, 'GREEN'),
+				provides = "\n  ".join(
+					f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
+					for pkg in cache.get_providing_packages(pkg_name)
+				)
 			)
 		)
 		return True
