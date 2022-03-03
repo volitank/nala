@@ -75,7 +75,7 @@ def install(pkg_names: list[str]) -> None:
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
 	install_local(nala_pkgs)
 
-	pkg_names = glob_filter(pkg_names, cache.keys())
+	pkg_names = glob_filter(pkg_names, cache)
 	pkg_names = virtual_filter(pkg_names, cache)
 	broken, not_found = check_broken(pkg_names, cache)
 	not_found.extend(not_exist)
@@ -100,7 +100,7 @@ def remove(pkg_names: list[str]) -> None:
 	dprint(f"Remove pkg_names: {pkg_names}")
 	not_found: list[str] = []
 
-	pkg_names = glob_filter(pkg_names, cache.keys())
+	pkg_names = glob_filter(pkg_names, cache)
 	broken, not_found = check_broken(
 		pkg_names, cache, remove=True, purge=_purge
 	)

@@ -275,7 +275,7 @@ def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 				sys.exit(1)
 		if not virtual:
 			new_names.append(pkg_name)
-	dprint(f"Arch Filter: {new_names}")
+	dprint(f"Virtual Filter: {new_names}")
 	return new_names
 
 def get_extra_pkgs(extra_type: str,

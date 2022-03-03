@@ -486,7 +486,7 @@ def arg_check() -> None:
 				dedupe.append(arg)
 		arguments.args = dedupe
 
-def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
+def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 	"""Filter provided packages and glob *.
 
 	Returns a new list of packages matching the glob.
@@ -498,10 +498,25 @@ def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
 
 	new_packages: list[str] = []
 	glob_failed = False
+	globber = []
+	for pkg in cache._cache.packages:
+		pkg_name = pkg.get_fullname(pretty=True)
+		if cache.is_virtual_package(pkg_name):
+			provides = cache.get_providing_packages(pkg_name)
+			if len(provides) == 1:
+				globber.append(pkg_name)
+			continue
+		if is_secret_virtual(pkg_name, cache):
+			continue
+		# Make sure any pkgs that get through are real
+		# Looking at you $kernel
+		if pkg.has_versions:
+			globber.append(pkg_name)
+
 	for pkg_name in pkg_names:
 		if '*' in pkg_name:
 			dprint(f'Globbing: {pkg_name}')
-			glob = fnmatch.filter(cache_keys, pkg_name)
+			glob = fnmatch.filter(globber, pkg_name)
 			if not glob:
 				glob_failed = True
 				eprint(
@@ -510,15 +525,14 @@ def glob_filter(pkg_names: list[str], cache_keys: list[str]) -> list[str]:
 					)
 				)
 				continue
-			new_packages.extend(
-				fnmatch.filter(cache_keys, pkg_name)
-			)
+			new_packages.extend(glob)
 		else:
 			new_packages.append(pkg_name)
 
-	dprint(f'List after globbing: {new_packages}')
 	if glob_failed:
 		sys.exit(1)
+	new_packages.sort()
+	dprint(f'List after globbing: {new_packages}')
 	return new_packages
 
 def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:

@@ -41,7 +41,7 @@ class NalaParser(argparse.ArgumentParser):
 	def error(self, message: str) -> NoReturn:
 		"""Send `--help` on error."""
 		message = message.replace(r", 'moo')", ')')
-		print(f'{ERROR_PREFIX}{message}', file=sys.stderr)
+		print(f'{ERROR_PREFIX} {message}', file=sys.stderr)
 		self.print_help()
 		sys.exit(1)
 
