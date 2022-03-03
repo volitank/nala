@@ -235,10 +235,12 @@ def package_manager(pkg_names: list[str], cache: Cache,
 			if pkg_name in cache:
 				pkg = cache[pkg_name]
 				try:
-					if remove and pkg.installed:
-						pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
-						dprint(f"Marked Remove: {pkg.name}")
-					elif not pkg.installed:
+					if remove:
+						if pkg.installed:
+							pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
+							dprint(f"Marked Remove: {pkg.name}")
+						continue
+					if not pkg.installed:
 						pkg.mark_install(auto_fix=arguments.no_fix_broken)
 						dprint(f"Marked Install: {pkg.name}")
 					elif pkg.is_upgradable:
