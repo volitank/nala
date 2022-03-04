@@ -612,7 +612,7 @@ def msg_formatter(line: str) -> str:
 		return format_version(match, line)
 	return line
 
-def get_title(install: bool, fetch: bool) -> str:
+def get_title(install: bool, fetch: bool) -> str: # pylint: disable=too-many-return-statements
 	"""Get the title for our panel."""
 	if arguments.command and install and not fetch:
 		if arguments.command in ('remove', 'purge'):
@@ -626,6 +626,8 @@ def get_title(install: bool, fetch: bool) -> str:
 			return f'[bold white]{title} {arguments.id}'
 	if install and fetch:
 		return '[bold white]'+_('Fetching Missed Packages')
+	if not arguments.command and arguments.fix_broken:
+		return '[bold white]'+_('Fixing Broken Packages')
 	return '[bold white]'+_('Updating Package List')
 
 def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
