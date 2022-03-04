@@ -542,6 +542,12 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 		if arguments.command == 'purge'
 		else (_('Remove'), _('Removing:'))
 	)
+	auto_remove, auto_removing = (
+		(_('Auto-Purge'), _('Auto-Purging:'))
+		if arguments.command == 'purge'
+		else (_('Auto-Remove'), _('Auto-Removing:'))
+	)
+
 
 	default_header = [_('Package:'), _('Version:'), _('Size:')]
 	upgrade_header = [_('Package:'), _('Old Version:'), _('New Version:'), _('Size:')]
@@ -553,7 +559,7 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 
 	print_packages(
 		default_header,
-		nala_pkgs.autoremove_pkgs, _('Auto-Removing:'), 'bold red'
+		nala_pkgs.autoremove_pkgs, auto_removing, 'bold red'
 	)
 
 	print_packages(
@@ -576,12 +582,12 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 		nala_pkgs.suggest_pkgs, _('Suggested, Will Not Be Installed:'), 'bold magenta'
 	)
 
-	transaction_summary(delete, nala_pkgs, not cache)
+	transaction_summary(delete, auto_remove, nala_pkgs, not cache)
 	if cache:
 		transaction_footer(cache)
 
-def transaction_summary(
-	delete_header: str, nala_pkgs: PackageHandler, history: bool = False) -> None:
+def transaction_summary(delete_header: str, auto_header :str,
+	nala_pkgs: PackageHandler, history: bool = False) -> None:
 	"""Print a small transaction summary."""
 	print('='*term.columns)
 	print(_('Summary'))
@@ -604,7 +610,7 @@ def transaction_summary(
 		table.add_row(delete_header, str(nala_pkgs.delete_total), _('Packages'))
 
 	if nala_pkgs.autoremove_total:
-		table.add_row(_('Auto-Remove'), str(nala_pkgs.autoremove_total), _('Packages'))
+		table.add_row(auto_header, str(nala_pkgs.autoremove_total), _('Packages'))
 	term.console.print(table)
 
 def transaction_footer(cache: Cache) -> None:
