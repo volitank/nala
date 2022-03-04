@@ -45,7 +45,7 @@ BREAKS = color(_('Breaks:'))
 """'Breaks:'"""
 CONFLICTS = color(_('Conflicts:'))
 """'Conflicts:'"""
-SECRET_VIRTUAL = _("{pkg_name} is a secret virtual package, nothing provides it")
+SECRET_VIRTUAL = _("{pkg_name} is only referenced by name, no packages provides it")
 """'{pkg_name} is a secret virtual package, nothing provides it'"""
 BREAKS_MSG = _("{dependency} will break {pkg_name} {version}")
 """'{dependency} will break {pkg_name} {version}'"""

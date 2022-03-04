@@ -102,7 +102,7 @@ def check_virtual(pkg_name: str, cache: Cache) -> bool:
 		return True
 	if is_secret_virtual(pkg_name, cache):
 		print(
-			_("{pkg} is a super secret virtual package!\nNothing provides it.").format(
+			_("{pkg} is only referenced by name.\nNothing provides it.").format(
 				pkg = color(pkg_name, 'GREEN')
 			)
 		)
