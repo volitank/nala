@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 import sys
-from typing import NoReturn, cast
+from typing import Generator, NoReturn, cast
 
 import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
@@ -110,18 +110,37 @@ def essential_error(pkg_list: list[Text]) -> NoReturn:
 	)
 	sys.exit(1)
 
+def what_replaces(pkg_name: str, cache: Cache)  -> Generator[str, None, None]:
+	"""Generate packages that replace the given name."""
+	for pkg in cache._cache.packages:
+		if (cand := cache._depcache.get_candidate_ver(pkg)):
+			try:
+				replaces = cand.depends_list['Replaces']
+				target = replaces[0][0].target_pkg
+				if pkg_name == target.name:
+					yield pkg.get_fullname(pretty=True)
+			except KeyError:
+				pass
+
 def pkg_error(pkg_list: list[str], cache: Cache, terminate: bool = False) -> None:
 	"""Print error for package in list."""
-	for pkg in pkg_list:
-		if is_secret_virtual(pkg, cache):
+	for pkg_name in pkg_list:
+		if is_secret_virtual(pkg_name, cache):
 			eprint(
 				SECRET_VIRTUAL.format(
-					pkg_name = color(pkg, 'GREEN')
+					pkg_name = color(pkg_name, 'YELLOW')
 				)
 			)
+			if (replaces := list(what_replaces(pkg_name, cache))):
+				print(
+					_("However, the following packages replace it:\n{replaces}\n").format(
+						replaces = ", ".join(color(pkg, 'GREEN') for pkg in replaces)
+					)
+				)
+			continue
 		eprint(
 			_("{error} {pkg_name} not found").format(
-				error=ERROR_PREFIX, pkg_name=color(pkg, 'YELLOW')
+				error=ERROR_PREFIX, pkg_name=color(pkg_name, 'YELLOW')
 			)
 		)
 	if terminate:
@@ -187,7 +206,11 @@ def broken_pkg(pkg: Package, cache: Cache) -> int: # pylint: disable=too-many-br
 	"""Calculate and print broken Dependencies."""
 	ret_count = 0
 	if not pkg.candidate:
-		return ret_count
+		# We do this in case a broken package is locally installed.
+		if not pkg.installed:
+			return ret_count
+		pkg.candidate = pkg.installed
+
 	tree = Tree(from_ansi(color(pkg.name, 'GREEN')))
 	dep_tree = Tree(from_ansi(DEPENDS))
 	arch = ''
@@ -264,7 +287,6 @@ def unmarked_error(pkgs: list[Package]) -> None:
 	"""Print error messages related to the fixer unmarking packages requested for install."""
 	terminate = False
 	for pkg in pkgs:
-		_("{package} has been unmarked. Try {switch} if you're sure they can be installed.")
 		if not pkg.marked_upgrade or pkg.marked_install:
 			terminate = True
 			print(
