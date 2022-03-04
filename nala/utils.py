@@ -123,7 +123,10 @@ class Terminal:
 	def set_environment(self) -> None:
 		"""Check and set various environment variables."""
 		if self.lines < 13 or self.columns < 31:
-			eprint(_("Terminal can't support dialog, falling back to readline"))
+			print(
+				_("Terminal can't support dialog, falling back to readline"),
+				file=sys.stderr
+			)
 			os.environ["DEBIAN_FRONTEND"] = "readline"
 		# Readline is too hard to support with our fancy formatting
 		if os.environ.get("DEBIAN_FRONTEND") == "readline":
@@ -213,6 +216,7 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 		self.autoremove_pkgs: list[NalaPackage] = []
 		self.recommend_pkgs: list[NalaPackage | list[NalaPackage]] = []
 		self.suggest_pkgs: list[NalaPackage | list[NalaPackage]] = []
+		self.configure_pkgs: list[NalaPackage] = []
 
 	@property
 	def extended_install(self) -> list[NalaPackage]:
@@ -261,6 +265,8 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 			# For local deb installs we add 1 more because of having to start
 			# and stop InstallProgress an extra time for each package
 			+ self.local_total*3
+			# Configure only has Setting up:
+			+ len(self.configure_pkgs)
 		)
 
 class NalaPackage:
@@ -570,6 +576,11 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 	print_packages(
 		upgrade_header,
 		nala_pkgs.upgrade_pkgs, _('Upgrading:'), 'bold blue'
+	)
+
+	print_packages(
+		default_header,
+		nala_pkgs.configure_pkgs, _('Configuring:'), 'bold magenta'
 	)
 
 	print_packages(

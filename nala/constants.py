@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import gettext
 import re
+from enum import IntEnum
 from pathlib import Path
 from signal import Handlers  # pylint: disable=no-name-in-module #Codacy
 from types import FrameType
@@ -95,6 +96,35 @@ ERROR_PREFIX = f"\x1b[1;31m{error}\x1b[0m"
 
 # Compiled Regex
 ERRNO_PATTERN = re.compile(r'\[.*\]')
+
+class SelectedState(IntEnum):
+	"""Selected state constants for pkgs."""
+
+	UNKNOWN=0
+	INSTALL=1
+	HOLD=2
+	DEINSTALL=3
+	PURGE=4
+
+class CurrentState(IntEnum):
+	"""Current state constants for pkgs."""
+
+	NOT_INSTALLED=0
+	UNPACKED=1
+	HALF_CONFIGURED=2
+	HALF_INSTALLED=4
+	CONFIG_FILES=5
+	INSTALLED=6
+	TRIGGERS_AWAITED=7
+	TRIGGERS_PENDING=8
+
+class InstState(IntEnum):
+	"""Installed state constants for pkgs."""
+
+	OK=0
+	REINSTREQ=1
+	HOLD_INST=2
+	HOLD_REINSTREQ=3
 
 COLOR_CODES: dict[str, str | int] = {
 	'RESET' : '\x1b[0m',

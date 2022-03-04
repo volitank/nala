@@ -30,28 +30,34 @@ import re
 import sys
 
 import apt_pkg
+from apt import Cache
 from apt.package import Package, Version
 
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
-				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, _)
+				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, CurrentState, _)
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
-from nala.install import (auto_remover, check_broken, check_term_ask,
-				get_changes, install_local, installed_found_deps, installed_missing_dep,
+from nala.install import (auto_remover, check_broken,
+				check_state, check_term_ask, get_changes, install_local,
 				package_manager, setup_cache, split_local, virtual_filter)
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, check_virtual, show_main
-from nala.utils import (PackageHandler, color, dprint, eprint,
-				glob_filter, iter_remove, pkg_installed, sudo_check)
+from nala.utils import (NalaPackage, PackageHandler, color, dprint,
+				eprint, glob_filter, iter_remove, pkg_installed, sudo_check)
 
 nala_pkgs = PackageHandler()
 
 def upgrade() -> None:
 	"""Upgrade pkg[s]."""
 	cache = setup_cache()
+	if cache.broken_count and arguments.no_fix_broken:
+		fix_broken(cache)
+		sys.exit()
+	check_state(cache, nala_pkgs)
+
 	is_upgrade = [pkg for pkg in cache if pkg.is_upgradable]
 	cache.upgrade(dist_upgrade=arguments.no_full)
 
@@ -71,6 +77,11 @@ def upgrade() -> None:
 def install(pkg_names: list[str]) -> None:
 	"""Install pkg[s]."""
 	cache = setup_cache()
+	if cache.broken_count and arguments.no_fix_broken:
+		fix_broken(cache)
+		sys.exit()
+	check_state(cache, nala_pkgs)
+
 	dprint(f"Install pkg_names: {pkg_names}")
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
 	install_local(nala_pkgs)
@@ -97,6 +108,11 @@ def install(pkg_names: list[str]) -> None:
 def remove(pkg_names: list[str]) -> None:
 	"""Remove or Purge pkg[s]."""
 	cache = setup_cache()
+	if cache.broken_count and arguments.no_fix_broken:
+		fix_broken(cache)
+		sys.exit()
+	check_state(cache, nala_pkgs)
+
 	_purge = arguments.command == 'purge'
 	dprint(f"Remove pkg_names: {pkg_names}")
 	not_found: list[str] = []
@@ -123,9 +139,9 @@ def purge(pkg_names: list[str]) -> None:
 	"""Wrap the remove command as purge."""
 	remove(pkg_names)
 
-def fix_broken() -> None:
+def fix_broken(nested_cache: Cache | None = None) -> None:
 	"""Attempt to fix broken packages, if any."""
-	cache = setup_cache()
+	cache = nested_cache or setup_cache()
 	broken: list[Package] = []
 	fixable: list[Package] = []
 	fixer = apt_pkg.ProblemResolver(cache._depcache)
@@ -140,12 +156,46 @@ def fix_broken() -> None:
 				broken.append(pkg)
 				cache.clear()
 				fixer.clear(pkg._pkg)
-				fixer.resolve(True)
+				# --no-fix-broken is default True
+				fixer.resolve(arguments.no_fix_broken)
 
+		if (not pkg.marked_delete and pkg.installed
+			and pkg._pkg.current_state in (CurrentState.HALF_CONFIGURED, CurrentState.UNPACKED)):
+			nala_pkgs.configure_pkgs.append(
+				NalaPackage(pkg.name, pkg.installed.version, pkg.installed.installed_size)
+			)
 	for pkg in broken:
-		installed_missing_dep(pkg)
+		print(
+			_("{pkg_name} cannot be fixed and will be removed:").format(
+				pkg_name = color(pkg.name, 'RED')
+			)
+		)
+		broken_pkg(pkg, cache)
+
+	for npkg in nala_pkgs.configure_pkgs:
+		print(
+			_("{pkg_name} needs to be configured").format(
+				pkg_name = color(npkg.name, 'GREEN')
+			)
+		)
+
 	for pkg in fixable:
-		installed_found_deps(pkg, cache)
+		print(
+			_("{pkg_name} can be fixed by installing:\n{pkgs}").format(
+				pkg_name = color(pkg.name, 'GREEN'),
+				pkgs = ", ".join([color(dep.name, 'GREEN')
+							for depends in pkg_installed(pkg).dependencies
+							for dep in depends if cache[dep.name].marked_install])
+			)
+		)
+
+	if nested_cache:
+		print(color(_("There are broken packages that need to be fixed!"), 'YELLOW'))
+		print(
+			_("You can use {switch} if you'd like to try without fixing them.").format(
+				switch = color('--no-fix-broken', 'YELLOW')
+			)
+		)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs)

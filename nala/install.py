@@ -36,16 +36,17 @@ from apt.package import Package
 from apt_pkg import DepCache, Error as AptError
 
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
-				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, _)
+				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, CurrentState, _)
 from nala.downloader import download
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import ExitCode, apt_error, essential_error
 from nala.history import write_history, write_log
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
-				ask, check_pkg, color, color_version, dprint, eprint, get_date,
-				pkg_candidate, pkg_installed, print_update_summary, term, vprint)
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
+				PackageHandler, ask, check_pkg, color, color_version,
+				dprint, eprint, get_date, is_secret_virtual,
+				pkg_candidate, pkg_installed, print_update_summary, term)
 
 VIRTUAL_PKG = _(
 	"{pkg_name} is a virtual package provided by:\n  {provides}\nYou should select one to install."
@@ -98,9 +99,9 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler,
 		if not arguments.install_suggests:
 			get_extra_pkgs('Suggests', pkgs, nala_pkgs.suggest_pkgs)
 
-	check_work(pkgs, nala_pkgs.local_debs, upgrade, remove)
+	check_work(pkgs, nala_pkgs, upgrade, remove)
 
-	if pkgs or nala_pkgs.local_debs:
+	if pkgs or nala_pkgs.local_debs or nala_pkgs.configure_pkgs:
 		check_essential(pkgs)
 		sort_pkg_changes(pkgs, nala_pkgs)
 		print_update_summary(nala_pkgs, cache)
@@ -280,6 +281,16 @@ def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 	dprint(f"Virtual Filter: {new_names}")
 	return new_names
 
+def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
+	"""Check if pkg needs to be configured so we can show it."""
+	for raw_pkg in cache._cache.packages:
+		if raw_pkg.current_state in (CurrentState.HALF_CONFIGURED, CurrentState.UNPACKED):
+			pkg = cache[raw_pkg.name]
+			if pkg.installed:
+				nala_pkgs.configure_pkgs.append(
+					NalaPackage(pkg.name, pkg.installed.version, pkg.installed.installed_size)
+				)
+
 def get_extra_pkgs(extra_type: str, # pylint: disable=too-many-branches
 	pkgs: list[Package], npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:
 	"""Get Recommended or Suggested Packages."""
@@ -341,14 +352,15 @@ def check_broken(pkg_names: list[str], cache: Cache,
 	depcache = cache._depcache
 
 	with cache.actiongroup(): # type: ignore[attr-defined]
-		for pkg_name in pkg_names:
+		for pkg_name in pkg_names[:]:
 			if pkg_name not in cache:
 				not_found.append(pkg_name)
 				continue
 
 			pkg = cache[pkg_name]
-			mark_pkg(pkg, depcache, remove=remove, purge=purge)
-			if depcache.broken_count > broken_count:
+			if not mark_pkg(pkg, depcache, remove=remove, purge=purge):
+				pkg_names.remove(pkg_name)
+			if depcache.broken_count > broken_count and arguments.no_fix_broken:
 				broken.append(pkg)
 				broken_count += 1
 	return broken, not_found
@@ -376,42 +388,6 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 		return False
 	depcache.mark_install(pkg._pkg, False, True)
 	return True
-
-def installed_missing_dep(pkg: Package) -> None:
-	"""Print missing deps for broken package."""
-	if not pkg.installed:
-		return
-	for depends in pkg_installed(pkg).dependencies:
-		for dep in depends:
-			if not dep.target_versions:
-				ver_msg = f"{color(dep.name, 'YELLOW')} {color(dep.relation_deb)} {color(dep.version, 'BLUE')}"
-				print(
-					_("{pkg_name} is missing {dep}").format(
-						pkg_name=color(pkg.name, 'GREEN'),
-						dep=ver_msg
-					)
-				)
-	if pkg.marked_delete:
-		print(
-			_("{pkg_name} will be {removed}").format(
-				pkg_name=color(pkg.name, 'GREEN'),
-				removed=color(_('removed'), 'RED')
-			)
-		)
-
-
-def installed_found_deps(pkg: Package, cache: Cache) -> None:
-	"""Print depends that will be installed to fix the package."""
-	vprint(_("{pkg_name} is fixable").format(pkg_name=pkg.name))
-	for depends in pkg_installed(pkg).dependencies:
-		for dep in depends:
-			if cache[dep.name].marked_install:
-				vprint(
-					_("  {dependency} will be {installed}").format(
-						dependency=color(dep.name, 'GREEN'),
-						installed=color(_('installed'), 'GREEN')
-					)
-				)
 
 def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 	"""Sort a list of packages and splits them based on the action to take."""
@@ -519,20 +495,30 @@ def check_term_ask() -> None:
 			)
 		)
 
+	if not arguments.no_fix_broken:
+		print(
+			_("{warning} Using {switch} can be very dangerous!").format(
+				warning = color(_("Warning:"), 'YELLOW'),
+				switch = color("--no-fix-broken", 'YELLOW')
+			)
+		)
+
 	if not arguments.assume_yes and not ask(_('Do you want to continue?')):
 		eprint(_("Abort."))
 		sys.exit(0)
 
-def check_work(pkgs: list[Package], local_debs: list[DebPackage],
+def check_work(pkgs: list[Package], nala_pkgs: PackageHandler,
 	upgrade: bool, remove: bool) -> None:
 	"""Check if there is any work for nala to do.
 
 	Returns None if there is work, exit's successful if not.
 	"""
+	if nala_pkgs.configure_pkgs:
+		return
 	if upgrade and not pkgs:
 		print(color(_("All packages are up to date.")))
 		sys.exit(0)
-	elif not remove and not pkgs and not local_debs:
+	elif not remove and not pkgs and not nala_pkgs.local_debs:
 		print(color(_("Nothing for Nala to do.")))
 		sys.exit(0)
 	elif remove and not pkgs:
