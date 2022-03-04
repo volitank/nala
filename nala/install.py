@@ -280,7 +280,7 @@ def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 	dprint(f"Virtual Filter: {new_names}")
 	return new_names
 
-def get_extra_pkgs(extra_type: str,
+def get_extra_pkgs(extra_type: str, # pylint: disable=too-many-branches
 	pkgs: list[Package], npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:
 	"""Get Recommended or Suggested Packages."""
 	or_name = []
@@ -290,13 +290,19 @@ def get_extra_pkgs(extra_type: str,
 		if not (recommends := pkg.candidate.get_dependencies(extra_type)):
 			continue
 		for dep in recommends:
+			# We don't need to show this if the extra is satisfied
+			if dep.installed_target_versions:
+				continue
 			if len(dep) == 1:
 				if not dep.target_versions:
-					npkg_list.append(
-						NalaPackage(dep[0].name, _('Virtual Package'), 0)
-					)
+					if not is_secret_virtual(dep[0].name, Cache()):
+						npkg_list.append(
+							NalaPackage(dep[0].name, _('Virtual Package'), 0)
+						)
 					continue
 				ver = dep.target_versions[0]
+				if ver.package.marked_install:
+					continue
 				npkg_list.append(
 					NalaPackage(ver.package.name, ver.version, ver.size)
 				)
@@ -307,17 +313,22 @@ def get_extra_pkgs(extra_type: str,
 					if base_dep.name in or_name:
 						continue
 					or_name.append(base_dep.name)
-					or_deps.append(
-						NalaPackage(base_dep.name, _('Virtual Package'), 0)
-					)
+					# Don't need to show these, they can't be satisfied
+					if not is_secret_virtual(base_dep.name, Cache()):
+						or_deps.append(
+							NalaPackage(base_dep.name, _('Virtual Package'), 0)
+						)
 					continue
 				ver = base_dep.target_versions[0]
-				if ver.package.name in or_name:
+				if ver.package.name in or_name or ver.package.marked_install:
 					continue
 				or_name.append(ver.package.name)
 				or_deps.append(
 					NalaPackage(ver.package.name, ver.version, ver.size)
 				)
+			if len(or_deps) == 1:
+				npkg_list.extend(or_deps)
+				continue
 			if or_deps:
 				npkg_list.append(or_deps)
 
