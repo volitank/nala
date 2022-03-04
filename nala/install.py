@@ -68,7 +68,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 			with open(NALA_TERM_LOG, 'a', encoding="utf-8") as term_log:
 				term_log.write(
 					_("Log Started: [{date}]\n").format(
-						date=get_date
+						date=get_date()
 					)
 				)
 				if arguments.raw_dpkg:
@@ -81,7 +81,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 					deb.install(InstallProgress(dpkg_log, term_log, live, task))
 				term_log.write(
 					_("Log Ended: [{date}]\n\n").format(
-						date=get_date
+						date=get_date()
 					)
 				)
 
