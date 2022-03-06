@@ -32,15 +32,13 @@ from apt.cache import Cache
 from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import PACSTALL_METADATA, _
+from nala.debfile import NalaBaseDep
 from nala.options import arguments
 from nala.rich import ascii_replace
-from nala.utils import (color, color_version,
-				is_secret_virtual, pkg_candidate, term, unit_str)
+from nala.utils import (color, is_secret_virtual,
+				print_virtual_pkg, term, unit_str)
 
 SHOW_INFO = _("{header} {info}\n")
-VIRTUAL_PKG = _(
-	"{pkg_name} is a virtual package provided by:\n  {provides}\nYou should select one to show."
-)
 
 def show_main(num: int, pkg: Package) -> int:
 	"""Orchestrate show command with support for all_versions."""
@@ -87,27 +85,27 @@ def show_pkg(candidate: Version) -> None:
 		)
 	print(msg.strip())
 
-def check_virtual(pkg_name: str, cache: Cache) -> bool:
+def check_virtual(pkg_name: str, cache: Cache) -> tuple[bool, Package | None]:
 	"""Check if the package is virtual."""
 	if cache.is_virtual_package(pkg_name):
-		print(
-			VIRTUAL_PKG.format(
-				pkg_name = color(pkg_name, 'GREEN'),
-				provides = "\n  ".join(
-					f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
-					for pkg in cache.get_providing_packages(pkg_name)
+		if len(provides := cache.get_providing_packages(pkg_name)) == 1:
+			print(
+				_("Selecting {provider}\nInstead of virtual package {package}\n").format(
+					provider = color(provides[0].name, 'GREEN'),
+					package = color(pkg_name, 'GREEN')
 				)
 			)
-		)
-		return True
+			return True, cache[provides[0]]
+		print_virtual_pkg(pkg_name, cache.get_providing_packages(pkg_name))
+		return True, None
 	if is_secret_virtual(pkg_name, cache):
 		print(
 			_("{pkg} is only referenced by name.\nNothing provides it.").format(
 				pkg = color(pkg_name, 'GREEN')
 			)
 		)
-		return True
-	return False
+		return True, None
+	return False, None
 
 def show_related(candidate: Version) -> str:
 	"""Show relational packages."""
@@ -221,23 +219,23 @@ def format_maintainer(maintainer: list[str]) -> str:
 		maint_list.append(line)
 	return ' '.join(maint_list)
 
-def show_dep(package_dependecy: list[Dependency] | list[str]) -> str:
+def show_dep(dependency: list[Dependency] | list[str]) -> str:
 	"""Print dependencies for show."""
-	if isinstance(package_dependecy[0], str):
-		package_dependecy.sort()
-		if len(package_dependecy) > 4:
-			return "\n  "+"\n  ".join(cast(list[str], package_dependecy))
-		return ", ".join(cast(list[str], package_dependecy))
+	if isinstance(dependency[0], str):
+		dependency.sort()
+		if len(dependency) > 4:
+			return "\n  "+"\n  ".join(cast(list[str], dependency))
+		return ", ".join(cast(list[str], dependency))
 
-	package_dependecy = dedupe_deps(cast(list[Dependency], package_dependecy))
+	dependency = dedupe_deps(cast(list[Dependency], dependency))
 	join_list = []
 	msg = ''
 	same_line = True
-	if len(package_dependecy) > 4:
+	if len(dependency) > 4:
 		same_line = False
 		msg += '\n'
 
-	for dep_list in package_dependecy:
+	for dep_list in dependency:
 		dep_print = ''
 		for num, dep in enumerate(dep_list):
 			assert isinstance(dep, BaseDependency)

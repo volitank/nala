@@ -211,20 +211,11 @@ def show(pkg_names: list[str]) -> None:
 			pkg = cache[pkg_name]
 			additional_records += show_main(num, pkg)
 			continue
-		# Check first if it's a virtual package with only 1 provides,
-		# In this case we'll just select that for them.
-		if cache.is_virtual_package(pkg_name):
-			if len(provides := cache.get_providing_packages(pkg_name)) == 1:
-				print(
-					_("Selecting {provider}\nInstead of virtual package {package}\n").format(
-						provider = color(provides[0].name, 'GREEN'),
-						package = color(pkg_name, 'GREEN')
-					)
-				)
-				pkg = cache[provides[0]]
-				additional_records += show_main(num, pkg)
-				continue
-		if check_virtual(pkg_name, cache):
+		virtual, vpkg = check_virtual(pkg_name, cache)
+		if vpkg:
+			additional_records += show_main(num, vpkg)
+			continue
+		if virtual:
 			continue
 		not_found.append(
 			_("{error} {name} not found").format(

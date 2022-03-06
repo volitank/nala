@@ -319,11 +319,9 @@ def ask(question: str, default_no: bool = False) -> bool:
 def sudo_check(root_action: str) -> None:
 	"""Check for root and exits if not root."""
 	if not term.is_su():
-		sys.exit(
 			_("{error} Nala needs root to {action}").format(
 				error=ERROR_PREFIX, action=root_action
-			)
-		)
+		sys.exit(f"{ERROR_PREFIX} {msg}")
 
 def get_date() -> str:
 	"""Return the formatted Date and Time."""
@@ -473,6 +471,19 @@ def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 				msg += f"  {color(pkg.name, 'GREEN')}\n"
 				break
 	print(msg.strip())
+
+def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
+	"""Print the virtual package string."""
+	print(
+		_("{pkg_name} is a virtual package provided by:\n  {provides}\n"
+			"You should select one to install.").format(
+				pkg_name = color(pkg_name, 'GREEN'),
+				provides = "\n  ".join(
+					f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
+					for pkg in provides
+			)
+		)
+	)
 
 def arg_check() -> None:
 	"""Check arguments and errors if no packages are specified.

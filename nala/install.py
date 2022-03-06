@@ -44,13 +44,10 @@ from nala.history import write_history, write_log
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
 from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, ask, check_pkg, color, color_version,
-				dprint, eprint, get_date, is_secret_virtual,
-				pkg_candidate, pkg_installed, print_update_summary, term)
+				PackageHandler, ask, check_pkg, color, color_version, dprint,
+				eprint, get_date, is_secret_virtual, pkg_candidate,
+				pkg_installed, print_update_summary, print_virtual_pkg, term)
 
-VIRTUAL_PKG = _(
-	"{pkg_name} is a virtual package provided by:\n  {provides}\nYou should select one to install."
-)
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
 	"""Handle auto removal of packages."""
@@ -266,15 +263,7 @@ def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 				new_names.append(provides[0].name)
 				continue
 			if len(provides) > 1:
-				print(
-					VIRTUAL_PKG.format(
-						pkg_name = color(pkg_name, 'GREEN'),
-						provides = "\n  ".join(
-							f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
-							for pkg in provides
-						)
-					)
-				)
+				print_virtual_pkg(pkg_name, provides)
 				sys.exit(1)
 		if not virtual:
 			new_names.append(pkg_name)
