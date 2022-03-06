@@ -513,20 +513,20 @@ def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 
 	new_packages: list[str] = []
 	glob_failed = False
-	globber = []
+	globber = set()
 	for pkg in cache._cache.packages:
 		pkg_name = pkg.get_fullname(pretty=True)
 		if cache.is_virtual_package(pkg_name):
 			provides = cache.get_providing_packages(pkg_name)
 			if len(provides) == 1:
-				globber.append(pkg_name)
+				globber.add(pkg_name)
 			continue
 		if is_secret_virtual(pkg_name, cache):
 			continue
 		# Make sure any pkgs that get through are real
 		# Looking at you $kernel
 		if pkg.has_versions:
-			globber.append(pkg_name)
+			globber.add(pkg_name)
 
 	for pkg_name in pkg_names:
 		if '*' in pkg_name:
