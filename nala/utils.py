@@ -316,11 +316,9 @@ def ask(question: str, default_no: bool = False) -> bool:
 			return not default_no
 		print(_("Not a valid choice kiddo"))
 
-def sudo_check(root_action: str) -> None:
+def sudo_check(msg: str) -> None:
 	"""Check for root and exits if not root."""
 	if not term.is_su():
-			_("{error} Nala needs root to {action}").format(
-				error=ERROR_PREFIX, action=root_action
 		sys.exit(f"{ERROR_PREFIX} {msg}")
 
 def get_date() -> str:

@@ -136,7 +136,11 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
 		print_notices(notice)
 		if need_reboot():
-			print(color('Notice:', 'YELLOW'), _('A reboot is required.'))
+			print(
+				_("{notice} A reboot is required.").format(
+					notice = color(_('Notice:'), 'YELLOW')
+				)
+			)
 	print(color(_("Finished Successfully"), 'GREEN'))
 
 def local_missing_dep(pkg: DebPackage) -> None:

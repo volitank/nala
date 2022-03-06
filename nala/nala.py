@@ -82,7 +82,6 @@ def install(pkg_names: list[str]) -> None:
 		sys.exit()
 	check_state(cache, nala_pkgs)
 
-	dprint(f"Install pkg_names: {pkg_names}")
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
 	install_local(nala_pkgs)
 
@@ -114,7 +113,6 @@ def remove(pkg_names: list[str]) -> None:
 	check_state(cache, nala_pkgs)
 
 	_purge = arguments.command == 'purge'
-	dprint(f"Remove pkg_names: {pkg_names}")
 	not_found: list[str] = []
 
 	pkg_names = glob_filter(pkg_names, cache)
@@ -203,7 +201,6 @@ def fix_broken(nested_cache: Cache | None = None) -> None:
 def show(pkg_names: list[str]) -> None:
 	"""Show package information."""
 	cache = setup_cache()
-	dprint(f"Show pkg_names: {pkg_names}")
 	not_found: list[str] = []
 	additional_records = 0
 	for num, pkg_name in enumerate(pkg_names):
@@ -297,8 +294,10 @@ def history() -> None:
 				)
 			)
 	if mode in ('undo', 'redo'):
-		hist = _('history')
-		sudo_check(f"{mode} {hist}")
+		if mode == 'undo':
+			sudo_check(_("Nala needs root to undo history"))
+		elif mode == 'redo':
+			sudo_check(_("Nala needs root to redo history"))
 		history_undo(arguments.id, redo=mode == 'redo')
 		return
 
@@ -307,7 +306,7 @@ def history() -> None:
 		return
 
 	if mode == 'clear':
-		sudo_check(_('clear history'))
+		sudo_check(_("Nala needs root to clear history"))
 		history_clear(arguments.id)
 		return
 	history_summary()

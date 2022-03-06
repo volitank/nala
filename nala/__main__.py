@@ -27,7 +27,7 @@ from __future__ import annotations
 import sys
 
 # pylint: disable=unused-import
-from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR
+from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR, _
 from nala.fetch import fetch
 from nala.install import setup_cache
 from nala.nala import (clean, fix_broken, history,
@@ -36,7 +36,11 @@ from nala.options import arguments, parser
 from nala.utils import arg_check, dprint, eprint, sudo_check, term
 
 if str(ARCHIVE_DIR) == '/':
-	sys.exit(ERROR_PREFIX+"archive dir is '/'. This is dangerous and unsupported.")
+	sys.exit(
+		_("{error} archive dir is '/'. This is dangerous and unsupported.").format(
+			error = ERROR_PREFIX
+		)
+	)
 
 def _main() -> None:
 	"""Nala Main."""
@@ -48,16 +52,17 @@ def _main() -> None:
 	if term.is_su() and not NALA_LOGDIR.exists():
 		NALA_LOGDIR.mkdir()
 
-	dprint(f"Argparser = {arguments}")
+	kwarg = '\n    '.join((f"{kwarg[0]} = {kwarg[1]},") for kwarg in arguments._get_kwargs())
+	dprint(f"Argparser = [\n    {kwarg}\n]")
 	if arguments.command in ('upgrade', 'install', 'remove', 'fetch', 'clean'):
-		sudo_check(arguments.command)
+		sudo_check(_("Nala needs root to {command}").format(command = arguments.command))
 	elif not arguments.command:
 		if arguments.update:
-			sudo_check('update package list')
+			sudo_check(_('Nala needs root to update package list'))
 			setup_cache()
 			return
 		if arguments.fix_broken:
-			sudo_check('fix broken packages')
+			sudo_check(_('Nala needs root to fix broken packages'))
 			fix_broken()
 			return
 		parser.print_help()
@@ -71,12 +76,14 @@ def _main() -> None:
 	if arguments.command in ('upgrade', 'clean', 'fetch', 'moo', 'history', 'search'):
 		eval(f"{arguments.command}()") # pylint: disable=eval-used
 		return
-	sys.exit(ERROR_PREFIX+'unknown error in "apt_command" function')
+	sys.exit(
+		_("{error} Unknown error in 'apt_command' function")
+	)
 
 def main() -> None:
 	"""Nala function to reference from the entry point."""
 	try:
 		_main()
 	except KeyboardInterrupt:
-		eprint('\nExiting at your request')
+		eprint(_('\nExiting at your request'))
 		sys.exit(130)
