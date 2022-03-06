@@ -66,8 +66,8 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -
 			nala_pkgs.autoremoved.append(pkg.name)
 	dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
-def recurse_deps(pkgs: list[NalaDebPackage] | list[Package],
-	recurse: int = 1, installed: bool = False) -> list[Package]:
+def recurse_deps(pkgs: Iterable[NalaDebPackage] | Iterable[Package],
+	recurse: int = 1, installed: bool = False) -> set[Package]:
 	"""Return the installed dependency packages.
 
 	This function can be used recursively.
@@ -82,19 +82,19 @@ def recurse_deps(pkgs: list[NalaDebPackage] | list[Package],
 		recurse (int): How many levels to traverse dependencies. Default is 1.
 		installed (bool): Whether to grab dependencies that are installed or all. Default False.
 	"""
-	total_deps = []
+	total_deps: set[Package] = set()
 	for _ in range(recurse):
-		dep_list: list[Package] = []
+		dep_list: set[Package] = set()
 		for dpkg in pkgs:
 			dependencies = get_dep_type(dpkg, installed)
 			for deps in dependencies:
 				# deps len greater than 1 are or_deps
 				if len(deps) > 1:
 					for ndep in deps:
-						dep_list.extend(get_dep_pkgs(ndep, installed))
+						dep_list |= get_dep_pkgs(ndep, installed)
 					continue
-				dep_list.extend(get_dep_pkgs(deps[0], installed))
-		total_deps.extend(dep_list)
+				dep_list |= get_dep_pkgs(deps[0], installed)
+		total_deps |= dep_list
 		pkgs = dep_list
 	dprint(
 		f"Recurse Levels: {recurse}, Recursive List Size: {len(total_deps)}, "
@@ -103,10 +103,10 @@ def recurse_deps(pkgs: list[NalaDebPackage] | list[Package],
 	return total_deps
 
 def get_dep_pkgs(ndep: NalaBaseDep| BaseDependency,
-	installed: bool = False) -> list[Package]:
+	installed: bool = False) -> set[Package]:
 	"""Return the packages of the specified dep that we are to use."""
 	target_versions = ndep.installed_target_versions if installed else ndep.target_versions
-	return [version.package for version in target_versions]
+	return {version.package for version in target_versions}
 
 def get_dep_type(dpkg: NalaDebPackage | Package,
 	installed: bool = False) -> list[Dependency] | list [NalaDep]:
