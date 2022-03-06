@@ -253,7 +253,7 @@ def show_dep(dependency: list[Dependency] | list[str]) -> str:
 		return ", ".join(join_list)
 	return msg.rstrip()
 
-def format_dep(dep: BaseDependency, iteration: int) -> str:
+def format_dep(dep: BaseDependency | NalaBaseDep, iteration: int = 0) -> str:
 	"""Format dependencies for show."""
 	open_paren = color('(')
 	close_paren = color(')')

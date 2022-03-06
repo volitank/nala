@@ -40,11 +40,11 @@ from typing import Any, Literal, cast
 
 import jsbeautifier
 from apt.cache import Cache
-from apt.debfile import DebPackage
 from apt.package import Package, Version
 
 from nala.constants import (COLOR_CODES, ERROR_PREFIX,
 				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG, _)
+from nala.debfile import NalaDebPackage
 from nala.options import arguments
 from nala.rich import Console, Group, Table, Tree
 
@@ -208,7 +208,7 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 	def __init__(self) -> None:
 		"""Class for storing package lists."""
 		self.autoremoved: list[str] = []
-		self.local_debs: list[DebPackage] = []
+		self.local_debs: list[NalaDebPackage] = []
 		self.local_pkgs: list[NalaPackage] = []
 		self.delete_pkgs: list[NalaPackage] = []
 		self.install_pkgs: list[NalaPackage] = []
@@ -217,6 +217,10 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 		self.recommend_pkgs: list[NalaPackage | list[NalaPackage]] = []
 		self.suggest_pkgs: list[NalaPackage | list[NalaPackage]] = []
 		self.configure_pkgs: list[NalaPackage] = []
+		self.downgrade_pkgs: list[NalaPackage] = []
+		self.local_downgrade_pkgs: list[NalaPackage] = []
+		self.reinstall_pkgs: list[NalaPackage] = []
+		self.local_reinstall_pkgs: list[NalaPackage] = []
 
 	@property
 	def extended_install(self) -> list[NalaPackage]:
@@ -227,6 +231,16 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 	def extended_deleted(self) -> list[NalaPackage]:
 		"""Return deleted_pkgs + autoremove_pkgs."""
 		return self.delete_pkgs+self.autoremove_pkgs
+
+	@property
+	def extended_downgrade(self) -> list[NalaPackage]:
+		"""Return deleted_pkgs + autoremove_pkgs."""
+		return self.downgrade_pkgs+self.local_downgrade_pkgs
+
+	@property
+	def extended_reinstall(self) -> list[NalaPackage]:
+		"""Return deleted_pkgs + autoremove_pkgs."""
+		return self.reinstall_pkgs+self.local_reinstall_pkgs
 
 	@property
 	def delete_total(self) -> int:
@@ -261,10 +275,14 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 			+ self.autoremove_total
 			# We add an extra for each install due to Unpacking: and Setting up:
 			+ self.install_total*2
+			+ len(self.reinstall_pkgs)*2
+			+ len(self.downgrade_pkgs)*2
 			+ self.upgrade_total*2
 			# For local deb installs we add 1 more because of having to start
 			# and stop InstallProgress an extra time for each package
 			+ self.local_total*3
+			+ len(self.local_reinstall_pkgs)*3
+			+ len(self.local_downgrade_pkgs)*3
 			# Configure only has Setting up:
 			+ len(self.configure_pkgs)
 		)
@@ -584,7 +602,17 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 
 	print_packages(
 		upgrade_header,
+		nala_pkgs.extended_reinstall, _('Reinstalling:'), 'bold green'
+	)
+
+	print_packages(
+		upgrade_header,
 		nala_pkgs.upgrade_pkgs, _('Upgrading:'), 'bold blue'
+	)
+
+	print_packages(
+		upgrade_header,
+		nala_pkgs.extended_downgrade, _('Downgrading:'), 'bold yellow'
 	)
 
 	print_packages(
@@ -616,15 +644,18 @@ def transaction_summary(delete_header: str, auto_header :str,
 	table.add_column(justify='right', overflow=term.overflow)
 	table.add_column(overflow=term.overflow)
 
-	if nala_pkgs.install_total:
+	if nala_pkgs.extended_install:
 		table.add_row(
 			_('Install') if not history else _('Installed'),
-			str(nala_pkgs.install_total), _('Packages'))
+			str(len(nala_pkgs.extended_install)), _('Packages'))
 
 	if nala_pkgs.upgrade_total:
 		table.add_row(
 			_('Upgrade') if not history else _('Upgraded'),
 			str(nala_pkgs.upgrade_total), _('Packages'))
+
+	if len(nala_pkgs.configure_pkgs):
+		table.add_row(_('Configure'), str(len(nala_pkgs.configure_pkgs)), _('Packages'))
 
 	if nala_pkgs.delete_total:
 		table.add_row(delete_header, str(nala_pkgs.delete_total), _('Packages'))

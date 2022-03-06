@@ -32,6 +32,7 @@ from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import ERROR_PREFIX, _
+from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
 from nala.utils import (color, color_version, dprint, eprint,
@@ -146,7 +147,7 @@ def pkg_error(pkg_list: list[str], cache: Cache, terminate: bool = False) -> Non
 	if terminate:
 		sys.exit(1)
 
-def format_broken(dep: BaseDependency, cache:Cache, arch: str = '') -> str:
+def format_broken(dep: BaseDependency | NalaBaseDep, cache:Cache, arch: str = '') -> str:
 	"""Format broken dependencies into a Tree, if any."""
 	formatted_dep = format_dep(dep, 0).strip()
 	dep_name = dep.name
@@ -178,7 +179,8 @@ def format_broken(dep: BaseDependency, cache:Cache, arch: str = '') -> str:
 		)
 	return ''
 
-def format_broken_conflict(breaks: list[Dependency], tree_name: str, arch: str = '') -> Tree:
+def format_broken_conflict(
+	breaks: list[Dependency] | list[NalaDep], tree_name: str, arch: str = '') -> Tree:
 	"""Format broken conflict/breaks dependency into a Tree."""
 	break_tree = Tree(from_ansi(tree_name))
 	for dep in breaks:
@@ -202,14 +204,26 @@ def format_broken_conflict(breaks: list[Dependency], tree_name: str, arch: str =
 			)
 	return break_tree
 
-def broken_pkg(pkg: Package, cache: Cache) -> int: # pylint: disable=too-many-branches
+def breaks_conflicts(
+	pkg_name: str, version: Version | NalaDebPackage, arch: str) -> Generator[Tree, None, None]:
+	"""Generate tree objects for breaks and conflict type deps."""
+	for dep_type in ('Breaks', 'Conflicts'):
+		if deps := version.get_dependencies(dep_type):
+			dprint(f"{pkg_name} {dep_type}:\n{deps}")
+			if (formatted_dep := format_broken_conflict(deps, BREAKS, arch)).children:
+				yield formatted_dep
+
+def broken_pkg(pkg: Package | NalaDebPackage, cache: Cache) -> int: # pylint: disable=too-many-branches
 	"""Calculate and print broken Dependencies."""
 	ret_count = 0
-	if not pkg.candidate:
+	version: NalaDebPackage | Version | None
+	if isinstance(pkg, NalaDebPackage):
+		version = pkg
+	elif not (version := pkg.candidate):
 		# We do this in case a broken package is locally installed.
 		if not pkg.installed:
 			return ret_count
-		pkg.candidate = pkg.installed
+		version = pkg.installed
 
 	tree = Tree(from_ansi(color(pkg.name, 'GREEN')))
 	dep_tree = Tree(from_ansi(DEPENDS))
@@ -218,9 +232,9 @@ def broken_pkg(pkg: Package, cache: Cache) -> int: # pylint: disable=too-many-br
 		arch = pkg.name.split(':')[1]
 	dprint(
 		f"{pkg.name} Dependencies:\n"
-		+"\n".join(dep.rawstr for dep in pkg.candidate.dependencies)
+		+"\n".join(dep.rawstr for dep in version.dependencies)
 	)
-	for dep in pkg.candidate.dependencies:
+	for dep in version.dependencies:
 		if len(dep) > 1:
 			count = 0
 			or_tree = Tree(from_ansi(OR_DEPENDS))
@@ -236,15 +250,8 @@ def broken_pkg(pkg: Package, cache: Cache) -> int: # pylint: disable=too-many-br
 	if dep_tree.children:
 		tree.add(dep_tree)
 
-	if breaks := pkg.candidate.get_dependencies('Breaks'):
-		dprint(f"{pkg.name} Breaks:\n{breaks}")
-		if (formatted_break := format_broken_conflict(breaks, BREAKS, arch)).children:
-			tree.add(formatted_break)
-
-	if conflicts := pkg.candidate.get_dependencies('Conflicts'):
-		dprint(f"{pkg.name} Conflicts:\n{conflicts}")
-		if (formatted_conflict := format_broken_conflict(conflicts, CONFLICTS, arch)).children:
-			tree.add(formatted_conflict)
+	for formatted_break in breaks_conflicts(pkg.name, version, arch):
+		tree.add(formatted_break)
 
 	if tree.children:
 		term.console.print(tree, soft_wrap=True)
@@ -252,7 +259,7 @@ def broken_pkg(pkg: Package, cache: Cache) -> int: # pylint: disable=too-many-br
 		print()
 	return ret_count
 
-def broken_error(broken_list: list[Package], cache:Cache,
+def broken_error(broken_list: list[Package] | list[NalaDebPackage], cache:Cache,
 	installed_pkgs: bool | tuple[Package, ...] = False) -> int | NoReturn:
 	"""Handle printing of errors due to broken packages."""
 	if isinstance(installed_pkgs, tuple):
