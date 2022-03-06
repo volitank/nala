@@ -31,8 +31,7 @@ from typing import Iterable, cast
 
 import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
-from apt.package import (BaseDependency,
-				Dependency, Package, Version, VersionList)
+from apt.package import BaseDependency, Dependency, Package
 from apt_pkg import DepCache, Error as AptError
 
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
@@ -242,7 +241,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 		cache_pkg = pkg._cache[pkg.pkgname]
 		dprint(f"Comparing cache versions of: {pkg.pkgname}")
 		# Example filename ../scar-archive/nala_0.5.0_amd64.deb
-		assert(pkg.filename)
+		assert pkg.filename
 		dprint(f"Filename: {(filename := pkg.filename.split('/')[-1])}")
 		dprint(f"Cache pkg: {cache_pkg.fullname}")
 		if pkg_compare == pkg.VERSION_SAME and cache_pkg.is_installed:
@@ -291,7 +290,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 
 def prioritize_local(deb_pkg: NalaDebPackage, cache_name: str, pkg_names: list[str]) -> None:
 	"""Print a notice of prioritization and remove the pkg name from list."""
-	assert(deb_pkg.filename)
+	assert deb_pkg.filename
 	print(
 		_("{notice} {deb} has taken priority over {pkg} from the cache.").format(
 			notice = color(_('Notice:'), 'YELLOW'),
