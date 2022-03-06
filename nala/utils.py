@@ -209,38 +209,20 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 		"""Class for storing package lists."""
 		self.autoremoved: list[str] = []
 		self.local_debs: list[NalaDebPackage] = []
-		self.local_pkgs: list[NalaPackage] = []
 		self.delete_pkgs: list[NalaPackage] = []
 		self.install_pkgs: list[NalaPackage] = []
+		self.reinstall_pkgs: list[NalaPackage] = []
 		self.upgrade_pkgs: list[NalaPackage] = []
 		self.autoremove_pkgs: list[NalaPackage] = []
 		self.recommend_pkgs: list[NalaPackage | list[NalaPackage]] = []
 		self.suggest_pkgs: list[NalaPackage | list[NalaPackage]] = []
 		self.configure_pkgs: list[NalaPackage] = []
 		self.downgrade_pkgs: list[NalaPackage] = []
-		self.local_downgrade_pkgs: list[NalaPackage] = []
-		self.reinstall_pkgs: list[NalaPackage] = []
-		self.local_reinstall_pkgs: list[NalaPackage] = []
-
-	@property
-	def extended_install(self) -> list[NalaPackage]:
-		"""Return install_pkgs + local_pkgs."""
-		return self.install_pkgs+self.local_pkgs
 
 	@property
 	def extended_deleted(self) -> list[NalaPackage]:
 		"""Return deleted_pkgs + autoremove_pkgs."""
 		return self.delete_pkgs+self.autoremove_pkgs
-
-	@property
-	def extended_downgrade(self) -> list[NalaPackage]:
-		"""Return deleted_pkgs + autoremove_pkgs."""
-		return self.downgrade_pkgs+self.local_downgrade_pkgs
-
-	@property
-	def extended_reinstall(self) -> list[NalaPackage]:
-		"""Return deleted_pkgs + autoremove_pkgs."""
-		return self.reinstall_pkgs+self.local_reinstall_pkgs
 
 	@property
 	def delete_total(self) -> int:
@@ -253,9 +235,19 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 		return len(self.install_pkgs)
 
 	@property
+	def reinstall_total(self) -> int:
+		"""Return total installed pkgs."""
+		return len(self.reinstall_pkgs)
+
+	@property
 	def upgrade_total(self) -> int:
 		"""Return total upgraded pkgs."""
 		return len(self.upgrade_pkgs)
+
+	@property
+	def downgrade_total(self) -> int:
+		"""Return total upgraded pkgs."""
+		return len(self.downgrade_pkgs)
 
 	@property
 	def autoremove_total(self) -> int:
@@ -263,9 +255,14 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 		return len(self.autoremove_pkgs)
 
 	@property
+	def configure_total(self) -> int:
+		"""Return total autoremoved pkgs."""
+		return len(self.configure_pkgs)
+
+	@property
 	def local_total(self) -> int:
 		"""Return total local pkgs."""
-		return len(self.local_pkgs)
+		return len(self.local_debs)
 
 	@property
 	def dpkg_progress_total(self) -> int:
@@ -275,16 +272,16 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 			+ self.autoremove_total
 			# We add an extra for each install due to Unpacking: and Setting up:
 			+ self.install_total*2
-			+ len(self.reinstall_pkgs)*2
-			+ len(self.downgrade_pkgs)*2
+			+ self.reinstall_total*2
+			+ self.downgrade_total*2
 			+ self.upgrade_total*2
 			# For local deb installs we add 1 more because of having to start
 			# and stop InstallProgress an extra time for each package
-			+ self.local_total*3
-			+ len(self.local_reinstall_pkgs)*3
-			+ len(self.local_downgrade_pkgs)*3
+			+ self.local_total
 			# Configure only has Setting up:
-			+ len(self.configure_pkgs)
+			+ self.configure_total
+			# This last +1 for the ending of dpkg itself
+			+ 1
 		)
 
 class NalaPackage:
@@ -597,12 +594,12 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 
 	print_packages(
 		default_header,
-		nala_pkgs.extended_install, _('Installing:'), 'bold green'
+		nala_pkgs.install_pkgs, _('Installing:'), 'bold green'
 	)
 
 	print_packages(
 		upgrade_header,
-		nala_pkgs.extended_reinstall, _('Reinstalling:'), 'bold green'
+		nala_pkgs.reinstall_pkgs, _('Reinstalling:'), 'bold green'
 	)
 
 	print_packages(
@@ -612,7 +609,7 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 
 	print_packages(
 		upgrade_header,
-		nala_pkgs.extended_downgrade, _('Downgrading:'), 'bold yellow'
+		nala_pkgs.downgrade_pkgs, _('Downgrading:'), 'bold yellow'
 	)
 
 	print_packages(
@@ -644,18 +641,28 @@ def transaction_summary(delete_header: str, auto_header :str,
 	table.add_column(justify='right', overflow=term.overflow)
 	table.add_column(overflow=term.overflow)
 
-	if nala_pkgs.extended_install:
+	if nala_pkgs.install_pkgs:
 		table.add_row(
 			_('Install') if not history else _('Installed'),
-			str(len(nala_pkgs.extended_install)), _('Packages'))
+			str(nala_pkgs.install_total), _('Packages'))
+
+	if nala_pkgs.reinstall_pkgs:
+		table.add_row(
+			_('Reinstall'),
+			str(nala_pkgs.reinstall_total), _('Packages'))
 
 	if nala_pkgs.upgrade_total:
 		table.add_row(
 			_('Upgrade') if not history else _('Upgraded'),
 			str(nala_pkgs.upgrade_total), _('Packages'))
 
-	if len(nala_pkgs.configure_pkgs):
-		table.add_row(_('Configure'), str(len(nala_pkgs.configure_pkgs)), _('Packages'))
+	if nala_pkgs.downgrade_pkgs:
+		table.add_row(
+			_('Downgrade'),
+			str(nala_pkgs.downgrade_total), _('Packages'))
+
+	if nala_pkgs.configure_pkgs:
+		table.add_row(_('Configure'), str(nala_pkgs.configure_total), _('Packages'))
 
 	if nala_pkgs.delete_total:
 		table.add_row(delete_header, str(nala_pkgs.delete_total), _('Packages'))

@@ -204,8 +204,9 @@ def write_history(handler: PackageHandler) -> None:
 	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
 	hist_id = str(len(history_dict) + 1 if history_dict else 1)
 	altered = (
-		len(handler.extended_deleted)
-		+ len(handler.extended_install)
+		handler.delete_total
+		+ handler.autoremove_total
+		+ handler.install_total
 		+ handler.upgrade_total
 	)
 
@@ -214,7 +215,7 @@ def write_history(handler: PackageHandler) -> None:
 		'Command' : sys.argv[1:],
 		'Altered' : str(altered),
 		'Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.extended_deleted],
-		'Installed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.extended_install],
+		'Installed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs],
 		'Upgraded' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.upgrade_pkgs],
 	}
 

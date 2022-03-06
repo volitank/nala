@@ -122,7 +122,7 @@ def get_dep_type(dpkg: NalaDebPackage | Package,
 
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
-	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total + 1)
+	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total)
 	with Live(auto_refresh=False) as live:
 		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, 'a', encoding="utf-8") as term_log:
@@ -222,11 +222,11 @@ def install_local(nala_pkgs: PackageHandler) -> None:
 
 		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.upgrade_pkgs]:
 			continue
-		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.local_downgrade_pkgs]:
+		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.downgrade_pkgs]:
 			continue
-		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.local_reinstall_pkgs]:
+		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.reinstall_pkgs]:
 			continue
-		nala_pkgs.local_pkgs.append(
+		nala_pkgs.install_pkgs.append(
 			NalaPackage(pkg.pkgname, pkg._sections["Version"], int(pkg._sections["Installed-Size"]))
 		)
 	if failed:
@@ -247,7 +247,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 		dprint(f"Cache pkg: {cache_pkg.fullname}")
 		if pkg_compare == pkg.VERSION_SAME and cache_pkg.is_installed:
 			dprint(f"{filename} is the same version as the installed pkg")
-			nala_pkgs.local_reinstall_pkgs.append(
+			nala_pkgs.reinstall_pkgs.append(
 				NalaPackage(
 					pkg.pkgname, pkg._sections['Version'],
 					int(pkg._sections["Installed-Size"]), pkg_installed(cache_pkg).version
@@ -273,7 +273,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 
 		if pkg_compare == pkg.VERSION_OUTDATED:
 			dprint(f"{pkg.filename} is an older version than the installed pkg")
-			nala_pkgs.local_downgrade_pkgs.append(
+			nala_pkgs.downgrade_pkgs.append(
 				NalaPackage(
 					pkg.pkgname, pkg._sections['Version'],
 					int(pkg._sections["Installed-Size"]), pkg_installed(cache_pkg).version
