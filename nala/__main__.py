@@ -87,3 +87,5 @@ def main() -> None:
 	except KeyboardInterrupt:
 		eprint(_('\nExiting at your request'))
 		sys.exit(130)
+	except BrokenPipeError:
+		sys.stderr.close()
