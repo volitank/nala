@@ -565,19 +565,20 @@ def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 	dprint(f'List after globbing: {new_packages}')
 	return new_packages
 
+def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
+	"""Return the correct headers for the summary."""
+	if arguments.command == 'purge' and history:
+		return _('Purge'), _('Purging:'), _('Auto-Purge'), _('Auto-Purging:')
+	if arguments.command == 'purge' and not history:
+		return _('Purged'), _('Purged:'), _('Auto-Purged'), _('Auto-Purged:')
+	if not history:
+		return _('Remove'), _('Removing:'), _('Auto-Remove'), _('Auto-Removing:')
+	return _('Removed'), _('Removed:'), _('Auto-Removed'), _('Auto-Removed:')
+
 def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
 	"""Print our transaction summary."""
-	delete, deleting = (
-		(_('Purge'), _('Purging:'))
-		if arguments.command == 'purge'
-		else (_('Remove'), _('Removing:'))
-	)
-	auto_remove, auto_removing = (
-		(_('Auto-Purge'), _('Auto-Purging:'))
-		if arguments.command == 'purge'
-		else (_('Auto-Remove'), _('Auto-Removing:'))
-	)
 
+	delete, deleting, auto_remove, auto_removing = get_summary_header(not cache)
 
 	default_header = [_('Package:'), _('Version:'), _('Size:')]
 	upgrade_header = [_('Package:'), _('Old Version:'), _('New Version:'), _('Size:')]

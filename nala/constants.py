@@ -45,8 +45,6 @@ NALA_DIR = Path('/var/lib/nala')
 """/var/lib/nala"""
 NALA_LOGDIR = Path('/var/log/nala')
 """/var/log/nala"""
-NALA_LOGFILE = NALA_LOGDIR / 'nala.log'
-"""/var/log/nala/nala.log"""
 NALA_DEBUGLOG = NALA_LOGDIR / 'nala-debug.log'
 """/var/log/nala/nala.debug.log"""
 DPKG_LOG = NALA_LOGDIR / 'dpkg-debug.log'

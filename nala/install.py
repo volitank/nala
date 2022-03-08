@@ -40,7 +40,7 @@ from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.downloader import download
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import ExitCode, apt_error, broken_error, essential_error
-from nala.history import write_history, write_log
+from nala.history import write_history
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
 from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
@@ -174,7 +174,6 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler,
 	download(pkgs)
 
 	write_history(nala_pkgs)
-	write_log(nala_pkgs)
 	start_dpkg(cache, nala_pkgs)
 
 def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
