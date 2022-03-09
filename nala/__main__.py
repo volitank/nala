@@ -54,7 +54,7 @@ def _main() -> None:
 
 	kwarg = '\n    '.join((f"{kwarg[0]} = {kwarg[1]},") for kwarg in arguments._get_kwargs())
 	dprint(f"Argparser = [\n    {kwarg}\n]")
-	if arguments.command in ('upgrade', 'install', 'remove', 'fetch', 'clean'):
+	if arguments.command in ('upgrade', 'install', 'remove', 'fetch', 'clean', 'purge'):
 		sudo_check(_("Nala needs root to {command}").format(command = arguments.command))
 	elif not arguments.command:
 		if arguments.update:
