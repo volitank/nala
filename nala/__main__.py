@@ -24,6 +24,7 @@
 """The main module for Nala."""
 from __future__ import annotations
 
+import errno
 import sys
 
 # pylint: disable=unused-import
@@ -89,3 +90,11 @@ def main() -> None:
 		sys.exit(130)
 	except BrokenPipeError:
 		sys.stderr.close()
+	except OSError as error:
+		if error.errno == errno.ENOSPC:
+			sys.exit(
+				_("{error} No space left on device").format(
+					error = ERROR_PREFIX
+				)
+			)
+		raise error from error
