@@ -37,8 +37,8 @@ import jsbeautifier
 from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY, _
 from nala.options import arguments
 from nala.rich import Column, Table
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, dprint, eprint, get_date, print_update_summary, term)
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
+				color, dprint, eprint, get_date, print_update_summary, term)
 
 USER: str = environ.get("DOAS_USER", '')
 UID: int = 0
@@ -158,7 +158,12 @@ def history_clear(hist_id: str) -> None:
 		print(_("History has been cleared"))
 		return
 
-	history_file = load_history_file()
+	if hist_id not in (history_file := load_history_file()).keys():
+		sys.exit(
+			_("{error} ID: {hist_id} does not exist in the history").format(
+				error = ERROR_PREFIX, hist_id = color(hist_id, 'YELLOW')
+			)
+		)
 	history_edit: dict[str, dict[str, str | list[str] | list[list[str]]]] = {}
 	num = 0
 	# Using sum increments to relabled the IDs so when you remove just one
