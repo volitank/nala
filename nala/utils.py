@@ -34,9 +34,8 @@ import termios
 import tty
 from datetime import datetime
 from pathlib import Path
-from shutil import get_terminal_size
 from types import FrameType
-from typing import Any, Literal, cast
+from typing import Any, Generator, Literal, cast
 
 import jsbeautifier
 from apt.cache import Cache
@@ -81,47 +80,31 @@ class Terminal:
 
 	def __init__(self) -> None:
 		"""Represent the user terminal."""
-		self.size = get_terminal_size()
-		self.columns = self.size.columns
-		self.lines = self.size.lines
 		self.console = Console()
-		self.term: bool = True
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
-		self.check()
 		self.set_environment()
 
 	def __repr__(self) -> str:
 		"""Represent state of the user terminal as a string."""
 		representation = {
 			'object' : 'Terminal',
-			'size' : self.size,
-			'columns' : self.size.columns,
+			'columns' : self.columns,
 			'lines' : self.lines,
 			'mode'	: str(self.mode),
-			'term' : self.term
+			'term' : self.is_term()
 		}
 		return str(jsbeautifier.beautify(json.dumps(representation), JSON_OPTIONS))
 
-	def check(self) -> None:
-		"""Check if we are a terminal or piped."""
-		self.term = bool(sys.stdout.isatty())
-		if self.term:
-			# There are some cases where we need extra checks
-			# For example whatever hyperfine is doing with --show-output
-			try:
-				self.mode = termios.tcgetattr(self.STDIN)
-				self.term = True
-			# We catch and handle 'Inappropriate ioctl for device'.
-			except termios.error as err:
-				# And then we set term off.
-				if err.args[0] == 25:
-					self.term = False
-				else:
-					sys.exit(err)
-
 	def set_environment(self) -> None:
 		"""Check and set various environment variables."""
+		# Termios can't run if we aren't in a terminal
+		# Just catch the exception and continue.
+		try:
+			self.mode = termios.tcgetattr(self.STDIN)
+		except termios.error:
+			pass
+
 		if self.lines < 13 or self.columns < 31:
 			print(
 				_("Terminal can't support dialog, falling back to readline"),
@@ -131,24 +114,33 @@ class Terminal:
 		# Readline is too hard to support with our fancy formatting
 		if os.environ.get("DEBIAN_FRONTEND") == "readline":
 			arguments.raw_dpkg = True
+		os.environ["DPKG_COLORS"] = "never"
 		# We have to set lang as C so we get predictable output from dpkg.
 		os.environ["LANG"] = "C" if self.console.options.ascii_only else "C.UTF-8"
 
-	def update_size(self) -> None:
-		"""Update the current width and length of the terminal."""
-		self.size = get_terminal_size()
-		self.columns = self.size.columns
-		self.lines = self.size.lines
+	@property
+	def columns(self) -> int:
+		"""Return termindal width."""
+		return self.console.width
+
+	@property
+	def lines(self) -> int:
+		"""Return termindal height."""
+		return self.console.width
 
 	def restore_mode(self) -> None:
 		"""Restore the mode the Terminal was initialized with."""
-		if self.term:
+		try:
 			termios.tcsetattr(self.STDIN, termios.TCSAFLUSH, self.mode)
+		except termios.error:
+			pass
 
 	def set_raw(self) -> None:
 		"""Set terminal raw."""
-		if self.term:
+		try:
 			tty.setraw(self.STDIN)
+		except termios.error:
+			pass
 
 	def write(self, data: bytes) -> None:
 		"""Write bytes directly to stdout."""
@@ -156,7 +148,7 @@ class Terminal:
 
 	def is_term(self) -> bool:
 		"""Return true if we are a terminal. False if piped."""
-		return self.term
+		return self.console.is_terminal
 
 	def is_xterm(self) -> bool:
 		"""Return True if we're in an xterm, False otherwise."""
@@ -268,8 +260,8 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 	def dpkg_progress_total(self) -> int:
 		"""Calculate our total operations for the dpkg progress bar."""
 		return (
-			self.delete_total
-			+ self.autoremove_total
+			self.delete_total*2
+			+ self.autoremove_total*2
 			# We add an extra for each install due to Unpacking: and Setting up:
 			+ self.install_total*2
 			+ self.reinstall_total*2
