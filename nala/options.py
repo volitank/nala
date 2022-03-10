@@ -34,7 +34,6 @@ from nala import __version__
 from nala.constants import ERROR_PREFIX, LICENSE, THIRD_PARTY_LICENSES, _
 
 
-# Custom Parser for printing help on error.
 class NalaParser(argparse.ArgumentParser):
 	"""Subclass of ArgumentParser for better error."""
 
@@ -44,6 +43,16 @@ class NalaParser(argparse.ArgumentParser):
 		print(f'{ERROR_PREFIX} {message}', file=sys.stderr)
 		self.print_help()
 		sys.exit(1)
+
+class NalaFormatter(argparse.RawDescriptionHelpFormatter):
+	"""Subclass HelpFormatter to remove subparser metavar."""
+
+	def _format_action(self, action: argparse.Action) -> str:
+		"""Format help action."""
+		parts = super()._format_action(action)
+		if action.nargs == argparse.PARSER:
+			parts = "\n".join(parts.split("\n")[1:])
+		return parts
 
 gpl_help: str = _('reads the licenses of software compiled in and then reads the GPLv3')
 
@@ -110,7 +119,7 @@ def remove_interactive_options(argparser: NalaParser) -> None:
 			group.title = None
 			group.description = None
 
-formatter = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=64)
+formatter = lambda prog: NalaFormatter(prog, max_help_position=64)
 bin_name = Path(sys.argv[0]).name
 
 # Define global options to be given to subparsers
