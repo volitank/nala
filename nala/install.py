@@ -43,10 +43,9 @@ from nala.error import ExitCode, apt_error, broken_error, essential_error
 from nala.history import write_history
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, ask, check_pkg, color, color_version, dprint,
-				eprint, get_date, is_secret_virtual, pkg_candidate,
-				pkg_installed, print_update_summary, print_virtual_pkg, term)
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
+				ask, check_pkg, color, color_version, dprint, eprint, get_date,
+				pkg_candidate, pkg_installed, print_update_summary, term)
 
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
@@ -344,24 +343,7 @@ def package_manager(pkg_names: list[str], cache: Cache,
 					return False
 	return True
 
-def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
-	"""Filter package to check if they're virtual."""
-	new_names = set()
-	for pkg_name in pkg_names:
-		virtual = False
-		if cache.is_virtual_package(pkg_name):
-			provides = cache.get_providing_packages(pkg_name)
-			virtual = True
-			if len(provides) == 1:
-				new_names.add(provides[0].name)
 				continue
-			if len(provides) > 1:
-				print_virtual_pkg(pkg_name, provides)
-				sys.exit(1)
-		if not virtual:
-			new_names.add(pkg_name)
-	dprint(f"Virtual Filter: {new_names}")
-	return list(new_names)
 
 def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Check if pkg needs to be configured so we can show it."""
@@ -388,12 +370,12 @@ def get_extra_pkgs(extra_type: str, # pylint: disable=too-many-branches
 				continue
 			if len(dep) == 1:
 				if not dep.target_versions:
-					if not is_secret_virtual(dep[0].name, Cache()):
-						npkg_list.append(
-							NalaPackage(dep[0].name, _('Virtual Package'), 0)
-						)
+					npkg_list.append(
+						NalaPackage(dep[0].name, _('Virtual Package'), 0)
+					)
 					continue
 				ver = dep.target_versions[0]
+				# We don't need to show if it's to be installed
 				if ver.package.marked_install:
 					continue
 				npkg_list.append(
@@ -406,13 +388,12 @@ def get_extra_pkgs(extra_type: str, # pylint: disable=too-many-branches
 					if base_dep.name in or_name:
 						continue
 					or_name.append(base_dep.name)
-					# Don't need to show these, they can't be satisfied
-					if not is_secret_virtual(base_dep.name, Cache()):
-						or_deps.append(
-							NalaPackage(base_dep.name, _('Virtual Package'), 0)
-						)
+					or_deps.append(
+						NalaPackage(base_dep.name, _('Virtual Package'), 0)
+					)
 					continue
 				ver = base_dep.target_versions[0]
+				# We don't need to show if it's to be installed
 				if ver.package.name in or_name or ver.package.marked_install:
 					continue
 				or_name.append(ver.package.name)

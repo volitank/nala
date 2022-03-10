@@ -28,15 +28,13 @@ from pathlib import Path
 from random import shuffle
 from typing import cast
 
-from apt.cache import Cache
 from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import PACSTALL_METADATA, _
 from nala.debfile import NalaBaseDep
 from nala.options import arguments
 from nala.rich import ascii_replace
-from nala.utils import (color, is_secret_virtual,
-				print_virtual_pkg, term, unit_str)
+from nala.utils import color, term, unit_str
 
 SHOW_INFO = _("{header} {info}\n")
 
@@ -84,28 +82,6 @@ def show_pkg(candidate: Version) -> None:
 			info=ascii_replace(candidate._translated_records.long_desc)
 		)
 	print(msg.strip())
-
-def check_virtual(pkg_name: str, cache: Cache) -> tuple[bool, Package | None]:
-	"""Check if the package is virtual."""
-	if cache.is_virtual_package(pkg_name):
-		if len(provides := cache.get_providing_packages(pkg_name)) == 1:
-			print(
-				_("Selecting {provider}\nInstead of virtual package {package}\n").format(
-					provider = color(provides[0].name, 'GREEN'),
-					package = color(pkg_name, 'GREEN')
-				)
-			)
-			return True, cache[provides[0]]
-		print_virtual_pkg(pkg_name, cache.get_providing_packages(pkg_name))
-		return True, None
-	if is_secret_virtual(pkg_name, cache):
-		print(
-			_("{pkg} is only referenced by name.\nNothing provides it.").format(
-				pkg = color(pkg_name, 'GREEN')
-			)
-		)
-		return True, None
-	return False, None
 
 def show_related(candidate: Version) -> str:
 	"""Show relational packages."""

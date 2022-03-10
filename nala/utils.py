@@ -485,6 +485,39 @@ def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 				break
 	print(msg.strip())
 
+def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
+	"""Filter package to check if they're virtual."""
+	new_names = set()
+	for pkg_name in pkg_names:
+		if pkg_name in cache:
+			new_names.add(pkg_name)
+			continue
+		virtual, vpkg = check_virtual(pkg_name, cache)
+		if vpkg:
+			new_names.add(vpkg.name)
+			continue
+		if virtual:
+			continue
+	dprint(f"Virtual Filter: {new_names}")
+	return sorted(new_names)
+
+def check_virtual(pkg_name: str, cache: Cache) -> tuple[bool, Package | None]:
+	"""Check if the package is virtual."""
+	if cache.is_virtual_package(pkg_name):
+		if len(provides := cache.get_providing_packages(pkg_name)) == 1:
+			print_selecting_pkg(provides[0].name, pkg_name)
+			return True, cache[provides[0]]
+		print_virtual_pkg(pkg_name, provides)
+		return True, None
+	if is_secret_virtual(pkg_name, cache):
+		print(
+			_("{pkg} is only referenced by name.\nNothing provides it.").format(
+				pkg = color(pkg_name, 'GREEN')
+			)
+		)
+		return True, None
+	return False, None
+
 def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 	"""Print the virtual package string."""
 	print(
@@ -495,6 +528,15 @@ def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 					f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
 					for pkg in provides
 			)
+		)
+	)
+
+def print_selecting_pkg(provider: str, pkg_name: str) -> None:
+	"""Print that we are selecting a different package."""
+	print(
+		_("Selecting {provider}\nInstead of virtual package {package}\n").format(
+			provider = color(provider, 'GREEN'),
+			package = color(pkg_name, 'GREEN')
 		)
 	)
 
@@ -528,25 +570,10 @@ def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 
 	new_packages: list[str] = []
 	glob_failed = False
-	globber = set()
-	for pkg in cache._cache.packages:
-		pkg_name = pkg.get_fullname(pretty=True)
-		if cache.is_virtual_package(pkg_name):
-			provides = cache.get_providing_packages(pkg_name)
-			if len(provides) == 1:
-				globber.add(pkg_name)
-			continue
-		if is_secret_virtual(pkg_name, cache):
-			continue
-		# Make sure any pkgs that get through are real
-		# Looking at you $kernel
-		if pkg.has_versions:
-			globber.add(pkg_name)
-
 	for pkg_name in pkg_names:
 		if '*' in pkg_name:
 			dprint(f'Globbing: {pkg_name}')
-			glob = fnmatch.filter(globber, pkg_name)
+			glob = fnmatch.filter(get_pkg_names(cache), pkg_name)
 			if not glob:
 				glob_failed = True
 				eprint(
@@ -564,6 +591,12 @@ def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 	new_packages.sort()
 	dprint(f'List after globbing: {new_packages}')
 	return new_packages
+
+def get_pkg_names(cache: Cache) -> Generator[str, None, None]:
+	"""Generate all real packages, or packages that can provide something."""
+	for pkg in cache._cache.packages:
+		if pkg.has_versions or pkg.has_provides:
+			yield pkg.get_fullname(pretty=True)
 
 def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
 	"""Return the correct headers for the summary."""
