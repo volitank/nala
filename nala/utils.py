@@ -41,8 +41,8 @@ import jsbeautifier
 from apt.cache import Cache
 from apt.package import Package, Version
 
-from nala.constants import (COLOR_CODES, ERROR_PREFIX,
-				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG, _)
+from nala.constants import (COLOR_CODES, ERROR_PREFIX, HANDLER,
+				JSON_OPTIONS, NALA_DEBUGLOG, FileDownloadError, _)
 from nala.debfile import NalaDebPackage
 from nala.options import arguments
 from nala.rich import Console, Group, Table, Tree, from_ansi
@@ -353,16 +353,46 @@ def iter_remove(path: Path) -> None:
 			dprint(f"Removed: {file}")
 			file.unlink(missing_ok=True)
 
-def check_pkg(directory: Path, candidate: Package | Version) -> bool:
+def check_pkg(directory: Path, candidate: Package | Version, download: bool = False) -> bool:
 	"""Check if file exists, is correct, and run check hash."""
+	if download:
+		dprint("Post Download Package Check")
+	else:
+		dprint("Pre Download Package Check")
 	if isinstance(candidate, Package):
 		candidate = pkg_candidate(candidate)
 	path = directory / get_pkg_name(candidate)
-	if not path.exists() or path.stat().st_size != candidate.size:
+	if not path.exists():
+		dprint(f"File Doesn't exist: {path.name}")
+		if download:
+			raise FileDownloadError(
+				errno=FileDownloadError.ENOENT,
+				filename=path.name,
+			)
+		return False
+	if path.stat().st_size != candidate.size:
+		dprint(f"File {path.name} has an unexpected size {path.stat().st_size} != {candidate.size}")
+		path.unlink()
+		if download:
+			raise FileDownloadError(
+				errno = FileDownloadError.ERRSIZE,
+				filename = path.name,
+			)
 		return False
 	hash_type, hash_value = get_hash(candidate)
 	try:
-		return check_hash(path, hash_type, hash_value)
+		if not check_hash(path, hash_type, hash_value):
+			dprint(f"Hash Checking has failed. Removing: {path.name}")
+			path.unlink()
+			if download:
+				raise FileDownloadError(
+					errno=FileDownloadError.ERRHASH,
+					filename=path.name,
+				)
+			return False
+		if not download:
+			dprint(f"Package doesn't require download: {path.name}")
+		return True
 	except OSError as err:
 		eprint(_("Failed to check hash"), err)
 		return False
@@ -378,25 +408,37 @@ def check_hash(path: Path, hash_type: str, hash_value: str) -> bool:
 			hash_fun.update(data)
 	local_hash = hash_fun.hexdigest()
 	debugger = (
-		str(path),
-		f"Candidate Hash: {hash_type} {hash_value}",
-		f"Local Hash: {local_hash}"
-		f"Hash Success: {local_hash == hash_value}"
+		f"Hash Status = [\n    File: {path},\n"
+		f"    Candidate Hash: {hash_type.upper()} {hash_value},\n"
+		f"    Local Hash: {local_hash},\n"
+		f"    Hash Success: {local_hash == hash_value},\n]"
 	)
+
 	dprint(debugger)
 	return local_hash == hash_value
 
 def get_hash(version: Version) -> tuple[str, str]:
 	"""Get the correct hash value."""
-	if version.sha256:
-		return ("sha256", version.sha256)
-	if version.sha1:
-		return ("sha1", version.sha1)
-	if version.md5:
-		return ("md5", version.md5)
+	hash_list = version._records.hashes
+	hashes = ('SHA512', 'SHA256')
+
+	# From Debian's requirements we are not to use these for security checking.
+	# https://wiki.debian.org/DebianRepository/Format#MD5Sum.2C_SHA1.2C_SHA256
+	# Clients may not use the MD5Sum and SHA1 fields for security purposes,
+	# and must require a SHA256 or a SHA512 field.
+	# hashes = ('SHA512', 'SHA256', 'SHA1', 'MD5')
+
+	for _type in hashes:
+		try:
+			return _type.lower(), hash_list.find(_type).hashvalue
+		except KeyError:
+			pass
+
+	filename = Path(version.filename).name or version.package.name
 	sys.exit(
-		_("{error} {filename} can't be checked for integrity.").format(
-			error=ERROR_PREFIX, filename=Path(version.filename).name
+	    _("{error} {filename} can't be checked for integrity.\n"
+			"There are no hashes available for this package.").format(
+	        error=ERROR_PREFIX, filename=color(filename, 'YELLOW')
 		)
 	)
 

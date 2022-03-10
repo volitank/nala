@@ -34,7 +34,7 @@ from pathlib import Path
 from random import shuffle
 from signal import Signals  # pylint: disable=no-name-in-module #Codacy
 from signal import SIGINT, SIGTERM
-from typing import Pattern
+from typing import Pattern, Union, cast
 
 import apt_pkg
 from anyio import open_file
@@ -43,8 +43,8 @@ from httpx import (URL, AsyncClient, ConnectError, ConnectTimeout, HTTPError,
 				HTTPStatusError, Proxy, RemoteProtocolError, RequestError, get)
 from rich.panel import Panel
 
-from nala.constants import (ARCHIVE_DIR,
-				ERRNO_PATTERN, ERROR_PREFIX, PARTIAL_DIR, _)
+from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
+				ERROR_PREFIX, PARTIAL_DIR, FileDownloadError, _)
 from nala.error import ExitCode
 from nala.options import arguments
 from nala.rich import Live, Table, from_ansi, pkg_download_progress
@@ -55,8 +55,22 @@ MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')
 
 TOTAL_PACKAGES = color(_('Total Packages:'), 'GREEN')
 STARTING_DOWNLOADS = color(_('Starting Downloads...'), 'BLUE')
+STARTING_DOWNLOAD = color(_('Starting Download:'), 'BLUE')
 LAST_COMPLETED = color(_('Last Completed:'), 'GREEN')
 MIRROR_TIMEOUT = color(_('Mirror Timedout:'), 'YELLOW')
+DOWNLOAD_COMPLETE = color(_('Download Complete:'), 'GREEN')
+TRYING = color(_('Trying:'))
+NO_MORE_MIRRORS = color(_('No More Mirrors:'), 'RED')
+
+FILE_NO_EXIST = _("{error} {filename} Does not exist!")
+HASH_MISMATCH = _("{error} File Hash Sum does not match: {filename}")
+SIZE_WRONG = _("{error} File has unexpected size: {filename}")
+REMOVING_FILE = _("  We have removed {filename} but will try another mirror")
+FAILED_MOVE = _("{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'")
+
+DownloadErrorTypes = Union[
+	HTTPError, HTTPStatusError, RequestError, OSError, ConnectError, FileDownloadError
+]
 
 class PkgDownloader: # pylint: disable=too-many-instance-attributes
 	"""Manage Package Downloads."""
@@ -119,10 +133,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		"""Download and write package."""
 		dest = PARTIAL_DIR / get_pkg_name(candidate)
 		async with semaphore:
-			vprint(
-				color(_('Starting Download:'), 'BLUE')
-				+f" {url} {unit_str(candidate.size, 1)}"
-			)
+			vprint(f"{STARTING_DOWNLOAD} {url} {unit_str(candidate.size, 1)}")
 			assert isinstance(url, str)
 			second_attempt = False
 			while True:
@@ -134,8 +145,8 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 				except RemoteProtocolError as error:
 					if 'Server disconnected' not in str(error) or second_attempt:
 						raise error from error
-					mirror = url[:url.index('/pool')]
-					vprint(f"{ERROR_PREFIX}{mirror} {error}")
+					second_attempt = True
+					dprint(f"Mirror Failed: {url[:url.index('/pool')]} {error}, will try again.")
 					continue
 		return total_data
 
@@ -146,27 +157,25 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		assert isinstance(candidate, Version)
 		for num, url in enumerate(urls):
 			assert isinstance(url, str)
+			total_data = 0
 			try:
 				total_data = await self._download(client, semaphore, candidate, url)
 
 				if not await process_downloads(candidate):
 					await self._update_progress(total_data, failed=True)
 					continue
-				if not check_pkg(ARCHIVE_DIR, candidate):
-					await self._update_progress(total_data, failed=True)
+				if not check_pkg(ARCHIVE_DIR, candidate, download=True):
 					continue
 
-				vprint(
-					color(_('Download Complete:'), 'GREEN')
-					+f" {url}"
-				)
+				vprint(f"{DOWNLOAD_COMPLETE} {url}")
 
 				self.count += 1
 				self.last_completed = Path(candidate.filename).name
 				self.live.update(self._gen_table())
 				break
 
-			except (HTTPError, OSError) as error:
+			except (HTTPError, OSError, FileDownloadError) as error:
+				await self._update_progress(total_data, failed=True)
 				self.download_error(error, num, urls, candidate)
 				continue
 
@@ -248,31 +257,16 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		)
 
 	def download_error(self,
-		error: HTTPError | HTTPStatusError | RequestError | OSError | ConnectError,
-		num: int, urls: list[Version | str], candidate: Version) -> None:
+		error: DownloadErrorTypes, num: int, urls: list[Version | str], candidate: Version) -> None:
 		"""Handle download errors."""
 		full_url = str(urls[num])
 		mirror = full_url[:full_url.index('/pool')]
-		if isinstance(error, ConnectTimeout):
-			vprint(f"{MIRROR_TIMEOUT} {mirror}")
-		if isinstance(error, ConnectError):
-			# ConnectError: [Errno -2] Name or service not known
-			errno_replace = re.sub(ERRNO_PATTERN, '', str(error)).strip()+':'
-			vprint(f"{color(errno_replace, 'RED')} {mirror}")
-		else:
-			msg = str(error) or type(error).__name__
-			vprint(f"{ERROR_PREFIX} {msg}")
+		print_error(error, mirror)
 
-		try:
-			# Check if there is another url to try
-			next_url = urls[num+1]
-		except IndexError:
-			no_mirrors = color(_('No More Mirrors:'), 'RED')
-			vprint(f"{no_mirrors} {color(pkg_name := Path(candidate.filename).name, 'YELLOW')}")
-			self.failed.append(pkg_name)
+		if not (next_url := more_urls(urls, num, self.failed, candidate)):
 			return
-		trying = color(_('Trying:'), 'YELLOW')
-		vprint(f"{trying} {next_url}")
+
+		vprint(f"{TRYING} {next_url}")
 
 	async def _update_progress(self, len_data: int, failed: bool = False) -> None:
 		"""Update download progress."""
@@ -281,6 +275,60 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 
 		pkg_download_progress.advance(self.task, advance=len_data)
 		self.live.update(self._gen_table())
+
+def print_error(
+	error: DownloadErrorTypes, mirror: str) -> None:
+	"""Print the download error to console."""
+	if isinstance(error, ConnectTimeout):
+		vprint(f"{MIRROR_TIMEOUT} {mirror}")
+		return
+	if isinstance(error, ConnectError):
+		# ConnectError: [Errno -2] Name or service not known
+		errno_replace = re.sub(ERRNO_PATTERN, '', str(error)).strip()+':'
+		vprint(f"{color(errno_replace, 'RED')} {mirror}")
+		return
+	if isinstance(error, FileDownloadError):
+		file_error(error)
+		return
+	msg = str(error) or type(error).__name__
+	vprint(f"{ERROR_PREFIX} {msg}")
+
+def file_error(error: FileDownloadError) -> None:
+	"""Print the error from our FileDownloadError exception."""
+	if error.errno == FileDownloadError.ENOENT:
+		eprint(
+			FILE_NO_EXIST.format(error=ERROR_PREFIX, filename=error.filename)
+		)
+		return
+	if error.errno == FileDownloadError.ERRHASH:
+		eprint(
+			HASH_MISMATCH.format(error=ERROR_PREFIX, filename=error.filename)
+		)
+
+	if error.errno == FileDownloadError.ERRSIZE:
+		eprint(
+			SIZE_WRONG.format(error=ERROR_PREFIX, filename=error.filename)
+		)
+
+	eprint(
+		REMOVING_FILE.format(filename=error.filename)
+	)
+
+def more_urls(urls: list[Version | str], num: int,
+	failed: list[str], candidate: Version) -> str | bool:
+	"""Check if there is another url to try. Return False if not."""
+	try:
+		return cast(str, urls[num+1])
+	except IndexError:
+		filename = Path(candidate.filename).name
+		eprint(
+			_("{error} No more mirrors available for {filename}").format(
+				error=ERROR_PREFIX, filename=filename
+			)
+		)
+		eprint(_("  Apt will try to fetch the package before installation"))
+		failed.append(filename)
+		return False
 
 async def process_downloads(candidate: Version) -> bool:
 	"""Process the downloaded packages."""
@@ -293,9 +341,7 @@ async def process_downloads(candidate: Version) -> bool:
 	except OSError as error:
 		if error.errno != ENOENT:
 			eprint(
-				_(
-					"{error} Failed to move archive file, "
-					"{str_err}: '{file1}' -> '{file2}'").format(
+				FAILED_MOVE.format(
 					error=ERRNO_PATTERN, str_err=error.strerror,
 					file1=error.filename, file2=error.filename2
 				)
@@ -350,4 +396,11 @@ def download(pkgs: list[Package]) -> None:
 		sys.exit(0)
 
 	if downloader.failed:
-		eprint(_("Some downloads failed. Falling back to apt_pkg."))
+		eprint(
+			_("{warning} Falling back to apt_pkg. The following downloads failed:").format(
+				warning = color(_('Warning:'), 'YELLOW')
+			)
+		)
+		eprint(
+			f"  {', '.join(color(pkg, 'YELLOW') for pkg in downloader.failed)}"
+			)

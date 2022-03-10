@@ -136,6 +136,28 @@ COLOR_CODES: dict[str, str | int] = {
 	'WHITE' : 37,
 }
 
+class FileDownloadError(Exception):
+	"""Exception class for passing errors.
+
+	ERRHASH: 1 'Hash Sum is mismatched.'
+	ENOENT: 2 'No such file or directory.'
+	ERRSIZE: 3 'Size is mismatched.'
+	"""
+
+	ERRHASH = 1
+	ENOENT = 2
+	ERRSIZE = 3
+
+	def __init__(self,
+				error_str: str = '',
+				errno: int = 0,
+				filename: str = '') -> None:
+		"""Define error properties."""
+		super().__init__(error_str)
+		self.error_str = error_str
+		self.errno = errno
+		self.filename = filename
+
 # dpkg constants
 CONF_MESSAGE = (
 	b"Configuration file '",
