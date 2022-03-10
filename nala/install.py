@@ -52,16 +52,17 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -
 	"""Handle auto removal of packages."""
 	if arguments.no_autoremove:
 		return
-	# Recurse 3 levels if we're installing local_debs
-	# To make sure that its depends are safe
-	deps = recurse_deps(nala_pkgs.local_debs, 3, installed=True)
-	for pkg in cache:
-		if pkg.is_installed and not pkg.marked_delete and pkg.is_auto_removable:
-			if pkg in deps:
-				dprint(f"Dependency: ['{pkg.name}'] Protected from removal")
-				continue
-			pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
-			nala_pkgs.autoremoved.append(pkg.name)
+	with cache.actiongroup(): # type: ignore[attr-defined]
+	# Recurse 10 levels if we're installing .debs to make sure that all depends are safe
+		deps = recurse_deps(nala_pkgs.local_debs, levels = 10, installed=False)
+		for pkg in cache:
+			if pkg.is_installed and not pkg.marked_delete and pkg.is_auto_removable:
+				if pkg in deps:
+					dprint(f"Dependency: ['{pkg.name}'] Protected from removal")
+					continue
+				# We don't have to autofix while autoremoving
+				pkg.mark_delete(auto_fix=False, purge=purge)
+				nala_pkgs.autoremoved.append(pkg.name)
 	dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
 def recurse_deps(pkgs: Iterable[NalaDebPackage] | Iterable[Package],
