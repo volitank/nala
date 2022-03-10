@@ -32,14 +32,15 @@ from typing import Iterable, cast
 import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package
-from apt_pkg import DepCache, Error as AptError
+from apt_pkg import DepCache, Error as AptError, get_architectures
 
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
 				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, CurrentState, _)
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.downloader import download
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
-from nala.error import ExitCode, apt_error, broken_error, essential_error
+from nala.error import (ExitCode, apt_error, broken_error,
+				essential_error, local_deb_error, print_dpkg_errors)
 from nala.history import write_history
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
@@ -265,7 +266,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 						"{warning} Newer version {cache_pkg} {cache_ver} exists in the cache.\n"
 						"You should consider using `{command}`"
 					).format(
-						warning = color(_('Warning:'), 'YELLOW'),
+						warning = color(_('Notice:'), 'YELLOW'),
 						cache_pkg = color_name,
 						cache_ver = color_version(cache_pkg.candidate.version),
 						command = f"{color('nala install')} {color_name}"
@@ -308,16 +309,22 @@ def split_local(
 	"""Split pkg_names into either Local debs, regular install or they don't exist."""
 	not_exist: list[str] = []
 	for name in pkg_names[:]:
-		if '.deb' in name:
+		if '.deb' in name or '/' in name:
 			if not Path(name).exists():
 				not_exist.append(name)
 				pkg_names.remove(name)
 				continue
-			local_debs.append(deb_pkg := NalaDebPackage(name, cache))
-			if deb_pkg.pkgname in pkg_names:
+			try:
+				local_debs.append(deb_pkg := NalaDebPackage(name, cache))
+			except AptError as error:
+				local_deb_error(error, name)
+
+			if deb_pkg.pkgname in pkg_names and deb_pkg.pkgname in cache:
 				prioritize_local(deb_pkg, deb_pkg.pkgname, pkg_names)
-			if (arch_pkg := f"{deb_pkg.pkgname}:{deb_pkg._sections['Architecture']}") in pkg_names:
-				prioritize_local(deb_pkg, arch_pkg, pkg_names)
+			for arch in get_architectures():
+				if (arch_pkg := f"{deb_pkg.pkgname}:{arch}") in pkg_names and arch_pkg in cache:
+					prioritize_local(deb_pkg, arch_pkg, pkg_names)
+
 			pkg_names.remove(name)
 			continue
 	return not_exist

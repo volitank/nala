@@ -25,7 +25,8 @@
 from __future__ import annotations
 
 import sys
-from typing import Generator, NoReturn, cast
+from pathlib import Path
+from typing import Generator, NoReturn, Union, cast
 
 import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
