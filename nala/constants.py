@@ -147,7 +147,7 @@ CONF_MESSAGE = (
 	b'      D     : show the differences between the versions\r\n',
 	b'      Z     : start a shell to examine the situation\r\n',
 	b' The default action is to keep your current version.\r\n',
-	b'*** config.inc.php (Y/I/N/O/D/Z) [default=N] ?',
+	b'(Y/I/N/O/D/Z) [default=N] ?',
 )
 CONF_ANSWER = (b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',)
 NOTICES = (

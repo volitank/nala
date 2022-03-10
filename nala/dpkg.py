@@ -55,39 +55,38 @@ PARENTHESIS_PATTERN = re.compile(r'[()]')
 
 scroll_list: list[str] = []
 notice: list[str] = []
+pkgnames: set[str] = set()
 dpkg_error: list[str] = []
 
-REMOVING = _('Removing')
-UNPACKING = _('Unpacking')
-SETTING_UP = _('Setting up')
-PROCESSING = _('Processing')
+REMOVING = 'Removing'
+UNPACKING = 'Unpacking'
+SETTING_UP = 'Setting up'
+PROCESSING = 'Processing'
 FETCHED = _('Fetched')
-GET = _('GET')
+GET = 'GET'
 
 UPDATED = _('Updated:')
+DOWNLOADED = _('Downloaded:')
 IGNORED = _('Ignored:')
 ERROR = _('Error:')
 NO_CHANGE = _('No Change:')
 
-class OpProgress(base.OpProgress, text.TextProgress):
+class OpProgress(text.OpProgress):
 	"""Operation progress reporting.
 
 	This closely resembles OpTextProgress in libapt-pkg.
 	"""
 
-	def __init__(self) -> None:
-		"""Operation progress reporting."""
-		text.TextProgress.__init__(self)
-		base.OpProgress.__init__(self)
-		self.old_op = ""
-
+	# we have to use this string format or else things get buggy
+	# pylint: disable=consider-using-f-string
 	def update(self, percent: float | None = None) -> None:
 		"""Call periodically to update the user interface."""
 		base.OpProgress.update(self, percent)
 		if arguments.verbose:
 			if self.major_change and self.old_op:
 				self._write(self.old_op)
-			self._write(f"{self.op}... {self.percent}%\r", False, True)
+
+			self._write("%s... %i%%\r" % (self.op, self.percent), False, True)
 			self.old_op = self.op
 
 	def done(self) -> None:
@@ -95,7 +94,7 @@ class OpProgress(base.OpProgress, text.TextProgress):
 		base.OpProgress.done(self)
 		if arguments.verbose:
 			if self.old_op:
-				self._write(f"\r{self.old_op}... Done", True, True)
+				self._write(_("%c%s... Done") % ('\r', self.old_op), True, True)
 			self.old_op = ""
 
 class UpdateProgress(text.AcquireProgress):
@@ -111,8 +110,6 @@ class UpdateProgress(text.AcquireProgress):
 		self._width = 80
 		self.install = install
 		self.live = live or Live(auto_refresh=False)
-		if arguments.debug:
-			arguments.verbose=True
 
 		scroll_list.clear()
 
@@ -174,17 +171,38 @@ class UpdateProgress(text.AcquireProgress):
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is update (e.g. not modified on the server)."""
 		base.AcquireProgress.ims_hit(self, item)
-		self.write_update(NO_CHANGE, 'GREEN', item)
+		line = _("{no_change} {info}").format(
+			no_change = color(NO_CHANGE, 'GREEN'),
+			info = item.description
+		)
+		if item.owner.filesize:
+			size = apt_pkg.size_to_str(item.owner.filesize)
+			line = _("{no_change} {info} [{size}B]").format(
+				no_change = color(NO_CHANGE, 'GREEN'),
+				info = item.description,
+				size = size
+			)
+		self._write(line)
 
 	def fail(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is failed."""
 		base.AcquireProgress.fail(self, item)
 		if item.owner.status == item.owner.STAT_DONE:
-			self._write(f"{color(IGNORED)}   {item.description}")
+			self._write(
+				_("{ignored}   {info}").format(
+					ignored = color(IGNORED, 'YELLOW'),
+					info = item.description
+				)
+			)
 		else:
 			# spaces are to make the error message consistent with other messages.
-			self._write(f'{ERROR_PREFIX}     {item.description}')
-			self._write(f"  {item.owner.error_text}")
+			self._write(
+				_("{error} {info}\n  {error_text}").format(
+					error = ERROR_PREFIX,
+					info = item.description,
+					error_text = item.owner.error_text
+				)
+			)
 
 	def fetch(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when some of the item's data is fetched."""
@@ -192,22 +210,27 @@ class UpdateProgress(text.AcquireProgress):
 		# It's complete already (e.g. Hit)
 		if item.owner.complete:
 			return
-		self.write_update(f"{UPDATED}  ", 'BLUE', item)
-
-	def write_update(self, msg: str, _color: str, item: apt_pkg.AcquireItemDesc) -> None:
-		"""Write the update from either hit or fetch."""
-		line = f'{color(msg, _color)} {item.description}'
+		line = _("{updated}   {id} {info}").format(
+			updated = color(DOWNLOADED if self.install else UPDATED, 'BLUE'),
+			id = item.owner.id,
+			info = item.description
+		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
-			line += f' [{size}B]'
+			line = _("{updated}   {id} {info} [{size}B]").format(
+				updated = color(DOWNLOADED if self.install else UPDATED, 'BLUE'),
+				id = item.owner.id,
+				info = item.description,
+				size = size
+			)
 		self._write(line)
 
 	def _winch(self, *_args: object) -> None:
 		"""Signal handler for window resize signals."""
 		if hasattr(self._file, "fileno") and os.isatty(self._file.fileno()):
 			buf = fcntl.ioctl(self._file, termios.TIOCGWINSZ, 8 * b' ')
-			term.lines, term.columns, dummy, dummy = struct.unpack('hhhh', buf)
-			self._width = term.columns - 1  # 1 for the cursor
+			dummy, columns, dummy, dummy = struct.unpack('hhhh', buf)
+			self._width = columns - 1  # 1 for the cursor
 
 	def start(self) -> None:
 		"""Start an Acquire progress.
@@ -223,10 +246,12 @@ class UpdateProgress(text.AcquireProgress):
 
 	def final_msg(self) -> str:
 		"""Print closing fetched message."""
-		fetched = apt_pkg.size_to_str(self.fetched_bytes)
-		elapsed = apt_pkg.time_to_str(self.elapsed_time)
-		speed = apt_pkg.size_to_str(self.current_cps).rstrip("\n")
-		return color(f"{FETCHED} {fetched}B in {elapsed} ({speed}B/s)")
+		return color(_("{fetched} {size}B in {elapsed} ({speed}B/s)").format(
+			fetched = FETCHED,
+			size = apt_pkg.size_to_str(self.fetched_bytes),
+			elapsed = apt_pkg.time_to_str(self.elapsed_time),
+			speed = apt_pkg.size_to_str(self.current_cps)
+		))
 
 	def stop(self) -> None:
 		"""Invoke when the Acquire process stops running."""
@@ -238,7 +263,7 @@ class UpdateProgress(text.AcquireProgress):
 
 # We don't call super init because it opens some File Descriptors we don't need
 # There is no functionality we miss out on by doing a super init
-# pylint: disable=too-many-instance-attributes, super-init-not-called
+# pylint: disable=too-many-instance-attributes, too-many-public-methods
 class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
 
@@ -246,6 +271,7 @@ class InstallProgress(base.InstallProgress):
 		term_log: TextIO, live: Live, task: TaskID) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
 		dprint("Init InstallProgress")
+		base.InstallProgress.__init__(self)
 		self.task = task
 		self._dpkg_log = dpkg_log
 		self._term_log = term_log
@@ -271,10 +297,6 @@ class InstallProgress(base.InstallProgress):
 			dpkg_progress.advance(self.task)
 			scroll_bar(self)
 
-	# Exit is overridden because it closes those file descriptors we don't init with
-	def __exit__(self, _type: object, value: object, traceback: object) -> None:
-		"""Exit."""
-
 	def run(self, obj: apt_pkg.PackageManager | bytes | str) -> int:
 		"""Install using the `PackageManager` object `obj`.
 
@@ -284,12 +306,22 @@ class InstallProgress(base.InstallProgress):
 		pid, self.child_fd = fork()
 		if pid == 0:
 			try:
+				# PEP-446 implemented in Python 3.4 made all descriptors
+				# CLOEXEC, but we need to be able to pass writefd to dpkg
+				# when we spawn it
+				os.set_inheritable(self.writefd, True)
 				# We ignore this with mypy because the attr is there
-				os._exit(obj.do_install()) # type: ignore[union-attr]
+				os._exit(obj.do_install(self.write_stream.fileno())) # type: ignore[union-attr]
 			except AttributeError:
 				# nosec because this isn't really a security issue. We're just running dpkg
 				# Also we need this line for installing local debs
-				os._exit(os.spawnlp(os.P_WAIT, "dpkg", "dpkg", "-i", cast(str, obj))) # nosec
+				os._exit(
+					os.spawnlp( # nosec
+						os.P_WAIT, "dpkg", "dpkg",
+						"--status-fd", str(self.write_stream.fileno()),
+						"-i", cast(str, obj)
+					)
+				)
 			# We need to catch every exception here.
 			# If we don't the code continues in the child,
 			# And bugs will be very confusing
@@ -350,7 +382,7 @@ class InstallProgress(base.InstallProgress):
 				b'[Y/n/?/...]' in self.last_line or self.last_line in (b'y', b'Y')
 			)
 		return rawline == term.CRLF and (
-			b'*** config.inc.php (Y/I/N/O/D/Z) [default=N] ?' in self.last_line
+			b'(Y/I/N/O/D/Z) [default=N] ?' in self.last_line
 			or self.last_line in DPKG_MSG['CONF_ANSWER']
 		)
 
@@ -412,9 +444,64 @@ class InstallProgress(base.InstallProgress):
 			scroll_bar(self, update_spinner=True)
 		return True
 
+	def read_status(self) -> None:
+		"""Read the status fd and send it to update progress bar."""
+		try:
+			status = self.status_stream.read(1024)
+		except OSError as err:
+			# Resource temporarily unavailable is ignored
+			if err.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
+				print(err.strerror)
+			return
+		for line in status.splitlines():
+			self.update_progress_bar(line)
+
+	def update_progress_bar(self, line: str) -> None:
+		"""Update the interface."""
+		pkgname = status = status_str = _percent = base_status = ""
+
+		if line.startswith('pm'):
+			try:
+				(status, pkgname, _percent, status_str) = line.split(":", 3)
+			except ValueError:
+				# Silently ignore lines that can't be parsed
+				return
+		elif line.startswith('status'):
+			try:
+				(base_status, pkgname, status, status_str) = line.split(":", 3)
+			except ValueError:
+				(base_status, pkgname, status) = line.split(":", 2)
+
+		# Always strip the status message
+		pkgname = pkgname.strip()
+		status_str = status_str.strip()
+		status = status.strip()
+
+		# This is the main branch for apt installs
+		if status == "pmstatus":
+			dprint(f"apt: {pkgname} {status_str}")
+			if status_str.startswith(('Unpacking', 'Removing')):
+				self.advance_progress()
+			# Either condition can satisfy this mark provided the package hasn't been advanced
+			elif status_str.startswith(('Installed', 'Configuring')) and pkgname not in pkgnames:
+				pkgnames.add(pkgname)
+				self.advance_progress()
+		# This branch only happens for local .deb installs.
+		elif base_status == "status":
+			# Sometimes unpacked is notified twice for one package
+			# We check against out set to make sure not to over shoot progress
+			if status == 'unpacked' and pkgname not in pkgnames:
+				self.advance_progress()
+				pkgnames.add(pkgname)
+			# Sometimes packages are notified as installed
+			# But we only care for ones that have been unpacked
+			if status == 'installed' and pkgname in pkgnames:
+				self.advance_progress()
+			dprint(f"dpkg: {pkgname} {status}")
+
 	def pre_filter(self, data: bytes) -> None:
 		"""Filter data from interact."""
-		# Set to raw if we have a conf prompt
+		self.read_status()
 		self.conf_check(data)
 
 		# This is a work around for a hang in non-interactive mode
@@ -482,7 +569,6 @@ class InstallProgress(base.InstallProgress):
 
 		self.term_log(rawline)
 
-		self.advance_progress(line)
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
@@ -518,10 +604,9 @@ class InstallProgress(base.InstallProgress):
 		if term.BACKSPACE not in rawline:
 			self.last_line = rawline
 
-	def advance_progress(self, line: str) -> None:
+	def advance_progress(self) -> None:
 		"""Advance the dpkg progress bar."""
-		if line.startswith((SETTING_UP, UNPACKING, REMOVING)) and '(' in line:
-			dpkg_progress.advance(self.task)
+		dpkg_progress.advance(self.task)
 		if arguments.verbose:
 			self.live.update(
 				Panel.fit(
