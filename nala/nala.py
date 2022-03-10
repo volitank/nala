@@ -40,13 +40,13 @@ from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
 from nala.install import (auto_remover, check_broken,
 				check_state, check_term_ask, get_changes, install_local,
-				package_manager, setup_cache, split_local, virtual_filter)
+				package_manager, setup_cache, split_local)
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
-from nala.show import additional_notice, check_virtual, show_main
-from nala.utils import (NalaPackage, PackageHandler, color, dprint,
-				eprint, glob_filter, iter_remove, pkg_installed, sudo_check)
+from nala.show import additional_notice, show_main
+from nala.utils import (NalaPackage, PackageHandler, color, dprint, eprint,
+				glob_filter, iter_remove, pkg_installed, sudo_check, virtual_filter)
 
 nala_pkgs = PackageHandler()
 
@@ -87,18 +87,20 @@ def install(pkg_names: list[str]) -> None:
 
 	pkg_names = glob_filter(pkg_names, cache)
 	pkg_names = virtual_filter(pkg_names, cache)
-	broken, not_found = check_broken(pkg_names, cache)
+	broken, not_found, ver_failed = check_broken(pkg_names, cache)
 	not_found.extend(not_exist)
 
-	if not_found:
+	if not_found or ver_failed:
 		pkg_error(not_found, cache, terminate=True)
 
 	pkgs = [cache[pkg_name] for pkg_name in pkg_names]
 	if (not package_manager(pkg_names, cache)
 	# We also check to make sure that all the packages are still
 	# Marked upgrade or install after the package manager is run
-	or not all((pkg.marked_upgrade or pkg.marked_install) for pkg in pkgs)
+	or not all((pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade) for pkg in pkgs)
 	) and not broken_error(broken, cache):
+		for pkg in pkgs:
+			print(pkg.marked_reinstall)
 		unmarked_error(pkgs)
 
 	auto_remover(cache, nala_pkgs)
@@ -113,14 +115,12 @@ def remove(pkg_names: list[str]) -> None:
 	check_state(cache, nala_pkgs)
 
 	_purge = arguments.command == 'purge'
-	not_found: list[str] = []
-
 	pkg_names = glob_filter(pkg_names, cache)
-	broken, not_found = check_broken(
+	broken, not_found, ver_failed = check_broken(
 		pkg_names, cache, remove=True, purge=_purge
 	)
 
-	if not_found:
+	if not_found or ver_failed:
 		pkg_error(not_found, cache)
 
 	if not package_manager(pkg_names, cache, remove=True, purge=_purge):
@@ -202,17 +202,13 @@ def show(pkg_names: list[str]) -> None:
 	"""Show package information."""
 	cache = setup_cache()
 	not_found: list[str] = []
+	pkg_names = glob_filter(pkg_names, cache)
+	pkg_names = virtual_filter(pkg_names, cache)
 	additional_records = 0
 	for num, pkg_name in enumerate(pkg_names):
 		if pkg_name in cache:
 			pkg = cache[pkg_name]
 			additional_records += show_main(num, pkg)
-			continue
-		virtual, vpkg = check_virtual(pkg_name, cache)
-		if vpkg:
-			additional_records += show_main(num, vpkg)
-			continue
-		if virtual:
 			continue
 		not_found.append(
 			_("{error} {name} not found").format(

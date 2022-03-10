@@ -343,7 +343,41 @@ def package_manager(pkg_names: list[str], cache: Cache,
 					return False
 	return True
 
+def set_candidate_versions(
+	pkg_names: list[str], cache: Cache) -> tuple[list[str], bool]:
+	"""Set the version to be installed."""
+	not_found: list[str] = []
+	failed = False
+	for name in pkg_names[:]:
+		if '=' not in name:
+			continue
+		pkg_name, version = name.split('=')
+
+		if pkg_name not in cache:
+			not_found.append(name)
+			pkg_names.remove(name)
+			continue
+
+		pkg = cache[pkg_name]
+		found = False
+		for ver in pkg.versions:
+			if ver.version == version:
+				pkg.candidate = ver
+				pkg_names.remove(name)
+				pkg_names.append(pkg_name)
+				found = True
 				continue
+
+		if found:
+			continue
+		failed = True
+		eprint(
+			_("{error} Version {version} not found for package {pkg}").format(
+				error = ERROR_PREFIX, version = color_version(version),
+				pkg = color(pkg_name, 'GREEN')
+			)
+		)
+	return not_found, failed
 
 def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Check if pkg needs to be configured so we can show it."""
@@ -407,13 +441,13 @@ def get_extra_pkgs(extra_type: str, # pylint: disable=too-many-branches
 				npkg_list.append(or_deps)
 
 def check_broken(pkg_names: list[str], cache: Cache,
-	remove: bool = False, purge: bool = False) -> tuple[list[Package], list[str]]:
+	remove: bool = False, purge: bool = False) -> tuple[list[Package], list[str], bool]:
 	"""Check if packages will be broken."""
 	broken_count = 0
-	not_found: list[str] = []
 	broken: list[Package] = []
 	depcache = cache._depcache
 
+	not_found, failed = set_candidate_versions(pkg_names, cache)
 	with cache.actiongroup(): # type: ignore[attr-defined]
 		for pkg_name in pkg_names[:]:
 			if pkg_name not in cache:
@@ -426,7 +460,7 @@ def check_broken(pkg_names: list[str], cache: Cache,
 			if depcache.broken_count > broken_count and arguments.no_fix_broken:
 				broken.append(pkg)
 				broken_count += 1
-	return broken, not_found
+	return broken, not_found, failed
 
 def mark_pkg(pkg: Package, depcache: DepCache,
 	remove: bool = False, purge: bool = False) -> bool:
@@ -442,7 +476,9 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 		depcache.mark_delete(pkg._pkg, purge)
 		return True
 
-	if pkg.installed and not pkg.is_upgradable:
+	# Check the installed version against the candidate version in case we're downgrading or upgrading.
+	if (pkg.installed and pkg.candidate
+		and pkg.installed.version == pkg.candidate.version):
 		print(
 			_("{pkg_name} is already at the latest version {version}").format(
 				pkg_name=color(pkg.name, 'GREEN'), version=color(pkg.installed.version, 'BLUE')
