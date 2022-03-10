@@ -55,6 +55,7 @@ def _main() -> None:
 
 	kwarg = '\n    '.join((f"{kwarg[0]} = {kwarg[1]},") for kwarg in arguments._get_kwargs())
 	dprint(f"Argparser = [\n    {kwarg}\n]")
+	arg_check()
 	if arguments.command in ('upgrade', 'install', 'remove', 'fetch', 'clean', 'purge'):
 		sudo_check(_("Nala needs root to {command}").format(command = arguments.command))
 	elif not arguments.command:
@@ -69,7 +70,6 @@ def _main() -> None:
 		parser.print_help()
 		sys.exit(1)
 
-	arg_check()
 	if arguments.command in ('install', 'show', 'remove', 'purge'):
 		# eval should be safe here considering the commands are specifically defined.
 		eval(f"{arguments.command}({arguments.args})") # pylint: disable=eval-used

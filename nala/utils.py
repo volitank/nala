@@ -537,6 +537,24 @@ def arg_check() -> None:
 
 	If args exists then duplicates will be removed.
 	"""
+	if arguments.command in sys.argv and '-' in sys.argv[1]:
+		sys.exit(
+			_("{error} Options like {option} must come after {command}").format(
+				error = ERROR_PREFIX,
+				option = color(sys.argv[1], 'YELLOW'),
+				command = color(arguments.command, 'YELLOW')
+			)
+		)
+
+	if arguments.no_update and arguments.update:
+		sys.exit(
+			_("{error} {update} and {no_update} cannot be used at the same time").format(
+				error = ERROR_PREFIX,
+				update = color('--update', 'YELLOW'),
+				no_update = color('--no-update', 'YELLOW')
+			)
+		)
+
 	if arguments.command in ('install', 'remove', 'purge', 'show'):
 		if not arguments.args:
 			sys.exit(
