@@ -34,9 +34,10 @@ from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala.constants import ERROR_PREFIX, _
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
+from nala.dpkg import dpkg_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import (color, color_version, dprint, eprint,
+from nala.utils import (color, color_version, dedupe_list, dprint, eprint,
 				get_installed_dep_names, is_secret_virtual, print_rdeps, term)
 
 DEPENDS = color(_('Depends:'))
@@ -54,23 +55,31 @@ BREAKS_MSG = _("{dependency} will break {pkg_name} {version}")
 CONFLICTS_MSG = _("{dependency} conflicts with {pkg_name} {version}")
 """'{dependency} conflicts with {pkg_name} {version}'"""
 
+INSTALL_FAILED = _(
+	"{error} Installation has failed.\n"
+	"If you'd like to file a bug report please include '/var/log/nala/dpkg-debug.log'"
+)
+NO_PROPER_ERR = _("{error} python-apt gave us {apt_err} This isn't a proper error as it's empty")
+AptErrorTypes = Union[FetchFailedException, LockFailedException, apt_pkg.Error, SystemError]
+
 class ExitCode: # pylint: disable=too-few-public-methods
 	"""Constants for Exit Codes."""
 
 	SIGINT = 130
 	SIGTERM = 143
 
-def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Error) -> NoReturn:
+def apt_error(apt_err: AptErrorTypes) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""
 	msg = str(apt_err)
 	if not msg:
 		# Sometimes python apt gives us literally nothing to work with.
 		# Probably an issue with sources.list. Needs further testing.
-		sys.exit(
-			_("{error} python-apt gave us {apt_err} This isn't a proper error as it's empty").format(
-				error=ERROR_PREFIX, apt_err=repr(apt_err)
-			)
-			)
+		sys.exit(NO_PROPER_ERR.format(error=ERROR_PREFIX, apt_err=repr(apt_err)))
+
+	if 'installArchives() failed' in msg:
+		eprint(INSTALL_FAILED.format(error=ERROR_PREFIX))
+		sys.exit(1)
+
 	if ',' in msg:
 		err_list = set(msg.split(','))
 		for err in err_list:
@@ -147,6 +156,46 @@ def pkg_error(pkg_list: list[str], cache: Cache, terminate: bool = False) -> Non
 		)
 	if terminate:
 		sys.exit(1)
+
+def print_dpkg_errors() -> None:
+	"""Format and print dpkg errors if there are any."""
+	warn = _('Warning:')
+	if not dpkg_error:
+		return
+	for line in dedupe_list(dpkg_error):
+		if 'dpkg:' in line:
+			line = line.replace('dpkg:', '')
+			if 'warning:' in line:
+				line = line.replace('warning:', '')
+				if 'downgrading' in line:
+					line = line.replace('downgrading', 'Downgraded')
+				eprint(f"\n{color(warn, 'YELLOW')} {line.strip()}")
+				continue
+			eprint(f"\n{ERROR_PREFIX} {line.strip()}")
+			continue
+		if 'Errors were encountered' in line or 'Processing was halted' in line:
+			eprint(f"\n{line}")
+			continue
+		eprint(line)
+
+def local_deb_error(error: apt_pkg.Error, name: str) -> NoReturn:
+	"""Print what is wrong with the .deb and exit."""
+	msg = str(error)
+	if 'Invalid archive signature' in msg:
+		eprint(
+			_("{error} {apt}\n  Unsupported File: {filename}").format(
+				error = ERROR_PREFIX,
+				apt = msg.replace('E:', ''),
+				filename = Path(name).resolve()
+			)
+		)
+		sys.exit(1)
+	eprint(
+		_("{error} {apt}\n  Could not read meta data from {filename}").format(
+			error = ERROR_PREFIX, apt = msg, filename = Path(name).resolve()
+		)
+	)
+	sys.exit(1)
 
 def format_broken(dep: BaseDependency | NalaBaseDep, cache:Cache, arch: str = '') -> str:
 	"""Format broken dependencies into a Tree, if any."""
@@ -272,6 +321,7 @@ def broken_error(broken_list: list[Package] | list[NalaDebPackage], cache:Cache,
 	for pkg in broken_list:
 		# if installed_pkgs exist then we are removing.
 		if installed_pkgs and pkg.name in total_deps:
+			ret_count += 1
 			print_rdeps(
 				pkg.name,
 				cast(tuple[Package], installed_pkgs)

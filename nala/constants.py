@@ -178,6 +178,14 @@ DPKG_STATUS = (
 	b'[Waiting for headers]',
 	b'[Connected to',
 )
+DPKG_ERRORS = (
+	b'dpkg:',
+	b'failed to allocate memory for new entry',
+	b'error processing package',
+	b'error processing archive',
+	b'Errors were encountered while processing',
+	b'Processing was halted because there were too many errors'
+)
 # ASCII Art
 LION_1 = (
 r"""

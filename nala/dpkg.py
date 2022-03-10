@@ -34,6 +34,7 @@ import struct
 import sys
 import termios
 from time import sleep
+from traceback import format_exception
 from types import FrameType
 from typing import Callable, Match, TextIO, cast
 
@@ -42,17 +43,19 @@ from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 
-from nala.constants import DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM, _
+from nala.constants import (DPKG_ERRORS,
+				DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM, _)
 from nala.options import arguments
 from nala.rich import (Group, Live, Panel, RenderableType, Table,
 				TaskID, ascii_replace, dpkg_progress, from_ansi, spinner)
-from nala.utils import color, eprint, term
+from nala.utils import color, dprint, eprint, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
 
 scroll_list: list[str] = []
 notice: list[str] = []
+dpkg_error: list[str] = []
 
 REMOVING = _('Removing')
 UNPACKING = _('Unpacking')
@@ -134,7 +137,7 @@ class UpdateProgress(text.AcquireProgress):
 			self.apt_write(msg, newline, maximize)
 			return
 
-		for item in (UPDATED, IGNORED, ERROR, NO_CHANGE):
+		for item in (UPDATED, DOWNLOADED, IGNORED, NO_CHANGE):
 			if item in msg:
 				self.table_print(msg, update_spinner=True)
 				break
@@ -147,12 +150,10 @@ class UpdateProgress(text.AcquireProgress):
 			if FETCHED in msg:
 				self.table_print(msg, fetched=True)
 				return
-			# Hash Sum is an error message that is multilined.
-			# An exception at the end is caught and printed,
-			# but there is no harm in printing it correctly when it hits.
-			if 'Hash Sum' in msg:
+
+			if ERROR in msg:
 				for line in msg.splitlines():
-					self.table_print(line, update_spinner=True)
+					eprint(line)
 				return
 
 			spinner.text = from_ansi(msg)
@@ -292,8 +293,9 @@ class InstallProgress(base.InstallProgress):
 			# We need to catch every exception here.
 			# If we don't the code continues in the child,
 			# And bugs will be very confusing
-			except Exception as err: # pylint: disable=broad-except
-				eprint(err)
+			except Exception: # pylint: disable=broad-except
+				exception = format_exception(*sys.exc_info())
+				self.dpkg_log(f"{exception}\n")
 				os._exit(1)
 		dprint("Dpkg Forked")
 		self.child_pid = pid
@@ -452,10 +454,10 @@ class InstallProgress(base.InstallProgress):
 		data_split = data.split(b'\r\n')
 		self.dpkg_log(f"Data_Split = {repr(data_split)}\n")
 		for line in data_split:
-			if line != b'':
-				for new_line in line.split(b'\r'):
-					if line:
-						self.format_dpkg_output(new_line)
+			for new_line in line.split(b'\r'):
+				if new_line:
+					check_error(data, new_line.decode())
+					self.format_dpkg_output(new_line)
 
 	def format_dpkg_output(self, rawline: bytes) -> None:
 		"""Facilitate what needs to happen to dpkg output."""
@@ -550,6 +552,13 @@ def check_line_spam(line: str, rawline: bytes, last_line: bytes) -> bool:
 		return False
 
 	return any(item in line for item in SPAM)
+
+def check_error(data: bytes, line: str) -> None:
+	"""Check dpkg errors and store them if we need too."""
+	for error in DPKG_ERRORS:
+		# Make sure that the error is not spam
+		if error in data and all(item not in line for item in SPAM):
+			dpkg_error.append(line)
 
 def paren_color(match: Match[str]) -> str:
 	"""Color parenthesis."""
@@ -737,12 +746,12 @@ class AptExpect(fdspawn): # type: ignore[misc]
 					self._write()
 			except KeyboardInterrupt:
 				term.write(term.CURSER_UP+term.CLEAR_LINE)
-				print(
+				eprint(
 					_("{warning} Quitting now could break your system!").format(
 						warning=color("Warning:", 'YELLOW')
 					)
 				)
-				print(color(_("Ctrl+C twice quickly will exit..."), 'RED'))
+				eprint(color(_("Ctrl+C twice quickly will exit..."), 'RED'))
 				sleep(0.5)
 
 	def _read(self, output_filter: Callable[[bytes], None]) -> bool:

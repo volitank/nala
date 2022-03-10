@@ -187,10 +187,18 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		commit_pkgs(cache, nala_pkgs)
 	# Catch system error because if dpkg fails it'll throw this
 	except (apt_pkg.Error, SystemError) as error:
-		sys.exit(f'\r\n{ERROR_PREFIX} {error}')
+		apt_error(error)
 	except FetchFailedException as error:
-		for failed in str(error).splitlines():
-			eprint(f"{ERROR_PREFIX} {failed}")
+		# We have already printed this error likely. but just in case
+		# We write it to the dpkg_log so at least we'll know about it.
+		with open(DPKG_LOG, 'a', encoding='utf-8') as file:
+			file.write("FetchedFailedException:\n")
+			file.write(str(error))
+		eprint(
+			_("{error} Fetching Packages has failed!").format(
+				error = ERROR_PREFIX
+			)
+		)
 		sys.exit(1)
 	except KeyboardInterrupt:
 		eprint(_("Exiting due to SIGINT"))
@@ -206,6 +214,7 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 					notice = color(_('Notice:'), 'YELLOW')
 				)
 			)
+		print_dpkg_errors()
 	print(color(_("Finished Successfully"), 'GREEN'))
 
 def install_local(nala_pkgs: PackageHandler) -> None:

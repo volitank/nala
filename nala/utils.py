@@ -45,7 +45,7 @@ from nala.constants import (COLOR_CODES, ERROR_PREFIX,
 				HANDLER, JSON_OPTIONS, NALA_DEBUGLOG, _)
 from nala.debfile import NalaDebPackage
 from nala.options import arguments
-from nala.rich import Console, Group, Table, Tree
+from nala.rich import Console, Group, Table, Tree, from_ansi
 
 
 class Terminal:
@@ -544,11 +544,18 @@ def arg_check() -> None:
 					error=ERROR_PREFIX, command=arguments.command
 				)
 			)
-		dedupe = []
-		for arg in arguments.args:
-			if arg not in dedupe:
-				dedupe.append(arg)
-		arguments.args = dedupe
+		arguments.args = dedupe_list(arguments.args)
+
+def dedupe_list(original: list[str]) -> list[str]:
+	"""Deduplicate a list.
+
+	Useful for when we want to maintain the list order and can't use set()
+	"""
+	dedupe = []
+	for item in original:
+		if item not in dedupe:
+			dedupe.append(item)
+	return dedupe
 
 def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 	"""Filter provided packages and glob *.
