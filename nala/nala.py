@@ -44,7 +44,7 @@ from nala.install import (auto_remover, check_broken,
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
-from nala.show import additional_notice, show_main
+from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (NalaPackage, PackageHandler, color, dprint, eprint,
 				glob_filter, iter_remove, pkg_installed, sudo_check, virtual_filter)
 
@@ -116,12 +116,13 @@ def remove(pkg_names: list[str]) -> None:
 
 	_purge = arguments.command == 'purge'
 	pkg_names = glob_filter(pkg_names, cache)
+	pkg_names = virtual_filter(pkg_names, cache)
 	broken, not_found, ver_failed = check_broken(
 		pkg_names, cache, remove=True, purge=_purge
 	)
 
 	if not_found or ver_failed:
-		pkg_error(not_found, cache)
+		pkg_error(not_found, cache, remove=True)
 
 	if not package_manager(pkg_names, cache, remove=True, purge=_purge):
 		broken_error(
@@ -210,11 +211,7 @@ def show(pkg_names: list[str]) -> None:
 			pkg = cache[pkg_name]
 			additional_records += show_main(num, pkg)
 			continue
-		not_found.append(
-			_("{error} {name} not found").format(
-				error=ERROR_PREFIX, name=pkg_name
-			)
-		)
+		pkg_not_found(pkg_name, cache, not_found)
 
 	if additional_records and not arguments.all_versions:
 		additional_notice(additional_records)

@@ -489,9 +489,10 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 	"""Mark Packages in depcache for broken checks."""
 	if remove:
 		if not pkg.installed:
-			print(
-				_("{error} {pkg_name} is not installed").format(
-					error=ERROR_PREFIX, pkg_name=color(pkg.name, 'YELLOW')
+			eprint(
+				_("{notice} {pkg_name} is not installed").format(
+					notice=color(_('Notice:'), 'YELLOW'),
+					pkg_name=color(pkg.name, 'YELLOW')
 				)
 			)
 			return False

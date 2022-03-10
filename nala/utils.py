@@ -479,7 +479,13 @@ def pkg_installed(pkg: Package) -> Version:
 	return pkg.installed
 
 def is_secret_virtual(pkg_name: str, cache: Cache) -> bool:
-	"""Return True if the package is secret virtual."""
+	"""Return True if the package is secret virtual.
+
+	Secret virtual packages provide nothing, and have no versions.
+
+	cache.is_virtual_package() returns True only if the virtual package
+	has something that it can provide.
+	"""
 	try:
 		pkg = cache._cache[pkg_name]
 		if not pkg.has_provides and not pkg.has_versions:
@@ -487,6 +493,18 @@ def is_secret_virtual(pkg_name: str, cache: Cache) -> bool:
 		return False
 	except KeyError:
 		return False
+
+def is_any_virtual(pkgname: str, cache: Cache) -> bool:
+	"""Return whether the package is a virtual package.
+
+	This is used if we only care if it's virtual, but not what type.
+	"""
+	try:
+		pkg = cache._cache[pkgname]
+	except KeyError:
+		return False
+	else:
+		return bool(not pkg.has_versions)
 
 def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
 	"""Iterate installed pkgs and return all of their deps in a list.
@@ -526,37 +544,54 @@ def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
 		if pkg_name in cache:
 			new_names.add(pkg_name)
 			continue
-		virtual, vpkg = check_virtual(pkg_name, cache)
-		if vpkg:
+		if vpkg := check_virtual(pkg_name, cache):
 			new_names.add(vpkg.name)
 			continue
-		if virtual:
-			continue
+		new_names.add(pkg_name)
 	dprint(f"Virtual Filter: {new_names}")
 	return sorted(new_names)
 
-def check_virtual(pkg_name: str, cache: Cache) -> tuple[bool, Package | None]:
+def what_replaces(pkg_name: str, cache: Cache)  -> Generator[str, None, None]:
+	"""Generate packages that replace the given name."""
+	for pkg in cache._cache.packages:
+		if (cand := cache._depcache.get_candidate_ver(pkg)):
+			try:
+				replaces = cand.depends_list['Replaces']
+				target = replaces[0][0].target_pkg
+				if pkg_name == target.name:
+					yield pkg.get_fullname(pretty=True)
+			except KeyError:
+				pass
+
+def check_virtual(pkg_name: str, cache: Cache) -> Package | None:
 	"""Check if the package is virtual."""
 	if cache.is_virtual_package(pkg_name):
 		if len(provides := cache.get_providing_packages(pkg_name)) == 1:
 			print_selecting_pkg(provides[0].name, pkg_name)
-			return True, cache[provides[0]]
+			return cache[provides[0]]
 		print_virtual_pkg(pkg_name, provides)
-		return True, None
+		return None
 	if is_secret_virtual(pkg_name, cache):
 		print(
-			_("{pkg} is only referenced by name.\nNothing provides it.").format(
+			_("{notice} {pkg} is only referenced by name.\n  Nothing provides it.").format(
+				notice = color('Notice:', 'YELLOW'),
 				pkg = color(pkg_name, 'GREEN')
 			)
 		)
-		return True, None
-	return False, None
+		if (replaces := list(what_replaces(pkg_name, cache))):
+			print(
+				_("However, the following packages replace it:\n{replaces}\n").format(
+					replaces = ", ".join(color(pkg, 'GREEN') for pkg in replaces)
+				)
+			)
+		return None
+	return None
 
 def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 	"""Print the virtual package string."""
 	print(
 		_("{pkg_name} is a virtual package provided by:\n  {provides}\n"
-			"You should select one to install.").format(
+			"You should select just one.").format(
 				pkg_name = color(pkg_name, 'GREEN'),
 				provides = "\n  ".join(
 					f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
@@ -568,9 +603,11 @@ def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 def print_selecting_pkg(provider: str, pkg_name: str) -> None:
 	"""Print that we are selecting a different package."""
 	print(
-		_("Selecting {provider}\nInstead of virtual package {package}\n").format(
-			provider = color(provider, 'GREEN'),
-			package = color(pkg_name, 'GREEN')
+		_(	"{notice} Selecting {provider}\n"
+			"  Instead of virtual package {package}\n").format(
+				notice = color('Notice:', 'YELLOW'),
+				provider = color(provider, 'GREEN'),
+				package = color(pkg_name, 'GREEN')
 		)
 	)
 

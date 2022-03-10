@@ -37,8 +37,9 @@ from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.dpkg import dpkg_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import (color, color_version, dedupe_list, dprint, eprint,
-				get_installed_dep_names, is_secret_virtual, print_rdeps, term)
+from nala.utils import (color, color_version,
+				dedupe_list, dprint, eprint, get_installed_dep_names,
+				is_any_virtual, is_secret_virtual, print_rdeps, term)
 
 DEPENDS = color(_('Depends:'))
 """'Depends:'"""
@@ -121,37 +122,28 @@ def essential_error(pkg_list: list[Text]) -> NoReturn:
 	)
 	sys.exit(1)
 
-def what_replaces(pkg_name: str, cache: Cache)  -> Generator[str, None, None]:
-	"""Generate packages that replace the given name."""
-	for pkg in cache._cache.packages:
-		if (cand := cache._depcache.get_candidate_ver(pkg)):
-			try:
-				replaces = cand.depends_list['Replaces']
-				target = replaces[0][0].target_pkg
-				if pkg_name == target.name:
-					yield pkg.get_fullname(pretty=True)
-			except KeyError:
-				pass
-
-def pkg_error(pkg_list: list[str], cache: Cache, terminate: bool = False) -> None:
+def pkg_error(pkg_list: list[str],
+	cache: Cache, terminate: bool = False, remove: bool = False) -> None:
 	"""Print error for package in list."""
+	header = color(_('Notice:'), 'YELLOW') if remove else ERROR_PREFIX
 	for pkg_name in pkg_list:
-		if is_secret_virtual(pkg_name, cache):
-			eprint(
-				SECRET_VIRTUAL.format(
-					pkg_name = color(pkg_name, 'YELLOW')
-				)
-			)
-			if (replaces := list(what_replaces(pkg_name, cache))):
-				print(
-					_("However, the following packages replace it:\n{replaces}\n").format(
-						replaces = ", ".join(color(pkg, 'GREEN') for pkg in replaces)
+		if is_any_virtual(pkg_name, cache):
+			if remove:
+				eprint(
+					_("{error} Virtual Packages like {pkg_name} can't be removed.").format(
+						error=header, pkg_name=color(pkg_name, 'YELLOW')
 					)
 				)
+				continue
+			eprint(
+				_("{error} {pkg_name} has no installation candidate.").format(
+					error=header, pkg_name=color(pkg_name, 'YELLOW')
+				)
+			)
 			continue
 		eprint(
 			_("{error} {pkg_name} not found").format(
-				error=ERROR_PREFIX, pkg_name=color(pkg_name, 'YELLOW')
+				error=header, pkg_name=color(pkg_name, 'YELLOW')
 			)
 		)
 	if terminate:
