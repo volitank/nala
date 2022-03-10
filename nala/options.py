@@ -92,7 +92,7 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 		'raw_dpkg' : True, 'no_autoremove' : True,
 		'remove_essential' : True, 'fix_broken' : True,
 		'no_fix_broken' : True, 'install_suggests' : True,
-		'no_install_recommended' : True
+		'no_install_recommends' : True
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -492,13 +492,13 @@ history_parser.add_argument(
 	help=_('clear a transaction or the entire history')
 )
 
-# Parser for the show command
+# Parser for the clean command
 clean_parser = subparsers.add_parser(
 	'clean',
 	formatter_class=formatter,
 	help=_('clears out the local repository of retrieved package files'),
 	parents=[global_options],
-	usage=f'{bin_name} show [--options]'
+	usage=f'{bin_name} clean [--options]'
 )
 
 # Remove Global options that I don't want to see in clean --help
