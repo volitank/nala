@@ -351,7 +351,7 @@ def package_manager(pkg_names: list[str], cache: Cache,
 							pkg.mark_delete(auto_fix=arguments.no_fix_broken, purge=purge)
 							dprint(f"Marked Remove: {pkg.name}")
 						continue
-					if not pkg.installed:
+					if not pkg.installed or pkg.marked_downgrade:
 						pkg.mark_install(auto_fix=arguments.no_fix_broken)
 						dprint(f"Marked Install: {pkg.name}")
 					elif pkg.is_upgradable:
@@ -529,6 +529,18 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 		candidate = pkg_candidate(pkg)
 		if pkg.marked_install:
 			nala_pkgs.install_pkgs.append(
+				NalaPackage(pkg.name, candidate.version, candidate.size)
+			)
+
+		elif pkg.marked_downgrade:
+			installed = pkg_installed(pkg)
+			nala_pkgs.downgrade_pkgs.append(
+				NalaPackage(pkg.name, candidate.version, candidate.size, installed.version)
+			)
+
+		elif pkg.marked_reinstall:
+			installed = pkg_installed(pkg)
+			nala_pkgs.reinstall_pkgs.append(
 				NalaPackage(pkg.name, candidate.version, candidate.size)
 			)
 

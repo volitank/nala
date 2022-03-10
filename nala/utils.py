@@ -600,9 +600,9 @@ def get_pkg_names(cache: Cache) -> Generator[str, None, None]:
 def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
 	"""Return the correct headers for the summary."""
 	if arguments.command == 'purge' and history:
-		return _('Purge'), _('Purging:'), _('Auto-Purge'), _('Auto-Purging:')
-	if arguments.command == 'purge' and not history:
 		return _('Purged'), _('Purged:'), _('Auto-Purged'), _('Auto-Purged:')
+	if arguments.command == 'purge' and not history:
+		return _('Purge'), _('Purging:'), _('Auto-Purge'), _('Auto-Purging:')
 	if not history:
 		return _('Remove'), _('Removing:'), _('Auto-Remove'), _('Auto-Removing:')
 	return _('Removed'), _('Removed:'), _('Auto-Removed'), _('Auto-Removed:')
@@ -671,7 +671,7 @@ def transaction_summary(delete_header: str, auto_header :str,
 	print('='*term.columns)
 	print(_('Summary'))
 	print('='*term.columns)
-	table = Table.grid('', padding=(0,2))
+	table = Table.grid('', padding=(0,1))
 	table.add_column(justify='right', overflow=term.overflow)
 	table.add_column(overflow=term.overflow)
 
@@ -714,7 +714,7 @@ def transaction_footer(cache: Cache) -> None:
 	if (space := cache.required_space) < 0:
 		msg = _('Disk space to free:')
 		print(f'{msg} {unit_str(-int(space))}')
-	else:
+	if space > 0:
 		msg = _('Disk space required:')
 		print(f'{msg} {unit_str(space)}')
 	if arguments.download_only:
