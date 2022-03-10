@@ -100,6 +100,7 @@ class UpdateProgress(text.AcquireProgress):
 
 	def __init__(self, live: Live | None = None, install: bool = False) -> None:
 		"""Class for getting cache update status and printing to terminal."""
+		dprint("Init UpdateProgress")
 		text.AcquireProgress.__init__(self)
 		self._file = sys.__stdout__
 		self._signal: HANDLER = None
@@ -243,6 +244,7 @@ class InstallProgress(base.InstallProgress):
 	def __init__(self, dpkg_log: TextIO,
 		term_log: TextIO, live: Live, task: TaskID) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
+		dprint("Init InstallProgress")
 		self.task = task
 		self._dpkg_log = dpkg_log
 		self._term_log = term_log
@@ -277,6 +279,7 @@ class InstallProgress(base.InstallProgress):
 
 		returns the result of calling `obj.do_install()`
 		"""
+		dprint("Starting InstallProgress.run")
 		pid, self.child_fd = fork()
 		if pid == 0:
 			try:
@@ -292,7 +295,7 @@ class InstallProgress(base.InstallProgress):
 			except Exception as err: # pylint: disable=broad-except
 				eprint(err)
 				os._exit(1)
-
+		dprint("Dpkg Forked")
 		self.child_pid = pid
 		if arguments.raw_dpkg:
 			return os.WEXITSTATUS(self.wait_child())

@@ -83,7 +83,7 @@ def apt_error(apt_err: FetchFailedException | LockFailedException | apt_pkg.Erro
 				eprint(f"{warn} {err.strip()}")
 				continue
 		sys.exit(1)
-	eprint(ERROR_PREFIX+msg)
+	eprint(f"{ERROR_PREFIX} {msg}")
 	if not term.is_su():
 		sys.exit(_('Are you root?'))
 	sys.exit(1)

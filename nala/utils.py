@@ -602,6 +602,7 @@ def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
 
 def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
 	"""Print our transaction summary."""
+	dprint("Printing Update Summary")
 
 	delete, deleting, auto_remove, auto_removing = get_summary_header(not cache)
 
@@ -764,16 +765,20 @@ def summary_or_depends(pkg: list[NalaPackage]) -> tuple[Tree, Table, Table]:
 
 	return pkg_tree, ver_table, size_table
 
-def vprint(*args: Any, **kwargs: Any) -> None:
+def vprint(msg: object) -> None:
 	"""Print message if verbose."""
-	if arguments.verbose:
-		print(*args, **kwargs)
+	msg = str(msg)
+	if arguments.verbose or arguments.debug:
+		print(msg)
+	if arguments.debug:
+		dprint(from_ansi(msg).plain, from_verbose=True)
 
-def dprint(msg: object) -> None:
+def dprint(msg: object, from_verbose: bool = False) -> None:
 	"""Print message if debugging, write to log if root."""
 	if not arguments.debug:
 		return
-	print(f'DEBUG: {msg}')
+	if not from_verbose:
+		print(f'DEBUG: {msg}')
 	if term.is_su():
 		with open(NALA_DEBUGLOG, 'a', encoding='utf-8') as logfile:
 			logfile.write(f'[{get_date()}] DEBUG: {msg}\n')

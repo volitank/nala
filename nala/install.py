@@ -124,6 +124,7 @@ def get_dep_type(dpkg: NalaDebPackage | Package,
 
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
+	dprint("Commit Pkgs")
 	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total)
 	with Live(auto_refresh=False) as live:
 		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
@@ -396,6 +397,7 @@ def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 def get_extra_pkgs(extra_type: str, # pylint: disable=too-many-branches
 	pkgs: list[Package], npkg_list: list[NalaPackage | list[NalaPackage]]) -> None:
 	"""Get Recommended or Suggested Packages."""
+	dprint(f"Getting `{extra_type}` Packages")
 	or_name = []
 	for pkg in pkgs:
 		if not pkg.marked_install or not pkg.candidate:
@@ -494,6 +496,7 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 
 def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 	"""Sort a list of packages and splits them based on the action to take."""
+	dprint("Sorting Package Changes")
 	for pkg in pkgs:
 		if pkg.marked_delete:
 			installed = pkg_installed(pkg)
@@ -630,6 +633,7 @@ def check_work(pkgs: list[Package], nala_pkgs: PackageHandler,
 
 def check_essential(pkgs: list[Package]) -> None:
 	"""Check removal of essential packages."""
+	dprint(f"Checking Essential: {not arguments.remove_essential}")
 	if arguments.remove_essential:
 		return
 	essential: list[Text] = []
