@@ -66,7 +66,7 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -
 	dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
 def recurse_deps(pkgs: Iterable[NalaDebPackage] | Iterable[Package],
-	recurse: int = 1, installed: bool = False) -> set[Package]:
+	levels: int = 1, installed: bool = False) -> set[Package]:
 	"""Return the installed dependency packages.
 
 	This function can be used recursively.
@@ -81,8 +81,11 @@ def recurse_deps(pkgs: Iterable[NalaDebPackage] | Iterable[Package],
 		recurse (int): How many levels to traverse dependencies. Default is 1.
 		installed (bool): Whether to grab dependencies that are installed or all. Default False.
 	"""
+	if not pkgs:
+		# Return an empty list if we didn't get packages passed.
+		return set()
 	total_deps: set[Package] = set()
-	for _ in range(recurse):
+	for _ in range(levels):
 		dep_list: set[Package] = set()
 		for dpkg in pkgs:
 			dependencies = get_dep_type(dpkg, installed)
@@ -96,7 +99,7 @@ def recurse_deps(pkgs: Iterable[NalaDebPackage] | Iterable[Package],
 		total_deps |= dep_list
 		pkgs = dep_list
 	dprint(
-		f"Recurse Levels: {recurse}, Recursive List Size: {len(total_deps)}, "
+		f"Recurse Levels: {levels}, Recursive List Size: {len(total_deps)}, "
 		f"Recurse Type: {'Installed' if installed else 'All Packages'}"
 	)
 	return total_deps
