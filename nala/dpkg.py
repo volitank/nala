@@ -43,12 +43,13 @@ from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 
-from nala.constants import (DPKG_ERRORS,
-				DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM, _)
+from nala import _, color
+from nala.constants import (DPKG_ERRORS, DPKG_MSG,
+				ERROR_PREFIX, HANDLER, SPAM, WARNING_PREFIX)
 from nala.options import arguments
 from nala.rich import (Group, Live, Panel, RenderableType, Table,
 				TaskID, ascii_replace, dpkg_progress, from_ansi, spinner)
-from nala.utils import color, dprint, eprint, term
+from nala.utils import dprint, eprint, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
@@ -130,7 +131,7 @@ class UpdateProgress(text.AcquireProgress):
 
 	def _write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
 		"""Write the message on the terminal, fill remaining space."""
-		if arguments.raw_dpkg:
+		if arguments.raw_dpkg or not term.console.is_terminal or term.console.is_dumb_terminal:
 			self.apt_write(msg, newline, maximize)
 			return
 
@@ -210,16 +211,14 @@ class UpdateProgress(text.AcquireProgress):
 		# It's complete already (e.g. Hit)
 		if item.owner.complete:
 			return
-		line = _("{updated}   {id} {info}").format(
+		line = _("{updated}   {info}").format(
 			updated = color(DOWNLOADED if self.install else UPDATED, 'BLUE'),
-			id = item.owner.id,
 			info = item.description
 		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
-			line = _("{updated}   {id} {info} [{size}B]").format(
+			line = _("{updated}   {info} [{size}B]").format(
 				updated = color(DOWNLOADED if self.install else UPDATED, 'BLUE'),
-				id = item.owner.id,
 				info = item.description,
 				size = size
 			)
@@ -283,9 +282,6 @@ class InstallProgress(base.InstallProgress):
 		self.child_fd: int
 		self.child_pid: int
 		self.line_fix: list[bytes] = []
-		# If we detect we're piped it's probably best to go raw.
-		if not term.is_term():
-			arguments.raw_dpkg = True
 		# Setting environment to xterm seems to work fine for linux terminal
 		# I don't think we will be supporting much more this this, at least for now
 		if not term.is_xterm() and not arguments.raw_dpkg:
@@ -333,7 +329,7 @@ class InstallProgress(base.InstallProgress):
 		self.child_pid = pid
 		if arguments.raw_dpkg:
 			return os.WEXITSTATUS(self.wait_child())
-		# We use fdspawn from pexpect to interact with out dpkg pty
+		# We use fdspawn from pexpect to interact with our dpkg pty
 		# But we also subclass it to give it the interact method and setwindow
 		self.child = AptExpect(self.child_fd, timeout=None)
 
@@ -583,7 +579,7 @@ class InstallProgress(base.InstallProgress):
 			scroll_bar(self, msg, update_spinner=True)
 		else:
 			scroll_bar(self, msg)
-
+		sys.__stdout__.flush()
 		self.set_last_line(rawline)
 
 	def rawline_handler(self, rawline: bytes) -> None:
@@ -815,10 +811,7 @@ class AptExpect(fdspawn): # type: ignore[misc]
 
 		setwinsize(self.child_fd, term.lines, term.columns)
 
-		try:
-			self.interact_copy(output_filter)
-		finally:
-			term.restore_mode()
+		self.interact_copy(output_filter)
 
 	def interact_copy(self, output_filter: Callable[[bytes], None]) -> None:
 		"""Interact with the pty."""
@@ -833,7 +826,7 @@ class AptExpect(fdspawn): # type: ignore[misc]
 				term.write(term.CURSER_UP+term.CLEAR_LINE)
 				eprint(
 					_("{warning} Quitting now could break your system!").format(
-						warning=color("Warning:", 'YELLOW')
+						warning=WARNING_PREFIX
 					)
 				)
 				eprint(color(_("Ctrl+C twice quickly will exit..."), 'RED'))

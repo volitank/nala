@@ -49,7 +49,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from nala.constants import _
+from nala import _
 
 __all__ = (
 	'Spinner', 'Table', 'Column', 'Columns',

@@ -32,13 +32,13 @@ import apt_pkg
 from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package, Version
 
-from nala.constants import ERROR_PREFIX, _
+from nala import _, color, color_version
+from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, WARNING_PREFIX
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.dpkg import dpkg_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import (color, color_version,
-				dedupe_list, dprint, eprint, get_installed_dep_names,
+from nala.utils import (dedupe_list, dprint, eprint, get_installed_dep_names,
 				is_any_virtual, is_secret_virtual, print_rdeps, term)
 
 DEPENDS = color(_('Depends:'))
@@ -68,6 +68,32 @@ class ExitCode: # pylint: disable=too-few-public-methods
 
 	SIGINT = 130
 	SIGTERM = 143
+
+class FileDownloadError(Exception):
+	"""Exception class for passing errors.
+
+	ERRHASH: 1 'Hash Sum is mismatched.'
+	ENOENT: 2 'No such file or directory.'
+	ERRSIZE: 3 'Size is mismatched.'
+	"""
+
+	ERRHASH = 1
+	ENOENT = 2
+	ERRSIZE = 3
+
+	def __init__(self, # pylint: disable=too-many-arguments
+				error_str: str = '',
+				errno: int = 0,
+				filename: str = '',
+				expected: str = '',
+				received: str = '') -> None:
+		"""Define error properties."""
+		super().__init__(error_str)
+		self.error_str = error_str
+		self.errno = errno
+		self.filename = filename
+		self.expected = expected
+		self.received = received
 
 def apt_error(apt_err: AptErrorTypes) -> NoReturn:
 	"""Take an error message from python-apt and formats it."""
@@ -125,7 +151,7 @@ def essential_error(pkg_list: list[Text]) -> NoReturn:
 def pkg_error(pkg_list: list[str],
 	cache: Cache, terminate: bool = False, remove: bool = False) -> None:
 	"""Print error for package in list."""
-	header = color(_('Notice:'), 'YELLOW') if remove else ERROR_PREFIX
+	header = NOTICE_PREFIX if remove else ERROR_PREFIX
 	for pkg_name in pkg_list:
 		if is_any_virtual(pkg_name, cache):
 			if remove:
@@ -151,7 +177,6 @@ def pkg_error(pkg_list: list[str],
 
 def print_dpkg_errors() -> None:
 	"""Format and print dpkg errors if there are any."""
-	warn = _('Warning:')
 	if not dpkg_error:
 		return
 	for line in dedupe_list(dpkg_error):
@@ -161,7 +186,7 @@ def print_dpkg_errors() -> None:
 				line = line.replace('warning:', '')
 				if 'downgrading' in line:
 					line = line.replace('downgrading', 'Downgraded')
-				eprint(f"\n{color(warn, 'YELLOW')} {line.strip()}")
+				eprint(f"\n{WARNING_PREFIX} {line.strip()}")
 				continue
 			eprint(f"\n{ERROR_PREFIX} {line.strip()}")
 			continue
@@ -322,9 +347,9 @@ def broken_error(broken_list: list[Package] | list[NalaDebPackage], cache:Cache,
 		ret_count += broken_pkg(pkg, cache)
 	if not ret_count:
 		return ret_count
-	print(
+	eprint(
 		_("{notice} The information above may be able to help").format(
-			notice=color(_('Notice:'), 'YELLOW')
+			notice=NOTICE_PREFIX
 		)
 	)
 	sys.exit(

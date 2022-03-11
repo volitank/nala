@@ -25,7 +25,6 @@
 from __future__ import annotations
 
 import fnmatch
-import hashlib
 import json
 import os
 import signal
@@ -41,11 +40,12 @@ import jsbeautifier
 from apt.cache import Cache
 from apt.package import Package, Version
 
-from nala.constants import (COLOR_CODES, ERROR_PREFIX, HANDLER,
-				JSON_OPTIONS, NALA_DEBUGLOG, FileDownloadError, _)
+from nala import _, color, color_version, console
+from nala.constants import (ERROR_PREFIX, HANDLER,
+				JSON_OPTIONS, NALA_DEBUGLOG, NOTICE_PREFIX)
 from nala.debfile import NalaDebPackage
 from nala.options import arguments
-from nala.rich import Console, Group, Table, Tree, from_ansi
+from nala.rich import Group, Table, Tree, from_ansi
 
 
 class Terminal:
@@ -80,7 +80,7 @@ class Terminal:
 
 	def __init__(self) -> None:
 		"""Represent the user terminal."""
-		self.console = Console()
+		self.console = console
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
 		self.set_environment()
@@ -92,7 +92,7 @@ class Terminal:
 			'columns' : self.columns,
 			'lines' : self.lines,
 			'mode'	: str(self.mode),
-			'term' : self.is_term()
+			'term' : self.console.is_terminal
 		}
 		return str(jsbeautifier.beautify(json.dumps(representation), JSON_OPTIONS))
 
@@ -106,7 +106,7 @@ class Terminal:
 			pass
 
 		if self.lines < 13 or self.columns < 31:
-			print(
+			eprint(
 				_("Terminal can't support dialog, falling back to readline"),
 				file=sys.stderr
 			)
@@ -125,11 +125,13 @@ class Terminal:
 
 	@property
 	def lines(self) -> int:
-		"""Return termindal height."""
-		return self.console.width
+		"""Return terminal height."""
+		return self.console.height
 
 	def restore_mode(self) -> None:
 		"""Restore the mode the Terminal was initialized with."""
+		if not self.console.is_terminal:
+			return
 		try:
 			termios.tcsetattr(self.STDIN, termios.TCSAFLUSH, self.mode)
 		except termios.error:
@@ -145,10 +147,6 @@ class Terminal:
 	def write(self, data: bytes) -> None:
 		"""Write bytes directly to stdout."""
 		os.write(self.STDOUT, data)
-
-	def is_term(self) -> bool:
-		"""Return true if we are a terminal. False if piped."""
-		return self.console.is_terminal
 
 	def is_xterm(self) -> bool:
 		"""Return True if we're in an xterm, False otherwise."""
@@ -297,14 +295,6 @@ class NalaPackage:
 
 term = Terminal()
 
-def color(text: str, text_color: str = 'WHITE') -> str:
-	"""Return bold text in the color of your choice."""
-	return f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
-
-def color_version(version: str) -> str:
-	"""Color version number."""
-	return f"{color('(')}{color(version, 'BLUE')}{color(')')}"
-
 def ask(question: str, default_no: bool = False) -> bool:
 	"""Ask the user {question}.
 
@@ -352,95 +342,6 @@ def iter_remove(path: Path) -> None:
 			)
 			dprint(f"Removed: {file}")
 			file.unlink(missing_ok=True)
-
-def check_pkg(directory: Path, candidate: Package | Version, download: bool = False) -> bool:
-	"""Check if file exists, is correct, and run check hash."""
-	if download:
-		dprint("Post Download Package Check")
-	else:
-		dprint("Pre Download Package Check")
-	if isinstance(candidate, Package):
-		candidate = pkg_candidate(candidate)
-	path = directory / get_pkg_name(candidate)
-	if not path.exists():
-		dprint(f"File Doesn't exist: {path.name}")
-		if download:
-			raise FileDownloadError(
-				errno=FileDownloadError.ENOENT,
-				filename=path.name,
-			)
-		return False
-	if path.stat().st_size != candidate.size:
-		dprint(f"File {path.name} has an unexpected size {path.stat().st_size} != {candidate.size}")
-		path.unlink()
-		if download:
-			raise FileDownloadError(
-				errno = FileDownloadError.ERRSIZE,
-				filename = path.name,
-			)
-		return False
-	hash_type, hash_value = get_hash(candidate)
-	try:
-		if not check_hash(path, hash_type, hash_value):
-			dprint(f"Hash Checking has failed. Removing: {path.name}")
-			path.unlink()
-			if download:
-				raise FileDownloadError(
-					errno=FileDownloadError.ERRHASH,
-					filename=path.name,
-				)
-			return False
-		if not download:
-			dprint(f"Package doesn't require download: {path.name}")
-		return True
-	except OSError as err:
-		eprint(_("Failed to check hash"), err)
-		return False
-
-def check_hash(path: Path, hash_type: str, hash_value: str) -> bool:
-	"""Check hash value."""
-	hash_fun = hashlib.new(hash_type)
-	with path.open('rb') as file:
-		while True:
-			data = file.read(4096)
-			if not data:
-				break
-			hash_fun.update(data)
-	local_hash = hash_fun.hexdigest()
-	debugger = (
-		f"Hash Status = [\n    File: {path},\n"
-		f"    Candidate Hash: {hash_type.upper()} {hash_value},\n"
-		f"    Local Hash: {local_hash},\n"
-		f"    Hash Success: {local_hash == hash_value},\n]"
-	)
-
-	dprint(debugger)
-	return local_hash == hash_value
-
-def get_hash(version: Version) -> tuple[str, str]:
-	"""Get the correct hash value."""
-	hash_list = version._records.hashes
-	hashes = ('SHA512', 'SHA256')
-
-	# From Debian's requirements we are not to use these for security checking.
-	# https://wiki.debian.org/DebianRepository/Format#MD5Sum.2C_SHA1.2C_SHA256
-	# Clients may not use the MD5Sum and SHA1 fields for security purposes,
-	# and must require a SHA256 or a SHA512 field.
-	# hashes = ('SHA512', 'SHA256', 'SHA1', 'MD5')
-
-	for _type in hashes:
-		try:
-			return _type.lower(), hash_list.find(_type).hashvalue
-		except KeyError:
-			pass
-
-	filename = Path(version.filename).name or version.package.name
-	sys.exit(
-	    _("{error} {filename} can't be checked for integrity.\n"
-			"There are no hashes available for this package.").format(
-	        error=ERROR_PREFIX, filename=color(filename, 'YELLOW')
-		)
-	)
 
 def get_version(pkg: Package) -> Version:
 	"""Get the version, any version of a package."""
@@ -574,7 +475,7 @@ def check_virtual(pkg_name: str, cache: Cache) -> Package | None:
 	if is_secret_virtual(pkg_name, cache):
 		print(
 			_("{notice} {pkg} is only referenced by name.\n  Nothing provides it.").format(
-				notice = color('Notice:', 'YELLOW'),
+				notice = NOTICE_PREFIX,
 				pkg = color(pkg_name, 'GREEN')
 			)
 		)
@@ -605,7 +506,7 @@ def print_selecting_pkg(provider: str, pkg_name: str) -> None:
 	print(
 		_(	"{notice} Selecting {provider}\n"
 			"  Instead of virtual package {package}\n").format(
-				notice = color('Notice:', 'YELLOW'),
+				notice = NOTICE_PREFIX,
 				provider = color(provider, 'GREEN'),
 				package = color(pkg_name, 'GREEN')
 		)
@@ -876,6 +777,7 @@ def vprint(msg: object) -> None:
 		print(msg)
 	if arguments.debug:
 		dprint(from_ansi(msg).plain, from_verbose=True)
+	sys.__stdout__.flush()
 
 def dprint(msg: object, from_verbose: bool = False) -> None:
 	"""Print message if debugging, write to log if root."""

@@ -34,18 +34,20 @@ from apt.cache import Cache, FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package
 from apt_pkg import DepCache, Error as AptError, get_architectures
 
-from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX, NALA_DIR,
-				NALA_TERM_LOG, NEED_RESTART, REBOOT_PKGS, REBOOT_REQUIRED, CurrentState, _)
+from nala import _, color, color_version
+from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX,
+				NALA_DIR, NALA_TERM_LOG, NEED_RESTART, NOTICE_PREFIX,
+				REBOOT_PKGS, REBOOT_REQUIRED, WARNING_PREFIX, CurrentState)
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
-from nala.downloader import download
+from nala.downloader import check_pkg, download
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import (ExitCode, apt_error, broken_error,
 				essential_error, local_deb_error, print_dpkg_errors)
 from nala.history import write_history
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
-				ask, check_pkg, color, color_version, dprint, eprint, get_date,
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
+				PackageHandler, ask, dprint, eprint, get_date,
 				pkg_candidate, pkg_installed, print_update_summary, term)
 
 
@@ -137,10 +139,13 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 				if arguments.raw_dpkg:
 					live.stop()
-				cache.commit(
-					UpdateProgress(live, install=True),
-					InstallProgress(dpkg_log, term_log, live, task)
-				)
+				# Don't commit if there are no changes to be made
+				# This kind of solves a bug with messed up formatting when piping
+				if cache._depcache.inst_count + cache._depcache.del_count:
+					cache.commit(
+						UpdateProgress(live, install=True),
+						InstallProgress(dpkg_log, term_log, live, task)
+					)
 				for deb in nala_pkgs.local_debs:
 					deb.install(InstallProgress(dpkg_log, term_log, live, task))
 				term_log.write(
@@ -176,6 +181,11 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler,
 			pkg for pkg in pkgs if not pkg.marked_delete and not check_pkg(ARCHIVE_DIR, pkg)
 		]
 
+	# Enable verbose and raw_dpkg if we're piped.
+	if not term.console.is_terminal:
+		arguments.verbose = True
+		arguments.raw_dpkg = True
+
 	download(pkgs)
 
 	write_history(nala_pkgs)
@@ -206,12 +216,14 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	finally:
 		term.restore_mode()
 		# If dpkg quits for any reason we lose the cursor
-		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+		if term.console.is_terminal:
+			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+
 		print_notices(notice)
 		if need_reboot():
 			print(
 				_("{notice} A reboot is required.").format(
-					notice = color(_('Notice:'), 'YELLOW')
+					notice = NOTICE_PREFIX
 				)
 			)
 		print_dpkg_errors()
@@ -272,10 +284,10 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 				color_name = color(cache_pkg.name, 'GREEN')
 				print(
 					_(
-						"{warning} Newer version {cache_pkg} {cache_ver} exists in the cache.\n"
+						"{notice} Newer version {cache_pkg} {cache_ver} exists in the cache.\n"
 						"You should consider using `{command}`"
 					).format(
-						warning = color(_('Notice:'), 'YELLOW'),
+						notice = NOTICE_PREFIX,
 						cache_pkg = color_name,
 						cache_ver = color_version(cache_pkg.candidate.version),
 						command = f"{color('nala install')} {color_name}"
@@ -306,7 +318,7 @@ def prioritize_local(deb_pkg: NalaDebPackage, cache_name: str, pkg_names: list[s
 	assert deb_pkg.filename
 	print(
 		_("{notice} {deb} has taken priority over {pkg} from the cache.").format(
-			notice = color(_('Notice:'), 'YELLOW'),
+			notice = NOTICE_PREFIX,
 			deb = color(deb_pkg.filename.split('/')[-1], 'GREEN'),
 			pkg = color(cache_name, 'YELLOW')
 		)
@@ -491,7 +503,7 @@ def mark_pkg(pkg: Package, depcache: DepCache,
 		if not pkg.installed:
 			eprint(
 				_("{notice} {pkg_name} is not installed").format(
-					notice=color(_('Notice:'), 'YELLOW'),
+					notice=NOTICE_PREFIX,
 					pkg_name=color(pkg.name, 'YELLOW')
 				)
 			)
@@ -560,7 +572,7 @@ def need_reboot() -> bool:
 		if REBOOT_PKGS.exists():
 			print(
 				_("{notice} The following packages require a reboot,").format(
-					notice=color(_('Notice:'), 'YELLOW')
+					notice=NOTICE_PREFIX
 				)
 			)
 			for pkg in REBOOT_PKGS.read_text(encoding='utf-8').splitlines():
@@ -595,9 +607,8 @@ def setup_cache() -> Cache:
 	except KeyboardInterrupt:
 		eprint(_('Exiting due to SIGINT'))
 		sys.exit(ExitCode.SIGINT)
-	finally:
-		term.restore_mode()
-		term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
+	except BrokenPipeError:
+		sys.stderr.close()
 	return Cache(OpProgress())
 
 def check_update() -> bool:
@@ -623,7 +634,7 @@ def check_term_ask() -> None:
 	"""Check terminal and ask user if they want to continue."""
 	# If we're piped or something the user should specify --assume-yes
 	# As They are aware it can be dangerous to continue
-	if not term.is_term() and not arguments.assume_yes:
+	if not term.console.is_terminal and not arguments.assume_yes:
 		sys.exit(
 			_("{error} It can be dangerous to continue without a terminal. Use `--assume-yes`").format(
 				error=ERROR_PREFIX
@@ -633,7 +644,7 @@ def check_term_ask() -> None:
 	if not arguments.no_fix_broken:
 		print(
 			_("{warning} Using {switch} can be very dangerous!").format(
-				warning = color(_("Warning:"), 'YELLOW'),
+				warning = WARNING_PREFIX,
 				switch = color("--no-fix-broken", 'YELLOW')
 			)
 		)

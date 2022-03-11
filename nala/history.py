@@ -34,11 +34,12 @@ from typing import Iterable
 
 import jsbeautifier
 
-from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY, _
+from nala import _, color
+from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY
 from nala.options import arguments
 from nala.rich import Column, Table
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage, PackageHandler,
-				color, dprint, eprint, get_date, print_update_summary, term)
+from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
+				PackageHandler, dprint, eprint, get_date, print_update_summary, term)
 
 USER: str = environ.get("DOAS_USER", '')
 UID: int = 0

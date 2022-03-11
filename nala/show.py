@@ -31,11 +31,12 @@ from typing import cast
 from apt.cache import Cache
 from apt.package import BaseDependency, Dependency, Package, Version
 
-from nala.constants import ERROR_PREFIX, PACSTALL_METADATA, _
+from nala import _, color
+from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, PACSTALL_METADATA
 from nala.debfile import NalaBaseDep
 from nala.options import arguments
 from nala.rich import ascii_replace
-from nala.utils import color, is_secret_virtual, term, unit_str
+from nala.utils import is_secret_virtual, term, unit_str
 
 SHOW_INFO = _("{header} {info}\n")
 
@@ -312,7 +313,7 @@ def additional_notice(additional_records: int) -> None:
 		_(
 			"{notice} There are {num} additional records. "
 			"Please use the {switch} switch to see them.").format(
-			notice=color(_('Notice:'), 'YELLOW'),
+			notice=NOTICE_PREFIX,
 			num=color(str(additional_records), 'YELLOW'),
 			switch=color("'-a'", 'YELLOW')
 		)

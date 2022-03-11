@@ -30,8 +30,8 @@ from pathlib import Path
 from pydoc import pager
 from typing import Any, NoReturn, Sequence
 
-from nala import __version__
-from nala.constants import ERROR_PREFIX, LICENSE, THIRD_PARTY_LICENSES, _
+from nala import _, __version__
+from nala.constants import ERROR_PREFIX, LICENSE, THIRD_PARTY_LICENSES
 
 
 class NalaParser(argparse.ArgumentParser):

@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 import sys
 from asyncio import AbstractEventLoop, CancelledError, Semaphore, gather, run
@@ -43,13 +44,14 @@ from httpx import (URL, AsyncClient, ConnectError, ConnectTimeout, HTTPError,
 				HTTPStatusError, Proxy, RemoteProtocolError, RequestError, get)
 from rich.panel import Panel
 
+from nala import _, color
 from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
-				ERROR_PREFIX, PARTIAL_DIR, FileDownloadError, _)
-from nala.error import ExitCode
+				ERROR_PREFIX, NOTICE_PREFIX, PARTIAL_DIR, WARNING_PREFIX)
+from nala.error import ExitCode, FileDownloadError
 from nala.options import arguments
 from nala.rich import Live, Table, from_ansi, pkg_download_progress
-from nala.utils import (check_pkg, color, dprint, eprint,
-				get_pkg_name, pkg_candidate, term, unit_str, vprint)
+from nala.utils import (dprint, eprint, get_pkg_name,
+				pkg_candidate, term, unit_str, vprint)
 
 MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')
 
@@ -63,10 +65,25 @@ TRYING = color(_('Trying:'))
 NO_MORE_MIRRORS = color(_('No More Mirrors:'), 'RED')
 
 FILE_NO_EXIST = _("{error} {filename} Does not exist!")
-HASH_MISMATCH = _("{error} File Hash Sum does not match: {filename}")
-SIZE_WRONG = _("{error} File has unexpected size: {filename}")
-REMOVING_FILE = _("  We have removed {filename} but will try another mirror")
+HASH_MISMATCH = _(
+	"{error} Hash Sum does not match: {filename}\n"
+	"  Expected Hash: {expected}\n"
+	"  Received Hash: {received}"
+)
+SIZE_WRONG = _(
+	"{error} File has unexpected size: {filename}\n"
+	"  Expected Size: {expected}\n"
+	"  Received Size: {received}"
+	)
+REMOVING_FILE = _("{notice} We have removed {filename} but will try another mirror")
 FAILED_MOVE = _("{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'")
+HASH_STATUS = (
+	"Hash Status = [\n    File: {filepath},\n"
+	"    Candidate Hash: {hash_type} {expected},\n"
+	"    Local Hash: {received},\n"
+	"    Hash Success: {result},\n]"
+)
+
 
 DownloadErrorTypes = Union[
 	HTTPError, HTTPStatusError, RequestError, OSError, ConnectError, FileDownloadError
@@ -88,9 +105,11 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		)
 		self.pkg_urls: list[list[Version | str]] = []
 		self._set_pkg_urls()
+		#We want to start the larger files first, as they take the longest
 		self.pkg_urls = sorted(self.pkg_urls, key=sort_pkg_size, reverse=True)
 		self.proxy: dict[URL | str, URL | str | Proxy | None] = {}
 		self.failed: list[str] = []
+		self.fatal: bool = False
 		self.exit: int | bool = False
 		self._set_proxy()
 
@@ -114,17 +133,39 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 
 				return all(await gather(*tasks))
 
-	async def _stream_deb(self, client: AsyncClient, url: str, dest: Path) -> int:
+	async def _stream_deb(self,
+		client: AsyncClient, candidate: Version, url: str, dest: Path) -> int:
 		"""Stream the deb package and write it to file."""
 		total_data = 0
+		hash_type, expected = get_hash(candidate)
+		hash_fun = hashlib.new(hash_type)
 		async with client.stream('GET', url) as response:
 			async with await open_file(dest, mode="wb") as file:
 				async for data in response.aiter_bytes():
 					if data:
 						await file.write(data)
-						len_data = len(data)
-						total_data += len_data
+						hash_fun.update(data)
+						total_data += (len_data := len(data))
 						await self._update_progress(len_data)
+		dprint(
+			HASH_STATUS.format(
+				filepath = dest,
+				hash_type = hash_type.upper(),
+				expected = expected,
+				received = (received := hash_fun.hexdigest()),
+				result = received == expected
+			)
+		)
+		if expected != received:
+			dest.unlink()
+			self.fatal = True
+			await self._update_progress(total_data, failed=True)
+			raise FileDownloadError(
+				errno=FileDownloadError.ERRHASH,
+				filename=dest.name,
+				expected=f"{hash_type.upper()}: {expected}",
+				received=f"{hash_type.upper()}: {received}"
+			)
 		return total_data
 
 	async def _download(self,
@@ -138,7 +179,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 			second_attempt = False
 			while True:
 				try:
-					total_data = await self._stream_deb(client, url, dest)
+					total_data = await self._stream_deb(client, candidate, url, dest)
 					break
 				# Sometimes mirrors play a little dirty and close the connection
 				# Before we're done, so we catch this and try one more time.
@@ -164,7 +205,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 				if not await process_downloads(candidate):
 					await self._update_progress(total_data, failed=True)
 					continue
-				if not check_pkg(ARCHIVE_DIR, candidate, download=True):
+				if not check_pkg(ARCHIVE_DIR, candidate, is_download=True):
 					continue
 
 				vprint(f"{DOWNLOAD_COMPLETE} {url}")
@@ -295,23 +336,30 @@ def print_error(
 
 def file_error(error: FileDownloadError) -> None:
 	"""Print the error from our FileDownloadError exception."""
+	filename = color(error.filename, 'YELLOW')
 	if error.errno == FileDownloadError.ENOENT:
 		eprint(
-			FILE_NO_EXIST.format(error=ERROR_PREFIX, filename=error.filename)
+			FILE_NO_EXIST.format(error=ERROR_PREFIX, filename=filename)
 		)
 		return
 	if error.errno == FileDownloadError.ERRHASH:
 		eprint(
-			HASH_MISMATCH.format(error=ERROR_PREFIX, filename=error.filename)
+			HASH_MISMATCH.format(
+				error=ERROR_PREFIX, filename=filename,
+				expected=error.expected, received=error.received
+			)
 		)
 
 	if error.errno == FileDownloadError.ERRSIZE:
 		eprint(
-			SIZE_WRONG.format(error=ERROR_PREFIX, filename=error.filename)
+			SIZE_WRONG.format(
+				error=ERROR_PREFIX, filename=filename,
+				expected=error.expected, received=error.received
+			)
 		)
 
 	eprint(
-		REMOVING_FILE.format(filename=error.filename)
+		REMOVING_FILE.format(notice=NOTICE_PREFIX, filename=filename)
 	)
 
 def more_urls(urls: list[Version | str], num: int,
@@ -323,10 +371,9 @@ def more_urls(urls: list[Version | str], num: int,
 		filename = Path(candidate.filename).name
 		eprint(
 			_("{error} No more mirrors available for {filename}").format(
-				error=ERROR_PREFIX, filename=filename
+				error=ERROR_PREFIX, filename=color(filename, 'YELLOW')
 			)
 		)
-		eprint(_("  Apt will try to fetch the package before installation"))
 		failed.append(filename)
 		return False
 
@@ -366,6 +413,98 @@ def sort_pkg_size(pkg_url: list[Version | str]) -> int:
 	assert isinstance(candidate.size, int)
 	return candidate.size
 
+def check_pkg(directory: Path, candidate: Package | Version, is_download: bool = False) -> bool:
+	"""Check if file exists, is correct, and run check hash."""
+	if is_download:
+		dprint("Post Download Package Check")
+	else:
+		dprint("Pre Download Package Check")
+	if isinstance(candidate, Package):
+		candidate = pkg_candidate(candidate)
+	path = directory / get_pkg_name(candidate)
+	if not path.exists():
+		dprint(f"File Doesn't exist: {path.name}")
+		if is_download:
+			raise FileDownloadError(
+				errno=FileDownloadError.ENOENT,
+				filename=path.name,
+			)
+		return False
+	if (size := path.stat().st_size) != candidate.size:
+		dprint(f"File {path.name} has an unexpected size {size} != {candidate.size}")
+		path.unlink()
+		if is_download:
+			raise FileDownloadError(
+				errno=FileDownloadError.ERRSIZE,
+				filename=path.name,
+				expected=str(candidate.size),
+				received=str(size)
+			)
+		return False
+
+	# If we're downloading we checked the hash on the fly.
+	# We can skip doing it again
+	if is_download:
+		return True
+
+	hash_type, expected = get_hash(candidate)
+	try:
+		if not check_hash(path, hash_type, expected):
+			dprint(f"Hash Checking has failed. Removing: {path.name}")
+			path.unlink()
+			return False
+		dprint(f"Package doesn't require download: {path.name}")
+		return True
+	except OSError as err:
+		eprint(_("Failed to check hash"), err)
+		return False
+
+def check_hash(path: Path, hash_type: str, expected: str) -> bool:
+	"""Check hash value."""
+	hash_fun = hashlib.new(hash_type)
+	with path.open('rb') as file:
+		while True:
+			data = file.read(4096)
+			if not data:
+				break
+			hash_fun.update(data)
+	received = hash_fun.hexdigest()
+	dprint(
+		HASH_STATUS.format(
+			filepath = path,
+			hash_type = hash_type.upper(),
+			expected = expected,
+			received = received,
+			result = received == expected
+		)
+	)
+	return received == expected
+
+def get_hash(version: Version) -> tuple[str, str]:
+	"""Get the correct hash value."""
+	hash_list = version._records.hashes
+	hashes = ('SHA512', 'SHA256')
+
+	# From Debian's requirements we are not to use these for security checking.
+	# https://wiki.debian.org/DebianRepository/Format#MD5Sum.2C_SHA1.2C_SHA256
+	# Clients may not use the MD5Sum and SHA1 fields for security purposes,
+	# and must require a SHA256 or a SHA512 field.
+	# hashes = ('SHA512', 'SHA256', 'SHA1', 'MD5')
+
+	for _type in hashes:
+		try:
+			return _type.lower(), hash_list.find(_type).hashvalue
+		except KeyError:
+			pass
+
+	filename = Path(version.filename).name or version.package.name
+	sys.exit(
+	    _("{error} {filename} can't be checked for integrity.\n"
+			"There are no hashes available for this package.").format(
+	        error=ERROR_PREFIX, filename=color(filename, 'YELLOW')
+		)
+	)
+
 def download(pkgs: list[Package]) -> None:
 	"""Run downloads and check for failures.
 
@@ -379,28 +518,24 @@ def download(pkgs: list[Package]) -> None:
 			sys.exit(downloader.exit)
 		raise error from error
 
-	if arguments.download_only:
-		if downloader.failed:
-			for pkg in downloader.failed:
-				eprint(
-					_("{error} {pkg} Failed to download").format(
-						error=ERROR_PREFIX, pkg=pkg
-					)
-				)
-			sys.exit(
-				_("{error} Some downloads failed and in download only mode.").format(
-					error=ERROR_PREFIX
-				)
-			)
+	if arguments.download_only and not downloader.failed:
 		print(_("Download complete and in download only mode."))
 		sys.exit(0)
 
 	if downloader.failed:
 		eprint(
-			_("{warning} Falling back to apt_pkg. The following downloads failed:").format(
-				warning = color(_('Warning:'), 'YELLOW')
+			_("{error} Download failure. The following downloads failed:").format(
+				error = ERROR_PREFIX
 			)
 		)
 		eprint(
 			f"  {', '.join(color(pkg, 'YELLOW') for pkg in downloader.failed)}"
 			)
+
+		if downloader.fatal:
+			sys.exit(1)
+		eprint(
+			_("{warning} Falling back to apt_pkg. The following downloads failed:").format(
+				warning = WARNING_PREFIX
+			)
+		)

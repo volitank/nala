@@ -38,11 +38,11 @@ from apt_pkg import get_architectures
 from httpx import HTTPError, get
 from rich.progress import Progress, TaskID
 
-from nala.constants import (ERROR_PREFIX,
-				NALA_SOURCES, SOURCELIST, SOURCEPARTS, _)
+from nala import _, color
+from nala.constants import ERROR_PREFIX, NALA_SOURCES, SOURCELIST, SOURCEPARTS
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
-from nala.utils import ask, color, dprint, eprint
+from nala.utils import ask, dprint, eprint
 
 netselect_scored = []
 

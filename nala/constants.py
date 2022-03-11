@@ -24,7 +24,6 @@
 """Module for file constants."""
 from __future__ import annotations
 
-import gettext
 import re
 from enum import IntEnum
 from pathlib import Path
@@ -35,7 +34,8 @@ from typing import Any, Callable, Optional, Union
 import apt_pkg
 import jsbeautifier
 
-apt_pkg.init_config()
+from nala import _, color
+
 # File Constants
 LICENSE = Path('/usr/share/common-licenses/GPL-3')
 """/usr/share/common-licenses/GPL-3"""
@@ -85,12 +85,9 @@ SOURCEPARTS = Path(apt_pkg.config.find_dir('Dir::Etc::sourceparts'))
 JSON_OPTIONS = jsbeautifier.BeautifierOptions(options={'indent_with_tabs' : True})
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
 
-translate = gettext.translation('nala', './nala.pot', fallback=True)
-def _(msg: str) -> str:
-	return translate.gettext(msg)
-
-error = _('Error:')
-ERROR_PREFIX = f"\x1b[1;31m{error}\x1b[0m"
+ERROR_PREFIX = color(_('Error:'), 'RED')
+WARNING_PREFIX = color(_('Warning:'), 'YELLOW')
+NOTICE_PREFIX = color(_('Notice:'), 'YELLOW')
 
 # Compiled Regex
 ERRNO_PATTERN = re.compile(r'\[.*\]')
@@ -123,40 +120,6 @@ class InstState(IntEnum):
 	REINSTREQ=1
 	HOLD_INST=2
 	HOLD_REINSTREQ=3
-
-COLOR_CODES: dict[str, str | int] = {
-	'RESET' : '\x1b[0m',
-	'ITALIC' : '\x1b[3m',
-	'RED' : 31,
-	'GREEN' : 32,
-	'YELLOW' : 33,
-	'BLUE' : 34,
-	'MAGENTA' : 35,
-	'CYAN' : 36,
-	'WHITE' : 37,
-}
-
-class FileDownloadError(Exception):
-	"""Exception class for passing errors.
-
-	ERRHASH: 1 'Hash Sum is mismatched.'
-	ENOENT: 2 'No such file or directory.'
-	ERRSIZE: 3 'Size is mismatched.'
-	"""
-
-	ERRHASH = 1
-	ENOENT = 2
-	ERRSIZE = 3
-
-	def __init__(self,
-				error_str: str = '',
-				errno: int = 0,
-				filename: str = '') -> None:
-		"""Define error properties."""
-		super().__init__(error_str)
-		self.error_str = error_str
-		self.errno = errno
-		self.filename = filename
 
 # dpkg constants
 CONF_MESSAGE = (

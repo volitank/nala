@@ -28,7 +28,8 @@ import errno
 import sys
 
 # pylint: disable=unused-import
-from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR, _
+from nala import _
+from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR
 from nala.fetch import fetch
 from nala.install import setup_cache
 from nala.nala import (clean, fix_broken, history,
@@ -45,8 +46,6 @@ if str(ARCHIVE_DIR) == '/':
 
 def _main() -> None:
 	"""Nala Main."""
-	if arguments.raw_dpkg or not term.is_xterm():
-		arguments.verbose = True
 	if arguments.command == 'update':
 		arguments.command = 'upgrade'
 
@@ -78,7 +77,9 @@ def _main() -> None:
 		eval(f"{arguments.command}()") # pylint: disable=eval-used
 		return
 	sys.exit(
-		_("{error} Unknown error in 'apt_command' function")
+		_("{error} Unknown error in 'apt_command' function").format(
+			error = ERROR_PREFIX
+		)
 	)
 
 def main() -> None:
