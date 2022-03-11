@@ -146,6 +146,8 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 						UpdateProgress(live, install=True),
 						InstallProgress(dpkg_log, term_log, live, task)
 					)
+				else:
+					dpkg_progress.advance(task)
 				for deb in nala_pkgs.local_debs:
 					deb.install(InstallProgress(dpkg_log, term_log, live, task))
 				term_log.write(
