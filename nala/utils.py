@@ -83,6 +83,7 @@ class Terminal:
 		self.console = console
 		self.mode: list[int | list[bytes | int]] = []
 		self.term_type: str = os.environ.get('TERM', '')
+		self.locale: str = ''
 		self.set_environment()
 
 	def __repr__(self) -> str:
@@ -106,7 +107,7 @@ class Terminal:
 			pass
 
 		if self.lines < 13 or self.columns < 31:
-			eprint(
+			print(
 				_("Terminal can't support dialog, falling back to readline"),
 				file=sys.stderr
 			)
@@ -115,6 +116,7 @@ class Terminal:
 		if os.environ.get("DEBIAN_FRONTEND") == "readline":
 			arguments.raw_dpkg = True
 		os.environ["DPKG_COLORS"] = "never"
+		self.locale = os.environ.get("LANG", "")
 		# We have to set lang as C so we get predictable output from dpkg.
 		os.environ["LANG"] = "C" if self.console.options.ascii_only else "C.UTF-8"
 
@@ -136,6 +138,10 @@ class Terminal:
 			termios.tcsetattr(self.STDIN, termios.TCSAFLUSH, self.mode)
 		except termios.error:
 			pass
+
+	def restore_locale(self) -> None:
+		"""Restore the locale to it's original value."""
+		os.environ["LANG"] = self.locale
 
 	def set_raw(self) -> None:
 		"""Set terminal raw."""

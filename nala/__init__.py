@@ -58,9 +58,10 @@ def color(text: str, text_color: str = 'WHITE') -> str:
 def color_version(version: str) -> str:
 	"""Color version number."""
 	if not console.is_terminal or console.is_dumb_terminal:
-		return version
+		return f"({version})"
 	return f"{color('(')}{color(version, 'BLUE')}{color(')')}"
 
-translate = gettext.translation('nala', './locale', fallback=True)
+translate = gettext.translation('nala', fallback=True)
 def _(msg: str) -> str:
-	return translate.gettext(msg)
+	"""Gettext translator."""
+	return msg if console.options.ascii_only else translate.gettext(msg)
