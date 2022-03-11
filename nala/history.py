@@ -117,8 +117,9 @@ def get_hist_package(
 	nala_pkgs = []
 	for pkg_list in hist_entry.get(key, []):
 		if isinstance(pkg_list, list):
+			dprint(f"{key} List: {pkg_list}")
 			if len(pkg_list) == 4:
-				name, old_version, new_version, size = pkg_list
+				name, new_version, size, old_version, = pkg_list
 				nala_pkgs.append(
 					NalaPackage(name, new_version, int(size), old_version)
 				)
@@ -143,7 +144,9 @@ def history_info(hist_id: str) -> None:
 	nala_pkgs.autoremove_pkgs = get_hist_package(hist_entry, 'Auto-Removed')
 	nala_pkgs.delete_pkgs = get_hist_package(hist_entry, 'Removed')
 	nala_pkgs.install_pkgs = get_hist_package(hist_entry, 'Installed')
+	nala_pkgs.reinstall_pkgs = get_hist_package(hist_entry, 'Reinstalled')
 	nala_pkgs.upgrade_pkgs = get_hist_package(hist_entry, 'Upgraded')
+	nala_pkgs.downgrade_pkgs = get_hist_package(hist_entry, 'Downgraded')
 
 	print_update_summary(nala_pkgs)
 
@@ -219,6 +222,8 @@ def write_history(handler: PackageHandler) -> None:
 		+ handler.autoremove_total
 		+ handler.install_total
 		+ handler.upgrade_total
+		+ handler.reinstall_total
+		+ handler.downgrade_total
 	)
 
 	transaction: dict[str, str | list[str] | list[list[str]]] = {
@@ -229,7 +234,9 @@ def write_history(handler: PackageHandler) -> None:
 		'Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs],
 		'Auto-Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs],
 		'Installed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs],
-		'Upgraded' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.upgrade_pkgs],
+		'Reinstalled' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs],
+		'Upgraded' : [[pkg.name, pkg.version, str(pkg.size), pkg.old_version] for pkg in handler.upgrade_pkgs],
+		'Downgraded' : [[pkg.name, pkg.version, str(pkg.size), pkg.old_version] for pkg in handler.downgrade_pkgs],
 	}
 
 	history_dict[hist_id] = transaction
