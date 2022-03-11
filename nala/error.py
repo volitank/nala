@@ -38,7 +38,7 @@ from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.dpkg import dpkg_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import (dedupe_list, dprint, eprint, get_installed_dep_names,
+from nala.utils import (dprint, eprint, get_installed_dep_names,
 				is_any_virtual, is_secret_virtual, print_rdeps, term)
 
 DEPENDS = color(_('Depends:'))
@@ -179,7 +179,8 @@ def print_dpkg_errors() -> None:
 	"""Format and print dpkg errors if there are any."""
 	if not dpkg_error:
 		return
-	for line in dedupe_list(dpkg_error):
+	#for line in dedupe_list(dpkg_error):
+	for line in dpkg_error:
 		if 'dpkg:' in line:
 			line = line.replace('dpkg:', '')
 			if 'warning:' in line:

@@ -129,7 +129,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")
 	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total)
-	with Live(auto_refresh=False) as live:
+	with Live() as live:
 		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, 'a', encoding="utf-8") as term_log:
 				term_log.write(
@@ -224,6 +224,7 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		if term.console.is_terminal:
 			term.write(term.SHOW_CURSOR+term.CLEAR_LINE)
 
+		print_dpkg_errors()
 		print_notices(notice)
 		if need_reboot():
 			print(
@@ -231,7 +232,6 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 					notice = NOTICE_PREFIX
 				)
 			)
-		print_dpkg_errors()
 	print(color(_("Finished Successfully"), 'GREEN'))
 
 def install_local(nala_pkgs: PackageHandler) -> None:
@@ -593,7 +593,11 @@ def print_notices(notices: Iterable[str]) -> None:
 	if notices:
 		print('\n'+color(_('Notices:'), 'YELLOW'))
 		for notice_msg in notices:
-			print(notice_msg)
+			if 'NOTICE:' in notice_msg:
+				notice_msg = notice_msg.replace('NOTICE:', NOTICE_PREFIX)
+			if 'Warning:' in notice_msg:
+				notice_msg = notice_msg.replace('Warning:', WARNING_PREFIX)
+			print(f"  {notice_msg}")
 
 def setup_cache() -> Cache:
 	"""Update the cache if necessary, and then return the Cache."""
@@ -605,7 +609,7 @@ def setup_cache() -> Cache:
 	try:
 		if not check_update():
 			with DelayedKeyboardInterrupt():
-				with Live(auto_refresh=False) as live:
+				with Live() as live:
 					Cache().update(UpdateProgress(live))
 	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
 		apt_error(err)

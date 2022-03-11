@@ -101,7 +101,7 @@ class OpProgress(text.OpProgress):
 class UpdateProgress(text.AcquireProgress):
 	"""Class for getting cache update status and printing to terminal."""
 
-	def __init__(self, live: Live | None = None, install: bool = False) -> None:
+	def __init__(self, live: Live, install: bool = False) -> None:
 		"""Class for getting cache update status and printing to terminal."""
 		dprint("Init UpdateProgress")
 		text.AcquireProgress.__init__(self)
@@ -110,7 +110,7 @@ class UpdateProgress(text.AcquireProgress):
 		self._id = 1
 		self._width = 80
 		self.install = install
-		self.live = live or Live(auto_refresh=False)
+		self.live = live
 
 		scroll_list.clear()
 
@@ -535,11 +535,12 @@ class InstallProgress(base.InstallProgress):
 	def split_data(self, data: bytes) -> None:
 		"""Split data into clean single lines to format."""
 		data_split = data.split(b'\r\n')
+		error = data_split[0].decode() in dpkg_error
 		self.dpkg_log(f"Data_Split = {repr(data_split)}\n")
 		for line in data_split:
 			for new_line in line.split(b'\r'):
 				if new_line:
-					check_error(data, new_line.decode())
+					check_error(data, new_line.decode(), error)
 					self.format_dpkg_output(new_line)
 
 	def format_dpkg_output(self, rawline: bytes) -> None:
@@ -634,8 +635,11 @@ def check_line_spam(line: str, rawline: bytes, last_line: bytes) -> bool:
 
 	return any(item in line for item in SPAM)
 
-def check_error(data: bytes, line: str) -> None:
+def check_error(data: bytes, line: str, error_in_list: bool = False) -> None:
 	"""Check dpkg errors and store them if we need too."""
+	# Check so we don't duplicate error messages
+	if error_in_list:
+		return
 	for error in DPKG_ERRORS:
 		# Make sure that the error is not spam
 		if error in data and all(item not in line for item in SPAM):
