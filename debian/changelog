@@ -1,3 +1,38 @@
+nala (0.6.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add `--no-install-recommends` and `--install-suggests`
+  * Initial support for locales with `gettext`. Currently only
+    German is supported.
+  * Separate what packages are being removed vs auto-removed
+  * Improved the handling of virtual packages
+  * Improve error handling and other information
+  * Improve handling of local `.deb` packages
+  * Remove `/var/log/nala/nala.log` considering the history is
+    an exact replica of this.
+  * You can now specify a version of a package the same way you can
+    with `apt`. `nala install nala=0.6.0`
+  * Several performance improvements
+  * Add Reinstalling and Downgrading into the summary
+  * Use the `dpkg --status-fd` for advancing the progress bar
+  * Add fish completion
+
+  [ Bug Fixes ]
+  * CRITICAL: Nala would install packages that have a bad hash sum
+  * Force `LANG=C` for parsing `dpkg` output as to not break in
+    languages that aren't English. `--raw-dpkg` will switch back
+    to your language, but Nala will not format the text or show
+    a progress bar.
+  * Packages are uninstallable if it has virtual packages
+    in recommends or suggests
+  * Bash-completion incompatible with zsh
+  * Live display shows wrong title when fixing broken packages
+  * Summary shows extra packages won't be installed when they are
+  * Several bugs related to Nala running through a pipe
+  * Not being able to install virtual packages like `steam` or `mate`
+
+ -- Blake Lee <blake@volian.org>  Fri, 11 Mar 2022 23:03:58 -0500
+
 nala (0.5.2) unstable; urgency=medium
 
   [ Bug Fixes ]

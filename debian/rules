@@ -13,8 +13,15 @@ execute_before_dh_installman:
 
 execute_before_dh_install:
 	mkdir -p debian/nala/usr/bin
+	mkdir -p debian/nala/usr/share/locale/de/LC_MESSAGES
 	mv nala-cli.build/nala debian/nala/usr/bin/nala
 	chrpath -d debian/nala/usr/bin/nala
+	pybabel compile \
+	--directory=debian/nala/usr/share/locale \
+	--domain=nala \
+	--input-file=po/de.po \
+	--locale=de \
+	--use-fuzzy
 
 override_dh_clean:
 	rm -f nala.egg-info
