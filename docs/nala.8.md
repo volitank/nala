@@ -2,8 +2,8 @@
 title: Nala
 section: 8
 header: User Manual
-footer: Nala 0.5.2
-date: 23 February 2022
+footer: Nala 0.6.0
+date: 11 March 2022
 ---
 # NAME
 Nala - A prettier front-end for libapt-pkg
