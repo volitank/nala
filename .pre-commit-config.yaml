@@ -16,7 +16,7 @@ repos:
     rev: v2.1.0
     hooks:
       - id: codespell
-        args: [-H, -f, --builtin, clear, rare, informal, usage, code]
+        args: [-H, -f, --skip=*.po, --builtin, clear, rare, informal, usage, code]
   - repo: https://github.com/PyCQA/isort
     rev: 5.10.1
     hooks:
