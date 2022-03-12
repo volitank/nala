@@ -1243,4 +1243,3 @@ msgstr "Automatisch entfernt"
 #: nala/utils.py:606
 msgid "Auto-Removed:"
 msgstr "Automatisch entfernt:"
-

@@ -1242,4 +1242,3 @@ msgstr ""
 #: nala/utils.py:719
 msgid "Nala will only download the packages"
 msgstr ""
-
