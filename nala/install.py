@@ -141,7 +141,9 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 					live.stop()
 				# Don't commit if there are no changes to be made
 				# This kind of solves a bug with messed up formatting when piping
-				if cache._depcache.inst_count + cache._depcache.del_count:
+				if (cache._depcache.inst_count
+					+ cache._depcache.del_count
+					+ nala_pkgs.configure_total):
 					cache.commit(
 						UpdateProgress(live, install=True),
 						InstallProgress(dpkg_log, term_log, live, task)
