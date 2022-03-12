@@ -57,6 +57,7 @@ PARENTHESIS_PATTERN = re.compile(r'[()]')
 scroll_list: list[str] = []
 notice: list[str] = []
 pkgnames: set[str] = set()
+unpacked: set[str] = set()
 dpkg_error: list[str] = []
 
 REMOVING = 'Removing'
@@ -460,9 +461,13 @@ class InstallProgress(base.InstallProgress):
 		if status == "pmstatus":
 			dprint(f"apt: {pkgname} {status_str}")
 			if status_str.startswith(('Unpacking', 'Removing')):
+				unpacked.add(pkgname)
 				self.advance_progress()
 			# Either condition can satisfy this mark provided the package hasn't been advanced
-			elif status_str.startswith(('Installed', 'Configuring')) and pkgname not in pkgnames:
+			elif (
+					status_str.startswith(('Installed', 'Configuring'))
+					and pkgname not in pkgnames
+					and pkgname in unpacked):
 				pkgnames.add(pkgname)
 				self.advance_progress()
 		# This branch only happens for local .deb installs.

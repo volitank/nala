@@ -274,8 +274,8 @@ class PackageHandler: # pylint: disable=too-many-instance-attributes
 			# For local deb installs we add 1 more because of having to start
 			# and stop InstallProgress an extra time for each package
 			+ self.local_total
-			# Configure only has Setting up:
-			+ self.configure_total
+			# Configure needs an extra because it isn't unpacked
+			+ self.configure_total*2
 			# This last +1 for the ending of dpkg itself
 			+ 1
 		)
