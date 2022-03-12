@@ -127,8 +127,13 @@ Nala - A prettier front-end for libapt-pkg
 **\--license**
 : >*\--license* reads the licenses of software compiled in and then reads the GPLv3 which **nala** is licensed under.
 
-# INTERACTIVE OPTIONS
+# DPKG OPTIONS
 The following options are advanced options to control what dpkg does during **install**, **update** and **upgrade**.
+
+**\--raw-dpkg**
+: >*\--raw-dpkg* forces **nala** not to mess with **dpkg** while running operations. This disables all formatting and it would look as if you were using **apt**. A more indepth explanation for what this switch does, **nala** will fork a tty instead of a pty for **dpkg**.
+
+	**nala** will also not display a progress bar for **dpkg** with this turned on. Additionally the language of the output will not be forced into English for this mode.
 
 **\--no-aptlist**
 : >*\--no-aptlist* sets 'APT_LISTCHANGES_FRONTEND=none'. With this option apt-listchanges will not bug you if you have it installed.
