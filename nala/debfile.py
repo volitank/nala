@@ -24,7 +24,7 @@
 """Module for Nala debfile and dependency subclasses."""
 from __future__ import annotations
 
-from typing import cast
+from typing import List, cast
 
 import apt_pkg
 from apt.cache import Cache
@@ -121,12 +121,14 @@ class NalaBaseDep:
 		except KeyError:
 			return cast(VersionList, [])
 		return pkg.versions
+
 	@property
 	def installed_target_versions(self) -> list[Version]:
 		"""Return the installed target versions if they exist."""
 		return [ver for ver in self.target_versions if ver.is_installed]
 
-class NalaDep(list[NalaBaseDep]):
+# Nuitka doesn't seem to like typing with the lower case list on this class.
+class NalaDep(List[NalaBaseDep]):
 	"""Dependency class to contain debfile deps."""
 
 	def __init__(self, base_deps: list[NalaBaseDep], rawtype: str) -> None:
