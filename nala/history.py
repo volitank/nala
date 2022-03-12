@@ -235,8 +235,12 @@ def write_history(handler: PackageHandler) -> None:
 		'Auto-Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs],
 		'Installed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs],
 		'Reinstalled' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs],
-		'Upgraded' : [[pkg.name, pkg.version, str(pkg.size), pkg.old_version] for pkg in handler.upgrade_pkgs],
-		'Downgraded' : [[pkg.name, pkg.version, str(pkg.size), pkg.old_version] for pkg in handler.downgrade_pkgs],
+		'Upgraded' : [
+			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)] for pkg in handler.upgrade_pkgs
+		],
+		'Downgraded' : [
+			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)] for pkg in handler.downgrade_pkgs
+		],
 	}
 
 	history_dict[hist_id] = transaction
