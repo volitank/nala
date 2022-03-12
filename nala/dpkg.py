@@ -337,23 +337,6 @@ class InstallProgress(base.InstallProgress):
 		self.child.interact(self.pre_filter)
 		return os.WEXITSTATUS(self.wait_child())
 
-	def wait_child(self) -> int:
-		"""Wait for child progress to exit."""
-		(pid, res) = (0, 0)
-		while True:
-			try:
-				(pid, res) = os.waitpid(self.child_pid, os.WNOHANG)
-				if pid == self.child_pid:
-					break
-			except OSError as err:
-				if err.errno == errno.ECHILD:
-					break
-				if err.errno != errno.EINTR:
-					raise
-			# Sleep for a short amount of time so we don't waste CPU waiting on the child
-			sleep(0.01)
-		return res
-
 	def sigwinch_passthrough(self, _sig_dummy: int, _data_dummy: FrameType | None) -> None:
 		"""Pass through sigwinch signals to dpkg."""
 		buffer = struct.pack("HHHH", 0, 0, 0, 0)
@@ -613,12 +596,10 @@ class InstallProgress(base.InstallProgress):
 
 	def raw_init(self) -> None:
 		"""Initialize raw terminal output."""
-		# We update the live display to blank. Then move up 1 and clear
-		# This prevents weird artifacts from the progress bar after debconf prompts
 		if self.raw:
 			return
+		# We update the live display to blank before stopping it
 		self.live.update('', refresh=True)
-		term.write(term.CURSER_UP+term.CLEAR_LINE)
 		self.live.stop()
 		term.set_raw()
 		self.raw = True
