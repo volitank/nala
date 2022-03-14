@@ -44,8 +44,8 @@ from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 
 from nala import _, color
-from nala.constants import (DPKG_ERRORS, DPKG_MSG,
-				ERROR_PREFIX, HANDLER, SPAM, WARNING_PREFIX)
+from nala.constants import (CONF_ANSWERS, CONF_MESSAGE, DPKG_ERRORS,
+				DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM, WARNING_PREFIX)
 from nala.options import arguments
 from nala.rich import (Group, Live, Panel, RenderableType, Table,
 				TaskID, ascii_replace, dpkg_progress, from_ansi, spinner)
@@ -349,7 +349,7 @@ class InstallProgress(base.InstallProgress):
 
 	def conf_check(self, rawline: bytes) -> None:
 		"""Check if we get a conf prompt."""
-		if b"Configuration file '" in rawline and b'is obsolete.' not in rawline:
+		if CONF_MESSAGE in rawline:
 			self.raw_init()
 		if b"Parsing Found/Fixed information... Done" in rawline and b'bugs' in rawline:
 			self.bug_list = True
@@ -362,8 +362,8 @@ class InstallProgress(base.InstallProgress):
 				b'[Y/n/?/...]' in self.last_line or self.last_line in (b'y', b'Y')
 			)
 		return rawline == term.CRLF and (
-			b'(Y/I/N/O/D/Z) [default=N] ?' in self.last_line
-			or self.last_line in DPKG_MSG['CONF_ANSWER']
+			CONF_MESSAGE in self.last_line
+			or self.last_line in CONF_ANSWERS
 		)
 
 	def dpkg_log(self, msg: str) -> None:
