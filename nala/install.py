@@ -247,30 +247,45 @@ def install_local(nala_pkgs: PackageHandler) -> None:
 	"""
 	failed: list[NalaDebPackage] = []
 	for pkg in nala_pkgs.local_debs[:]:
-		check_local_version(pkg, nala_pkgs)
 		if not pkg.check(allow_downgrade=True):
 			failed.append(pkg)
 			nala_pkgs.local_debs.remove(pkg)
 			continue
 
-		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.upgrade_pkgs]:
-			continue
-		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.downgrade_pkgs]:
-			continue
-		if pkg.pkgname in [pkg.name for pkg in nala_pkgs.reinstall_pkgs]:
-			continue
-		nala_pkgs.install_pkgs.append(
-			NalaPackage(pkg.pkgname, pkg._sections["Version"], int(pkg._sections["Installed-Size"]))
-		)
+		if not check_local_version(pkg, nala_pkgs):
+			nala_pkgs.install_pkgs.append(
+				NalaPackage(pkg.pkgname, pkg._sections["Version"], int(pkg._sections["Installed-Size"]))
+			)
+		satisfy_notice(pkg)
 	if failed:
 		broken_error(failed, failed[0]._cache)
 
-def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
-	"""Check if the version installed is better than the .deb."""
-	# VERSION_NONE = 0
-	# VERSION_OUTDATED = 1
-	# VERSION_SAME = 2
-	# VERSION_NEWER = 3
+def satisfy_notice(pkg: NalaDebPackage) -> None:
+	"""Print a notice of how to satisfy the packages dependencies."""
+	fixer: list[str] = []
+	for dep in pkg.dependencies:
+		fixer.extend(
+			color(ppkg.name, 'GREEN') for base_dep in dep
+			if (target := list(base_dep.target_versions)) and (
+				ppkg := target[0].package).marked_install)
+	if fixer:
+		print(
+			_("{notice} The following will be installed to satisfy {pkg_name}:\n  {depends}").format(
+				notice = NOTICE_PREFIX, pkg_name = color(pkg.name, 'GREEN'),
+				depends = ", ".join(fixer)
+			)
+		)
+
+def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> bool:
+	"""Check if the version installed is better than the .deb.
+
+	Return True if we've added to a package list, False if not.
+
+	VERSION_NONE = 0
+	VERSION_OUTDATED = 1
+	VERSION_SAME = 2
+	VERSION_NEWER = 3
+	"""
 	if pkg_compare := pkg.compare_to_version_in_cache():
 		cache_pkg = pkg._cache[pkg.pkgname]
 		dprint(f"Comparing cache versions of: {pkg.pkgname}")
@@ -289,7 +304,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 
 			if pkg.compare_to_version_in_cache(use_installed=False) == pkg.VERSION_OUTDATED:
 				if not cache_pkg.candidate:
-					return
+					return True
 				color_name = color(cache_pkg.name, 'GREEN')
 				print(
 					_(
@@ -302,7 +317,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 						command = f"{color('nala install')} {color_name}"
 					)
 				)
-			return
+			return True
 
 		if pkg_compare == pkg.VERSION_OUTDATED:
 			dprint(f"{pkg.filename} is an older version than the installed pkg")
@@ -312,7 +327,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 					int(pkg._sections["Installed-Size"]), pkg_installed(cache_pkg).version
 				)
 			)
-			return
+			return True
 		if pkg_compare == pkg.VERSION_NEWER and cache_pkg.is_installed:
 			dprint(f"{pkg.filename} is a newer version than the installed pkg")
 			nala_pkgs.upgrade_pkgs.append(
@@ -321,6 +336,8 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> None:
 					int(pkg._sections["Installed-Size"]), pkg_installed(cache_pkg).version
 				)
 			)
+			return True
+	return False
 
 def prioritize_local(deb_pkg: NalaDebPackage, cache_name: str, pkg_names: list[str]) -> None:
 	"""Print a notice of prioritization and remove the pkg name from list."""
