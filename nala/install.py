@@ -201,6 +201,8 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler,
 def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Start dpkg."""
 	try:
+		# Set Use-Pty to False. This makes Sigwinch signals accepted by dpkg.
+		apt_pkg.config.set('Dpkg::Use-Pty', "0")
 		commit_pkgs(cache, nala_pkgs)
 	# Catch system error because if dpkg fails it'll throw this
 	except (apt_pkg.Error, SystemError) as error:

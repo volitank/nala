@@ -42,6 +42,7 @@ import apt_pkg
 from apt.progress import base, text
 from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
+from ptyprocess.ptyprocess import _setwinsize
 
 from nala import _, color
 from nala.constants import (CONF_ANSWERS, CONF_MESSAGE, DPKG_ERRORS,
@@ -346,7 +347,7 @@ class InstallProgress(base.InstallProgress):
 			'hhhh', fcntl.ioctl(term.STDIN, termios.TIOCGWINSZ , buffer)
 		)
 		if not self.child.closed:
-			setwinsize(self.child_fd, term_size[0], term_size[1])
+			_setwinsize(self.child_fd, term_size[0], term_size[1])
 
 	def conf_check(self, rawline: bytes) -> None:
 		"""Check if we get a conf prompt."""
@@ -764,19 +765,6 @@ def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-man
 		padding=(0,0), border_style='bold green'
 		), refresh=True)
 
-def setwinsize(file_descriptor: int, rows: int, cols: int) -> None:
-	"""Set the terminal window size of the child tty.
-
-	This will cause a SIGWINCH signal to be sent to the child. This does not
-	change the physical window size. It changes the size reported to
-	TTY-aware applications like vi or curses -- applications that respond to
-	the SIGWINCH signal.
-	"""
-	tiocswinz = getattr(termios, 'TIOCSWINSZ', -2146929561)
-	# Note, assume ws_xpixel and ws_ypixel are zero.
-	size = struct.pack('HHHH', rows, cols, 0, 0)
-	fcntl.ioctl(file_descriptor, tiocswinz, size)
-
 def fork() -> tuple[int, int]:
 	"""Fork pty or regular."""
 	return (os.fork(), 0) if arguments.raw_dpkg else pty.fork()
@@ -800,7 +788,8 @@ class AptExpect(fdspawn): # type: ignore[misc]
 		self.stdout.flush()
 		self._buffer = self.buffer_type()
 
-		setwinsize(self.child_fd, term.lines, term.columns)
+		_setwinsize(self.child_fd, term.lines, term.columns)
+		#_setecho(self.child_fd, False)
 
 		self.interact_copy(output_filter)
 
