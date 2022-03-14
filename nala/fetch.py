@@ -185,7 +185,9 @@ def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 	"""Attempt to fetch the url and split a list based on the splitter."""
 	try:
-		mirror_list = get(url, timeout=15).text.split(splitter)
+		response = get(url, timeout=15)
+		response.raise_for_status()
+		mirror_list = response.text.split(splitter)
 	except HTTPError:
 		sys.exit(
 			_("{error} unable to connect to {mirror}").format(
@@ -305,6 +307,15 @@ def parse_sources() -> list[str]:
 			if not line.startswith('#') and line)
 	return sources
 
+def has_src(mirror: str, release: str) -> bool:
+	"""Check if the mirror has the source for deb-src."""
+	try:
+		deb_src = get(f"{mirror}dists/{release}/main/source/Release")
+		deb_src.raise_for_status()
+		return True
+	except HTTPError:
+		return False
+
 def write_sources(release: str, component: str, sources: list[str]) -> None:
 	"""Write mirrors to nala-sources.list."""
 	with open(NALA_SOURCES, 'w', encoding="utf-8") as file:
@@ -318,11 +329,11 @@ def write_sources(release: str, component: str, sources: list[str]) -> None:
 			# This protects us from writing mirrors that we already have in the sources
 			if any(line in mirror and release in mirror for mirror in sources):
 				continue
-			source = f'{line} {release} {component}'
-			print(f'deb {source}')
-			print(f'deb-src {source}\n')
-			print(f'deb {source}', file=file)
-			print(f'deb-src {source}\n', file=file)
+			source = f'deb {line} {release} {component}\n'
+			if arguments.sources and has_src(line, release):
+				source += f'deb-src {line} {release} {component}\n'
+			print(source)
+			print(source, file=file)
 			num += 1
 			if num == arguments.fetches:
 				break

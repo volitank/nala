@@ -54,6 +54,8 @@ Nala - A prettier front-end for libapt-pkg
 
 	*\--foss* on *Debian* will ensure that you don't get the *contrib* or *non-free* repos. Using this on *Ubuntu* does nothing.
 
+	*\--sources* add the source repos for the mirrors if it exists.
+
 **show**
 : > **show** works exactly like the **apt** version except our output is a little easier to read. **show** will accept multiple packages as arguments.
 
