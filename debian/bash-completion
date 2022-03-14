@@ -127,7 +127,8 @@ _nala()
 						--debian
 						--ubuntu
 						--country
-						--foss'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						--foss
+						--sources'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				search)

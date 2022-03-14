@@ -378,6 +378,11 @@ fetch_parser.add_argument(
 	action='store_true',
 	help=_("omits contrib and non-free repos")
 )
+fetch_parser.add_argument(
+	'--sources',
+	action='store_true',
+	help=_("add the source repos for the mirrors if it exists")
+)
 
 # Remove Global options that I don't want to see in fetch --help
 remove_help_options(fetch_parser)
