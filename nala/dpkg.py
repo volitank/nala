@@ -46,7 +46,7 @@ from ptyprocess.ptyprocess import _setwinsize
 
 from nala import _, color
 from nala.constants import (CONF_ANSWERS, CONF_MESSAGE, DPKG_ERRORS,
-				DPKG_MSG, ERROR_PREFIX, HANDLER, SPAM, WARNING_PREFIX)
+				DPKG_STATUS, ERROR_PREFIX, HANDLER, NOTICES, SPAM, WARNING_PREFIX)
 from nala.options import arguments
 from nala.rich import (Group, Live, Panel, RenderableType, Table,
 				TaskID, ascii_replace, dpkg_progress, from_ansi, spinner)
@@ -380,7 +380,7 @@ class InstallProgress(base.InstallProgress):
 
 	def dpkg_status(self, data: bytes) -> bool:
 		"""Handle any status messages."""
-		for status in DPKG_MSG['DPKG_STATUS']:
+		for status in DPKG_STATUS:
 			if status in data:
 				if status in (b'[Working]', b'[Connecting', b'[Waiting for headers]', b'[Connected to'):
 					return True
@@ -613,7 +613,7 @@ class InstallProgress(base.InstallProgress):
 
 def check_line_spam(line: str, rawline: bytes, last_line: bytes) -> bool:
 	"""Check for, and handle, notices and spam."""
-	for message in DPKG_MSG['NOTICES']:
+	for message in NOTICES:
 		if message in rawline and line not in notice:
 			notice.append(line)
 			return False
