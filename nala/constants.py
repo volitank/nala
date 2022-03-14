@@ -217,11 +217,6 @@ CAT_ASCII = {
 	'3' : LION_2
 }
 
-DPKG_MSG: dict[str, tuple[bytes, ...]] = {
-	'NOTICES' : NOTICES,
-	'DPKG_STATUS' : DPKG_STATUS,
-}
-
 THIRD_PARTY_LICENSES = (
 """Nala is licensed under the GPLv3 or later.
 
