@@ -59,11 +59,13 @@ TOTAL_PACKAGES = color(_('Total Packages:'), 'GREEN')
 STARTING_DOWNLOADS = color(_('Starting Downloads...'), 'BLUE')
 STARTING_DOWNLOAD = color(_('Starting Download:'), 'BLUE')
 LAST_COMPLETED = color(_('Last Completed:'), 'GREEN')
-MIRROR_TIMEOUT = color(_('Mirror Timedout:'), 'YELLOW')
+MIRROR_TIMEOUT = _('Mirror Timedout:')
 DOWNLOAD_COMPLETE = color(_('Download Complete:'), 'GREEN')
 TRYING = color(_('Trying:'))
 NO_MORE_MIRRORS = color(_('No More Mirrors:'), 'RED')
 
+REMOVING_FILE = _("{notice} We have removed {filename} but will try another mirror")
+FAILED_MOVE = _("{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'")
 FILE_NO_EXIST = _("{error} {filename} Does not exist!")
 HASH_MISMATCH = _(
 	"{error} Hash Sum does not match: {filename}\n"
@@ -75,15 +77,18 @@ SIZE_WRONG = _(
 	"  Expected Size: {expected}\n"
 	"  Received Size: {received}"
 	)
-REMOVING_FILE = _("{notice} We have removed {filename} but will try another mirror")
-FAILED_MOVE = _("{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'")
 HASH_STATUS = (
 	"Hash Status = [\n    File: {filepath},\n"
 	"    Candidate Hash: {hash_type} {expected},\n"
 	"    Local Hash: {received},\n"
 	"    Hash Success: {result},\n]"
 )
-
+HTTPX_STATUS_ERROR = (
+	"Hash Status = [\n    File: {filepath},\n"
+	"    Candidate Hash: {hash_type} {expected},\n"
+	"    Local Hash: {received},\n"
+	"    Hash Success: {result},\n]"
+)
 
 DownloadErrorTypes = Union[
 	HTTPError, HTTPStatusError, RequestError, OSError, ConnectError, FileDownloadError
@@ -140,6 +145,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		hash_type, expected = get_hash(candidate)
 		hash_fun = hashlib.new(hash_type)
 		async with client.stream('GET', url) as response:
+			response.raise_for_status()
 			async with await open_file(dest, mode="wb") as file:
 				async for data in response.aiter_bytes():
 					if data:
@@ -184,7 +190,9 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 				# Sometimes mirrors play a little dirty and close the connection
 				# Before we're done, so we catch this and try one more time.
 				except RemoteProtocolError as error:
-					if 'Server disconnected' not in str(error) or second_attempt:
+					if ('Server disconnected' not in str(error)
+						or "can't handle event type ConnectionClosed" not in str(error)
+						or second_attempt):
 						raise error from error
 					second_attempt = True
 					dprint(f"Mirror Failed: {url[:url.index('/pool')]} {error}, will try again.")
@@ -300,11 +308,15 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 	def download_error(self,
 		error: DownloadErrorTypes, num: int, urls: list[Version | str], candidate: Version) -> None:
 		"""Handle download errors."""
-		full_url = str(urls[num])
-		mirror = full_url[:full_url.index('/pool')]
-		print_error(error, mirror)
+		if isinstance(error, FileDownloadError):
+			file_error(error)
+		else:
+			print_error(error)
 
 		if not (next_url := more_urls(urls, num, self.failed, candidate)):
+			# Status error are fatal as apt_pkg is likely to fail with these as well
+			if isinstance(error, HTTPStatusError):
+				self.fatal = True
 			return
 
 		vprint(f"{TRYING} {next_url}")
@@ -317,22 +329,22 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		pkg_download_progress.advance(self.task, advance=len_data)
 		self.live.update(self._gen_table())
 
-def print_error(
-	error: DownloadErrorTypes, mirror: str) -> None:
+def print_error(error: DownloadErrorTypes) -> None:
 	"""Print the download error to console."""
 	if isinstance(error, ConnectTimeout):
-		vprint(f"{MIRROR_TIMEOUT} {mirror}")
+		eprint(f"{ERROR_PREFIX} {MIRROR_TIMEOUT} {error.request.url}")
 		return
 	if isinstance(error, ConnectError):
 		# ConnectError: [Errno -2] Name or service not known
 		errno_replace = re.sub(ERRNO_PATTERN, '', str(error)).strip()+':'
-		vprint(f"{color(errno_replace, 'RED')} {mirror}")
+		eprint(f"{ERROR_PREFIX} {errno_replace} {error.request.url}")
 		return
 	if isinstance(error, FileDownloadError):
 		file_error(error)
 		return
 	msg = str(error) or type(error).__name__
-	vprint(f"{ERROR_PREFIX} {msg}")
+	msg = msg.replace('\n', '\n  ')
+	eprint(f"{ERROR_PREFIX} {msg}")
 
 def file_error(error: FileDownloadError) -> None:
 	"""Print the error from our FileDownloadError exception."""
@@ -363,7 +375,7 @@ def file_error(error: FileDownloadError) -> None:
 	)
 
 def more_urls(urls: list[Version | str], num: int,
-	failed: list[str], candidate: Version) -> str | bool:
+	failed: list[str], candidate: Version) -> str:
 	"""Check if there is another url to try. Return False if not."""
 	try:
 		return cast(str, urls[num+1])
@@ -375,7 +387,7 @@ def more_urls(urls: list[Version | str], num: int,
 			)
 		)
 		failed.append(filename)
-		return False
+		return ''
 
 async def process_downloads(candidate: Version) -> bool:
 	"""Process the downloaded packages."""
