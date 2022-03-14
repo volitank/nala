@@ -30,10 +30,10 @@ import re
 import sys
 
 import apt_pkg
-from apt import Cache
 from apt.package import Package, Version
 
 from nala import _, color
+from nala.cache import Cache
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
 				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, CurrentState)
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
@@ -46,8 +46,8 @@ from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
-from nala.utils import (NalaPackage, PackageHandler, dprint, eprint,
-				glob_filter, iter_remove, pkg_installed, sudo_check, virtual_filter)
+from nala.utils import (NalaPackage, PackageHandler,
+				dprint, eprint, iter_remove, pkg_installed, sudo_check)
 
 nala_pkgs = PackageHandler()
 
@@ -84,10 +84,10 @@ def install(pkg_names: list[str]) -> None:
 	check_state(cache, nala_pkgs)
 
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
-	install_local(nala_pkgs)
+	install_local(nala_pkgs, cache)
 
-	pkg_names = glob_filter(pkg_names, cache)
-	pkg_names = virtual_filter(pkg_names, cache)
+	pkg_names = cache.glob_filter(pkg_names)
+	pkg_names = cache.virtual_filter(pkg_names)
 	broken, not_found, ver_failed = check_broken(pkg_names, cache)
 	not_found.extend(not_exist)
 
@@ -116,8 +116,8 @@ def remove(pkg_names: list[str]) -> None:
 	check_state(cache, nala_pkgs)
 
 	_purge = arguments.command == 'purge'
-	pkg_names = glob_filter(pkg_names, cache)
-	pkg_names = virtual_filter(pkg_names, cache)
+	pkg_names = cache.glob_filter(pkg_names)
+	pkg_names = cache.virtual_filter(pkg_names)
 	broken, not_found, ver_failed = check_broken(
 		pkg_names, cache, remove=True, purge=_purge
 	)
@@ -204,8 +204,8 @@ def show(pkg_names: list[str]) -> None:
 	"""Show package information."""
 	cache = setup_cache()
 	not_found: list[str] = []
-	pkg_names = glob_filter(pkg_names, cache)
-	pkg_names = virtual_filter(pkg_names, cache)
+	pkg_names = cache.glob_filter(pkg_names)
+	pkg_names = cache.virtual_filter(pkg_names)
 	additional_records = 0
 	for num, pkg_name in enumerate(pkg_names):
 		if pkg_name in cache:
