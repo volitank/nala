@@ -30,11 +30,12 @@ from pathlib import Path
 from typing import Iterable, cast
 
 import apt_pkg
-from apt.cache import Cache, FetchFailedException, LockFailedException
+from apt.cache import FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package
 from apt_pkg import DepCache, Error as AptError, get_architectures
 
 from nala import _, color, color_version
+from nala.cache import Cache
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX,
 				NALA_DIR, NALA_TERM_LOG, NEED_RESTART, NOTICE_PREFIX,
 				REBOOT_PKGS, REBOOT_REQUIRED, WARNING_PREFIX, CurrentState)
@@ -139,19 +140,11 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 				if arguments.raw_dpkg:
 					live.stop()
-				# Don't commit if there are no changes to be made
-				# This kind of solves a bug with messed up formatting when piping
-				if (cache._depcache.inst_count
-					+ cache._depcache.del_count
-					+ nala_pkgs.configure_total):
-					cache.commit(
-						UpdateProgress(live, install=True),
-						InstallProgress(dpkg_log, term_log, live, task)
-					)
-				else:
-					dpkg_progress.advance(task)
-				for deb in nala_pkgs.local_debs:
-					deb.install(InstallProgress(dpkg_log, term_log, live, task))
+				install = InstallProgress(dpkg_log, term_log, live, task)
+				update = UpdateProgress(live, install=True)
+				cache.commit_pkgs(install, update)
+				if nala_pkgs.local_debs:
+					cache.commit_pkgs(install, update, nala_pkgs.local_debs)
 				term_log.write(
 					_("Log Ended: [{date}]\n\n").format(
 						date=get_date()
@@ -238,7 +231,7 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 			)
 	print(color(_("Finished Successfully"), 'GREEN'))
 
-def install_local(nala_pkgs: PackageHandler) -> None:
+def install_local(nala_pkgs: PackageHandler, cache: Cache) -> None:
 	"""Mark the depends for local debs to be installed.
 
 	Dependencies that are marked will be marked auto installed.
@@ -258,7 +251,7 @@ def install_local(nala_pkgs: PackageHandler) -> None:
 			)
 		satisfy_notice(pkg)
 	if failed:
-		broken_error(failed, failed[0]._cache)
+		broken_error(failed, cache)
 
 def satisfy_notice(pkg: NalaDebPackage) -> None:
 	"""Print a notice of how to satisfy the packages dependencies."""

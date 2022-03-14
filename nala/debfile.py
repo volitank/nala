@@ -27,13 +27,20 @@ from __future__ import annotations
 from typing import List, cast
 
 import apt_pkg
-from apt.cache import Cache
 from apt.debfile import DebPackage
 from apt.package import Version, VersionList
+
+from nala.cache import Cache
 
 
 class NalaDebPackage(DebPackage):
 	"""A subclass for DebPackage to have attributes similar to Package."""
+
+	def __init__(self, filename: str, cache: Cache) -> None:
+		"""Subclass for DebPackage."""
+		super().__init__(filename, cache)
+		self.filename = filename
+		self._cache = cache
 
 	@property
 	def name(self) -> str:
@@ -63,7 +70,7 @@ class NalaDebPackage(DebPackage):
 		depends_list = []
 		for _type in types:
 			for dep in self._get_depends(_type):
-				base_deps = [NalaBaseDep(*dep_or, _type, self._cache) for dep_or in dep]
+				base_deps = [NalaBaseDep(*dep_or, _type, cast(Cache, self._cache)) for dep_or in dep]
 				depends_list.append(NalaDep(base_deps, _type))
 		return depends_list
 

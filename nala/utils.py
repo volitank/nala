@@ -24,7 +24,6 @@
 """Where Utilities who don't have a special home come together."""
 from __future__ import annotations
 
-import fnmatch
 import json
 import os
 import signal
@@ -34,19 +33,19 @@ import tty
 from datetime import datetime
 from pathlib import Path
 from types import FrameType
-from typing import Any, Generator, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import jsbeautifier
-from apt.cache import Cache
 from apt.package import Package, Version
 
-from nala import _, color, color_version, console
-from nala.constants import (ERROR_PREFIX, HANDLER,
-				JSON_OPTIONS, NALA_DEBUGLOG, NOTICE_PREFIX)
-from nala.debfile import NalaDebPackage
+from nala import _, color, console
+from nala.constants import ERROR_PREFIX, HANDLER, JSON_OPTIONS, NALA_DEBUGLOG
 from nala.options import arguments
 from nala.rich import Group, Table, Tree, from_ansi
 
+if TYPE_CHECKING:
+	from nala.cache import Cache
+	from nala.debfile import NalaDebPackage
 
 class Terminal:
 	"""Represent the user terminal."""
@@ -385,34 +384,6 @@ def pkg_installed(pkg: Package) -> Version:
 	assert pkg.installed
 	return pkg.installed
 
-def is_secret_virtual(pkg_name: str, cache: Cache) -> bool:
-	"""Return True if the package is secret virtual.
-
-	Secret virtual packages provide nothing, and have no versions.
-
-	cache.is_virtual_package() returns True only if the virtual package
-	has something that it can provide.
-	"""
-	try:
-		pkg = cache._cache[pkg_name]
-		if not pkg.has_provides and not pkg.has_versions:
-			return True
-		return False
-	except KeyError:
-		return False
-
-def is_any_virtual(pkgname: str, cache: Cache) -> bool:
-	"""Return whether the package is a virtual package.
-
-	This is used if we only care if it's virtual, but not what type.
-	"""
-	try:
-		pkg = cache._cache[pkgname]
-	except KeyError:
-		return False
-	else:
-		return bool(not pkg.has_versions)
-
 def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
 	"""Iterate installed pkgs and return all of their deps in a list.
 
@@ -443,80 +414,6 @@ def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 				msg += f"  {color(pkg.name, 'GREEN')}\n"
 				break
 	print(msg.strip())
-
-def virtual_filter(pkg_names: list[str], cache: Cache) -> list[str]:
-	"""Filter package to check if they're virtual."""
-	new_names = set()
-	for pkg_name in pkg_names:
-		if pkg_name in cache:
-			new_names.add(pkg_name)
-			continue
-		if vpkg := check_virtual(pkg_name, cache):
-			new_names.add(vpkg.name)
-			continue
-		new_names.add(pkg_name)
-	dprint(f"Virtual Filter: {new_names}")
-	return sorted(new_names)
-
-def what_replaces(pkg_name: str, cache: Cache)  -> Generator[str, None, None]:
-	"""Generate packages that replace the given name."""
-	for pkg in cache._cache.packages:
-		if (cand := cache._depcache.get_candidate_ver(pkg)):
-			try:
-				replaces = cand.depends_list['Replaces']
-				target = replaces[0][0].target_pkg
-				if pkg_name == target.name:
-					yield pkg.get_fullname(pretty=True)
-			except KeyError:
-				pass
-
-def check_virtual(pkg_name: str, cache: Cache) -> Package | None:
-	"""Check if the package is virtual."""
-	if cache.is_virtual_package(pkg_name):
-		if len(provides := cache.get_providing_packages(pkg_name)) == 1:
-			print_selecting_pkg(provides[0].name, pkg_name)
-			return cache[provides[0]]
-		print_virtual_pkg(pkg_name, provides)
-		return None
-	if is_secret_virtual(pkg_name, cache):
-		print(
-			_("{notice} {pkg} is only referenced by name.\n  Nothing provides it.").format(
-				notice = NOTICE_PREFIX,
-				pkg = color(pkg_name, 'GREEN')
-			)
-		)
-		if (replaces := list(what_replaces(pkg_name, cache))):
-			print(
-				_("However, the following packages replace it:\n{replaces}\n").format(
-					replaces = ", ".join(color(pkg, 'GREEN') for pkg in replaces)
-				)
-			)
-		return None
-	return None
-
-def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
-	"""Print the virtual package string."""
-	print(
-		_("{pkg_name} is a virtual package provided by:\n  {provides}\n"
-			"You should select just one.").format(
-				pkg_name = color(pkg_name, 'GREEN'),
-				provides = "\n  ".join(
-					f"{color(pkg.name, 'GREEN')} {color_version(pkg_candidate(pkg).version)}"
-					for pkg in provides
-			)
-		)
-	)
-
-def print_selecting_pkg(provider: str, pkg_name: str) -> None:
-	"""Print that we are selecting a different package."""
-	print(
-		_(	"{notice} Selecting {provider}\n"
-			"  Instead of virtual package {package}\n").format(
-				notice = NOTICE_PREFIX,
-				provider = color(provider, 'GREEN'),
-				package = color(pkg_name, 'GREEN')
-		)
-	)
 
 def arg_check() -> None:
 	"""Check arguments and errors if no packages are specified.
@@ -569,46 +466,6 @@ def dedupe_list(original: list[str]) -> list[str]:
 		if item not in dedupe:
 			dedupe.append(item)
 	return dedupe
-
-def glob_filter(pkg_names: list[str], cache: Cache) -> list[str]:
-	"""Filter provided packages and glob *.
-
-	Returns a new list of packages matching the glob.
-
-	If there is nothing to glob it returns the original list.
-	"""
-	if '*' not in str(pkg_names):
-		return pkg_names
-
-	new_packages: list[str] = []
-	glob_failed = False
-	for pkg_name in pkg_names:
-		if '*' in pkg_name:
-			dprint(f'Globbing: {pkg_name}')
-			glob = fnmatch.filter(get_pkg_names(cache), pkg_name)
-			if not glob:
-				glob_failed = True
-				eprint(
-					_("{error} unable to find any packages by globbing {pkg}").format(
-						error=ERROR_PREFIX, pkg=color(pkg_name, 'YELLOW')
-					)
-				)
-				continue
-			new_packages.extend(glob)
-		else:
-			new_packages.append(pkg_name)
-
-	if glob_failed:
-		sys.exit(1)
-	new_packages.sort()
-	dprint(f'List after globbing: {new_packages}')
-	return new_packages
-
-def get_pkg_names(cache: Cache) -> Generator[str, None, None]:
-	"""Generate all real packages, or packages that can provide something."""
-	for pkg in cache._cache.packages:
-		if pkg.has_versions or pkg.has_provides:
-			yield pkg.get_fullname(pretty=True)
 
 def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
 	"""Return the correct headers for the summary."""

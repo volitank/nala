@@ -28,15 +28,15 @@ from pathlib import Path
 from random import shuffle
 from typing import cast
 
-from apt.cache import Cache
 from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala import _, color
+from nala.cache import Cache
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, PACSTALL_METADATA
 from nala.debfile import NalaBaseDep
 from nala.options import arguments
 from nala.rich import ascii_replace
-from nala.utils import is_secret_virtual, term, unit_str
+from nala.utils import term, unit_str
 
 SHOW_INFO = _("{header} {info}\n")
 
@@ -323,7 +323,7 @@ def pkg_not_found(pkg_name: str, cache: Cache, not_found: list[str]) -> None:
 	"""Add not found errors to the list."""
 	if cache.is_virtual_package(pkg_name):
 		return
-	if is_secret_virtual(pkg_name, cache):
+	if cache.is_secret_virtual(pkg_name):
 		not_found.append(
 			_("{error} {name} has no version to show").format(
 				error=ERROR_PREFIX, name=pkg_name

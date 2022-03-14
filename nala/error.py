@@ -29,17 +29,18 @@ from pathlib import Path
 from typing import Generator, NoReturn, Union, cast
 
 import apt_pkg
-from apt.cache import Cache, FetchFailedException, LockFailedException
+from apt.cache import FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package, Version
 
 from nala import _, color, color_version
+from nala.cache import Cache
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, WARNING_PREFIX
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.dpkg import dpkg_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import (dprint, eprint, get_installed_dep_names,
-				is_any_virtual, is_secret_virtual, print_rdeps, term)
+from nala.utils import (dprint, eprint,
+				get_installed_dep_names, print_rdeps, term)
 
 DEPENDS = color(_('Depends:'))
 """'Depends:'"""
@@ -153,7 +154,7 @@ def pkg_error(pkg_list: list[str],
 	"""Print error for package in list."""
 	header = NOTICE_PREFIX if remove else ERROR_PREFIX
 	for pkg_name in pkg_list:
-		if is_any_virtual(pkg_name, cache):
+		if cache.is_any_virtual(pkg_name):
 			if remove:
 				eprint(
 					_("{error} Virtual Packages like {pkg_name} can't be removed.").format(
@@ -225,7 +226,7 @@ def format_broken(dep: BaseDependency | NalaBaseDep, cache:Cache, arch: str = ''
 	# We print nothing on a virtual package
 	if cache.is_virtual_package(dep_name):
 		return ''
-	if is_secret_virtual(dep_name, cache):
+	if cache.is_secret_virtual(dep_name):
 		return SECRET_VIRTUAL.format(
 			pkg_name = formatted_dep
 		)
@@ -327,7 +328,7 @@ def broken_pkg(pkg: Package | NalaDebPackage, cache: Cache) -> int: # pylint: di
 		print()
 	return ret_count
 
-def broken_error(broken_list: list[Package] | list[NalaDebPackage], cache:Cache,
+def broken_error(broken_list: list[Package] | list[NalaDebPackage], cache: Cache,
 	installed_pkgs: bool | tuple[Package, ...] = False) -> int | NoReturn:
 	"""Handle printing of errors due to broken packages."""
 	if isinstance(installed_pkgs, tuple):

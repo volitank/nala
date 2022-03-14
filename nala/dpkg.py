@@ -36,7 +36,7 @@ import termios
 from time import sleep
 from traceback import format_exception
 from types import FrameType
-from typing import Callable, Match, TextIO, cast
+from typing import Callable, Match, TextIO
 
 import apt_pkg
 from apt.progress import base, text
@@ -296,7 +296,7 @@ class InstallProgress(base.InstallProgress):
 			dpkg_progress.advance(self.task)
 			scroll_bar(self)
 
-	def run(self, obj: apt_pkg.PackageManager | bytes | str) -> int:
+	def run_install(self, apt: apt_pkg.PackageManager | list[str]) -> int:
 		"""Install using the `PackageManager` object `obj`.
 
 		returns the result of calling `obj.do_install()`
@@ -309,18 +309,17 @@ class InstallProgress(base.InstallProgress):
 				# CLOEXEC, but we need to be able to pass writefd to dpkg
 				# when we spawn it
 				os.set_inheritable(self.writefd, True)
-				# We ignore this with mypy because the attr is there
-				os._exit(obj.do_install(self.write_stream.fileno())) # type: ignore[union-attr]
-			except AttributeError:
-				# nosec because this isn't really a security issue. We're just running dpkg
-				# Also we need this line for installing local debs
-				os._exit(
-					os.spawnlp( # nosec
-						os.P_WAIT, "dpkg", "dpkg",
-						"--status-fd", str(self.write_stream.fileno()),
-						"-i", cast(str, obj)
+				if isinstance(apt, list):
+					# nosec because this isn't really a security issue. We're just running dpkg
+					os._exit(
+						os.spawnlp( # nosec
+							os.P_WAIT, "dpkg", "dpkg",
+							"--status-fd", str(self.write_stream.fileno()),
+							"-i", *apt
+						)
 					)
-				)
+				# We ignore this with mypy because the attr is there
+				os._exit(apt.do_install(self.write_stream.fileno())) # type: ignore[attr-defined]
 			# We need to catch every exception here.
 			# If we don't the code continues in the child,
 			# And bugs will be very confusing
@@ -328,6 +327,7 @@ class InstallProgress(base.InstallProgress):
 				exception = format_exception(*sys.exc_info())
 				self.dpkg_log(f"{exception}\n")
 				os._exit(1)
+
 		dprint("Dpkg Forked")
 		self.child_pid = pid
 		if arguments.raw_dpkg:
