@@ -256,7 +256,8 @@ class UpdateProgress(text.AcquireProgress):
 	def stop(self) -> None:
 		"""Invoke when the Acquire process stops running."""
 		base.AcquireProgress.stop(self)
-		if self.fetched_bytes != 0:
+		# We don't want to display fetched Zero if we're in apt fetch.
+		if self.fetched_bytes != 0 or not self.install:
 			self._write(self.final_msg())
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
