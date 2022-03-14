@@ -123,18 +123,13 @@ class InstState(IntEnum):
 
 # dpkg constants
 CONF_MESSAGE = (
-	b"Configuration file '",
-	b'==> Modified (by you or by a script) since installation.\r\n',
-	b' ==> Package distributor has shipped an updated version.\r\n',
-	b'   What would you like to do about it ?  Your options are:\r\n',
-	b"    Y or I  : install the package maintainer's version\r\n",
-	b'    N or O  : keep your currently-installed version\r\n',
-	b'      D     : show the differences between the versions\r\n',
-	b'      Z     : start a shell to examine the situation\r\n',
-	b' The default action is to keep your current version.\r\n',
-	b'(Y/I/N/O/D/Z) [default=N] ?',
+	b"   What would you like to do about it ?  Your options are:\r\n"
+	b"    Y or I  : install the package maintainer's version\r\n"
+	b"    N or O  : keep your currently-installed version\r\n"
+	b"      D     : show the differences between the versions\r\n"
+	b"      Z     : start a shell to examine the situation\r\n"
 )
-CONF_ANSWER = (b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',)
+CONF_ANSWERS = (b'y', b'Y', b'i', b'I', b'n', b'N', b'o', b'O',)
 NOTICES = (
 	b'The currently running kernel version is not the expected kernel version',
 	b'Please remove.',
@@ -223,8 +218,6 @@ CAT_ASCII = {
 }
 
 DPKG_MSG: dict[str, tuple[bytes, ...]] = {
-	'CONF_MESSAGE' : CONF_MESSAGE,
-	'CONF_ANSWER' : CONF_ANSWER,
 	'NOTICES' : NOTICES,
 	'DPKG_STATUS' : DPKG_STATUS,
 }
