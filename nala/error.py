@@ -121,6 +121,7 @@ def apt_error(apt_err: AptErrorTypes) -> NoReturn:
 				eprint(f"{warn} {err.strip()}")
 				continue
 		sys.exit(1)
+	msg = msg.replace('E:', '')
 	eprint(f"{ERROR_PREFIX} {msg}")
 	if not term.is_su():
 		sys.exit(_('Are you root?'))
