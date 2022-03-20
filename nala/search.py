@@ -91,8 +91,8 @@ def set_search_description(line: str, bot_line: str, version: Version) -> str:
 	"""Return the provided string with the package description."""
 	if arguments.full and version._translated_records:
 		desc = '\n    '.join(version._translated_records.long_desc.splitlines())
-		return f"{line}\n{bot_line}{desc}"
+		return f"{line}\n{bot_line} {desc}"
 	if version.summary:
-		return f'{line}\n{bot_line}{version.summary}'
+		return f'{line}\n{bot_line} {version.summary}'
 	no_desc = _('No Description')
-	return f"{line}\n{bot_line}{COLOR_CODES['ITALIC']}{no_desc}{COLOR_CODES['RESET']}"
+	return f"{line}\n{bot_line}{COLOR_CODES['ITALIC']} {no_desc}{COLOR_CODES['RESET']}"

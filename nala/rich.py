@@ -102,9 +102,9 @@ class TimeRemaining(TimeRemainingColumn): # type: ignore[misc]
 		"""Show time remaining."""
 		remaining = task.time_remaining
 		if remaining is None:
-			return Text("-:--:--", style="bold white")
+			return Text("-:--:--", style='bold default')
 		remaining_delta = timedelta(seconds=int(remaining))
-		return Text(str(remaining_delta), style="white")
+		return Text(str(remaining_delta), style="")
 
 bar_back_style = Style(color='red')
 bar_style = Style(color='cyan')
@@ -158,7 +158,7 @@ pkg_download_progress = Progress(
 	)
 running_dpkg = _('Running dpkg')
 dpkg_progress = Progress(
-	SpinnerColumn(SPIN_TYPE, style="bold white", finished_text=FINISHED_TEXT),
+	SpinnerColumn(SPIN_TYPE, style='bold default', finished_text=FINISHED_TEXT),
 	TextColumn(f"[bold blue]{running_dpkg} ...", justify="right"),
 	BAR_MAX,
 	PROGRESS_PERCENT,
@@ -170,7 +170,7 @@ dpkg_progress = Progress(
 searching = _('Searching')
 search_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn(f"[bold white]{searching} ...", justify="right"),
+	TextColumn(f"[bold default]{searching} ...", justify="right"),
 	BAR_MIN,
 	PROGRESS_PERCENT,
 	SEPARATOR,
@@ -180,7 +180,7 @@ search_progress = Progress(
 testing = _('Testing Mirrors')
 fetch_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn(f"[bold white]{testing} ...", justify="right"),
+	TextColumn(f"[bold default]{testing} ...", justify="right"),
 	BAR_MIN,
 	PROGRESS_PERCENT,
 	SEPARATOR,

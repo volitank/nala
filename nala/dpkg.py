@@ -701,19 +701,19 @@ def get_title(install: bool, fetch: bool) -> str: # pylint: disable=too-many-ret
 	"""Get the title for our panel."""
 	if arguments.command and install and not fetch:
 		if arguments.command in ('remove', 'purge'):
-			return '[bold white]'+_('Removing Packages')
+			return '[bold default]'+_('Removing Packages')
 		if arguments.command in ('update', 'upgrade'):
-			return '[bold white]'+_('Updating Packages')
+			return '[bold default]'+_('Updating Packages')
 		if arguments.command == 'install':
-			return '[bold white]'+_('Installing Packages')
+			return '[bold default]'+_('Installing Packages')
 		if arguments.command == 'history':
 			title = _('History Undo') if arguments.mode == 'undo' else _('History Redo')
-			return f'[bold white]{title} {arguments.id}'
+			return f'[bold default]{title} {arguments.id}'
 	if install and fetch:
-		return '[bold white]'+_('Fetching Missed Packages')
+		return '[bold default]'+_('Fetching Missed Packages')
 	if not arguments.command and arguments.fix_broken:
-		return '[bold white]'+_('Fixing Broken Packages')
-	return '[bold white]'+_('Updating Package List')
+		return '[bold default]'+_('Fixing Broken Packages')
+	return '[bold default]'+_('Updating Package List')
 
 def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
 	"""Get the group for our panel."""
