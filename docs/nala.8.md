@@ -34,6 +34,9 @@ Nala - A prettier front-end for libapt-pkg
 
 	*\--exclude* packages to exclude when updating. Glob enabled, for example. **nala update** *\--exclude* *linux-image**
 
+**autoremove**, **autopurge**
+: > **autoremove/purge** removes or purges packages that are no longer needed.
+
 **clean**
 : > **clean** is exactly like running *apt clean*.
 
