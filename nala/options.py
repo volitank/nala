@@ -51,7 +51,12 @@ class NalaFormatter(argparse.RawDescriptionHelpFormatter):
 		"""Format help action."""
 		parts = super()._format_action(action)
 		if action.nargs == argparse.PARSER:
+			# Fix for empty help line due to no metavar in the subparser
 			parts = "\n".join(parts.split("\n")[1:])
+			# Fix a format error with aliases as below
+			# autoremove (autopurge)
+			# 							remove packages that are no longer needed
+			parts = '    ' + ") ".join(part.lstrip() for part in parts.split(')\n'))
 		return parts
 
 gpl_help: str = _('reads the licenses of software compiled in and then reads the GPLv3')
@@ -175,11 +180,6 @@ global_options.add_argument(
 	help=_("allows the removal of essential packages")
 )
 global_options.add_argument(
-	'--raw-dpkg',
-	action='store_true',
-	help=_("skips all formatting and you get raw dpkg output")
-)
-global_options.add_argument(
 	'--update',
 	action='store_true',
 	help=_("updates the package list")
@@ -200,6 +200,11 @@ global_options.add_argument(
 
 # Define interactive options
 dpkg_options = NalaParser(add_help=False)
+dpkg_options.add_argument(
+	'--raw-dpkg',
+	action='store_true',
+	help=_("skips all formatting and you get raw dpkg output")
+)
 dpkg_options.add_argument(
 	'--no-aptlist', action='store_true',
 	help=_("sets 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges will not bug you")
@@ -242,7 +247,6 @@ parser = NalaParser(
 	usage=f'{bin_name} [--options] <command>',
 	parents=[global_options, dpkg_options]
 )
-remove_dpkg_options(parser)
 remove_help_options(parser, no_fix_broken=True)
 # Define our subparser
 subparsers = parser.add_subparsers(metavar='', dest='command')
@@ -268,8 +272,9 @@ remove_help_options(install_parser, no_update=True, fix_broken=True)
 remove_parser = subparsers.add_parser(
 	'remove',
 	formatter_class=formatter,
-	help=_('remove packages'), parents=[global_options, interactive_options],
-	usage=f'{bin_name} remove [--options] [pkg1 pkg2 ...]'
+	help=_('remove or purge packages'), parents=[global_options, dpkg_options],
+	usage=f'{bin_name} remove/purge [--options] [pkg1 pkg2 ...]',
+	aliases = ['purge']
 )
 
 # Remove Global options that I don't want to see in remove --help
@@ -282,24 +287,6 @@ remove_parser.add_argument(
 	help=_('package(s) to remove')
 )
 
-# Parser for the purge command
-purge_parser = subparsers.add_parser(
-	'purge',
-	formatter_class=formatter,
-	help=_('purge packages'), parents=[global_options, interactive_options],
-	usage=f'{bin_name} purge [--options] [pkg1 pkg2 ...]'
-)
-
-# Remove Global options that I don't want to see in purge --help
-remove_help_options(purge_parser, download_only=True, no_update=True, fix_broken=True)
-
-purge_parser.add_argument(
-	'args',
-	metavar='pkg(s)',
-	nargs='*',
-	help=_('package(s) to purge')
-	)
-
 # We specify the options as a parent parser first just so we can easily
 # Move them above the global options inside the subparser help.
 # If there is a better way of doing this please let me know
@@ -309,29 +296,32 @@ update_options.add_argument(
 	action='store_false',
 	help=_("runs a normal upgrade instead of full-upgrade")
 )
+update_options.add_argument(
+	'--exclude',
+	nargs='*',
+	metavar='PKG',
+	help=_("specify packages to exclude during upgrade")
+)
 
 # Parser for the update/upgrade command
 update_parser = subparsers.add_parser(
 	'update',
 	formatter_class=formatter,
 	help=_('update package list and upgrade the system'),
-	parents=[update_options, global_options, interactive_options],
-	usage=f'{bin_name} update [--options]'
+	parents=[update_options, global_options, dpkg_options],
+	usage=f'{bin_name} update [--options]',
+	aliases = ['upgrade']
 )
 
-upgrade_parser = subparsers.add_parser(
-	'upgrade',
+# Parser for the autoremove/autopurge commands
+auto_remove_parser = subparsers.add_parser(
+	'autoremove',
 	formatter_class=formatter,
-	help=_('alias for update'),
-	parents=[update_options, global_options, interactive_options],
-	usage=f'{bin_name} upgrade [--options]'
+	help=_('remove packages that are no longer needed'),
+	parents=[global_options, dpkg_options],
+	usage=f'{bin_name} autoremove [--options]',
+	aliases = ['autopurge']
 )
-
-for parse in (update_parser, upgrade_parser):
-	remove_help_options(
-		parse, update=True,
-		fix_broken=True, no_fix_broken=True
-	)
 
 def fetch_description() -> str:
 	"""Build and return the fetch description."""
@@ -386,7 +376,6 @@ fetch_parser.add_argument(
 
 # Remove Global options that I don't want to see in fetch --help
 remove_help_options(fetch_parser)
-remove_dpkg_options(fetch_parser)
 
 # We do the same thing that we did with update options
 show_options = NalaParser(add_help=False)
@@ -401,7 +390,7 @@ show_parser = subparsers.add_parser(
 	'show',
 	formatter_class=formatter,
 	help=_('show package details'),
-	parents=[show_options, global_options, dpkg_options],
+	parents=[show_options, global_options],
 	usage=f'{bin_name} show [--options] [pkg1 pkg2 ...]'
 )
 # Remove Global options that I don't want to see in show --help
@@ -414,8 +403,6 @@ remove_help_options(
 	no_install_recommended=True
 )
 
-remove_dpkg_options(show_parser)
-
 show_parser.add_argument(
 	'args',
 	metavar='pkg(s)',
@@ -427,7 +414,7 @@ search_parser = subparsers.add_parser(
 	'search',
 	formatter_class=formatter,
 	help=_('search package names and descriptions'),
-	parents=[show_options, global_options, dpkg_options],
+	parents=[show_options, global_options],
 	usage=f'{bin_name} search [--options] regex'
 )
 search_parser.add_argument(
@@ -460,8 +447,6 @@ remove_help_options(
 	no_install_recommended=True
 )
 
-remove_dpkg_options(search_parser)
-
 # Parser for the History command
 history_parser = subparsers.add_parser(
 	'history',
@@ -478,8 +463,6 @@ remove_help_options(
 	fix_broken=True, install_suggests=True,
 	no_install_recommended=True
 )
-
-remove_dpkg_options(history_parser)
 
 history_parser.add_argument(
 	'mode',
@@ -530,14 +513,13 @@ moo_parser.add_argument('moo', nargs='*', help=argparse.SUPPRESS)
 
 parsers = (
 	install_parser, remove_parser, update_parser,
-	upgrade_parser, moo_parser, fetch_parser,
-	purge_parser, show_parser, clean_parser, history_parser
+	moo_parser, fetch_parser, show_parser,
+	clean_parser, history_parser
 )
 
 for fragrance in (
 	install_parser, remove_parser,
-	update_parser, upgrade_parser,
-	moo_parser, fetch_parser, purge_parser,
+	update_parser, moo_parser, fetch_parser,
 	show_parser, clean_parser, history_parser):
 
 	fragrance._positionals.title = "arguments"

@@ -469,9 +469,9 @@ def dedupe_list(original: list[str]) -> list[str]:
 
 def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
 	"""Return the correct headers for the summary."""
-	if arguments.command == 'purge' and history:
+	if 'purge' in arguments.command and history:
 		return _('Purged'), _('Purged:'), _('Auto-Purged'), _('Auto-Purged:')
-	if arguments.command == 'purge' and not history:
+	if 'purge' in arguments.command and not history:
 		return _('Purge'), _('Purging:'), _('Auto-Purge'), _('Auto-Purging:')
 	if not history:
 		return _('Remove'), _('Removing:'), _('Auto-Remove'), _('Auto-Removing:')

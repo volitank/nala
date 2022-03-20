@@ -32,7 +32,7 @@ from nala import _
 from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR
 from nala.fetch import fetch
 from nala.install import setup_cache
-from nala.nala import (clean, fix_broken, history,
+from nala.nala import (clean, fix_broken, history, auto_remove,
 				install, moo, purge, remove, search, show, upgrade)
 from nala.options import arguments, parser
 from nala.utils import arg_check, dprint, eprint, sudo_check, term
@@ -75,6 +75,9 @@ def _main() -> None:
 		return
 	if arguments.command in ('upgrade', 'clean', 'fetch', 'moo', 'history', 'search'):
 		eval(f"{arguments.command}()") # pylint: disable=eval-used
+		return
+	if arguments.command in ('autoremove', 'autopurge'):
+		auto_remove()
 		return
 	sys.exit(
 		_("{error} Unknown error in 'apt_command' function").format(

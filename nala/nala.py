@@ -139,6 +139,17 @@ def purge(pkg_names: list[str]) -> None:
 	"""Wrap the remove command as purge."""
 	remove(pkg_names)
 
+def auto_remove() -> None:
+	"""Command for autoremove."""
+	cache = setup_cache()
+	_purge = arguments.command == 'autopurge'
+	if cache.broken_count and arguments.no_fix_broken:
+		fix_broken(cache)
+		sys.exit()
+	check_state(cache, nala_pkgs)
+	auto_remover(cache, nala_pkgs, _purge)
+	get_changes(cache, nala_pkgs, remove=True)
+
 def fix_broken(nested_cache: Cache | None = None) -> None:
 	"""Attempt to fix broken packages, if any."""
 	cache = nested_cache or setup_cache()
