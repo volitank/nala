@@ -32,6 +32,8 @@ Nala - A prettier front-end for libapt-pkg
 
 	*\--no-full* will run a regular upgrade which won't remove packages. By default **nala** uses a *full-upgrade*.
 
+	*\--exclude* packages to exclude when updating. Glob enabled, for example. **nala update** *\--exclude* *linux-image**
+
 **clean**
 : > **clean** is exactly like running *apt clean*.
 

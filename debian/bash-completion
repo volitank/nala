@@ -118,6 +118,7 @@ _nala()
 						--no-update
 						--raw-dpkg
 						--no-autoremove
+						--exclude
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
