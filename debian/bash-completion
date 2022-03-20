@@ -84,7 +84,11 @@ _nala()
 		if [[ $cur == -* ]]; then
 			COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
 		else
-			COMPREPLY=( $( compgen -W 'show search install remove purge update upgrade fetch history clean moo' -- "$cur") )
+			COMPREPLY=( $( compgen -W '
+				show search install
+				remove purge autoremove
+				autopurge update upgrade
+				fetch history clean moo' -- "$cur") )
 		fi
 	else
 		# supported options per command
@@ -100,7 +104,7 @@ _nala()
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
-				remove|purge)
+				remove|purge|autoremove|autopurge)
 					COMPREPLY=( $( compgen -W '
 						-y --assume-yes
 						-d --download-only
@@ -177,6 +181,9 @@ _nala()
 						fi
 
 					fi
+					return 0
+					;;
+				autoremove|autopurge)
 					return 0
 					;;
 				show|list)
