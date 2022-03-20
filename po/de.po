@@ -13,7 +13,7 @@ msgstr "{error} Archivverzeichnis ist '/'. Dies ist gefährlich und wird nicht u
 
 #: nala/__main__.py:59
 msgid "Nala needs root to {command}"
-msgstr "Nala braucht root für {command}"
+msgstr "Nala benötigt root für {command}"
 
 #: nala/__main__.py:62
 msgid "Nala needs root to update package list"
@@ -31,7 +31,7 @@ msgstr "{error} Unbekannter Fehler in der Funktion „apt_command“"
 msgid "\n"
 "Exiting at your request"
 msgstr "\n"
-"Verlassen auf Ihren Wunsch"
+"Beende auf Ihren Wunsch"
 
 #: nala/constants.py:88 nala/dpkg.py:72
 msgid "Error:"
@@ -51,7 +51,7 @@ msgstr "Zuletzt abgeschlossen:"
 
 #: nala/downloader.py:62
 msgid "Mirror Timedout:"
-msgstr "Zeitüberschreitung beim Spiegeln:"
+msgstr "Zeitüberschreitung beim Verbinden zum Spiegelserver:"
 
 #: nala/downloader.py:60
 msgid "Starting Download:"
@@ -75,7 +75,7 @@ msgstr "Wird heruntergeladen..."
 
 #: nala/downloader.py:65
 msgid "No More Mirrors:"
-msgstr "Keine Spiegel mehr:"
+msgstr "Keine weiteren Spiegelserver:"
 
 #: nala/downloader.py:64
 msgid "Trying:"
@@ -139,7 +139,7 @@ msgstr "Verlauf wiederholen"
 
 #: nala/dpkg.py:721
 msgid "Fetching Missed Packages"
-msgstr "Verpasste Pakete abrufen"
+msgstr "Fehlende Pakete abrufen"
 
 #: nala/dpkg.py:723
 msgid "Fixing Broken Packages"
@@ -151,15 +151,15 @@ msgstr "Aktualisierung der Paketliste"
 
 #: nala/dpkg.py:828
 msgid "{warning} Quitting now could break your system!"
-msgstr "{warning} Wenn Sie jetzt aufhören, könnte Ihr System kaputt gehen!"
+msgstr "{warning} Wenn Sie jetzt abbrechen könnte Ihr System beschädigt werden!"
 
 #: nala/dpkg.py:832
 msgid "Ctrl+C twice quickly will exit..."
-msgstr "Strg+C zweimal schnell beendet..."
+msgstr "Strg+C zweimal schnell hintereinander beendet das Programm..."
 
 #: nala/error.py:44 nala/error.py:402 nala/show.py:112
 msgid "Depends:"
-msgstr "Kommt darauf an:"
+msgstr "Hängt ab von:"
 
 #: nala/error.py:46 nala/utils.py:762
 msgid "Either:"
@@ -167,7 +167,7 @@ msgstr "Entweder:"
 
 #: nala/error.py:48 nala/error.py:397 nala/show.py:145
 msgid "Breaks:"
-msgstr "Geht kaputt:"
+msgstr "Beschädigt:"
 
 #: nala/error.py:50 nala/error.py:392 nala/show.py:140
 msgid "Conflicts:"
@@ -179,7 +179,7 @@ msgstr "{pkg_name} wird nur namentlich referenziert, kein Paket stellt es bereit
 
 #: nala/error.py:54
 msgid "{dependency} will break {pkg_name} {version}"
-msgstr "{dependency} wird {pkg_name} {version} brechen"
+msgstr "{dependency} wird {pkg_name} {version} beschädigen"
 
 #: nala/error.py:56
 msgid "{dependency} conflicts with {pkg_name} {version}"
@@ -187,13 +187,13 @@ msgstr "{dependency} steht in Konflikt mit {pkg_name} {version}"
 
 #: nala/error.py:63
 msgid "{error} python-apt gave us {apt_err} This isn't a proper error as it's empty"
-msgstr "{error} python-apt hat uns {apt_err} gegeben. Dies ist kein richtiger Fehler, da er leer ist"
+msgstr "{error} python-apt hat {apt_err} zurückgegeben. Dies ist kein richtiger Fehler, da er leer ist"
 
 #: nala/error.py:59
 msgid "{error} Installation has failed.\n"
 "If you'd like to file a bug report please include '/var/log/nala/dpkg-debug.log'"
 msgstr "{error} Die Installation ist fehlgeschlagen.\n"
-"Wenn Sie einen Fehlerbericht einreichen möchten, fügen Sie bitte „/var/log/nala/dpkg-debug.log“ hinzu."
+"Wenn Sie einen Fehlerbericht einreichen möchten, fügen Sie diesem bitte „/var/log/nala/dpkg-debug.log“ hinzu."
 
 #: nala/constants.py:89 nala/error.py:119
 msgid "Warning:"
@@ -269,11 +269,11 @@ msgstr "Pakete gingen verloren:"
 
 #: nala/fetch.py:150
 msgid "Fetching Ubuntu mirrors..."
-msgstr "Ubuntu-Spiegel werden abgerufen ..."
+msgstr "Ubuntu-Spiegelserver werden abgerufen ..."
 
 #: nala/fetch.py:170
 msgid "Fetching Debian mirrors..."
-msgstr "Debian-Spiegel werden abgerufen ..."
+msgstr "Debian-Spiegelserver werden abgerufen ..."
 
 #: nala/fetch.py:191
 msgid "{error} unable to connect to {mirror}"
@@ -281,7 +281,7 @@ msgstr "{error} kann keine Verbindung zu {mirror} herstellen"
 
 #: nala/fetch.py:205
 msgid "Parsing mirror list..."
-msgstr "Parsen der Mirror-Liste..."
+msgstr "Parsen der Spiegelserver-Liste..."
 
 #: nala/fetch.py:311
 msgid "Writing:"
@@ -317,7 +317,7 @@ msgstr "Abbrechen."
 
 #: nala/fetch.py:389
 msgid "Amount of fetches has to be 1-10..."
-msgstr "Anzahl der Abrufe muss 1-10 sein..."
+msgstr "Anzahl der Abrufe muss zwischen 1-10 sein..."
 
 #: nala/history.py:64
 msgid "{error} History file seems corrupt. You should try removing {file}"
@@ -337,7 +337,7 @@ msgstr "Der Verlauf wurde gelöscht"
 
 #: nala/history.py:176
 msgid "History has been altered..."
-msgstr "Die Geschichte wurde geändert..."
+msgstr "Der Verlauf wurde geändert..."
 
 #: nala/history.py:253
 msgid "{error} Transaction {num} doesn't exist."
@@ -379,7 +379,7 @@ msgstr "Virtuelles Paket"
 
 #: nala/install.py:518
 msgid "{pkg_name} is already at the latest version {version}"
-msgstr "{pkg_name} hat bereits die neueste Version {version}"
+msgstr "{pkg_name} ist bereits die neueste Version {version}"
 
 #: nala/install.py:574
 msgid "{notice} The following packages require a reboot,"
@@ -433,7 +433,7 @@ msgstr "{pkg_name} kann durch Installation behoben werden:\n"
 
 #: nala/nala.py:193
 msgid "There are broken packages that need to be fixed!"
-msgstr "Es gibt kaputte Pakete, die repariert werden müssen!"
+msgstr "Es gibt beschädigte Pakete, die repariert werden müssen!"
 
 #: nala/nala.py:195
 msgid "You can use {switch} if you'd like to try without fixing them."
@@ -499,11 +499,11 @@ msgstr "Ich kann nicht muhen, denn ich bin eine Katze"
 
 #: nala/nala.py:345
 msgid "What did you expect no-update to do?"
-msgstr "Was haben Sie erwartet, dass kein Update bewirkt?"
+msgstr "Was hast du von no-update erwartet?"
 
 #: nala/nala.py:348
 msgid "What did you expect to update?"
-msgstr "Was hast du erwartet zu aktualisieren?"
+msgstr "Was wolltest du aktualisieren?"
 
 #: nala/options.py:57
 msgid "reads the licenses of software compiled in and then reads the GPLv3"
@@ -527,7 +527,7 @@ msgstr "Paketdateien werden nur abgerufen, nicht entpackt oder installiert"
 
 #: nala/options.py:140
 msgid "disable scrolling text and print extra information"
-msgstr "Deaktivieren Sie Lauftext und drucken Sie zusätzliche Informationen"
+msgstr "Deaktiviert Lauftext und gibt zusätzliche Informationen aus"
 
 #: nala/options.py:145
 msgid "attempts to fix broken packages"
@@ -571,7 +571,7 @@ msgstr "protokolliert zusätzliche Informationen zum Debuggen"
 
 #: nala/options.py:205
 msgid "sets 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges will not bug you"
-msgstr "setzt 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges werden Sie nicht stören"
+msgstr "setzt 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges wird Sie nicht stören"
 
 #: nala/options.py:209
 msgid "sets 'DEBIAN_FRONTEND=noninteractive', this also disables apt-listchanges"
@@ -643,7 +643,7 @@ msgstr "Alias für Update"
 
 #: nala/options.py:338
 msgid "Nala will fetch mirrors with the lowest latency."
-msgstr "Nala ruft Mirrors mit der niedrigsten Latenz ab."
+msgstr "Nala ruft Spiegelserver mit der niedrigsten Latenz ab."
 
 #: nala/options.py:339
 msgid "For Debian"
@@ -655,11 +655,11 @@ msgstr "Für Ubuntu"
 
 #: nala/options.py:351
 msgid "fetches fast mirrors to speed up downloads"
-msgstr "ruft schnelle Mirrors ab, um Herunterladen zu beschleunigen"
+msgstr "ruft schnelle Spiegelserver ab, um Herunterladen zu beschleunigen"
 
 #: nala/options.py:359
 msgid "number of mirrors to fetch"
-msgstr "Anzahl der zu holenden Spiegel"
+msgstr "Anzahl der zu holenden Spiegelserver"
 
 #: nala/options.py:364
 msgid "choose the Debian release"
@@ -751,7 +751,7 @@ msgstr "Ausführen von dpkg"
 
 #: nala/rich.py:180
 msgid "Testing Mirrors"
-msgstr "Spiegel testen"
+msgstr "Spiegelserver testen"
 
 #: nala/search.py:75
 msgid "{pkg} [local]"
@@ -789,7 +789,7 @@ msgstr "Startseite:"
 
 #: nala/show.py:74
 msgid "Download-Size:"
-msgstr "Herunterladen-Größe:"
+msgstr "Größe zum Herunterladen:"
 
 #: nala/show.py:78
 msgid "APT-Sources:"
@@ -837,11 +837,11 @@ msgstr "Paket:"
 
 #: nala/show.py:158 nala/utils.py:614
 msgid "Version:"
-msgstr "Ausführung:"
+msgstr "Version:"
 
 #: nala/show.py:159
 msgid "Architecture:"
-msgstr "Die Architektur:"
+msgstr "Architektur:"
 
 #: nala/show.py:160
 msgid "Installed:"
@@ -853,7 +853,7 @@ msgstr "Priorität:"
 
 #: nala/show.py:162
 msgid "Essential:"
-msgstr "Wesentlich:"
+msgstr "Essentiell:"
 
 #: nala/show.py:163
 msgid "Section:"
@@ -941,7 +941,7 @@ msgstr "Säubern"
 
 #: nala/utils.py:603
 msgid "Purging:"
-msgstr "Spülen:"
+msgstr "Säubere:"
 
 #: nala/utils.py:605
 msgid "Remove"
@@ -949,15 +949,15 @@ msgstr "Entfernen"
 
 #: nala/utils.py:605
 msgid "Removing:"
-msgstr "Entfernen:"
+msgstr "Entferne:"
 
 #: nala/utils.py:603
 msgid "Auto-Purge"
-msgstr "Automatische Bereinigung"
+msgstr "Automatische Säuberung"
 
 #: nala/utils.py:603
 msgid "Auto-Purging:"
-msgstr "Automatisches Spülen:"
+msgstr "Automatisches Säubern:"
 
 #: nala/utils.py:605
 msgid "Auto-Remove"
@@ -1017,7 +1017,7 @@ msgstr "Installieren"
 
 #: nala/utils.py:678
 msgid "Installed"
-msgstr "Eingerichtet"
+msgstr "Installiert"
 
 #: nala/utils.py:679 nala/utils.py:684 nala/utils.py:689 nala/utils.py:694
 #: nala/utils.py:697 nala/utils.py:700 nala/utils.py:703
@@ -1034,11 +1034,11 @@ msgstr "Aktualisierung"
 
 #: nala/utils.py:688
 msgid "Upgraded"
-msgstr "Aufgerüstet"
+msgstr "Aktualisiert"
 
 #: nala/utils.py:693
 msgid "Downgrade"
-msgstr "Downgraden"
+msgstr "Herabstufen"
 
 #: nala/utils.py:697
 msgid "Configure"
@@ -1046,7 +1046,7 @@ msgstr "Konfigurieren"
 
 #: nala/utils.py:710
 msgid "Total download size:"
-msgstr "Gesamtgröße des Herunterladen:"
+msgstr "Gesamtgröße zum Herunterladen:"
 
 #: nala/utils.py:713
 msgid "Disk space to free:"
@@ -1086,11 +1086,11 @@ msgstr "{error} Datei hat unerwartete Größe: {filename}\n"
 
 #: nala/downloader.py:78
 msgid "{notice} We have removed {filename} but will try another mirror"
-msgstr "{notice} Wir haben {filename} entfernt, werden es aber mit einem anderen Mirror versuchen"
+msgstr "{notice} Wir haben {filename} entfernt, werden es aber mit einem anderen Spiegelserver versuchen"
 
 #: nala/downloader.py:373
 msgid "{error} No more mirrors available for {filename}"
-msgstr "{error} Keine weiteren Mirrors verfügbar für {filename}"
+msgstr "{error} Keine weiteren Spiegelserver verfügbar für {filename}"
 
 #: nala/downloader.py:502
 msgid "{error} {filename} can't be checked for integrity.\n"
@@ -1100,11 +1100,11 @@ msgstr "{error} {filename} kann nicht auf Integrität geprüft werden.\n"
 
 #: nala/downloader.py:527
 msgid "{error} Download failure. The following downloads failed:"
-msgstr "{error} Fehler beim Herunterladen. Die folgenden herunterladen sind fehlgeschlagen:"
+msgstr "{error} Fehler beim Herunterladen. Folgende Downloads sind fehlgeschlagen:"
 
 #: nala/downloader.py:538
 msgid "{warning} Falling back to apt_pkg. The following downloads failed:"
-msgstr "{warning} Fallback auf apt_pkg. Die folgenden herunterladen sind fehlgeschlagen:"
+msgstr "{warning} Fallback auf apt_pkg. Folgende Downloads sind fehlgeschlagen:"
 
 #: nala/dpkg.py:66
 msgid "Fetched"
@@ -1214,27 +1214,27 @@ msgstr "{error} {update} und {no_update} können nicht gleichzeitig verwendet we
 
 #: nala/utils.py:601
 msgid "Purged"
-msgstr "Gelöscht"
+msgstr "Gesäubert"
 
 #: nala/utils.py:601
 msgid "Purged:"
-msgstr "Gelöscht:"
+msgstr "Gesäubert:"
 
 #: nala/utils.py:601
 msgid "Auto-Purged"
-msgstr "Automatisch gelöscht"
+msgstr "Automatisch gesäubert"
 
 #: nala/utils.py:601
 msgid "Auto-Purged:"
-msgstr "Automatisch gelöscht:"
+msgstr "Automatisch gesäubert:"
 
 #: nala/utils.py:606
 msgid "Removed"
-msgstr "ENTFERNT"
+msgstr "Entfernt"
 
 #: nala/utils.py:606
 msgid "Removed:"
-msgstr "ENTFERNT:"
+msgstr "Entfernt:"
 
 #: nala/utils.py:606
 msgid "Auto-Removed"
