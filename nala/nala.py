@@ -111,8 +111,6 @@ def install(pkg_names: list[str]) -> None:
 	# Marked upgrade or install after the package manager is run
 	or not all((pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade) for pkg in pkgs)
 	) and not broken_error(broken, cache):
-		for pkg in pkgs:
-			print(pkg.marked_reinstall)
 		unmarked_error(pkgs)
 
 	auto_remover(cache, nala_pkgs)
@@ -164,52 +162,7 @@ def auto_remove() -> None:
 def fix_broken(nested_cache: Cache | None = None) -> None:
 	"""Attempt to fix broken packages, if any."""
 	cache = nested_cache or setup_cache()
-	broken: list[Package] = []
-	fixable: list[Package] = []
-	fixer = apt_pkg.ProblemResolver(cache._depcache)
-	for pkg in cache:
-		if pkg.is_now_broken:
-			try:
-				pkg.mark_install()
-				fixable.append(pkg)
-			except apt_pkg.Error as error:
-				if 'broken packages' not in str(error):
-					raise error from error
-				broken.append(pkg)
-				cache.clear()
-				fixer.clear(pkg._pkg)
-				# --no-fix-broken is default True
-				fixer.resolve(arguments.no_fix_broken)
-
-		if (not pkg.marked_delete and pkg.installed
-			and pkg._pkg.current_state in (CurrentState.HALF_CONFIGURED, CurrentState.UNPACKED)):
-			nala_pkgs.configure_pkgs.append(
-				NalaPackage(pkg.name, pkg.installed.version, pkg.installed.installed_size)
-			)
-	for pkg in broken:
-		print(
-			_("{pkg_name} cannot be fixed and will be removed:").format(
-				pkg_name = color(pkg.name, 'RED')
-			)
-		)
-		broken_pkg(pkg, cache)
-
-	for npkg in nala_pkgs.configure_pkgs:
-		print(
-			_("{pkg_name} needs to be configured").format(
-				pkg_name = color(npkg.name, 'GREEN')
-			)
-		)
-
-	for pkg in fixable:
-		print(
-			_("{pkg_name} can be fixed by installing:\n{pkgs}").format(
-				pkg_name = color(pkg.name, 'GREEN'),
-				pkgs = ", ".join([color(dep.name, 'GREEN')
-							for depends in pkg_installed(pkg).dependencies
-							for dep in depends if cache[dep.name].marked_install])
-			)
-		)
+	cache.fix_broken()
 
 	if nested_cache:
 		print(color(_("There are broken packages that need to be fixed!"), 'YELLOW'))
@@ -218,8 +171,8 @@ def fix_broken(nested_cache: Cache | None = None) -> None:
 				switch = color('--no-fix-broken', 'YELLOW')
 			)
 		)
-
-	auto_remover(cache, nala_pkgs)
+	else:
+		check_state(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs)
 
 def show(pkg_names: list[str]) -> None:
