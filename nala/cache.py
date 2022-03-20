@@ -24,6 +24,7 @@
 """The Cache subclass module."""
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import sys
 from typing import TYPE_CHECKING, Generator
@@ -34,6 +35,7 @@ from apt.package import Package
 
 from nala import _, color, color_version
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX
+from nala.options import arguments
 from nala.utils import dprint, eprint
 
 if TYPE_CHECKING:
@@ -155,17 +157,15 @@ class Cache(_Cache):
 		dprint(f"Virtual Filter: {new_names}")
 		return sorted(new_names)
 
-	def what_replaces(self, pkg_name: str)  -> Generator[str, None, None]:
+	def what_replaces(self, pkg_name: str) -> Generator[str, None, None]:
 		"""Generate packages that replace the given name."""
 		for pkg in self._cache.packages: # pylint: disable=not-an-iterable
 			if (cand := self._depcache.get_candidate_ver(pkg)):
-				try:
+				with contextlib.suppress(KeyError):
 					replaces = cand.depends_list['Replaces']
 					target = replaces[0][0].target_pkg
 					if pkg_name == target.name:
 						yield pkg.get_fullname(pretty=True)
-				except KeyError:
-					pass
 
 	def check_virtual(self, pkg_name: str) -> Package | None:
 		"""Check if the package is virtual."""
@@ -175,6 +175,21 @@ class Cache(_Cache):
 				return self[provides[0]]
 			print_virtual_pkg(pkg_name, provides)
 		return None
+
+	def protect_upgrade_pkgs(self) -> None:
+		"""Mark excluded packages as protected."""
+		if not arguments.exclude:
+			return
+		resolver = apt_pkg.ProblemResolver(self._depcache)
+		for pkg_name in self.glob_filter(arguments.exclude):
+			if pkg_name in self:
+				pkg = self[pkg_name]
+				if pkg.is_upgradable:
+					print(f"Protecting {color(pkg_name, 'GREEN')} from upgrade")
+					resolver.protect(self._cache[pkg_name])
+				elif pkg.is_auto_removable:
+					print(f"Protecting {color(pkg_name, 'GREEN')} from auto-removal")
+					resolver.protect(self._cache[pkg_name])
 
 def install_archives(
 	apt: apt_pkg.PackageManager | list[str], install_progress: InstallProgress) -> int:

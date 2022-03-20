@@ -60,7 +60,18 @@ def upgrade() -> None:
 	check_state(cache, nala_pkgs)
 
 	is_upgrade = [pkg for pkg in cache if pkg.is_upgradable]
-	cache.upgrade(dist_upgrade=arguments.no_full)
+	cache.protect_upgrade_pkgs()
+	try:
+		cache.upgrade(dist_upgrade=arguments.no_full)
+	except apt_pkg.Error as error:
+		if arguments.exclude:
+			eprint(_("Selected packages cannot be excluded from upgrade safely."))
+			sys.exit(
+				_("{error} You have held broken packages").format(
+					error=ERROR_PREFIX
+				)
+			)
+		raise error from error
 
 	if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
 		cache.clear()
