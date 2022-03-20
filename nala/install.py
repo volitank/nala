@@ -34,7 +34,7 @@ from apt.cache import FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package
 from apt_pkg import DepCache, Error as AptError, get_architectures
 
-from nala import _, color, color_version
+from nala import _, color, color_version, config
 from nala.cache import Cache
 from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX,
 				NALA_DIR, NALA_TERM_LOG, NEED_RESTART, NOTICE_PREFIX,
@@ -54,7 +54,7 @@ from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
 	"""Handle auto removal of packages."""
-	if arguments.no_autoremove and arguments.command not in ('autoremove', 'autopurge'):
+	if not config.AUTO_REMOVE and arguments.command not in ('autoremove', 'autopurge'):
 		return
 	with cache.actiongroup(): # type: ignore[attr-defined]
 	# Recurse 10 levels if we're installing .debs to make sure that all depends are safe

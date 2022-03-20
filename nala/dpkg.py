@@ -44,7 +44,7 @@ from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 from ptyprocess.ptyprocess import _setwinsize
 
-from nala import _, color
+from nala import _, color, config
 from nala.constants import (CONF_ANSWERS, CONF_MESSAGE, DPKG_ERRORS,
 				DPKG_STATUS, ERROR_PREFIX, HANDLER, NOTICES, SPAM, WARNING_PREFIX)
 from nala.options import arguments
@@ -162,7 +162,7 @@ class UpdateProgress(text.AcquireProgress):
 	def table_print(self, msg: str = '',
 		fetched: bool = False, update_spinner: bool = False) -> None:
 		"""Update wrapper for the scroll bar."""
-		if arguments.verbose and not fetched and msg:
+		if not config.SCROLL and not fetched and msg:
 			print(msg)
 			return
 		scroll_bar(self, msg,
@@ -757,7 +757,7 @@ def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-man
 	if use_bar or update_spinner:
 		table.add_row(Panel(panel_group, padding=(0,0), border_style=bar_style))
 	# We don't need to build the extra panel if we're not scrolling
-	if arguments.verbose:
+	if not config.SCROLL:
 		self.live.update(table, refresh=True)
 		return
 	self.live.update(Panel(

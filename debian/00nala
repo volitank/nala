@@ -1,0 +1,5 @@
+## Configuration file for Nala
+# Set to false to disable scrolling text
+Nala::ScrollingText "true";
+# Set to false to disable auto auto-removing
+Nala::AutoRemove "true";
