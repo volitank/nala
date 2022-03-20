@@ -42,17 +42,23 @@ COLOR_CODES: dict[str, str | int] = {
 	'ITALIC' : '\x1b[3m',
 	'RED' : 31,
 	'GREEN' : 32,
-	'YELLOW' : 33,
+	#'YELLOW' : 33,
+	# We set Yellow as more of an orange for light terminals.
+	'YELLOW' : '38;5;202',
 	'BLUE' : 34,
 	'MAGENTA' : 35,
 	'CYAN' : 36,
 	'WHITE' : 37,
 }
 
-def color(text: str, text_color: str = 'WHITE') -> str:
+def color(text: str, text_color: str = '') -> str:
 	"""Return bold text in the color of your choice."""
 	if not console.is_terminal or console.is_dumb_terminal:
 		return text
+	if not text_color:
+		# Just return bolded text
+		return f"\x1b[1m{text}{COLOR_CODES['RESET']}"
+	# Return bolded choice of color
 	return f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
 
 def color_version(version: str) -> str:

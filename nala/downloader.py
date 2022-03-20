@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import re
 import sys
@@ -302,7 +303,7 @@ class PkgDownloader: # pylint: disable=too-many-instance-attributes
 		pkg_download_progress.advance(self.task, advance=0)
 		table.add_row(pkg_download_progress.get_renderable())
 		return Panel(
-			table, title='[bold white]'+_('Downloading...'), title_align='left', border_style='bold green'
+			table, title='[bold default]'+_('Downloading...'), title_align='left', border_style='bold green'
 		)
 
 	def download_error(self,
@@ -504,10 +505,8 @@ def get_hash(version: Version) -> tuple[str, str]:
 	# hashes = ('SHA512', 'SHA256', 'SHA1', 'MD5')
 
 	for _type in hashes:
-		try:
+		with contextlib.suppress(KeyError):
 			return _type.lower(), hash_list.find(_type).hashvalue
-		except KeyError:
-			pass
 
 	filename = Path(version.filename).name or version.package.name
 	sys.exit(

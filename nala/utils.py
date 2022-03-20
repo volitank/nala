@@ -515,7 +515,7 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 
 	print_packages(
 		upgrade_header,
-		nala_pkgs.downgrade_pkgs, _('Downgrading:'), 'bold yellow'
+		nala_pkgs.downgrade_pkgs, _('Downgrading:'), 'bold orange_red1'
 	)
 
 	print_packages(
