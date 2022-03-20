@@ -590,7 +590,7 @@ def need_reboot() -> bool:
 	if REBOOT_REQUIRED.exists():
 		if REBOOT_PKGS.exists():
 			print(
-				_("{notice} The following packages require a reboot,").format(
+				_("{notice} The following packages require a reboot.").format(
 					notice=NOTICE_PREFIX
 				)
 			)
@@ -636,7 +636,10 @@ def setup_cache() -> Cache:
 
 def check_update() -> bool:
 	"""Check if we should update the cache or not."""
-	no_update_list = ('remove', 'show', 'search', 'history', 'install', 'purge', 'autoremove', 'autopurge')
+	no_update_list = (
+		'remove', 'show', 'search', 'history',
+		'install', 'purge', 'autoremove', 'autopurge'
+	)
 	no_update = cast(bool, arguments.no_update)
 	if arguments.command in no_update_list:
 		no_update = True
