@@ -299,11 +299,11 @@ def parse_sources() -> list[str]:
 	for file in SOURCEPARTS.iterdir():
 		if file != NALA_SOURCES:
 			sources.extend(
-				line for line in file.read_text(encoding='utf-8').splitlines()
+				line for line in file.read_text(encoding='utf-8', errors='replace').splitlines()
 				if not line.startswith('#') and line)
 	if SOURCELIST.exists():
 		sources.extend(
-			line for line in SOURCELIST.read_text(encoding='utf-8').splitlines()
+			line for line in SOURCELIST.read_text(encoding='utf-8', errors='replace').splitlines()
 			if not line.startswith('#') and line)
 	return sources
 
