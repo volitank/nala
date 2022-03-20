@@ -110,7 +110,7 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 			if value and '--' + key.replace('_', '-') in action.option_strings:
 				action_group.remove(action)
 
-def remove_interactive_options(argparser: NalaParser) -> None:
+def remove_dpkg_options(argparser: NalaParser) -> None:
 	"""Remove the dpkg options from help menu."""
 	action_group = argparser._action_groups
 	for group in action_group[:]:
@@ -199,50 +199,50 @@ global_options.add_argument(
 )
 
 # Define interactive options
-interactive_options = NalaParser(add_help=False)
-interactive_options.add_argument(
+dpkg_options = NalaParser(add_help=False)
+dpkg_options.add_argument(
 	'--no-aptlist', action='store_true',
 	help=_("sets 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges will not bug you")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--non-interactive', action='store_true',
 	help=_("sets 'DEBIAN_FRONTEND=noninteractive', this also disables apt-listchanges")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--non-interactive-full', action='store_true',
 	help=_("an alias for --non-interactive --confdef --confold")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--confold', action='store_true',
 	help=_("always keep the old version without prompting")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--confnew', action='store_true',
 	help=_("always install the new version without prompting")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--confdef', action='store_true',
 	help=_("always choose the default action without prompting")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--confmiss', action='store_true',
 	help=_("always install the missing conffile without prompting. This is dangerous!")
 )
-interactive_options.add_argument(
+dpkg_options.add_argument(
 	'--confask', action='store_true',
 	help=_("always offer to replace it with the version in the package")
 )
-interactive_options._action_groups[1].title ='dpkg options'
-interactive_options._action_groups[1].description = (
+dpkg_options._action_groups[1].title ='dpkg options'
+dpkg_options._action_groups[1].description = (
 	_('read the man page if you are unsure about these options')
 )
 
 parser = NalaParser(
 	formatter_class=formatter,
 	usage=f'{bin_name} [--options] <command>',
-	parents=[global_options, interactive_options]
+	parents=[global_options, dpkg_options]
 )
-remove_interactive_options(parser)
+remove_dpkg_options(parser)
 remove_help_options(parser, no_fix_broken=True)
 # Define our subparser
 subparsers = parser.add_subparsers(metavar='', dest='command')
@@ -251,7 +251,7 @@ assert parser._subparsers
 install_parser = subparsers.add_parser('install',
 	formatter_class=formatter,
 	help=_('install packages'),
-	parents=[global_options, interactive_options],
+	parents=[global_options, dpkg_options],
 	usage=f'{bin_name} install [--options] [pkg1 pkg2 ...]'
 )
 
@@ -386,7 +386,7 @@ fetch_parser.add_argument(
 
 # Remove Global options that I don't want to see in fetch --help
 remove_help_options(fetch_parser)
-remove_interactive_options(fetch_parser)
+remove_dpkg_options(fetch_parser)
 
 # We do the same thing that we did with update options
 show_options = NalaParser(add_help=False)
@@ -401,7 +401,7 @@ show_parser = subparsers.add_parser(
 	'show',
 	formatter_class=formatter,
 	help=_('show package details'),
-	parents=[show_options, global_options, interactive_options],
+	parents=[show_options, global_options, dpkg_options],
 	usage=f'{bin_name} show [--options] [pkg1 pkg2 ...]'
 )
 # Remove Global options that I don't want to see in show --help
@@ -414,7 +414,7 @@ remove_help_options(
 	no_install_recommended=True
 )
 
-remove_interactive_options(show_parser)
+remove_dpkg_options(show_parser)
 
 show_parser.add_argument(
 	'args',
@@ -427,7 +427,7 @@ search_parser = subparsers.add_parser(
 	'search',
 	formatter_class=formatter,
 	help=_('search package names and descriptions'),
-	parents=[show_options, global_options, interactive_options],
+	parents=[show_options, global_options, dpkg_options],
 	usage=f'{bin_name} search [--options] regex'
 )
 search_parser.add_argument(
@@ -460,7 +460,7 @@ remove_help_options(
 	no_install_recommended=True
 )
 
-remove_interactive_options(search_parser)
+remove_dpkg_options(search_parser)
 
 # Parser for the History command
 history_parser = subparsers.add_parser(
@@ -468,7 +468,7 @@ history_parser = subparsers.add_parser(
 	formatter_class=formatter,
 	help=_('show transaction history'),
 	description=_("'history' without additional arguments will list a history summary"),
-	parents=[global_options, interactive_options],
+	parents=[global_options, dpkg_options],
 	usage=f'{bin_name} history [--options] <command> <id|all>'
 )
 # Remove Global options that I don't want to see in history --help
@@ -479,7 +479,7 @@ remove_help_options(
 	no_install_recommended=True
 )
 
-remove_interactive_options(history_parser)
+remove_dpkg_options(history_parser)
 
 history_parser.add_argument(
 	'mode',
