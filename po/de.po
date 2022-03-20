@@ -147,7 +147,7 @@ msgstr "Defekte Pakete reparieren"
 
 #: nala/dpkg.py:724
 msgid "Updating Package List"
-msgstr "Aktualisierung der Paketliste"
+msgstr "Aktualisierung der Paketlisten"
 
 #: nala/dpkg.py:828
 msgid "{warning} Quitting now could break your system!"
@@ -989,7 +989,7 @@ msgstr "Neuinstallation:"
 
 #: nala/utils.py:639
 msgid "Upgrading:"
-msgstr "Aktualisierung  durchführen:"
+msgstr "Diese Pakete werden aktualisiert:"
 
 #: nala/utils.py:644
 msgid "Downgrading:"
@@ -1022,7 +1022,7 @@ msgstr "Installiert"
 #: nala/utils.py:679 nala/utils.py:684 nala/utils.py:689 nala/utils.py:694
 #: nala/utils.py:697 nala/utils.py:700 nala/utils.py:703
 msgid "Packages"
-msgstr "Pakete"
+msgstr "Paketen"
 
 #: nala/utils.py:683
 msgid "Reinstall"
@@ -1030,7 +1030,7 @@ msgstr "Neu installieren"
 
 #: nala/utils.py:688
 msgid "Upgrade"
-msgstr "Aktualisierung"
+msgstr "Aktualisierung von"
 
 #: nala/utils.py:688
 msgid "Upgraded"
@@ -1046,7 +1046,7 @@ msgstr "Konfigurieren"
 
 #: nala/utils.py:710
 msgid "Total download size:"
-msgstr "Gesamtgröße zum Herunterladen:"
+msgstr "Gesamtgröße des Downloads:"
 
 #: nala/utils.py:713
 msgid "Disk space to free:"
@@ -1108,7 +1108,7 @@ msgstr "{warning} Fallback auf apt_pkg. Folgende Downloads sind fehlgeschlagen:"
 
 #: nala/dpkg.py:66
 msgid "Fetched"
-msgstr "Geholt"
+msgstr "Holte"
 
 #: nala/dpkg.py:70
 msgid "Downloaded:"
