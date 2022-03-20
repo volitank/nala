@@ -35,7 +35,7 @@ from apt.package import Package, Version
 from nala import _, color
 from nala.cache import Cache
 from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
-				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE, CurrentState)
+				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
@@ -46,8 +46,8 @@ from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
-from nala.utils import (NalaPackage, PackageHandler,
-				dprint, eprint, iter_remove, pkg_installed, sudo_check)
+from nala.utils import (PackageHandler, dprint,
+				eprint, iter_remove, pkg_installed, sudo_check)
 
 nala_pkgs = PackageHandler()
 
