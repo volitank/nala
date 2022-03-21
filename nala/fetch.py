@@ -39,7 +39,8 @@ from httpx import HTTPError, get
 from rich.progress import Progress, TaskID
 
 from nala import _, color
-from nala.constants import ERROR_PREFIX, NALA_SOURCES, SOURCELIST, SOURCEPARTS
+from nala.constants import (ERROR_PREFIX, NALA_SOURCES,
+				NOTICE_PREFIX, SOURCELIST, SOURCEPARTS)
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
 from nala.utils import ask, dprint, eprint
@@ -163,13 +164,12 @@ def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	#      <pubDate>Fri, 24 Dec 2021 05:26:30 -0000</pubDate>
 	#      <guid>http://mirror.steadfastnet.com/ubuntu/</guid>
 	#    </item>
-	return parse_mirror(UBUNTU, ubuntu, country_list)
+	return parse_mirror(UBUNTU, ubuntu, country_list, tuple(get_architectures()))
 
 def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	"""Get and parse the Debian mirror list."""
 	print(_('Fetching Debian mirrors...'))
 	debian = fetch_mirrors("https://mirror-master.debian.org/status/Mirrors.masterlist", '\n\n')
-	arches = tuple(get_architectures())
 	# This is what one of our "Mirrors might look like after split"
 	# Site: mirrors.edge.kernel.org
 	# Country: NL Netherlands
@@ -180,7 +180,7 @@ def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	# Archive-architecture: amd64 arm64 armel armhf i386 mips mips64el mipsel powerpc ppc64el s390x
 	# Archive-http: /debian/
 	# Sponsor: packet.net https://packet.net/
-	return parse_mirror(DEBIAN, debian, country_list, arches)
+	return parse_mirror(DEBIAN, debian, country_list, tuple(get_architectures()))
 
 def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 	"""Attempt to fetch the url and split a list based on the splitter."""
@@ -199,8 +199,7 @@ def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 def parse_mirror(
 		distro: str, master_mirror: tuple[str, ...],
 		country_list: tuple[str, ...] | None,
-		arches: tuple[str, ...] | tuple[()] = ()
-	) -> tuple[str, ...]:
+		arches: tuple[str, ...]) -> tuple[str, ...]:
 	"""Parse the mirror."""
 	mirror_set = set()
 	if arguments.verbose:
@@ -210,13 +209,12 @@ def parse_mirror(
 	for country, mirror in itertools.product(countries, master_mirror):
 		if country not in mirror:
 			continue
-		if distro == DEBIAN:
-			url = debian_parser(mirror, arches)
-		elif distro == UBUNTU:
-			url = ubuntu_parser(mirror)
-
-		if url:
+		if distro == DEBIAN and (url := debian_parser(mirror, arches)):
 			mirror_set.add(url)
+			continue
+		if distro == UBUNTU and (url := ubuntu_parser(mirror, arches)):
+			mirror_set.add(url)
+			continue
 	return tuple(mirror_set)
 
 def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
@@ -236,7 +234,7 @@ def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
 					country_list.add(result.group(1))
 	return tuple(country_list)
 
-def debian_parser(mirror: str, arches: tuple[str, ...] | tuple[()]) -> str | None:
+def debian_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
 	"""Parse the Debian mirror."""
 	url = 'http://'
 	if 'Archive-http:' in mirror and all(arch in mirror for arch in arches):
@@ -249,15 +247,17 @@ def debian_parser(mirror: str, arches: tuple[str, ...] | tuple[()]) -> str | Non
 		return None
 	return url
 
-def ubuntu_parser(mirror: str) -> str | None:
+def ubuntu_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
 	"""Parse the Ubuntu mirror."""
 	# First section we get from Ubuntu is garbage. Let's ditch it and get to business
 	if '<title>Ubuntu Archive Mirrors Status</title>' in mirror:
 		return None
-
+	only_ports = 'amd64' not in arches and 'i386' not in arches
 	for line in mirror.splitlines():
 		# <link>http://mirror.steadfastnet.com/ubuntu/</link>
 		if result := re.search(UBUNTU_MIRROR, line):
+			if only_ports and 'ubuntu-ports' not in result.group(1):
+				return None
 			return result.group(1)
 	return None
 
@@ -337,6 +337,10 @@ def write_sources(release: str, component: str, sources: list[str]) -> None:
 			num += 1
 			if num == arguments.fetches:
 				break
+		if num != arguments.fetches:
+			eprint(_("{notice} We were unable to fetch {num} mirrors.").format(
+				notice=NOTICE_PREFIX, num=arguments.fetches
+			))
 
 async def test_mirrors(netselect: tuple[str, ...]) -> None:
 	"""Test mirrors."""
