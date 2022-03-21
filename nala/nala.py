@@ -218,17 +218,15 @@ def search() -> None:
 			)
 		)
 	with search_progress as progress:
-		searching = _('Searching')
-		task = progress.add_task(f"{searching}...", total=len(cache))
+		task = progress.add_task('', total=len(cache))
 		arches = apt_pkg.get_architectures()
 		with cache.actiongroup(): # type: ignore[attr-defined]
 			for pkg in cache:
+				progress.advance(task)
 				if arguments.installed and not pkg.installed:
-					progress.advance(task)
 					continue
 				if pkg.architecture() in arches:
 					search_name(pkg, search_pattern, found)
-				progress.advance(task)
 	if not found:
 		sys.exit(
 			_("{error} {regex} not found.").format(
