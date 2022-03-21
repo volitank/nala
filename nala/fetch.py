@@ -43,7 +43,7 @@ from nala.constants import (ERROR_PREFIX, NALA_SOURCES,
 				NOTICE_PREFIX, SOURCELIST, SOURCEPARTS)
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
-from nala.utils import ask, dprint, eprint
+from nala.utils import ask, dprint, eprint, vprint
 
 netselect_scored = []
 
@@ -307,11 +307,11 @@ def parse_sources() -> list[str]:
 			if not line.startswith('#') and line)
 	return sources
 
-def has_src(mirror: str, release: str) -> bool:
+def has_url(url: str) -> bool:
 	"""Check if the mirror has the source for deb-src."""
 	try:
-		deb_src = get(f"{mirror}dists/{release}/main/source/Release")
-		deb_src.raise_for_status()
+		response = get(url)
+		response.raise_for_status()
 		return True
 	except HTTPError:
 		return False
@@ -329,8 +329,13 @@ def write_sources(release: str, component: str, sources: list[str]) -> None:
 			# This protects us from writing mirrors that we already have in the sources
 			if any(line in mirror and release in mirror for mirror in sources):
 				continue
+			if not has_url(f"{line}dists/{release}/Release"):
+				vprint(_("{notice} {url} does not have the release {release}\n").format(
+					notice=NOTICE_PREFIX, url=line, release = color(release, 'YELLOW')
+				))
+				continue
 			source = f'deb {line} {release} {component}\n'
-			if arguments.sources and has_src(line, release):
+			if arguments.sources and has_url(f"{line}dists/{release}/main/source/Release"):
 				source += f'deb-src {line} {release} {component}\n'
 			print(source)
 			print(source, file=file)
