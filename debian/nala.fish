@@ -34,12 +34,14 @@ end
 
 function __fish_apt_use_package -d 'Test if nala command should have packages as potential completion'
     for i in (commandline -opc)
-        if contains -- $i update upgrade install purge remove show
+        if contains -- $i install purge remove show
             return 0
         end
     end
     return 1
 end
+
+complete -c nala -n __fish_apt_use_package -a '(__fish_print_apt_packages)' -d Package
 
 complete -c nala -s h -l help -d 'Display a brief help message. Identical to the help action'
 complete -f -n __fish_apt_no_subcommand -c nala -a install -d 'Install packages'
