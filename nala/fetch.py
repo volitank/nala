@@ -141,8 +141,14 @@ def ping_error(error: str, mirror: str) -> None:
 	"""Handle error on ping."""
 	if arguments.verbose:
 		if not error:
-			prefix = color(_('Packets were lost:'), 'RED')
-			eprint(f"{prefix} {mirror}")
+			eprint(_("{error} Packets were lost: {mirror}").format(
+				error=ERROR_PREFIX, mirror=mirror
+			))
+			return
+		if 'Temporary failure in name resolution' in error:
+			eprint(_("{error} Temporary failure in name resolution: {mirror}").format(
+				error=ERROR_PREFIX, mirror=mirror
+			))
 			return
 		eprint(f"{color(error, 'RED')}")
 
