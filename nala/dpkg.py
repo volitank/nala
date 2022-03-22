@@ -559,7 +559,7 @@ class InstallProgress(base.InstallProgress):
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
-		if arguments.verbose:
+		if not config.SCROLL:
 			print(msg)
 		elif 'Fetched:' in msg:
 			# This is some magic for apt-listdifferences to put
