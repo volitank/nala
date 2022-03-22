@@ -126,6 +126,38 @@ def get_dep_type(dpkg: NalaDebPackage | Package,
 		return cast(list[Dependency], [])
 	return dpkg.dependencies
 
+def fix_excluded(protected: list[Package], is_upgrade: list[Package]) -> list[str]:
+	"""Find and optionally fix packages that need protecting."""
+	eprint(_("{notice} Selected packages cannot be excluded from upgrade safely.").format(
+		notice=NOTICE_PREFIX
+	))
+	new_pkg = set()
+	old_pkg = set()
+	for pkg in protected:
+		old_pkg.add(pkg.name)
+		if not pkg.candidate:
+			continue
+		for deps in pkg.candidate.dependencies:
+			for base_dep in deps:
+				if base_dep.target_versions:
+					dep_pkg = base_dep.target_versions[0].package
+					if dep_pkg in is_upgrade and dep_pkg.marked_install or dep_pkg.marked_upgrade:
+						new_pkg.add(dep_pkg.name)
+	if not new_pkg:
+		eprint(_("{error} Unable to calculate how to protect the selected packages").format(
+			error= ERROR_PREFIX
+		))
+		sys.exit(
+			_("{error} You have held broken packages").format(
+				error=ERROR_PREFIX
+			)
+		)
+	eprint(_("{notice} The following packages need to be protected as well:").format(
+		notice=NOTICE_PREFIX
+	))
+	eprint(f"  {' '.join(color(name, 'YELLOW') for name in sorted(new_pkg) if name not in old_pkg)}\n")
+	return sorted(new_pkg | old_pkg)
+
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")

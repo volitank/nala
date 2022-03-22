@@ -176,10 +176,11 @@ class Cache(_Cache):
 			print_virtual_pkg(pkg_name, provides)
 		return None
 
-	def protect_upgrade_pkgs(self) -> None:
+	def protect_upgrade_pkgs(self) -> list[Package]:
 		"""Mark excluded packages as protected."""
+		protected: list[Package] = []
 		if not arguments.exclude:
-			return
+			return protected
 		resolver = apt_pkg.ProblemResolver(self._depcache)
 		for pkg_name in self.glob_filter(arguments.exclude):
 			if pkg_name in self:
@@ -187,9 +188,12 @@ class Cache(_Cache):
 				if pkg.is_upgradable:
 					print(f"Protecting {color(pkg_name, 'GREEN')} from upgrade")
 					resolver.protect(self._cache[pkg_name])
+					protected.append(pkg)
 				elif pkg.is_auto_removable:
 					print(f"Protecting {color(pkg_name, 'GREEN')} from auto-removal")
 					resolver.protect(self._cache[pkg_name])
+					protected.append(pkg)
+		return protected
 
 def install_archives(
 	apt: apt_pkg.PackageManager | list[str], install_progress: InstallProgress) -> int:

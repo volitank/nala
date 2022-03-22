@@ -40,32 +40,36 @@ from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
 from nala.history import (history_clear,
 				history_info, history_summary, history_undo)
 from nala.install import (auto_remover, check_broken,
-				check_state, check_term_ask, get_changes, install_local,
-				package_manager, setup_cache, split_local)
+				check_state, check_term_ask, fix_excluded, get_changes,
+				install_local, package_manager, setup_cache, split_local)
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
-from nala.utils import (PackageHandler, dprint,
+from nala.utils import (PackageHandler, ask, dprint,
 				eprint, iter_remove, pkg_installed, sudo_check)
 
 nala_pkgs = PackageHandler()
 
-def upgrade() -> None:
+def upgrade(nested_cache: Cache | None = None) -> None:
 	"""Upgrade pkg[s]."""
-	cache = setup_cache()
+	cache = nested_cache or setup_cache()
 	if cache.broken_count and arguments.no_fix_broken:
 		fix_broken(cache)
 		sys.exit()
 	check_state(cache, nala_pkgs)
 
 	is_upgrade = [pkg for pkg in cache if pkg.is_upgradable]
-	cache.protect_upgrade_pkgs()
+	protected = cache.protect_upgrade_pkgs()
 	try:
 		cache.upgrade(dist_upgrade=arguments.no_full)
 	except apt_pkg.Error as error:
 		if arguments.exclude:
-			eprint(_("Selected packages cannot be excluded from upgrade safely."))
+			arguments.exclude = fix_excluded(protected, is_upgrade)
+			if ask(_("Would you like us to protect these and try again?")):
+				cache.clear()
+				upgrade(cache)
+				sys.exit()
 			sys.exit(
 				_("{error} You have held broken packages").format(
 					error=ERROR_PREFIX
