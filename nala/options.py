@@ -244,7 +244,8 @@ dpkg_options._action_groups[1].description = (
 
 parser = NalaParser(
 	formatter_class=formatter,
-	usage=f'{bin_name} [--options] <command>',
+	description="Each command has its own help page.\nFor Example: `nala history --help`",
+	usage=f'{bin_name} <command> [--options]',
 	parents=[global_options, dpkg_options]
 )
 remove_help_options(parser, no_fix_broken=True)
