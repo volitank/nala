@@ -151,9 +151,12 @@ class Cache(_Cache):
 				new_names.add(pkg_name)
 				continue
 			if vpkg := self.check_virtual(pkg_name):
+				# If it's virtual but too many things provide it.
+				if isinstance(vpkg, bool):
+					# We add it here so we can trigger a not found error.
+					new_names.add(pkg_name)
+					continue
 				new_names.add(vpkg.name)
-				continue
-			new_names.add(pkg_name)
 		dprint(f"Virtual Filter: {new_names}")
 		return sorted(new_names)
 
@@ -167,14 +170,15 @@ class Cache(_Cache):
 					if pkg_name == target.name:
 						yield pkg.get_fullname(pretty=True)
 
-	def check_virtual(self, pkg_name: str) -> Package | None:
+	def check_virtual(self, pkg_name: str) -> Package | bool:
 		"""Check if the package is virtual."""
 		if self.is_virtual_package(pkg_name):
 			if len(provides := self.get_providing_packages(pkg_name)) == 1:
 				print_selecting_pkg(provides[0].name, pkg_name)
 				return self[provides[0]]
 			print_virtual_pkg(pkg_name, provides)
-		return None
+			return True
+		return False
 
 	def protect_upgrade_pkgs(self) -> list[Package]:
 		"""Mark excluded packages as protected."""
