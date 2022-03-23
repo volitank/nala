@@ -346,7 +346,7 @@ class InstallProgress(base.InstallProgress):
 		term_size = struct.unpack(
 			'hhhh', fcntl.ioctl(term.STDIN, termios.TIOCGWINSZ , buffer)
 		)
-		if not self.child.closed:
+		if not self.child.isalive():
 			_setwinsize(self.child_fd, term_size[0], term_size[1])
 
 	def conf_check(self, rawline: bytes) -> None:
