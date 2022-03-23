@@ -338,8 +338,9 @@ def unit_str(val: int, just: int = 7) -> str:
 
 def iter_remove(path: Path) -> None:
 	"""Iterate the directory supplied and remove all files."""
-	if arguments.verbose:
-		print(_("Removing files in {dir}").format(dir=path))
+	vprint(
+		_("Removing files in {dir}").format(dir=path)
+	)
 	for file in path.iterdir():
 		if file.is_file():
 			dprint(

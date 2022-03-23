@@ -47,7 +47,7 @@ from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (PackageHandler, ask, dprint,
-				eprint, iter_remove, pkg_installed, sudo_check)
+				eprint, iter_remove, pkg_installed, sudo_check, vprint)
 
 nala_pkgs = PackageHandler()
 
@@ -288,18 +288,11 @@ def clean() -> None:
 	iter_remove(ARCHIVE_DIR)
 	iter_remove(PARTIAL_DIR)
 	iter_remove(LISTS_PARTIAL_DIR)
-	if arguments.verbose:
-		print(
+	vprint(
 			_("Removing {cache}\nRemoving {src_cache}").format(
 				cache=PKGCACHE, src_cache=SRCPKGCACHE
 			)
-		)
-	elif arguments.debug:
-		dprint(
-			_("Removing {cache}\nRemoving {src_cache}").format(
-				cache=PKGCACHE, src_cache=SRCPKGCACHE
-			)
-		)
+	)
 
 	PKGCACHE.unlink(missing_ok=True)
 	SRCPKGCACHE.unlink(missing_ok=True)
