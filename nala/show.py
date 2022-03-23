@@ -24,6 +24,7 @@
 """Functions related to the `show` command."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from random import shuffle
 from typing import cast
@@ -39,6 +40,7 @@ from nala.rich import ascii_replace
 from nala.utils import term, unit_str
 
 SHOW_INFO = _("{header} {info}\n")
+URL_PATTERN = re.compile(r"(https?://.*?/.*?/)")
 
 def show_main(num: int, pkg: Package) -> int:
 	"""Orchestrate show command with support for all_versions."""
@@ -258,14 +260,11 @@ def format_sources(candidate: Version, pkg: Package) -> str:
 
 def source_url(uris: list[str]) -> str:
 	"""Return the source url."""
-	for mirror in uris:
-		if 'mirror://' in mirror:
-			index = mirror.index('/pool')
-			return mirror[:index]
-
 	shuffle(uris)
-	index = uris[0].index('/pool')
-	return uris[0][:index]
+	for mirror in uris:
+		if regex := re.search(URL_PATTERN, mirror):
+			return regex.group()
+	return ''
 
 def get_local_source(pkg_name: str) -> str:
 	"""Determine the local source and return it."""
