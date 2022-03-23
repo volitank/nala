@@ -249,6 +249,7 @@ parser = NalaParser(
 	parents=[global_options, dpkg_options]
 )
 remove_help_options(parser, no_fix_broken=True)
+remove_dpkg_options(parser)
 # Define our subparser
 subparsers = parser.add_subparsers(metavar='', dest='command')
 assert parser._subparsers
