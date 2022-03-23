@@ -63,7 +63,6 @@ LAST_COMPLETED = color(_('Last Completed:'), 'GREEN')
 MIRROR_TIMEOUT = _('Mirror Timedout:')
 DOWNLOAD_COMPLETE = color(_('Download Complete:'), 'GREEN')
 TRYING = color(_('Trying:'))
-NO_MORE_MIRRORS = color(_('No More Mirrors:'), 'RED')
 
 REMOVING_FILE = _("{notice} We have removed {filename} but will try another mirror")
 FAILED_MOVE = _("{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'")
