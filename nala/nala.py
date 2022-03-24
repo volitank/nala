@@ -34,20 +34,48 @@ from apt.package import Package, Version
 
 from nala import _, color
 from nala.cache import Cache
-from nala.constants import (ARCHIVE_DIR, CAT_ASCII, ERROR_PREFIX,
-				LISTS_PARTIAL_DIR, PARTIAL_DIR, PKGCACHE, SRCPKGCACHE)
+from nala.constants import (
+	ARCHIVE_DIR,
+	CAT_ASCII,
+	ERROR_PREFIX,
+	LISTS_PARTIAL_DIR,
+	PARTIAL_DIR,
+	PKGCACHE,
+	SRCPKGCACHE
+)
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
-from nala.history import (history_clear,
-				history_info, history_summary, history_undo)
-from nala.install import (auto_remover, check_broken,
-				check_state, check_term_ask, fix_excluded, get_changes,
-				install_local, package_manager, setup_cache, split_local)
+from nala.history import (
+	history_clear,
+	history_info,
+	history_summary,
+	history_undo
+)
+from nala.install import (
+	auto_remover,
+	check_broken,
+	check_state,
+	check_term_ask,
+	fix_excluded,
+	get_changes,
+	install_local,
+	package_manager,
+	setup_cache,
+	split_local
+)
 from nala.options import arguments
 from nala.rich import search_progress
 from nala.search import print_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
-from nala.utils import (PackageHandler, ask, dprint,
-				eprint, iter_remove, pkg_installed, sudo_check, vprint)
+from nala.utils import (
+	PackageHandler,
+	ask,
+	dprint,
+	eprint,
+	iter_remove,
+	pkg_installed,
+	sudo_check,
+	vprint
+)
 
 nala_pkgs = PackageHandler()
 

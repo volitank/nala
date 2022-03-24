@@ -38,8 +38,16 @@ from nala import _, color
 from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY
 from nala.options import arguments
 from nala.rich import Column, Table
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, dprint, eprint, get_date, print_update_summary, term)
+from nala.utils import (
+	DelayedKeyboardInterrupt,
+	NalaPackage,
+	PackageHandler,
+	dprint,
+	eprint,
+	get_date,
+	print_update_summary,
+	term
+)
 
 USER: str = environ.get("DOAS_USER", '')
 UID: int = 0
@@ -182,7 +190,9 @@ def history_clear(hist_id: str) -> None:
 def history_undo(hist_id: str, redo: bool = False) -> None:
 	"""History undo/redo commands."""
 	from nala.nala import (  # pylint: disable=cyclic-import, import-outside-toplevel
-					install, remove)
+		install,
+		remove
+	)
 
 	dprint(f"History: {arguments.mode} {hist_id}")
 

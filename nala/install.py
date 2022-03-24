@@ -36,20 +36,46 @@ from apt_pkg import DepCache, Error as AptError, get_architectures
 
 from nala import _, color, color_version, config
 from nala.cache import Cache
-from nala.constants import (ARCHIVE_DIR, DPKG_LOG, ERROR_PREFIX,
-				NALA_DIR, NALA_TERM_LOG, NEED_RESTART, NOTICE_PREFIX,
-				REBOOT_PKGS, REBOOT_REQUIRED, WARNING_PREFIX, CurrentState)
+from nala.constants import (
+	ARCHIVE_DIR,
+	DPKG_LOG,
+	ERROR_PREFIX,
+	NALA_DIR,
+	NALA_TERM_LOG,
+	NEED_RESTART,
+	NOTICE_PREFIX,
+	REBOOT_PKGS,
+	REBOOT_REQUIRED,
+	WARNING_PREFIX,
+	CurrentState
+)
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.downloader import check_pkg, download
 from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
-from nala.error import (ExitCode, apt_error, broken_error,
-				essential_error, local_deb_error, print_dpkg_errors)
+from nala.error import (
+	ExitCode,
+	apt_error,
+	broken_error,
+	essential_error,
+	local_deb_error,
+	print_dpkg_errors
+)
 from nala.history import write_history
 from nala.options import arguments
 from nala.rich import Live, Text, dpkg_progress, from_ansi
-from nala.utils import (DelayedKeyboardInterrupt, NalaPackage,
-				PackageHandler, ask, dprint, eprint, get_date,
-				pkg_candidate, pkg_installed, print_update_summary, term)
+from nala.utils import (
+	DelayedKeyboardInterrupt,
+	NalaPackage,
+	PackageHandler,
+	ask,
+	dprint,
+	eprint,
+	get_date,
+	pkg_candidate,
+	pkg_installed,
+	print_update_summary,
+	term
+)
 
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:

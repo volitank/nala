@@ -31,8 +31,17 @@ from nala import _
 from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR
 from nala.fetch import fetch
 from nala.install import setup_cache
-from nala.nala import (auto_remove, clean, history,
-				install, moo, remove, search, show, upgrade)
+from nala.nala import (
+	auto_remove,
+	clean,
+	history,
+	install,
+	moo,
+	remove,
+	search,
+	show,
+	upgrade
+)
 from nala.options import arguments
 from nala.utils import arg_check, dprint, eprint, sudo_check, term
 

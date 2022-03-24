@@ -27,8 +27,13 @@ from __future__ import annotations
 import itertools
 import re
 import sys
-from asyncio import (Semaphore, create_subprocess_exec,
-				gather, get_event_loop, run as aiorun)
+from asyncio import (
+	Semaphore,
+	create_subprocess_exec,
+	gather,
+	get_event_loop,
+	run as aiorun
+)
 from asyncio.streams import StreamReader
 from asyncio.subprocess import PIPE, Process
 from subprocess import run
@@ -39,8 +44,13 @@ from httpx import HTTPError, get
 from rich.progress import Progress, TaskID
 
 from nala import _, color
-from nala.constants import (ERROR_PREFIX, NALA_SOURCES,
-				NOTICE_PREFIX, SOURCELIST, SOURCEPARTS)
+from nala.constants import (
+	ERROR_PREFIX,
+	NALA_SOURCES,
+	NOTICE_PREFIX,
+	SOURCELIST,
+	SOURCEPARTS
+)
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
 from nala.utils import ask, dprint, eprint, vprint

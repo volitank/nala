@@ -24,8 +24,10 @@ repos:
         args: [
           "--python-version=auto", # Tells isort to set the known standard library based on the specified Python version.
           "--balanced", # Balances wrapping to produce the most consistent line length possible
-          "--multi-line=10", # Hanging Indent with parenthesis.
+        #  "--multi-line=10", # Hanging Indent with parenthesis.
+          "--multi-line=3", # vert-hanging.
           "--combine-as", # Combines as imports on the same line.
+          "--indent=\t",
           "--combine-star", # Ensures that if a star import is present, nothing else is imported from that namespace.
           "--ensure-newline-before-comments", # Inserts a blank line before a comment following an import.
           "--project=nala" # Force isort to recognize a module as being part of the current python project.
@@ -42,12 +44,12 @@ repos:
     hooks:
       - id: pydocstyle
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.31.0
+    rev: v2.31.1
     hooks:
       - id: pyupgrade
         args: ["--py38-plus"]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.931
+    rev: v0.941
     hooks:
       - id: mypy
         args: [

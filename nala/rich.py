@@ -40,9 +40,18 @@ from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
-from rich.progress import (BarColumn, DownloadColumn,
-				Progress, SpinnerColumn, Task, TaskID, TextColumn,
-				TimeRemainingColumn, TransferSpeedColumn, filesize)
+from rich.progress import (
+	BarColumn,
+	DownloadColumn,
+	Progress,
+	SpinnerColumn,
+	Task,
+	TaskID,
+	TextColumn,
+	TimeRemainingColumn,
+	TransferSpeedColumn,
+	filesize
+)
 from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Column, Table

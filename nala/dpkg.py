@@ -45,11 +45,30 @@ from pexpect.utils import poll_ignore_interrupts
 from ptyprocess.ptyprocess import _setwinsize
 
 from nala import _, color, config
-from nala.constants import (CONF_ANSWERS, CONF_MESSAGE, DPKG_ERRORS,
-				DPKG_STATUS, ERROR_PREFIX, HANDLER, NOTICES, SPAM, WARNING_PREFIX)
+from nala.constants import (
+	CONF_ANSWERS,
+	CONF_MESSAGE,
+	DPKG_ERRORS,
+	DPKG_STATUS,
+	ERROR_PREFIX,
+	HANDLER,
+	NOTICES,
+	SPAM,
+	WARNING_PREFIX
+)
 from nala.options import arguments
-from nala.rich import (Group, Live, Panel, RenderableType, Table,
-				TaskID, ascii_replace, dpkg_progress, from_ansi, spinner)
+from nala.rich import (
+	Group,
+	Live,
+	Panel,
+	RenderableType,
+	Table,
+	TaskID,
+	ascii_replace,
+	dpkg_progress,
+	from_ansi,
+	spinner
+)
 from nala.utils import dprint, eprint, term
 
 VERSION_PATTERN = re.compile(r'\(.*?\)')

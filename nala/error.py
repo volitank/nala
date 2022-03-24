@@ -39,8 +39,13 @@ from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.dpkg import dpkg_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import (dprint, eprint,
-				get_installed_dep_names, print_rdeps, term)
+from nala.utils import (
+	dprint,
+	eprint,
+	get_installed_dep_names,
+	print_rdeps,
+	term
+)
 
 DEPENDS = color(_('Depends:'))
 """'Depends:'"""

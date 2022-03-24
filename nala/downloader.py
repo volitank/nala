@@ -41,18 +41,41 @@ from typing import Pattern, Union, cast
 import apt_pkg
 from anyio import open_file
 from apt.package import Package, Version
-from httpx import (URL, AsyncClient, ConnectError, ConnectTimeout, HTTPError,
-				HTTPStatusError, Proxy, RemoteProtocolError, RequestError, get)
+from httpx import (
+	URL,
+	AsyncClient,
+	ConnectError,
+	ConnectTimeout,
+	HTTPError,
+	HTTPStatusError,
+	Proxy,
+	RemoteProtocolError,
+	RequestError,
+	get
+)
 from rich.panel import Panel
 
 from nala import _, color
-from nala.constants import (ARCHIVE_DIR, ERRNO_PATTERN,
-				ERROR_PREFIX, NOTICE_PREFIX, PARTIAL_DIR, WARNING_PREFIX)
+from nala.constants import (
+	ARCHIVE_DIR,
+	ERRNO_PATTERN,
+	ERROR_PREFIX,
+	NOTICE_PREFIX,
+	PARTIAL_DIR,
+	WARNING_PREFIX
+)
 from nala.error import ExitCode, FileDownloadError
 from nala.options import arguments
 from nala.rich import Live, Table, from_ansi, pkg_download_progress
-from nala.utils import (dprint, eprint, get_pkg_name,
-				pkg_candidate, term, unit_str, vprint)
+from nala.utils import (
+	dprint,
+	eprint,
+	get_pkg_name,
+	pkg_candidate,
+	term,
+	unit_str,
+	vprint
+)
 
 MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')
 
