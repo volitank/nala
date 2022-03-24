@@ -56,7 +56,8 @@ class NalaFormatter(argparse.RawDescriptionHelpFormatter):
 			# Fix a format error with aliases as below
 			# autoremove (autopurge)
 			# 							remove packages that are no longer needed
-			parts = '    ' + ") ".join(part.lstrip() for part in parts.split(')\n'))
+			parts = '    ' + "  ".join(part.lstrip() for part in parts.split(')\n'))
+			parts = parts.replace(')', '  ').replace('(', '\b/')
 		return parts
 
 gpl_help: str = _('reads the licenses of software compiled in and then reads the GPLv3')
@@ -189,14 +190,6 @@ global_options.add_argument(
 	action='store_true',
 	help=_('logs extra information for debugging')
 )
-global_options.add_argument(
-	'--version',
-	action='version',
-	version=f'{bin_name} {__version__}'
-)
-global_options.add_argument(
-	'--license', action=GPLv3
-)
 
 # Define interactive options
 dpkg_options = NalaParser(add_help=False)
@@ -246,10 +239,16 @@ parser = NalaParser(
 	formatter_class=formatter,
 	description="Each command has its own help page.\nFor Example: `nala history --help`",
 	usage=f'{bin_name} <command> [--options]',
-	parents=[global_options, dpkg_options]
 )
-remove_help_options(parser, no_fix_broken=True)
-remove_dpkg_options(parser)
+parser.add_argument(
+	'--version',
+	action='version',
+	version=f'{bin_name} {__version__}'
+)
+parser.add_argument(
+	'--license', action=GPLv3
+)
+
 # Define our subparser
 subparsers = parser.add_subparsers(metavar='', dest='command')
 assert parser._subparsers
@@ -298,36 +297,31 @@ update_parser = subparsers.add_parser(
 	usage=f'{bin_name} update [--options]',
 )
 
-# We specify the options as a parent parser first just so we can easily
-# Move them above the global options inside the subparser help.
-# If there is a better way of doing this please let me know
-upgrade_options = NalaParser(add_help=False)
-upgrade_options.add_argument(
+# Parser for the upgrade command
+upgrade_parser = subparsers.add_parser(
+	'upgrade',
+	formatter_class=formatter,
+	help=_('update package list and upgrade the system'),
+	parents=[global_options, dpkg_options],
+	usage=f'{bin_name} update [--options]',
+)
+upgrade_parser.add_argument(
 	'--no-full',
 	action='store_false',
 	help=_("runs a normal upgrade instead of full-upgrade")
 )
-upgrade_options.add_argument(
+upgrade_parser.add_argument(
 	'--exclude',
 	nargs='*',
 	metavar='PKG',
 	help=_("specify packages to exclude during upgrade")
 )
 
-# Parser for the upgrade command
-upgrade_parser = subparsers.add_parser(
-	'upgrade',
-	formatter_class=formatter,
-	help=_('update package list and upgrade the system'),
-	parents=[upgrade_options, global_options, dpkg_options],
-	usage=f'{bin_name} update [--options]',
-)
-
 # Parser for the autoremove/autopurge commands
 auto_remove_parser = subparsers.add_parser(
 	'autoremove',
 	formatter_class=formatter,
-	help=_('remove packages that are no longer needed'),
+	help=_('remove or purge packages that are no longer needed'),
 	parents=[global_options, dpkg_options],
 	usage=f'{bin_name} autoremove [--options]',
 	aliases = ['autopurge']

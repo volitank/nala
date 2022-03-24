@@ -422,23 +422,6 @@ def arg_check() -> None:
 	If args exists then duplicates will be removed.
 	"""
 	dprint(f"Raw Arguments: {sys.argv}")
-	if arguments.command in sys.argv:
-		# This slices off the first argument which is the program.
-		# Then indexes our subcommand and slices that off
-		# ['./nala-cli.py', '--download-only', 'update', '--debug']
-		# Will become ['--download-only']
-		switch_check = sys.argv[1:sys.argv.index(arguments.command)]
-		dprint(f"Switch Check: {switch_check}")
-		for arg in switch_check:
-			if '-' in arg:
-				sys.exit(
-					_("{error} Options like {option} must come after {command}").format(
-						error = ERROR_PREFIX,
-						option = color(arg, 'YELLOW'),
-						command = color(arguments.command, 'YELLOW')
-					)
-				)
-
 	if arguments.no_update and arguments.update:
 		sys.exit(
 			_("{error} {update} and {no_update} cannot be used at the same time").format(
@@ -449,6 +432,9 @@ def arg_check() -> None:
 		)
 
 	if arguments.command in ('install', 'remove', 'purge', 'show'):
+		if arguments.command == 'install' and arguments.fix_broken:
+			arguments.args = dedupe_list(arguments.args)
+			return
 		if not arguments.args:
 			sys.exit(
 				_("{error} You must specify a package to {command}").format(

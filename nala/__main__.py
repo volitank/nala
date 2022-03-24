@@ -33,7 +33,7 @@ from nala.fetch import fetch
 from nala.install import setup_cache
 from nala.nala import (auto_remove, clean, history,
 				install, moo, remove, search, show, upgrade)
-from nala.options import arguments, parser
+from nala.options import arguments
 from nala.utils import arg_check, dprint, eprint, sudo_check, term
 
 if str(ARCHIVE_DIR) == '/':
@@ -101,10 +101,6 @@ def _main() -> None:
 		'autopurge'
 	):
 		sudo_check(_("Nala needs root to {command}").format(command = arguments.command))
-
-	if not arguments.command:
-		parser.print_help()
-		sys.exit(1)
 
 	if not start_nala():
 		sys.exit(
