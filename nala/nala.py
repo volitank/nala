@@ -92,6 +92,9 @@ def upgrade(nested_cache: Cache | None = None) -> None:
 
 def install(pkg_names: list[str]) -> None:
 	"""Install pkg[s]."""
+	if arguments.fix_broken:
+		fix_broken()
+		return
 	cache = setup_cache()
 	if cache.broken_count and arguments.no_fix_broken:
 		fix_broken(cache)
@@ -147,10 +150,6 @@ def remove(pkg_names: list[str]) -> None:
 
 	auto_remover(cache, nala_pkgs, _purge)
 	get_changes(cache, nala_pkgs, remove=True)
-
-def purge(pkg_names: list[str]) -> None:
-	"""Wrap the remove command as purge."""
-	remove(pkg_names)
 
 def auto_remove() -> None:
 	"""Command for autoremove."""

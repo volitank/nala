@@ -289,30 +289,38 @@ remove_parser.add_argument(
 	help=_('package(s) to remove')
 )
 
+# Parser for the update command
+update_parser = subparsers.add_parser(
+	'update',
+	formatter_class=formatter,
+	help=_('update package list'),
+	parents=[global_options, dpkg_options],
+	usage=f'{bin_name} update [--options]',
+)
+
 # We specify the options as a parent parser first just so we can easily
 # Move them above the global options inside the subparser help.
 # If there is a better way of doing this please let me know
-update_options = NalaParser(add_help=False)
-update_options.add_argument(
+upgrade_options = NalaParser(add_help=False)
+upgrade_options.add_argument(
 	'--no-full',
 	action='store_false',
 	help=_("runs a normal upgrade instead of full-upgrade")
 )
-update_options.add_argument(
+upgrade_options.add_argument(
 	'--exclude',
 	nargs='*',
 	metavar='PKG',
 	help=_("specify packages to exclude during upgrade")
 )
 
-# Parser for the update/upgrade command
-update_parser = subparsers.add_parser(
-	'update',
+# Parser for the upgrade command
+upgrade_parser = subparsers.add_parser(
+	'upgrade',
 	formatter_class=formatter,
 	help=_('update package list and upgrade the system'),
-	parents=[update_options, global_options, dpkg_options],
+	parents=[upgrade_options, global_options, dpkg_options],
 	usage=f'{bin_name} update [--options]',
-	aliases = ['upgrade']
 )
 
 # Parser for the autoremove/autopurge commands
@@ -514,16 +522,12 @@ moo_parser = subparsers.add_parser(
 moo_parser.add_argument('moo', nargs='*', help=argparse.SUPPRESS)
 
 parsers = (
-	install_parser, remove_parser, update_parser,
+	install_parser, remove_parser, upgrade_parser,
 	moo_parser, fetch_parser, show_parser,
 	clean_parser, history_parser
 )
 
-for fragrance in (
-	install_parser, remove_parser,
-	update_parser, moo_parser, fetch_parser,
-	show_parser, clean_parser, history_parser):
-
+for fragrance in parsers:
 	fragrance._positionals.title = "arguments"
 	fragrance._optionals.title = "options"
 parser._subparsers.title = "commands"

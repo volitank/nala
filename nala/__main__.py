@@ -27,13 +27,12 @@ from __future__ import annotations
 import errno
 import sys
 
-# pylint: disable=unused-import
 from nala import _
 from nala.constants import ARCHIVE_DIR, ERROR_PREFIX, NALA_LOGDIR
 from nala.fetch import fetch
 from nala.install import setup_cache
-from nala.nala import (auto_remove, clean, fix_broken, history,
-				install, moo, purge, remove, search, show, upgrade)
+from nala.nala import (auto_remove, clean, history,
+				install, moo, remove, search, show, upgrade)
 from nala.options import arguments, parser
 from nala.utils import arg_check, dprint, eprint, sudo_check, term
 
@@ -44,46 +43,75 @@ if str(ARCHIVE_DIR) == '/':
 		)
 	)
 
+def start_nala() -> bool:
+	"""Start the nala command."""
+	if arguments.command == 'install':
+		install(arguments.args)
+		sys.exit()
+	if arguments.command == 'show':
+		show(arguments.args)
+		sys.exit()
+	if arguments.command in ('remove', 'purge'):
+		remove(arguments.args)
+		sys.exit()
+	if arguments.command == 'update':
+		setup_cache()
+		sys.exit()
+	if arguments.command == 'upgrade':
+		upgrade()
+		sys.exit()
+	if arguments.command == 'clean':
+		clean()
+		sys.exit()
+	if arguments.command == 'fetch':
+		fetch()
+		sys.exit()
+	if arguments.command == 'history':
+		history()
+		sys.exit()
+	if arguments.command == 'search':
+		search()
+		sys.exit()
+	if arguments.command == 'moo':
+		moo()
+		sys.exit()
+	if arguments.command in ('autoremove', 'autopurge'):
+		auto_remove()
+		sys.exit()
+	return False
+
 def _main() -> None:
 	"""Nala Main."""
 	arg_check()
-	if arguments.command == 'update':
-		arguments.command = 'upgrade'
 
 	if term.is_su() and not NALA_LOGDIR.exists():
 		NALA_LOGDIR.mkdir()
 
 	kwarg = '\n    '.join((f"{kwarg[0]} = {kwarg[1]},") for kwarg in arguments._get_kwargs())
 	dprint(f"Argparser = [\n    {kwarg}\n]")
-	if arguments.command in ('upgrade', 'install', 'remove', 'fetch', 'clean', 'purge'):
+	if arguments.command in (
+		'update',
+		'upgrade',
+		'install',
+		'remove',
+		'fetch',
+		'clean',
+		'purge',
+		'autoremove',
+		'autopurge'
+	):
 		sudo_check(_("Nala needs root to {command}").format(command = arguments.command))
-	elif not arguments.command:
-		if arguments.update:
-			sudo_check(_('Nala needs root to update package list'))
-			setup_cache()
-			return
-		if arguments.fix_broken:
-			sudo_check(_('Nala needs root to fix broken packages'))
-			fix_broken()
-			return
+
+	if not arguments.command:
 		parser.print_help()
 		sys.exit(1)
 
-	if arguments.command in ('install', 'show', 'remove', 'purge'):
-		# eval should be safe here considering the commands are specifically defined.
-		eval(f"{arguments.command}({arguments.args})") # pylint: disable=eval-used
-		return
-	if arguments.command in ('upgrade', 'clean', 'fetch', 'moo', 'history', 'search'):
-		eval(f"{arguments.command}()") # pylint: disable=eval-used
-		return
-	if arguments.command in ('autoremove', 'autopurge'):
-		auto_remove()
-		return
-	sys.exit(
-		_("{error} Unknown error in 'apt_command' function").format(
-			error = ERROR_PREFIX
+	if not start_nala():
+		sys.exit(
+			_("{error} Unknown error in 'apt_command' function").format(
+				error = ERROR_PREFIX
+			)
 		)
-	)
 
 def main() -> None:
 	"""Nala function to reference from the entry point."""
