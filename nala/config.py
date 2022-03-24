@@ -24,14 +24,33 @@
 """The configuration module."""
 from __future__ import annotations
 
-import apt_pkg
+import sys
 
+from apt_pkg import Error, config, read_config_file
+
+from nala import _, color
+from nala.constants import ERROR_PREFIX, NOTICE_PREFIX
 from nala.options import arguments
+from nala.utils import eprint
 
-SCROLL = apt_pkg.config.find_b('Nala::ScrollingText', True)
+CONF_FILE = '/etc/nala/nala.conf'
+
+try:
+	read_config_file(config, CONF_FILE)
+except Error as error:
+	eprint(
+		str(error).replace('E:', f"{ERROR_PREFIX} ").replace(CONF_FILE, color(CONF_FILE, 'YELLOW'))
+		)
+	sys.exit(1)
+except SystemError:
+	eprint(_("{notice} Unable to read config file: {filename}. Using defaults").format(
+		notice=NOTICE_PREFIX, filename = color(CONF_FILE, 'YELLOW')
+	))
+
+SCROLL = config.find_b('Nala::ScrollingText', True)
 if arguments.verbose:
 	SCROLL = False
 
-AUTO_REMOVE = apt_pkg.config.find_b('Nala::AutoRemove', True)
+AUTO_REMOVE = config.find_b('Nala::AutoRemove', True)
 if arguments.no_autoremove:
 	AUTO_REMOVE = False
