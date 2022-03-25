@@ -527,3 +527,5 @@ for fragrance in parsers:
 parser._subparsers.title = "commands"
 
 arguments = parser.parse_args()
+if not arguments.command:
+	parser.error(_('A Subcommand is required'))
