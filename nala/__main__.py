@@ -40,7 +40,7 @@ from nala.nala import (
 	remove,
 	search,
 	show,
-	upgrade
+	upgrade,
 )
 from nala.options import arguments
 from nala.utils import arg_check, dprint, eprint, sudo_check, term

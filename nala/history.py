@@ -46,7 +46,7 @@ from nala.utils import (
 	eprint,
 	get_date,
 	print_update_summary,
-	term
+	term,
 )
 
 USER: str = environ.get("DOAS_USER", '')
@@ -191,7 +191,7 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 	"""History undo/redo commands."""
 	from nala.nala import (  # pylint: disable=cyclic-import, import-outside-toplevel
 		install,
-		remove
+		remove,
 	)
 
 	dprint(f"History: {arguments.mode} {hist_id}")

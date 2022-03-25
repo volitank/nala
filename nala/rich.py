@@ -50,7 +50,7 @@ from rich.progress import (
 	TextColumn,
 	TimeRemainingColumn,
 	TransferSpeedColumn,
-	filesize
+	filesize,
 )
 from rich.spinner import Spinner
 from rich.style import Style

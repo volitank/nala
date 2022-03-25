@@ -47,7 +47,7 @@ from nala.constants import (
 	REBOOT_PKGS,
 	REBOOT_REQUIRED,
 	WARNING_PREFIX,
-	CurrentState
+	CurrentState,
 )
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.downloader import check_pkg, download
@@ -58,7 +58,7 @@ from nala.error import (
 	broken_error,
 	essential_error,
 	local_deb_error,
-	print_dpkg_errors
+	print_dpkg_errors,
 )
 from nala.history import write_history
 from nala.options import arguments
@@ -74,7 +74,7 @@ from nala.utils import (
 	pkg_candidate,
 	pkg_installed,
 	print_update_summary,
-	term
+	term,
 )
 
 

@@ -51,7 +51,7 @@ from httpx import (
 	Proxy,
 	RemoteProtocolError,
 	RequestError,
-	get
+	get,
 )
 from rich.panel import Panel
 
@@ -62,7 +62,7 @@ from nala.constants import (
 	ERROR_PREFIX,
 	NOTICE_PREFIX,
 	PARTIAL_DIR,
-	WARNING_PREFIX
+	WARNING_PREFIX,
 )
 from nala.error import ExitCode, FileDownloadError
 from nala.options import arguments
@@ -74,7 +74,7 @@ from nala.utils import (
 	pkg_candidate,
 	term,
 	unit_str,
-	vprint
+	vprint,
 )
 
 MIRROR_PATTERN = re.compile(r'mirror://([A-Za-z_0-9.-]+).*')

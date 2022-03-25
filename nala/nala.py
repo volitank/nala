@@ -41,15 +41,10 @@ from nala.constants import (
 	LISTS_PARTIAL_DIR,
 	PARTIAL_DIR,
 	PKGCACHE,
-	SRCPKGCACHE
+	SRCPKGCACHE,
 )
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
-from nala.history import (
-	history_clear,
-	history_info,
-	history_summary,
-	history_undo
-)
+from nala.history import history_clear, history_info, history_summary, history_undo
 from nala.install import (
 	auto_remover,
 	check_broken,
@@ -60,7 +55,7 @@ from nala.install import (
 	install_local,
 	package_manager,
 	setup_cache,
-	split_local
+	split_local,
 )
 from nala.options import arguments
 from nala.rich import search_progress
@@ -74,7 +69,7 @@ from nala.utils import (
 	iter_remove,
 	pkg_installed,
 	sudo_check,
-	vprint
+	vprint,
 )
 
 nala_pkgs = PackageHandler()

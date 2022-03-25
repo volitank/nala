@@ -32,7 +32,7 @@ from asyncio import (
 	create_subprocess_exec,
 	gather,
 	get_event_loop,
-	run as aiorun
+	run as aiorun,
 )
 from asyncio.streams import StreamReader
 from asyncio.subprocess import PIPE, Process
@@ -49,7 +49,7 @@ from nala.constants import (
 	NALA_SOURCES,
 	NOTICE_PREFIX,
 	SOURCELIST,
-	SOURCEPARTS
+	SOURCEPARTS,
 )
 from nala.options import arguments, parser
 from nala.rich import fetch_progress

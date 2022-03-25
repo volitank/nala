@@ -54,7 +54,7 @@ from nala.constants import (
 	HANDLER,
 	NOTICES,
 	SPAM,
-	WARNING_PREFIX
+	WARNING_PREFIX,
 )
 from nala.options import arguments
 from nala.rich import (
@@ -67,7 +67,7 @@ from nala.rich import (
 	ascii_replace,
 	dpkg_progress,
 	from_ansi,
-	spinner
+	spinner,
 )
 from nala.utils import dprint, eprint, term
 
