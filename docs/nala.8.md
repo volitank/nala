@@ -17,9 +17,9 @@ Nala - A prettier front-end for libapt-pkg
 **install**
 : > **install** works similar to the way it does in **apt**. **nala** takes multiple packages as arguments and will install all of them just like **apt**.
 
-	**-f, \--fix-broken** attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala install --fix-broken**.
-
 : > **nala** downloads packages in parallel. Along with this **nala** can download packages from multiple mirrors concurrently to speed up package downloads further. We put in place a limit to 2 packages per mirror so we don't put too much pressure on them. This caps out at a maximum of 16.
+
+	**-f, \--fix-broken** attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala install --fix-broken**.
 
 **remove**
 : > **remove** works similar to the way it does in **apt**. Our noticeable differences here include improved output on what will be removed, no need for running an autoremove, **nala** will handle that for you.
