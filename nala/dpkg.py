@@ -613,7 +613,7 @@ class InstallProgress(base.InstallProgress):
 	def advance_progress(self) -> None:
 		"""Advance the dpkg progress bar."""
 		dpkg_progress.advance(self.task)
-		if arguments.verbose:
+		if not config.SCROLL:
 			self.live.update(
 				Panel.fit(
 					dpkg_progress.get_renderable(), border_style='bold green', padding=(0,0)
@@ -765,7 +765,7 @@ def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-man
 	slice_list()
 	scroll_title = get_title(install, fetch)
 
-	bar_style = 'bold green' if arguments.verbose else 'bold blue'
+	bar_style = 'bold blue' if config.SCROLL else 'bold green'
 	table = Table.grid()
 	table.add_column(no_wrap=True, width=term.columns, overflow=term.overflow)
 	for item in scroll_list:
