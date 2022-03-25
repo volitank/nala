@@ -17,6 +17,8 @@ Nala - A prettier front-end for libapt-pkg
 **install**
 : > **install** works similar to the way it does in **apt**. **nala** takes multiple packages as arguments and will install all of them just like **apt**.
 
+	**-f, \--fix-broken** attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala install --fix-broken**.
+
 : > **nala** downloads packages in parallel. Along with this **nala** can download packages from multiple mirrors concurrently to speed up package downloads further. We put in place a limit to 2 packages per mirror so we don't put too much pressure on them. This caps out at a maximum of 16.
 
 **remove**
@@ -25,10 +27,13 @@ Nala - A prettier front-end for libapt-pkg
 **purge**
 : > **purge** works similar to **remove**, but also gets rid of configuration files.
 
-**update**, **upgrade**
-: > **update** is really an alias for **upgrade**. **nala** will handle updating the package cache so we have aliased **update** with **upgrade**.
+**update**
+: > **update** updates the package list. Works exactly like **apt update** with better formatting.
 
-	By default **nala** will run the equivalent of **apt full-upgrade**. If you are just looking to update the package cache and not actually perform an upgrade you can use **nala** *\--update*.
+**upgrade**
+: > **upgrade** upgrades packages installed on the system.
+
+	By default **nala** will run the equivalent of **apt update && apt full-upgrade --auto-remove**. If you are just looking to update the package cache and not actually perform an upgrade you can use **nala** *\--update*.
 
 	*\--no-full* will run a regular upgrade which won't remove packages. By default **nala** uses a *full-upgrade*.
 
@@ -100,9 +105,6 @@ Nala - A prettier front-end for libapt-pkg
 
 **-v, \--verbose**
 : >*\--verbose* prints more information that sticks around. By default we use "Progress Bars" to hide some things we consider unnecessary. Using *\--verbose* removes the progress bars and prints that information.
-
-**-f, \--fix-broken**
-: >*\--fix-broken* attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala --fix-broken**.
 
 **\--no-fix-broken**
 : >*\--no-fix-broken* can be used if you don't want Nala to attempt to fix broken packages. This switch does nothing if used with **nala --fix-broken**.
