@@ -12,53 +12,54 @@ repos:
       - id: check-yaml
       - id: check-ast
       - id: check-added-large-files
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.1.0
-    hooks:
-      - id: codespell
-        args: [-H, -f, --skip=*.po, --builtin, clear, rare, informal, usage, code]
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.10.1
-    hooks:
-      - id: isort
-        args: [
-          "--python-version=auto", # Tells isort to set the known standard library based on the specified Python version.
-          "--balanced", # Balances wrapping to produce the most consistent line length possible
-        #  "--multi-line=10", # Hanging Indent with parenthesis.
-          "--multi-line=3", # vert-hanging.
-          "--combine-as", # Combines as imports on the same line.
-          "--indent=\t",
-          "--combine-star", # Ensures that if a star import is present, nothing else is imported from that namespace.
-          "--ensure-newline-before-comments", # Inserts a blank line before a comment following an import.
-          "--project=nala" # Force isort to recognize a module as being part of the current python project.
-        ]
   - repo: local
     hooks:
       - id: pylint
-        name: pylint
-        entry: pylint
+        name: check code for errors
         language: system
+        entry: poetry run pylint
         types: [python]
-  - repo: https://github.com/pycqa/pydocstyle
-    rev: 6.1.1
-    hooks:
-      - id: pydocstyle
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v2.31.1
-    hooks:
-      - id: pyupgrade
-        args: ["--py38-plus"]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.941
-    hooks:
-      - id: mypy
+      - id: codespell
+        name: check for misspellings
+        description: Check for common misspellings in text files
         args: [
-          "--python-executable=/usr/bin/python3",
-          "--ignore-missing-imports",
-          "--strict",
-          "--pretty",
-          "--show-error-context",
-          "--show-column-numbers",
-          "--show-error-codes",
-          "--no-warn-unused-ignores"
+          --check-hidden,
+          --check-filenames,
+          --skip=*.po,
+          --builtin,
+          clear,
+          rare,
+          informal,
+          usage,
+          code
         ]
+        language: system
+        entry: poetry run codespell
+        types: [text]
+      - id: isort
+        name: sort python imports
+        description: Automatically sort import statements
+        language: system
+        entry: poetry run isort
+        types_or: [cython, pyi, python]
+        require_serial: true
+      - id: pyupgrade
+        name: check for old python syntax
+        description: Automatically upgrade syntax for newer versions
+        args: [--py36-plus]
+        language: system
+        entry: poetry run pyupgrade
+        types: [python]
+      - id: mypy
+        name: type check python code
+        description: Static type checker for Python
+        language: system
+        entry: poetry run mypy
+        types_or: [python, pyi]
+        require_serial: true
+      - id: pydocstyle
+        name: check docstrings
+        description: Check docstrings
+        language: system
+        entry: poetry run pydocstyle
+        types: [python]
