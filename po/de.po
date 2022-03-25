@@ -1246,4 +1246,3 @@ msgstr "nicht mehr benötigte Pakete entfernen oder löschen"
 #: nala/options.py:531
 msgid "A Subcommand is required"
 msgstr "Ein Unterbefehl ist erforderlich"
-

@@ -1217,4 +1217,3 @@ msgstr ""
 #: nala/options.py:531
 msgid "A Subcommand is required"
 msgstr ""
-
