@@ -1,3 +1,31 @@
+nala (0.7.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add `--sources` switch to `fetch` and don't enable them by default
+  * Improve local deb install messages
+  * Add `autoremove`/`autopurge` commands
+  * Add config file in `/etc/nala/nala.conf`. The current two configs
+    1. A toggle to disable the scrolling text
+    2. A toggle to disable Nala auto-removing by default
+  * Add `upgrade --exclude` to allow a package not to be upgraded
+  * Tweak colors to better support light terminals
+  * `update` is no longer an alias for `upgrade`. It will now function
+    the same way that `apt` does. `upgrade` will continue to update
+    the package list by default.
+  * Make spinners smoother during dpkg progress
+
+  [ Bug Fixes ]
+  * Update progress bar sometimes shows a garbage msg
+  * `dpkg` not respecting window resize signals
+  * Downloader not raising status to catch 404 errors
+  * `fetch` adding amd64 mirrors for arm users
+  * `fetch` adding mirrors without the proper release
+  * Fish not showing packages on commands that accept pkgs
+  * Exception when showing a package from a non standard URL
+  * Import error in some environments like conda
+
+ -- Blake Lee <blake@volian.org>  Fri, 25 Mar 2022 15:07:51 -0400
+
 nala (0.6.0) unstable; urgency=medium
 
   [ Changes ]
