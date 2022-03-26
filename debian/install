@@ -1,1 +1,2 @@
 debian/nala.fish usr/share/fish/vendor_completions.d/
+debian/nala.conf etc/nala/

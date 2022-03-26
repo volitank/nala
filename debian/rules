@@ -24,7 +24,7 @@ execute_before_dh_install:
 	--use-fuzzy
 
 override_dh_clean:
-	rm -f nala.egg-info
+	rm -rf nala.egg-info
 	rm -f docs/nala.8.gz
 	rm -rf nala-cli.build
 	rm -rf nala/__pycache__
@@ -37,6 +37,7 @@ override_dh_auto_build:
 	--follow-import-to=httpx \
 	--follow-import-to=httpcore \
 	--follow-import-to=h11 \
+	--follow-import-to=charset_normalizer \
 	--include-module=anyio \
 	--nofollow-import-to=typing_extensions \
 	--nofollow-import-to=rfc3986 \
@@ -50,5 +51,6 @@ override_dh_auto_build:
 	--nofollow-import-to=aptsources \
 	--nofollow-import-to=colorama \
 	--nofollow-import-to=commonmark \
+	--nofollow-import-to=ptyprocess \
 	--plugin-enable=pylint-warnings \
 	nala-cli.py -o nala-cli.build/nala
