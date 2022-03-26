@@ -27,17 +27,10 @@ from __future__ import annotations
 import sys
 from datetime import timedelta
 
-try:
-	from rich.console import Group  # type: ignore[attr-defined]
-# Rich 11.0.0 changed RenderGroup to Group
-# python3-rich in debian bullseye is 9.11.0
-except ImportError:
-	from rich.console import RenderGroup as Group  # type: ignore[attr-defined, no-redef]
-
 from rich.ansi import AnsiDecoder
 from rich.columns import Columns
-from rich.console import Console, RenderableType
-from rich.live import Live
+from rich.console import Console, Group, RenderableType
+from rich.live import Live, _RefreshThread
 from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import (
@@ -66,6 +59,18 @@ __all__ = (
 	'escape', 'Group', 'TaskID', 'Panel',
 	'Progress', 'RenderableType'
 )
+
+class Thread(_RefreshThread):
+	"""A thread that calls refresh() at regular intervals.
+
+	Subclass to change live.refresh with live.update.
+	"""
+
+	def run(self) -> None:
+		while not self.done.wait(1 / self.refresh_per_second):
+			with self.live._lock:
+				if not self.done.is_set():
+					self.live.scroll_bar(rerender=True) # type: ignore[attr-defined]
 
 # pylint: disable=too-few-public-methods
 class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]

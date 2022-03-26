@@ -51,7 +51,7 @@ from nala.constants import (
 )
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.downloader import check_pkg, download
-from nala.dpkg import InstallProgress, OpProgress, UpdateProgress, notice
+from nala.dpkg import DpkgLive, InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import (
 	ExitCode,
 	apt_error,
@@ -62,7 +62,7 @@ from nala.error import (
 )
 from nala.history import write_history
 from nala.options import arguments
-from nala.rich import Live, Text, dpkg_progress, from_ansi
+from nala.rich import Text, dpkg_progress, from_ansi
 from nala.utils import (
 	DelayedKeyboardInterrupt,
 	NalaPackage,
@@ -188,7 +188,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")
 	task = dpkg_progress.add_task('', total=nala_pkgs.dpkg_progress_total)
-	with Live() as live:
+	with DpkgLive(install=True) as live:
 		with open(DPKG_LOG, 'w', encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, 'a', encoding="utf-8") as term_log:
 				term_log.write(
@@ -199,7 +199,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				if arguments.raw_dpkg:
 					live.stop()
 				install = InstallProgress(dpkg_log, term_log, live, task)
-				update = UpdateProgress(live, install=True)
+				update = UpdateProgress(live)
 				cache.commit_pkgs(install, update)
 				if nala_pkgs.local_debs:
 					cache.commit_pkgs(install, update, nala_pkgs.local_debs)
@@ -681,7 +681,7 @@ def setup_cache() -> Cache:
 	try:
 		if not check_update():
 			with DelayedKeyboardInterrupt():
-				with Live() as live:
+				with DpkgLive(install=False) as live:
 					Cache().update(UpdateProgress(live))
 	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
 		apt_error(err)

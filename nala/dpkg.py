@@ -64,6 +64,7 @@ from nala.rich import (
 	RenderableType,
 	Table,
 	TaskID,
+	Thread,
 	ascii_replace,
 	dpkg_progress,
 	from_ansi,
@@ -74,7 +75,6 @@ from nala.utils import dprint, eprint, term
 VERSION_PATTERN = re.compile(r'\(.*?\)')
 PARENTHESIS_PATTERN = re.compile(r'[()]')
 
-scroll_list: list[str] = []
 notice: list[str] = []
 pkgnames: set[str] = set()
 unpacked: set[str] = set()
@@ -122,7 +122,7 @@ class OpProgress(text.OpProgress):
 class UpdateProgress(text.AcquireProgress):
 	"""Class for getting cache update status and printing to terminal."""
 
-	def __init__(self, live: Live, install: bool = False) -> None:
+	def __init__(self, live: DpkgLive) -> None:
 		"""Class for getting cache update status and printing to terminal."""
 		dprint("Init UpdateProgress")
 		text.AcquireProgress.__init__(self)
@@ -130,10 +130,9 @@ class UpdateProgress(text.AcquireProgress):
 		self._signal: HANDLER = None
 		self._id = 1
 		self._width = 80
-		self.install = install
 		self.live = live
 
-		scroll_list.clear()
+		self.live.scroll_list.clear()
 
 	def apt_write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
 		"""Write original apt update message."""
@@ -178,16 +177,22 @@ class UpdateProgress(text.AcquireProgress):
 			spinner.text = from_ansi(msg)
 			self.table_print(update_spinner=True)
 
-	def table_print(self, msg: str = '',
-		fetched: bool = False, update_spinner: bool = False) -> None:
+	def table_print(
+		self,
+		msg: str = '',
+		fetched: bool = False,
+		update_spinner: bool = False
+	) -> None:
 		"""Update wrapper for the scroll bar."""
 		if not config.SCROLL and not fetched and msg:
 			print(msg)
 			return
-		scroll_bar(self, msg,
-			install=self.install,
+
+		self.live.scroll_bar(
+			msg,
 			update_spinner=update_spinner,
-			fetch=self.install, use_bar=False
+			apt_fetch=self.live.install,
+			use_bar=False
 		)
 
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
@@ -233,13 +238,13 @@ class UpdateProgress(text.AcquireProgress):
 		if item.owner.complete:
 			return
 		line = _("{updated}   {info}").format(
-			updated = color(DOWNLOADED if self.install else UPDATED, 'BLUE'),
+			updated = color(DOWNLOADED if self.live.install else UPDATED, 'BLUE'),
 			info = item.description
 		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
 			line = _("{updated}   {info} [{size}B]").format(
-				updated = color(DOWNLOADED if self.install else UPDATED, 'BLUE'),
+				updated = color(DOWNLOADED if self.live.install else UPDATED, 'BLUE'),
 				info = item.description,
 				size = size
 			)
@@ -277,7 +282,7 @@ class UpdateProgress(text.AcquireProgress):
 		"""Invoke when the Acquire process stops running."""
 		base.AcquireProgress.stop(self)
 		# We don't want to display fetched Zero if we're in apt fetch.
-		if self.fetched_bytes != 0 or not self.install:
+		if self.fetched_bytes != 0 or not self.live.install:
 			self._write(self.final_msg())
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
@@ -288,8 +293,13 @@ class UpdateProgress(text.AcquireProgress):
 class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
 
-	def __init__(self, dpkg_log: TextIO,
-		term_log: TextIO, live: Live, task: TaskID) -> None:
+	def __init__(
+		self,
+		dpkg_log: TextIO,
+		term_log: TextIO,
+		live: DpkgLive,
+		task: TaskID
+	) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
 		dprint("Init InstallProgress")
 		base.InstallProgress.__init__(self)
@@ -313,7 +323,7 @@ class InstallProgress(base.InstallProgress):
 		"""Call when update has finished."""
 		if not arguments.raw_dpkg:
 			dpkg_progress.advance(self.task)
-			scroll_bar(self)
+			self.live.scroll_bar()
 
 	def run_install(self, apt: apt_pkg.PackageManager | list[str]) -> int:
 		"""Install using the `PackageManager` object `obj`.
@@ -411,7 +421,7 @@ class InstallProgress(base.InstallProgress):
 						spinner.text = from_ansi(
 							color(msg.decode().strip())
 						)
-						scroll_bar(self, update_spinner=True)
+						self.live.scroll_bar(update_spinner=True)
 				self.dpkg_log(term.LF.decode())
 				return True
 		return False
@@ -422,7 +432,7 @@ class InstallProgress(base.InstallProgress):
 			spinner.text = from_ansi(
 				color(fill_pulse(data.decode().split()))
 			)
-			scroll_bar(self, update_spinner=True)
+			self.live.scroll_bar(update_spinner=True)
 			return True
 		return False
 
@@ -442,7 +452,7 @@ class InstallProgress(base.InstallProgress):
 			spinner.text = from_ansi(
 				color(' '.join(pulse))
 			)
-			scroll_bar(self, update_spinner=True)
+			self.live.scroll_bar(update_spinner=True)
 		return True
 
 	def read_status(self) -> None:
@@ -580,15 +590,16 @@ class InstallProgress(base.InstallProgress):
 		# If verbose we just send it. No bars
 		if not config.SCROLL:
 			print(msg)
+			self.live.scroll_bar()
 		elif 'Fetched:' in msg:
 			# This is some magic for apt-listdifferences to put
 			# the fetched message in the spinner since it gets spammy
 			spinner.text = from_ansi(
 				color(' '.join(line.split()[1:]))
 			)
-			scroll_bar(self, msg, update_spinner=True)
+			self.live.scroll_bar(msg, update_spinner=True)
 		else:
-			scroll_bar(self, msg)
+			self.live.scroll_bar(msg)
 		sys.__stdout__.flush()
 		self.set_last_line(rawline)
 
@@ -624,9 +635,7 @@ class InstallProgress(base.InstallProgress):
 		"""Initialize raw terminal output."""
 		if self.raw:
 			return
-		# We update the live display to blank before stopping it
-		self.live.update('', refresh=True)
-		self.live.stop()
+		self.live.raw_init()
 		term.set_raw()
 		self.raw = True
 
@@ -716,73 +725,148 @@ def msg_formatter(line: str) -> str:
 		return format_version(match, line)
 	return line
 
-def get_title(install: bool, fetch: bool) -> str: # pylint: disable=too-many-return-statements
-	"""Get the title for our panel."""
-	if arguments.command and install and not fetch:
-		if arguments.command in ('remove', 'purge'):
-			return '[bold default]'+_('Removing Packages')
-		if arguments.command in ('update', 'upgrade'):
-			return '[bold default]'+_('Updating Packages')
-		if arguments.command == 'install':
-			return '[bold default]'+_('Installing Packages')
-		if arguments.command == 'history':
-			title = _('History Undo') if arguments.mode == 'undo' else _('History Redo')
-			return f'[bold default]{title} {arguments.id}'
-	if install and fetch:
-		return '[bold default]'+_('Fetching Missed Packages')
-	if not arguments.command and arguments.fix_broken:
-		return '[bold default]'+_('Fixing Broken Packages')
-	return '[bold default]'+_('Updating Package List')
+class DpkgLive(Live):
+	"""Subclass for dpkg live display."""
 
-def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
-	"""Get the group for our panel."""
-	if update_spinner and use_bar:
-		# We have to set no-any-return due to our compatibility imports in nala.rich
-		return Group( # type: ignore[no-any-return]
-			spinner,
-			dpkg_progress.get_renderable(),
+	def __init__(self, install: bool = True) -> None:
+		"""Subclass for dpkg live display."""
+		super().__init__(refresh_per_second = 10)
+		self.install = install
+		self.scroll_list: list[str] = []
+		self.scroll_config = (False, False, True)
+		self.used_scroll: bool = False
+
+	def __enter__(self) -> DpkgLive:
+		"""Start the live display."""
+		self.start(refresh=self._renderable is not None)
+		return self
+
+	def scroll_bar( # pylint: disable=too-many-arguments
+		self,
+		msg: str = '',
+		apt_fetch: bool = False,
+		update_spinner: bool = False,
+		use_bar: bool = True,
+		rerender: bool = False,
+	) -> None:
+		"""Print msg to our scroll bar live display."""
+		if rerender:
+			if not self.used_scroll:
+				return
+			apt_fetch, update_spinner, use_bar = self.scroll_config
+		else:
+			self.used_scroll = True
+			self.scroll_config = (apt_fetch, update_spinner, use_bar)
+
+		if msg:
+			self.scroll_list.append(msg)
+		self.slice_list()
+
+		table = Table.grid()
+		table.add_column(no_wrap=True, width=term.columns, overflow=term.overflow)
+
+		for item in self.scroll_list:
+			table.add_row(from_ansi(item))
+
+		if use_bar or update_spinner:
+			table.add_row(
+				Panel(
+					self.get_group(update_spinner, use_bar),
+					padding=(0,0),
+					border_style='bold blue' if config.SCROLL else 'bold green'
+				)
+			)
+
+		# We don't need to build the extra panel if we're not scrolling
+		if not config.SCROLL:
+			self.update(table, refresh=True)
+			return
+
+		self.update(
+			Panel(
+				table,
+				title=self.get_title(self.install, apt_fetch),
+				title_align='left',
+				padding=(0,0),
+				border_style='bold green'
+			),
+			refresh=True
 		)
-	if update_spinner:
-		return spinner
-	return dpkg_progress.get_renderable()
 
-def slice_list() -> None:
-	"""Set scroll bar to take up only 1/3 of the screen."""
-	global scroll_list # pylint: disable=invalid-name, global-statement
-	scroll_lines = term.lines // 3
-	size = len(scroll_list)
-	if size > scroll_lines and size > 10:
-		total = size - max(scroll_lines, 10)
-		scroll_list = scroll_list[total:]
+	@staticmethod
+	def get_title(install: bool, apt_fetch: bool) -> str:
+		"""Get the title for our panel."""
+		msg = '[bold default]'
+		if arguments.command and install and not apt_fetch:
+			if arguments.command in ('remove', 'purge'):
+				msg += _('Removing Packages')
+			elif arguments.command == 'upgrade':
+				msg += _('Updating Packages')
+			elif arguments.command == 'install':
+				msg += _('Installing Packages')
+			elif arguments.command == 'history':
+				title = _('History Undo') if arguments.mode == 'undo' else _('History Redo')
+				msg += f"{title} {arguments.id}"
+			return msg
+		if install and apt_fetch:
+			return msg + _('Fetching Missed Packages')
+		if not arguments.command and arguments.fix_broken:
+			return msg + _('Fixing Broken Packages')
+		return msg + _('Updating Package List')
 
-def scroll_bar(self: UpdateProgress | InstallProgress, # pylint: disable=too-many-arguments
-	msg: str = '', install: bool = True, fetch: bool = False,
-	update_spinner: bool = False, use_bar: bool = True) -> None:
-	"""Print msg to our scroll bar live display."""
-	if msg:
-		scroll_list.append(msg)
+	@staticmethod
+	def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
+		"""Get the group for our panel."""
+		if spinner.text.plain: # type: ignore[union-attr]
+			if update_spinner and use_bar:
+				return Group(
+					spinner,
+					dpkg_progress.get_renderable(),
+				)
+			if update_spinner:
+				return spinner
+		return dpkg_progress.get_renderable()
 
-	slice_list()
-	scroll_title = get_title(install, fetch)
+	def slice_list(self) -> None:
+		"""Set scroll bar to take up only 1/2 of the screen."""
+		scroll_lines = term.lines // 2
+		size = len(self.scroll_list)
+		if size > scroll_lines and size > 10:
+			total = size - max(scroll_lines, 10)
+			self.scroll_list = self.scroll_list[total:]
 
-	bar_style = 'bold blue' if config.SCROLL else 'bold green'
-	table = Table.grid()
-	table.add_column(no_wrap=True, width=term.columns, overflow=term.overflow)
-	for item in scroll_list:
-		table.add_row(from_ansi(item))
+	def raw_init(self) -> None:
+		"""Set up the live display to be stopped."""
+		# Stop the live display from Auto Refreshing
+		if self._refresh_thread:
+			self._refresh_thread.stop()
+			self._refresh_thread = None
 
-	panel_group = get_group(update_spinner, use_bar)
+		# We update the live display to blank before stopping it
+		self.update('', refresh=True)
+		self.stop()
 
-	if use_bar or update_spinner:
-		table.add_row(Panel(panel_group, padding=(0,0), border_style=bar_style))
-	# We don't need to build the extra panel if we're not scrolling
-	if not config.SCROLL:
-		self.live.update(table, refresh=True)
-		return
-	self.live.update(Panel(
-		table, title=scroll_title, title_align='left',
-		padding=(0,0), border_style='bold green'
-		), refresh=True)
+	def start(self, refresh: bool = False) -> None:
+		"""Start live rendering display.
+
+		Args:
+			refresh (bool, optional): Also refresh. Defaults to False.
+		"""
+		with self._lock:
+			if self._started:
+				return
+			self.console.set_live(self)
+			self._started = True
+			if self._screen:
+				self._alt_screen = self.console.set_alt_screen(True)
+			self.console.show_cursor(False)
+			self._enable_redirect_io()
+			self.console.push_render_hook(self)
+			if refresh:
+				self.refresh()
+			if self.auto_refresh:
+				self._refresh_thread = Thread(self, self.refresh_per_second)
+				self._refresh_thread.start()
 
 def fork() -> tuple[int, int]:
 	"""Fork pty or regular."""
