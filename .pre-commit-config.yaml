@@ -37,7 +37,7 @@ repos:
         entry: poetry run codespell
         types: [text]
       - id: black
-        name: Format python code
+        name: format python code
         description: Automatically format code to follow the black code style
         language: system
         entry: poetry run black
