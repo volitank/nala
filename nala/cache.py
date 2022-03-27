@@ -36,7 +36,8 @@ from apt.package import Package
 from nala import _, color, color_version
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX
 from nala.options import arguments
-from nala.utils import dprint, eprint
+from nala.rich import Columns, from_ansi
+from nala.utils import dprint, eprint, term
 
 if TYPE_CHECKING:
 	from nala.debfile import NalaDebPackage
@@ -203,6 +204,29 @@ class Cache(_Cache):
 					resolver.protect(self._cache[pkg_name])
 					protected.append(pkg)
 		return protected
+
+	def upgradable_pkgs(self) -> list[Package]:
+		"""Return a list of upgradable packages."""
+		return [pkg for pkg in self if pkg.is_upgradable]
+
+	def print_upgradeable(self) -> None:
+		"""Print packages that are upgradable."""
+		if upgradeable := [
+			from_ansi(
+				f"{color(pkg.name, 'GREEN')} "
+				f"{color_version(pkg.installed.version)} '->' {color_version(pkg.candidate.version)}"
+			)
+			for pkg in self.upgradable_pkgs()
+			if pkg.installed and pkg.candidate
+		]:
+			print(
+				_("\nThe following {total} packages can be upgraded:").format(
+					total=color(str(len(upgradeable)))
+				)
+			)
+			term.console.print(Columns(upgradeable, padding=(0, 2), equal=True))
+			return
+		print(color(_("All packages are up to date.")))
 
 
 def install_archives(

@@ -65,7 +65,7 @@ def start_nala() -> bool:
 		remove(arguments.args)
 		sys.exit()
 	if arguments.command == "update":
-		setup_cache()
+		setup_cache().print_upgradeable()
 		sys.exit()
 	if arguments.command == "upgrade":
 		upgrade()

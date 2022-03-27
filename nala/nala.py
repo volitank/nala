@@ -83,7 +83,7 @@ def upgrade(nested_cache: Cache | None = None) -> None:
 		sys.exit()
 	check_state(cache, nala_pkgs)
 
-	is_upgrade = [pkg for pkg in cache if pkg.is_upgradable]
+	is_upgrade = cache.upgradable_pkgs()
 	protected = cache.protect_upgrade_pkgs()
 	try:
 		cache.upgrade(dist_upgrade=arguments.no_full)
