@@ -157,6 +157,8 @@ class Cache(_Cache):
 					new_names.add(pkg_name)
 					continue
 				new_names.add(vpkg.name)
+				continue
+			new_names.add(pkg_name)
 		dprint(f"Virtual Filter: {new_names}")
 		return sorted(new_names)
 
