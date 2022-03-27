@@ -112,7 +112,7 @@ class NalaBaseDep:
 		"""Return a string representation of the dependency.
 
 		Returns the string representation of the dependency as it would be
-		written in the debian/control file.  The string representation does not
+		written in the debian/control file. The string representation does not
 		include the type of the dependency.
 
 		Example for an unversioned dependency:
@@ -164,6 +164,8 @@ class NalaDep(List[NalaBaseDep]):
 		does not include the type of the Or-group of dependencies.
 
 		Example:
+		-------
 		        python2 >= 2.7 | python3
+
 		"""
 		return " | ".join(bd.rawstr for bd in self)

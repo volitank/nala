@@ -865,7 +865,9 @@ class DpkgLive(Live):
 		"""Start live rendering display.
 
 		Args:
+		----
 		        refresh (bool, optional): Also refresh. Defaults to False.
+
 		"""
 		with self._lock:
 			if self._started:
