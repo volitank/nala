@@ -36,6 +36,13 @@ repos:
         language: system
         entry: poetry run codespell
         types: [text]
+      - id: black
+        name: Format python code
+        description: Automatically format code to follow the black code style
+        language: system
+        entry: poetry run black
+        types_or: [python, pyi]
+        require_serial: true
       - id: isort
         name: sort python imports
         description: Automatically sort import statements
