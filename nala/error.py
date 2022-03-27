@@ -36,7 +36,7 @@ from nala import _, color, color_version
 from nala.cache import Cache
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, WARNING_PREFIX
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
-from nala.dpkg import dpkg_error
+from nala.dpkg import dpkg_error, update_error
 from nala.rich import Columns, Text, Tree, from_ansi
 from nala.show import SHOW_INFO, format_dep, show_dep
 from nala.utils import dprint, eprint, get_installed_dep_names, print_rdeps, term
@@ -104,10 +104,25 @@ class FileDownloadError(Exception):
 		self.received = received
 
 
-def apt_error(apt_err: AptErrorTypes) -> NoReturn:
+def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
 	"""Take an error message from python-apt and formats it."""
 	msg = str(apt_err)
 	if not msg:
+		if update_error:
+			print()
+			bad_mirror = False
+			for line in update_error:
+				bad_mirror = "Connection failed" in line
+				eprint(line)
+			if bad_mirror:
+				eprint(
+					_(
+						"{notice} Some index files failed to download. "
+						"They have been ignored, or old ones used instead."
+					).format(notice=NOTICE_PREFIX)
+				)
+				return None
+			sys.exit(1)
 		# Sometimes python apt gives us literally nothing to work with.
 		# Probably an issue with sources.list. Needs further testing.
 		sys.exit(NO_PROPER_ERR.format(error=ERROR_PREFIX, apt_err=repr(apt_err)))

@@ -79,6 +79,7 @@ notice: list[str] = []
 pkgnames: set[str] = set()
 unpacked: set[str] = set()
 dpkg_error: list[str] = []
+update_error: list[str] = []
 
 REMOVING = "Removing"
 UNPACKING = "Unpacking"
@@ -177,6 +178,7 @@ class UpdateProgress(text.AcquireProgress):
 
 			if ERROR in msg:
 				for line in msg.splitlines():
+					update_error.append(line)
 					eprint(line)
 				return
 
