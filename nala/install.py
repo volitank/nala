@@ -477,12 +477,12 @@ def package_manager(
 					if remove:
 						if pkg.installed:
 							pkg.mark_delete(
-								auto_fix=arguments.no_fix_broken, purge=purge
+								auto_fix=not arguments.no_fix_broken, purge=purge
 							)
 							dprint(f"Marked Remove: {pkg.name}")
 						continue
 					if not pkg.installed or pkg.marked_downgrade:
-						pkg.mark_install(auto_fix=arguments.no_fix_broken)
+						pkg.mark_install(auto_fix=not arguments.no_fix_broken)
 						dprint(f"Marked Install: {pkg.name}")
 					elif pkg.is_upgradable:
 						pkg.mark_upgrade()
@@ -537,6 +537,11 @@ def set_candidate_versions(
 
 def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Check if pkg needs to be configured so we can show it."""
+	from nala.nala import fix_broken  # pylint: disable=import-outside-toplevel
+
+	if cache.broken_count and arguments.no_fix_broken:
+		fix_broken(cache)
+		sys.exit()
 	for raw_pkg in cache._cache.packages:
 		if raw_pkg.current_state in (
 			CurrentState.HALF_CONFIGURED,
@@ -617,7 +622,7 @@ def check_broken(
 			pkg = cache[pkg_name]
 			if not mark_pkg(pkg, depcache, remove=remove, purge=purge):
 				pkg_names.remove(pkg_name)
-			if depcache.broken_count > broken_count and arguments.no_fix_broken:
+			if depcache.broken_count > broken_count and not arguments.no_fix_broken:
 				broken.append(pkg)
 				broken_count += 1
 	return broken, not_found, failed
@@ -796,7 +801,7 @@ def check_term_ask() -> None:
 			).format(error=ERROR_PREFIX)
 		)
 
-	if not arguments.no_fix_broken:
+	if arguments.no_fix_broken:
 		print(
 			_("{warning} Using {switch} can be very dangerous!").format(
 				warning=WARNING_PREFIX, switch=color("--no-fix-broken", "YELLOW")

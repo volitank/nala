@@ -78,15 +78,12 @@ nala_pkgs = PackageHandler()
 def upgrade(nested_cache: Cache | None = None) -> None:
 	"""Upgrade pkg[s]."""
 	cache = nested_cache or setup_cache()
-	if cache.broken_count and arguments.no_fix_broken:
-		fix_broken(cache)
-		sys.exit()
 	check_state(cache, nala_pkgs)
 
 	is_upgrade = cache.upgradable_pkgs()
 	protected = cache.protect_upgrade_pkgs()
 	try:
-		cache.upgrade(dist_upgrade=arguments.no_full)
+		cache.upgrade(dist_upgrade=not arguments.no_full)
 	except apt_pkg.Error as error:
 		if arguments.exclude:
 			arguments.exclude = fix_excluded(protected, is_upgrade)
@@ -105,7 +102,7 @@ def upgrade(nested_cache: Cache | None = None) -> None:
 		for pkg in kept_back:
 			broken_pkg(pkg, cache)
 		check_term_ask()
-		cache.upgrade(dist_upgrade=arguments.no_full)
+		cache.upgrade(dist_upgrade=not arguments.no_full)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, upgrade=True)
@@ -117,9 +114,6 @@ def install(pkg_names: list[str]) -> None:
 		fix_broken()
 		return
 	cache = setup_cache()
-	if cache.broken_count and arguments.no_fix_broken:
-		fix_broken(cache)
-		sys.exit()
 	check_state(cache, nala_pkgs)
 
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
@@ -152,9 +146,6 @@ def install(pkg_names: list[str]) -> None:
 def remove(pkg_names: list[str]) -> None:
 	"""Remove or Purge pkg[s]."""
 	cache = setup_cache()
-	if cache.broken_count and arguments.no_fix_broken:
-		fix_broken(cache)
-		sys.exit()
 	check_state(cache, nala_pkgs)
 
 	_purge = arguments.command == "purge"
@@ -186,9 +177,6 @@ def auto_remove() -> None:
 	"""Command for autoremove."""
 	cache = setup_cache()
 	_purge = arguments.command == "autopurge"
-	if cache.broken_count and arguments.no_fix_broken:
-		fix_broken(cache)
-		sys.exit()
 	check_state(cache, nala_pkgs)
 	auto_remover(cache, nala_pkgs, _purge)
 	get_changes(cache, nala_pkgs, remove=True)

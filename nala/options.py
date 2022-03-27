@@ -169,7 +169,7 @@ global_options.add_argument(
 )
 global_options.add_argument(
 	"--no-fix-broken",
-	action="store_false",
+	action="store_true",
 	help=_("skips attempting to fix broken packages"),
 )
 global_options.add_argument(
@@ -314,7 +314,7 @@ upgrade_parser = subparsers.add_parser(
 )
 upgrade_parser.add_argument(
 	"--no-full",
-	action="store_false",
+	action="store_true",
 	help=_("runs a normal upgrade instead of full-upgrade"),
 )
 upgrade_parser.add_argument(
