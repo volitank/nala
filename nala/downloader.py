@@ -150,7 +150,9 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 			return True
 		semaphore = Semaphore(min(guess_concurrent(self.pkg_urls), 16))
 		with Live(get_renderable=self._gen_table) as self.live:
-			async with AsyncClient(timeout=20, proxies=self.proxy, follow_redirects=True) as client:
+			async with AsyncClient(
+				timeout=20, proxies=self.proxy, follow_redirects=True
+			) as client:
 				loop = asyncio.get_running_loop()
 				tasks = (
 					loop.create_task(self._init_download(client, urls, semaphore))

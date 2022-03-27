@@ -87,8 +87,8 @@ class FileDownloadError(Exception):
 	ENOENT = 2
 	ERRSIZE = 3
 
-	def __init__(
-		self,  # pylint: disable=too-many-arguments
+	def __init__(  # pylint: disable=too-many-arguments
+		self,
 		error_str: str = "",
 		errno: int = 0,
 		filename: str = "",
@@ -302,9 +302,9 @@ def breaks_conflicts(
 				yield formatted_dep
 
 
-def broken_pkg(
+def broken_pkg(  # pylint: disable=too-many-branches
 	pkg: Package | NalaDebPackage, cache: Cache
-) -> int:  # pylint: disable=too-many-branches
+) -> int:
 	"""Calculate and print broken Dependencies."""
 	ret_count = 0
 	version: NalaDebPackage | Version | None

@@ -551,8 +551,8 @@ def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 
 
-def get_extra_pkgs(
-	extra_type: str,  # pylint: disable=too-many-branches
+def get_extra_pkgs(  # pylint: disable=too-many-branches
+	extra_type: str,
 	pkgs: list[Package],
 	npkg_list: list[NalaPackage | list[NalaPackage]],
 ) -> None:

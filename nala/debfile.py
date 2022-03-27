@@ -22,8 +22,10 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 """Module for Nala debfile and dependency subclasses."""
+
 from __future__ import annotations
 
+import contextlib
 from typing import List, cast
 
 import apt_pkg
@@ -50,10 +52,8 @@ class NalaDebPackage(DebPackage):
 	def _get_depends(self, _type: str) -> list[list[tuple[str, str, str]]]:
 		"""List of packages on which this package depends on."""
 		depends = []
-		try:
+		with contextlib.suppress(KeyError):
 			depends.extend(apt_pkg.parse_depends(self._sections[_type], False))
-		except KeyError:
-			pass
 		return depends
 
 	def get_dependencies(self, *types: str) -> list[NalaDep]:
@@ -84,8 +84,8 @@ class NalaDebPackage(DebPackage):
 class NalaBaseDep:
 	"""Base Dependency class to contain debfile deps."""
 
-	def __init__(
-		self,  # pylint: disable=too-many-arguments
+	def __init__(  # pylint: disable=too-many-arguments
+		self,
 		name: str,
 		version: str,
 		relation: str,
