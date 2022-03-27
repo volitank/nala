@@ -212,7 +212,7 @@ def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 	"""Attempt to fetch the url and split a list based on the splitter."""
 	try:
-		response = get(url, timeout=15)
+		response = get(url, timeout=15, follow_redirects=True)
 		response.raise_for_status()
 		mirror_list = response.text.split(splitter)
 	except HTTPError:
