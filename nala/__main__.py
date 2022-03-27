@@ -45,49 +45,51 @@ from nala.nala import (
 from nala.options import arguments
 from nala.utils import arg_check, dprint, eprint, sudo_check, term
 
-if str(ARCHIVE_DIR) == '/':
+if str(ARCHIVE_DIR) == "/":
 	sys.exit(
 		_("{error} archive dir is '/'. This is dangerous and unsupported.").format(
-			error = ERROR_PREFIX
+			error=ERROR_PREFIX
 		)
 	)
 
+
 def start_nala() -> bool:
 	"""Start the nala command."""
-	if arguments.command == 'install':
+	if arguments.command == "install":
 		install(arguments.args)
 		sys.exit()
-	if arguments.command == 'show':
+	if arguments.command == "show":
 		show(arguments.args)
 		sys.exit()
-	if arguments.command in ('remove', 'purge'):
+	if arguments.command in ("remove", "purge"):
 		remove(arguments.args)
 		sys.exit()
-	if arguments.command == 'update':
+	if arguments.command == "update":
 		setup_cache()
 		sys.exit()
-	if arguments.command == 'upgrade':
+	if arguments.command == "upgrade":
 		upgrade()
 		sys.exit()
-	if arguments.command == 'clean':
+	if arguments.command == "clean":
 		clean()
 		sys.exit()
-	if arguments.command == 'fetch':
+	if arguments.command == "fetch":
 		fetch()
 		sys.exit()
-	if arguments.command == 'history':
+	if arguments.command == "history":
 		history()
 		sys.exit()
-	if arguments.command == 'search':
+	if arguments.command == "search":
 		search()
 		sys.exit()
-	if arguments.command == 'moo':
+	if arguments.command == "moo":
 		moo()
 		sys.exit()
-	if arguments.command in ('autoremove', 'autopurge'):
+	if arguments.command in ("autoremove", "autopurge"):
 		auto_remove()
 		sys.exit()
 	return False
+
 
 def _main() -> None:
 	"""Nala Main."""
@@ -96,42 +98,41 @@ def _main() -> None:
 	if term.is_su() and not NALA_LOGDIR.exists():
 		NALA_LOGDIR.mkdir()
 
-	kwarg = '\n    '.join((f"{kwarg[0]} = {kwarg[1]},") for kwarg in arguments._get_kwargs())
+	kwarg = "\n    ".join(
+		(f"{kwarg[0]} = {kwarg[1]},") for kwarg in arguments._get_kwargs()
+	)
 	dprint(f"Argparser = [\n    {kwarg}\n]")
 	if arguments.command in (
-		'update',
-		'upgrade',
-		'install',
-		'remove',
-		'fetch',
-		'clean',
-		'purge',
-		'autoremove',
-		'autopurge'
+		"update",
+		"upgrade",
+		"install",
+		"remove",
+		"fetch",
+		"clean",
+		"purge",
+		"autoremove",
+		"autopurge",
 	):
-		sudo_check(_("Nala needs root to {command}").format(command = arguments.command))
+		sudo_check(_("Nala needs root to {command}").format(command=arguments.command))
 
 	if not start_nala():
 		sys.exit(
 			_("{error} Unknown error in 'apt_command' function").format(
-				error = ERROR_PREFIX
+				error=ERROR_PREFIX
 			)
 		)
+
 
 def main() -> None:
 	"""Nala function to reference from the entry point."""
 	try:
 		_main()
 	except KeyboardInterrupt:
-		eprint(_('\nExiting at your request'))
+		eprint(_("\nExiting at your request"))
 		sys.exit(130)
 	except BrokenPipeError:
 		sys.stderr.close()
 	except OSError as error:
 		if error.errno == errno.ENOSPC:
-			sys.exit(
-				_("{error} No space left on device").format(
-					error = ERROR_PREFIX
-				)
-			)
+			sys.exit(_("{error} No space left on device").format(error=ERROR_PREFIX))
 		raise error from error

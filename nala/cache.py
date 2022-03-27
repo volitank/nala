@@ -46,9 +46,12 @@ if TYPE_CHECKING:
 class Cache(_Cache):
 	"""Subclass of apt.cache to add features."""
 
-	def commit_pkgs(self,
+	def commit_pkgs(
+		self,
 		install_progress: InstallProgress,
-		update_progress: UpdateProgress, local_debs: list[NalaDebPackage] | None = None) -> bool:
+		update_progress: UpdateProgress,
+		local_debs: list[NalaDebPackage] | None = None,
+	) -> bool:
 		"""Apply the marked changes to the cache."""
 		if local_debs:
 			res = install_archives(
@@ -110,21 +113,21 @@ class Cache(_Cache):
 
 		If there is nothing to glob it returns the original list.
 		"""
-		if '*' not in str(pkg_names):
+		if "*" not in str(pkg_names):
 			return pkg_names
 
 		new_packages: list[str] = []
 		glob_failed = False
 		for pkg_name in pkg_names:
-			if '*' in pkg_name:
-				dprint(f'Globbing: {pkg_name}')
+			if "*" in pkg_name:
+				dprint(f"Globbing: {pkg_name}")
 				glob = fnmatch.filter(self.get_pkg_names(), pkg_name)
 				if not glob:
 					glob_failed = True
 					eprint(
-						_("{error} unable to find any packages by globbing {pkg}").format(
-							error=ERROR_PREFIX, pkg=color(pkg_name, 'YELLOW')
-						)
+						_(
+							"{error} unable to find any packages by globbing {pkg}"
+						).format(error=ERROR_PREFIX, pkg=color(pkg_name, "YELLOW"))
 					)
 					continue
 				new_packages.extend(glob)
@@ -134,12 +137,12 @@ class Cache(_Cache):
 		if glob_failed:
 			sys.exit(1)
 		new_packages.sort()
-		dprint(f'List after globbing: {new_packages}')
+		dprint(f"List after globbing: {new_packages}")
 		return new_packages
 
 	def get_pkg_names(self) -> Generator[str, None, None]:
 		"""Generate all real packages, or packages that can provide something."""
-		for pkg in self._cache.packages: # pylint: disable=not-an-iterable
+		for pkg in self._cache.packages:  # pylint: disable=not-an-iterable
 			if pkg.has_versions or pkg.has_provides:
 				yield pkg.get_fullname(pretty=True)
 
@@ -164,10 +167,10 @@ class Cache(_Cache):
 
 	def what_replaces(self, pkg_name: str) -> Generator[str, None, None]:
 		"""Generate packages that replace the given name."""
-		for pkg in self._cache.packages: # pylint: disable=not-an-iterable
-			if (cand := self._depcache.get_candidate_ver(pkg)):
+		for pkg in self._cache.packages:  # pylint: disable=not-an-iterable
+			if cand := self._depcache.get_candidate_ver(pkg):
 				with contextlib.suppress(KeyError):
-					replaces = cand.depends_list['Replaces']
+					replaces = cand.depends_list["Replaces"]
 					target = replaces[0][0].target_pkg
 					if pkg_name == target.name:
 						yield pkg.get_fullname(pretty=True)
@@ -201,8 +204,10 @@ class Cache(_Cache):
 					protected.append(pkg)
 		return protected
 
+
 def install_archives(
-	apt: apt_pkg.PackageManager | list[str], install_progress: InstallProgress) -> int:
+	apt: apt_pkg.PackageManager | list[str], install_progress: InstallProgress
+) -> int:
 	"""Install the archives."""
 	install_progress.start_update()
 
@@ -218,26 +223,32 @@ def install_archives(
 	install_progress.finish_update()
 	return res
 
+
 def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 	"""Print the virtual package string."""
 	print(
-		_("{pkg_name} is a virtual package provided by:\n  {provides}\n"
-			"You should select just one.").format(
-				pkg_name = color(pkg_name, 'GREEN'),
-				provides = "\n  ".join(
-					f"{color(pkg.name, 'GREEN')} {color_version(pkg.candidate.version)}"
-					for pkg in provides if pkg.candidate
-			)
+		_(
+			"{pkg_name} is a virtual package provided by:\n  {provides}\n"
+			"You should select just one."
+		).format(
+			pkg_name=color(pkg_name, "GREEN"),
+			provides="\n  ".join(
+				f"{color(pkg.name, 'GREEN')} {color_version(pkg.candidate.version)}"
+				for pkg in provides
+				if pkg.candidate
+			),
 		)
 	)
+
 
 def print_selecting_pkg(provider: str, pkg_name: str) -> None:
 	"""Print that we are selecting a different package."""
 	print(
-		_(	"{notice} Selecting {provider}\n"
-			"  Instead of virtual package {package}\n").format(
-				notice = NOTICE_PREFIX,
-				provider = color(provider, 'GREEN'),
-				package = color(pkg_name, 'GREEN')
+		_(
+			"{notice} Selecting {provider}\n" "  Instead of virtual package {package}\n"
+		).format(
+			notice=NOTICE_PREFIX,
+			provider=color(provider, "GREEN"),
+			package=color(pkg_name, "GREEN"),
 		)
 	)

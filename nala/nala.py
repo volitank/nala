@@ -74,6 +74,7 @@ from nala.utils import (
 
 nala_pkgs = PackageHandler()
 
+
 def upgrade(nested_cache: Cache | None = None) -> None:
 	"""Upgrade pkg[s]."""
 	cache = nested_cache or setup_cache()
@@ -94,17 +95,13 @@ def upgrade(nested_cache: Cache | None = None) -> None:
 				upgrade(cache)
 				sys.exit()
 			sys.exit(
-				_("{error} You have held broken packages").format(
-					error=ERROR_PREFIX
-				)
+				_("{error} You have held broken packages").format(error=ERROR_PREFIX)
 			)
 		raise error from error
 
 	if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
 		cache.clear()
-		print(
-			color(_("The following packages were kept back:"), 'YELLOW')
-		)
+		print(color(_("The following packages were kept back:"), "YELLOW"))
 		for pkg in kept_back:
 			broken_pkg(pkg, cache)
 		check_term_ask()
@@ -112,6 +109,7 @@ def upgrade(nested_cache: Cache | None = None) -> None:
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, upgrade=True)
+
 
 def install(pkg_names: list[str]) -> None:
 	"""Install pkg[s]."""
@@ -136,15 +134,20 @@ def install(pkg_names: list[str]) -> None:
 		pkg_error(not_found, cache, terminate=True)
 
 	pkgs = [cache[pkg_name] for pkg_name in pkg_names]
-	if (not package_manager(pkg_names, cache)
-	# We also check to make sure that all the packages are still
-	# Marked upgrade or install after the package manager is run
-	or not all((pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade) for pkg in pkgs)
+	if (
+		not package_manager(pkg_names, cache)
+		# We also check to make sure that all the packages are still
+		# Marked upgrade or install after the package manager is run
+		or not all(
+			(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
+			for pkg in pkgs
+		)
 	) and not broken_error(broken, cache):
 		unmarked_error(pkgs)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs)
+
 
 def remove(pkg_names: list[str]) -> None:
 	"""Remove or Purge pkg[s]."""
@@ -154,7 +157,7 @@ def remove(pkg_names: list[str]) -> None:
 		sys.exit()
 	check_state(cache, nala_pkgs)
 
-	_purge = arguments.command == 'purge'
+	_purge = arguments.command == "purge"
 	pkg_names = cache.glob_filter(pkg_names)
 	pkg_names = cache.virtual_filter(pkg_names)
 	broken, not_found, ver_failed = check_broken(
@@ -168,16 +171,21 @@ def remove(pkg_names: list[str]) -> None:
 		broken_error(
 			broken,
 			cache,
-			tuple(pkg for pkg in cache if pkg.is_installed and pkg_installed(pkg).dependencies)
+			tuple(
+				pkg
+				for pkg in cache
+				if pkg.is_installed and pkg_installed(pkg).dependencies
+			),
 		)
 
 	auto_remover(cache, nala_pkgs, _purge)
 	get_changes(cache, nala_pkgs, remove=True)
 
+
 def auto_remove() -> None:
 	"""Command for autoremove."""
 	cache = setup_cache()
-	_purge = arguments.command == 'autopurge'
+	_purge = arguments.command == "autopurge"
 	if cache.broken_count and arguments.no_fix_broken:
 		fix_broken(cache)
 		sys.exit()
@@ -185,21 +193,23 @@ def auto_remove() -> None:
 	auto_remover(cache, nala_pkgs, _purge)
 	get_changes(cache, nala_pkgs, remove=True)
 
+
 def fix_broken(nested_cache: Cache | None = None) -> None:
 	"""Attempt to fix broken packages, if any."""
 	cache = nested_cache or setup_cache()
 	cache.fix_broken()
 
 	if nested_cache:
-		print(color(_("There are broken packages that need to be fixed!"), 'YELLOW'))
+		print(color(_("There are broken packages that need to be fixed!"), "YELLOW"))
 		print(
 			_("You can use {switch} if you'd like to try without fixing them.").format(
-				switch = color('--no-fix-broken', 'YELLOW')
+				switch=color("--no-fix-broken", "YELLOW")
 			)
 		)
 	else:
 		check_state(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs)
+
 
 def show(pkg_names: list[str]) -> None:
 	"""Show package information."""
@@ -223,30 +233,29 @@ def show(pkg_names: list[str]) -> None:
 			eprint(error)
 		sys.exit(1)
 
+
 def search() -> None:
 	"""Search command entry point."""
 	if not (search_term := arguments.args):
 		sys.exit(
-			_("{error} you must specify a pattern to search").format(
-				error=ERROR_PREFIX
-			)
+			_("{error} you must specify a pattern to search").format(error=ERROR_PREFIX)
 		)
 	cache = setup_cache()
 	found: list[tuple[Package, Version]] = []
-	if search_term == '*':
-		search_term = '.*'
+	if search_term == "*":
+		search_term = ".*"
 	try:
 		search_pattern = re.compile(search_term, re.IGNORECASE)
 	except re.error as error:
 		sys.exit(
-			_("{error} failed regex compilation '{error_msg} at position {position}").format(
-				error=ERROR_PREFIX, error_msg=error.msg, position=error.pos
-			)
+			_(
+				"{error} failed regex compilation '{error_msg} at position {position}"
+			).format(error=ERROR_PREFIX, error_msg=error.msg, position=error.pos)
 		)
 	with search_progress as progress:
-		task = progress.add_task('', total=len(cache))
+		task = progress.add_task("", total=len(cache))
 		arches = apt_pkg.get_architectures()
-		with cache.actiongroup(): # type: ignore[attr-defined]
+		with cache.actiongroup():  # type: ignore[attr-defined]
 			for pkg in cache:
 				progress.advance(task)
 				if arguments.installed and not pkg.installed:
@@ -261,49 +270,43 @@ def search() -> None:
 		)
 	print_search(found)
 
+
 def history() -> None:
 	"""Coordinate the history command."""
 	mode = arguments.mode
 	# Eventually we should probably make argparser better and handle this for us.
-	if mode and mode not in ('undo', 'redo', 'info', 'clear'):
+	if mode and mode not in ("undo", "redo", "info", "clear"):
 		sys.exit(
 			_("{error} {command} isn't a valid history command").format(
 				error=ERROR_PREFIX, command=mode
 			)
 		)
 	if mode and not arguments.id:
-		sys.exit(
-			_("{error} We need a transaction ID").format(
-				error=ERROR_PREFIX
-			)
-		)
-	if mode in ('undo', 'redo', 'info'):
+		sys.exit(_("{error} We need a transaction ID").format(error=ERROR_PREFIX))
+	if mode in ("undo", "redo", "info"):
 		try:
 			# We are basically just type checking here
 			int(arguments.id)
 		except ValueError:
-			sys.exit(
-				_("{error} ID must be a number").format(
-					error=ERROR_PREFIX
-				)
-			)
-	if mode in ('undo', 'redo'):
-		if mode == 'undo':
+			sys.exit(_("{error} ID must be a number").format(error=ERROR_PREFIX))
+	if mode in ("undo", "redo"):
+		if mode == "undo":
 			sudo_check(_("Nala needs root to undo history"))
-		elif mode == 'redo':
+		elif mode == "redo":
 			sudo_check(_("Nala needs root to redo history"))
-		history_undo(arguments.id, redo=mode == 'redo')
+		history_undo(arguments.id, redo=mode == "redo")
 		return
 
-	if mode == 'info':
+	if mode == "info":
 		history_info(arguments.id)
 		return
 
-	if mode == 'clear':
+	if mode == "clear":
 		sudo_check(_("Nala needs root to clear history"))
 		history_clear(arguments.id)
 		return
 	history_summary()
+
 
 def clean() -> None:
 	"""Find and delete cache files."""
@@ -311,31 +314,32 @@ def clean() -> None:
 	iter_remove(PARTIAL_DIR)
 	iter_remove(LISTS_PARTIAL_DIR)
 	vprint(
-			_("Removing {cache}\nRemoving {src_cache}").format(
-				cache=PKGCACHE, src_cache=SRCPKGCACHE
-			)
+		_("Removing {cache}\nRemoving {src_cache}").format(
+			cache=PKGCACHE, src_cache=SRCPKGCACHE
+		)
 	)
 
 	PKGCACHE.unlink(missing_ok=True)
 	SRCPKGCACHE.unlink(missing_ok=True)
 	print(_("Cache has been cleaned"))
 
+
 def moo() -> None:
 	"""I beg, pls moo."""
 	moos = arguments.moo
-	moos = moos.count('moo')
+	moos = moos.count("moo")
 	dprint(f"moo number is {moos}")
 	if moos == 1:
-		print(CAT_ASCII['2'])
+		print(CAT_ASCII["2"])
 	elif moos == 2:
-		print(CAT_ASCII['3'])
+		print(CAT_ASCII["3"])
 	else:
-		print(CAT_ASCII['1'])
+		print(CAT_ASCII["1"])
 	can_no_moo = _("I can't moo for I'm a cat")
 	print(f'..."{can_no_moo}"...')
 	if arguments.no_update:
-		what_did_you_expect = _('What did you expect no-update to do?')
+		what_did_you_expect = _("What did you expect no-update to do?")
 		print(f"...{what_did_you_expect}...")
 	if arguments.update:
-		what_did_you_expect = _('What did you expect to update?')
+		what_did_you_expect = _("What did you expect to update?")
 		print(f"...{what_did_you_expect}...")

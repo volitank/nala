@@ -49,7 +49,7 @@ from nala.utils import (
 	term,
 )
 
-USER: str = environ.get("DOAS_USER", '')
+USER: str = environ.get("DOAS_USER", "")
 UID: int = 0
 if USER:
 	UID = getpwnam(USER).pw_uid
@@ -57,91 +57,105 @@ else:
 	USER = environ.get("SUDO_USER", getuser())
 	UID = int(environ.get("SUDO_UID", getuid()))
 
-NOT_SUPPORTED = (
-	_("{error} '{command}' for operations other than install or remove are not currently supported")
+NOT_SUPPORTED = _(
+	"{error} '{command}' for operations other than install or remove are not currently supported"
 )
+
 
 def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]]]:
 	"""Load Nala history."""
 	try:
-		check = json.loads(NALA_HISTORY.read_text(encoding='utf-8'))
+		check = json.loads(NALA_HISTORY.read_text(encoding="utf-8"))
 		assert isinstance(check, dict)
 		return check
 	except JSONDecodeError:
 		sys.exit(
-			_("{error} History file seems corrupt. You should try removing {file}").format(
-				error=ERROR_PREFIX, file=NALA_HISTORY
-			)
+			_(
+				"{error} History file seems corrupt. You should try removing {file}"
+			).format(error=ERROR_PREFIX, file=NALA_HISTORY)
 		)
 
-def write_history_file(data: dict[str, dict[str, str | list[str] | list[list[str]]]]) -> None:
+
+def write_history_file(
+	data: dict[str, dict[str, str | list[str] | list[list[str]]]]
+) -> None:
 	"""Write history to file."""
 	with DelayedKeyboardInterrupt():
-		with open(NALA_HISTORY, 'w', encoding='utf-8') as file:
+		with open(NALA_HISTORY, "w", encoding="utf-8") as file:
 			file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
+
 
 def history_summary() -> None:
 	"""History command."""
 	if not NALA_HISTORY.exists():
-		eprint(
-			_("{error} No history exists...").format(
-				error=ERROR_PREFIX
-			)
-		)
+		eprint(_("{error} No history exists...").format(error=ERROR_PREFIX))
 		return
 	history_file = load_history_file()
 	names: list[Iterable[str]] = []
 
 	for key, entry in history_file.items():
-		command = get_hist_list(entry, 'Command')
-		if command[0] in ('update', 'upgrade'):
-			for pkg in get_hist_package(entry, 'Upgraded'):
+		command = get_hist_list(entry, "Command")
+		if command[0] in ("update", "upgrade"):
+			for pkg in get_hist_package(entry, "Upgraded"):
 				command.append(pkg.name)
 
 		names.append(
 			map(
 				str,
-				(key, ' '.join(command), entry.get('Date'), entry.get('Altered'), entry.get('Requested-By'))
+				(
+					key,
+					" ".join(command),
+					entry.get("Date"),
+					entry.get("Altered"),
+					entry.get("Requested-By"),
+				),
 			)
 		)
 
 	max_width = term.columns - 69
 	history_table = Table(
-		Column('ID'),
-		Column('Command', no_wrap=True, max_width=max_width, overflow=term.overflow),
-		Column('Date and Time', no_wrap=True),
-		Column('Altered', justify='right'),
-		Column('Requested-By'),
-		padding=(0,2), box=None
+		Column("ID"),
+		Column("Command", no_wrap=True, max_width=max_width, overflow=term.overflow),
+		Column("Date and Time", no_wrap=True),
+		Column("Altered", justify="right"),
+		Column("Requested-By"),
+		padding=(0, 2),
+		box=None,
 	)
 
 	for item in names:
 		history_table.add_row(*item)
 	term.console.print(history_table)
 
+
 def get_hist_package(
-	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str) -> list[NalaPackage]:
+	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str
+) -> list[NalaPackage]:
 	"""Type enforce history package is list of lists."""
 	nala_pkgs = []
 	for pkg_list in hist_entry.get(key, []):
 		if isinstance(pkg_list, list):
 			dprint(f"{key} List: {pkg_list}")
 			if len(pkg_list) == 4:
-				name, new_version, size, old_version, = pkg_list
-				nala_pkgs.append(
-					NalaPackage(name, new_version, int(size), old_version)
-				)
+				(
+					name,
+					new_version,
+					size,
+					old_version,
+				) = pkg_list
+				nala_pkgs.append(NalaPackage(name, new_version, int(size), old_version))
 				continue
 			name, new_version, size = pkg_list
-			nala_pkgs.append(
-				NalaPackage(name, new_version, int(size))
-			)
+			nala_pkgs.append(NalaPackage(name, new_version, int(size)))
 	return nala_pkgs
 
+
 def get_hist_list(
-	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str) -> list[str]:
+	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str
+) -> list[str]:
 	"""Type enforce history package is list of strings."""
 	return [pkg for pkg in hist_entry[key] if isinstance(pkg, str)]
+
 
 def history_info(hist_id: str) -> None:
 	"""History info command."""
@@ -149,14 +163,15 @@ def history_info(hist_id: str) -> None:
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")
 	nala_pkgs = PackageHandler()
-	nala_pkgs.autoremove_pkgs = get_hist_package(hist_entry, 'Auto-Removed')
-	nala_pkgs.delete_pkgs = get_hist_package(hist_entry, 'Removed')
-	nala_pkgs.install_pkgs = get_hist_package(hist_entry, 'Installed')
-	nala_pkgs.reinstall_pkgs = get_hist_package(hist_entry, 'Reinstalled')
-	nala_pkgs.upgrade_pkgs = get_hist_package(hist_entry, 'Upgraded')
-	nala_pkgs.downgrade_pkgs = get_hist_package(hist_entry, 'Downgraded')
+	nala_pkgs.autoremove_pkgs = get_hist_package(hist_entry, "Auto-Removed")
+	nala_pkgs.delete_pkgs = get_hist_package(hist_entry, "Removed")
+	nala_pkgs.install_pkgs = get_hist_package(hist_entry, "Installed")
+	nala_pkgs.reinstall_pkgs = get_hist_package(hist_entry, "Reinstalled")
+	nala_pkgs.upgrade_pkgs = get_hist_package(hist_entry, "Upgraded")
+	nala_pkgs.downgrade_pkgs = get_hist_package(hist_entry, "Downgraded")
 
 	print_update_summary(nala_pkgs)
+
 
 def history_clear(hist_id: str) -> None:
 	"""Show command."""
@@ -165,7 +180,7 @@ def history_clear(hist_id: str) -> None:
 		eprint(_("No history exists to clear..."))
 		return
 
-	if hist_id == 'all':
+	if hist_id == "all":
 		NALA_HISTORY.unlink()
 		print(_("History has been cleared"))
 		return
@@ -173,7 +188,7 @@ def history_clear(hist_id: str) -> None:
 	if hist_id not in (history_file := load_history_file()).keys():
 		sys.exit(
 			_("{error} ID: {hist_id} does not exist in the history").format(
-				error = ERROR_PREFIX, hist_id = color(hist_id, 'YELLOW')
+				error=ERROR_PREFIX, hist_id=color(hist_id, "YELLOW")
 			)
 		)
 	history_edit: dict[str, dict[str, str | list[str] | list[list[str]]]] = {}
@@ -184,8 +199,9 @@ def history_clear(hist_id: str) -> None:
 		if key != hist_id:
 			num += 1
 			history_edit[str(num)] = value
-	print(_('History has been altered...'))
+	print(_("History has been altered..."))
 	write_history_file(history_edit)
+
 
 def history_undo(hist_id: str, redo: bool = False) -> None:
 	"""History undo/redo commands."""
@@ -199,10 +215,10 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 	transaction = get_history(hist_id)
 	dprint(f"Transaction: {transaction}")
 
-	command = transaction.get('Command', [''])[0]
-	if command == 'remove':
-		pkgs = [str(pkg[0]) for pkg in transaction.get('Removed', [])]
-		pkgs.extend([str(pkg[0]) for pkg in transaction.get('Auto-Removed', [])])
+	command = transaction.get("Command", [""])[0]
+	if command == "remove":
+		pkgs = [str(pkg[0]) for pkg in transaction.get("Removed", [])]
+		pkgs.extend([str(pkg[0]) for pkg in transaction.get("Auto-Removed", [])])
 
 		if redo:
 			remove(pkgs)
@@ -210,8 +226,8 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 		install(pkgs)
 		return
 
-	if command == 'install':
-		pkgs = [str(pkg[0]) for pkg in transaction.get('Installed', [])]
+	if command == "install":
+		pkgs = [str(pkg[0]) for pkg in transaction.get("Installed", [])]
 		if redo:
 			install(pkgs)
 			return
@@ -219,9 +235,10 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 		return
 	sys.exit(
 		NOT_SUPPORTED.format(
-			error = ERROR_PREFIX, command = f"{arguments.command} {arguments.mode}"
+			error=ERROR_PREFIX, command=f"{arguments.command} {arguments.mode}"
 		)
 	)
+
 
 def write_history(handler: PackageHandler) -> None:
 	"""Prepare history for writing."""
@@ -237,36 +254,43 @@ def write_history(handler: PackageHandler) -> None:
 	)
 
 	transaction: dict[str, str | list[str] | list[list[str]]] = {
-		'Date' : get_date(),
-		'Requested-By' : f'{USER} ({UID})',
-		'Command' : sys.argv[1:],
-		'Altered' : str(altered),
-		'Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs],
-		'Auto-Removed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs],
-		'Installed' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs],
-		'Reinstalled' : [[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs],
-		'Upgraded' : [
-			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)] for pkg in handler.upgrade_pkgs
+		"Date": get_date(),
+		"Requested-By": f"{USER} ({UID})",
+		"Command": sys.argv[1:],
+		"Altered": str(altered),
+		"Removed": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs
 		],
-		'Downgraded' : [
-			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)] for pkg in handler.downgrade_pkgs
+		"Auto-Removed": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs
+		],
+		"Installed": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs
+		],
+		"Reinstalled": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs
+		],
+		"Upgraded": [
+			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
+			for pkg in handler.upgrade_pkgs
+		],
+		"Downgraded": [
+			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
+			for pkg in handler.downgrade_pkgs
 		],
 	}
 
 	history_dict[hist_id] = transaction
 	write_history_file(history_dict)
 
+
 def get_history(hist_id: str) -> dict[str, str | list[str] | list[list[str]]]:
 	"""Get the history from file."""
 	dprint(f"Getting history {hist_id}")
 	if not NALA_HISTORY.exists():
-		sys.exit(
-			_("{error} No history exists...").format(
-				error=ERROR_PREFIX
-			)
-		)
-	history_file: dict[str, dict[str, str | list[str] | list[list[str]]]] = (
-		json.loads(NALA_HISTORY.read_text(encoding='utf-8'))
+		sys.exit(_("{error} No history exists...").format(error=ERROR_PREFIX))
+	history_file: dict[str, dict[str, str | list[str] | list[list[str]]]] = json.loads(
+		NALA_HISTORY.read_text(encoding="utf-8")
 	)
 	if transaction := history_file.get(hist_id):
 		return transaction

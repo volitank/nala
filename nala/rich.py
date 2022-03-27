@@ -54,11 +54,22 @@ from rich.tree import Tree
 from nala import _
 
 __all__ = (
-	'Spinner', 'Table', 'Column', 'Columns',
-	'Console', 'Tree', 'Live', 'Text',
-	'escape', 'Group', 'TaskID', 'Panel',
-	'Progress', 'RenderableType'
+	"Spinner",
+	"Table",
+	"Column",
+	"Columns",
+	"Console",
+	"Tree",
+	"Live",
+	"Text",
+	"escape",
+	"Group",
+	"TaskID",
+	"Panel",
+	"Progress",
+	"RenderableType",
 )
+
 
 class Thread(_RefreshThread):
 	"""A thread that calls refresh() at regular intervals.
@@ -70,10 +81,11 @@ class Thread(_RefreshThread):
 		while not self.done.wait(1 / self.refresh_per_second):
 			with self.live._lock:
 				if not self.done.is_set():
-					self.live.scroll_bar(rerender=True) # type: ignore[attr-defined]
+					self.live.scroll_bar(rerender=True)  # type: ignore[attr-defined]
+
 
 # pylint: disable=too-few-public-methods
-class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
+class NalaTransferSpeed(TransferSpeedColumn):  # type: ignore[misc]
 	"""Subclass of TransferSpeedColumn."""
 
 	def render(self, task: Task) -> Text:
@@ -84,7 +96,8 @@ class NalaTransferSpeed(TransferSpeedColumn): # type: ignore[misc]
 		data_speed = filesize.decimal(int(speed))
 		return Text(f"{data_speed}/s", style="bold blue")
 
-class NalaDownload(DownloadColumn): # type: ignore[misc]
+
+class NalaDownload(DownloadColumn):  # type: ignore[misc]
 	"""Subclass of DownloadColumn."""
 
 	def render(self, task: Task) -> Text:
@@ -109,23 +122,25 @@ class NalaDownload(DownloadColumn): # type: ignore[misc]
 		download_status = f"{completed_str}/{total_str} {suffix}"
 		return Text(download_status, style="bold green")
 
-class TimeRemaining(TimeRemainingColumn): # type: ignore[misc]
+
+class TimeRemaining(TimeRemainingColumn):  # type: ignore[misc]
 	"""Renders estimated time remaining."""
 
 	def render(self, task: Task) -> Text:
 		"""Show time remaining."""
 		remaining = task.time_remaining
 		if remaining is None:
-			return Text("-:--:--", style='bold default')
+			return Text("-:--:--", style="bold default")
 		remaining_delta = timedelta(seconds=int(remaining))
 		return Text(str(remaining_delta), style="")
 
-bar_back_style = Style(color='red')
-bar_style = Style(color='cyan')
+
+bar_back_style = Style(color="red")
+bar_style = Style(color="cyan")
 # Perform checks to see if we need to fall back to ascii.
-is_utf8 = sys.stdout.encoding == 'utf-8'
+is_utf8 = sys.stdout.encoding == "utf-8"
 SEPARATOR = "[bold]•" if is_utf8 else "[bold]+"
-SPIN_TYPE = 'dots' if is_utf8 else 'simpleDots'
+SPIN_TYPE = "dots" if is_utf8 else "simpleDots"
 FINISHED_TEXT = "[bold green]:heavy_check_mark:" if is_utf8 else " "
 PROGRESS_PERCENT = "[bold blue]{task.percentage:>3.1f}%"
 COMPLETED_TOTAL = "{task.completed}/{task.total}"
@@ -136,30 +151,30 @@ BAR_MAX = BarColumn(
 	# The color completed section
 	complete_style=bar_style,
 	# The color of completely finished bar
-	finished_style=bar_style
-	)
+	finished_style=bar_style,
+)
 BAR_MIN = BarColumn(
 	# The background of our bar
 	style=bar_back_style,
 	# The color completed section
 	complete_style=bar_style,
 	# The color of completely finished bar
-	finished_style=bar_style
-	)
+	finished_style=bar_style,
+)
+
 
 def from_ansi(msg: str) -> Text:
 	"""Convert ansi coded text into Rich Text."""
 	return Text().join(AnsiDecoder().decode(msg))
 
+
 def ascii_replace(string: str) -> str:
 	"""If terminal is in ascii mode replace unicode characters."""
-	return string if is_utf8 else string.encode('ascii', 'replace').decode('ascii')
+	return string if is_utf8 else string.encode("ascii", "replace").decode("ascii")
 
-spinner = Spinner(
-	SPIN_TYPE,
-	style="bold blue"
-)
-time_remain = _('Time Remaining:')
+
+spinner = Spinner(SPIN_TYPE, style="bold blue")
+time_remain = _("Time Remaining:")
 pkg_download_progress = Progress(
 	TextColumn(f"[bold green]{time_remain}"),
 	TimeRemaining(),
@@ -169,19 +184,19 @@ pkg_download_progress = Progress(
 	NalaDownload(),
 	SEPARATOR,
 	NalaTransferSpeed(),
-	)
-running_dpkg = _('Running dpkg')
+)
+running_dpkg = _("Running dpkg")
 dpkg_progress = Progress(
-	SpinnerColumn(SPIN_TYPE, style='bold default', finished_text=FINISHED_TEXT),
+	SpinnerColumn(SPIN_TYPE, style="bold default", finished_text=FINISHED_TEXT),
 	TextColumn(f"[bold blue]{running_dpkg} ...", justify="right"),
 	BAR_MAX,
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	TimeRemaining(),
 	SEPARATOR,
-	COMPLETED_TOTAL
+	COMPLETED_TOTAL,
 )
-searching = _('Searching')
+searching = _("Searching")
 search_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
 	TextColumn(f"[bold default]{searching} ...", justify="right"),
@@ -189,9 +204,9 @@ search_progress = Progress(
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	TimeRemaining(),
-	transient=True
+	transient=True,
 )
-testing = _('Testing Mirrors')
+testing = _("Testing Mirrors")
 fetch_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
 	TextColumn(f"[bold default]{testing} ...", justify="right"),
@@ -199,5 +214,5 @@ fetch_progress = Progress(
 	PROGRESS_PERCENT,
 	SEPARATOR,
 	COMPLETED_TOTAL,
-	transient=True
+	transient=True,
 )

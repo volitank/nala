@@ -72,26 +72,27 @@ from nala.rich import (
 )
 from nala.utils import dprint, eprint, term
 
-VERSION_PATTERN = re.compile(r'\(.*?\)')
-PARENTHESIS_PATTERN = re.compile(r'[()]')
+VERSION_PATTERN = re.compile(r"\(.*?\)")
+PARENTHESIS_PATTERN = re.compile(r"[()]")
 
 notice: list[str] = []
 pkgnames: set[str] = set()
 unpacked: set[str] = set()
 dpkg_error: list[str] = []
 
-REMOVING = 'Removing'
-UNPACKING = 'Unpacking'
-SETTING_UP = 'Setting up'
-PROCESSING = 'Processing'
-FETCHED = _('Fetched')
-GET = 'GET'
+REMOVING = "Removing"
+UNPACKING = "Unpacking"
+SETTING_UP = "Setting up"
+PROCESSING = "Processing"
+FETCHED = _("Fetched")
+GET = "GET"
 
-UPDATED = _('Updated:')
-DOWNLOADED = _('Downloaded:')
-IGNORED = _('Ignored:')
-ERROR = _('Error:')
-NO_CHANGE = _('No Change:')
+UPDATED = _("Updated:")
+DOWNLOADED = _("Downloaded:")
+IGNORED = _("Ignored:")
+ERROR = _("Error:")
+NO_CHANGE = _("No Change:")
+
 
 class OpProgress(text.OpProgress):
 	"""Operation progress reporting.
@@ -116,8 +117,9 @@ class OpProgress(text.OpProgress):
 		base.OpProgress.done(self)
 		if arguments.verbose:
 			if self.old_op:
-				self._write(_("%c%s... Done") % ('\r', self.old_op), True, True)
+				self._write(_("%c%s... Done") % ("\r", self.old_op), True, True)
 			self.old_op = ""
+
 
 class UpdateProgress(text.AcquireProgress):
 	"""Class for getting cache update status and printing to terminal."""
@@ -141,7 +143,7 @@ class UpdateProgress(text.AcquireProgress):
 
 		# Fill remaining stuff with whitespace
 		if self._width > len(msg):
-			self._file.write((self._width - len(msg)) * ' ')
+			self._file.write((self._width - len(msg)) * " ")
 		elif maximize:  # Needed for OpProgress.
 			self._width = max(self._width, len(msg))
 		if newline:
@@ -151,7 +153,11 @@ class UpdateProgress(text.AcquireProgress):
 
 	def _write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
 		"""Write the message on the terminal, fill remaining space."""
-		if arguments.raw_dpkg or not term.console.is_terminal or term.console.is_dumb_terminal:
+		if (
+			arguments.raw_dpkg
+			or not term.console.is_terminal
+			or term.console.is_dumb_terminal
+		):
 			self.apt_write(msg, newline, maximize)
 			return
 
@@ -162,7 +168,7 @@ class UpdateProgress(text.AcquireProgress):
 		else:
 			# For the pulse messages we need to do some formatting
 			# End of the line will look like '51.8 mB/s 2s'
-			if msg.endswith('s'):
+			if msg.endswith("s"):
 				msg = fill_pulse(msg.split())
 
 			if FETCHED in msg:
@@ -178,10 +184,7 @@ class UpdateProgress(text.AcquireProgress):
 			self.table_print(update_spinner=True)
 
 	def table_print(
-		self,
-		msg: str = '',
-		fetched: bool = False,
-		update_spinner: bool = False
+		self, msg: str = "", fetched: bool = False, update_spinner: bool = False
 	) -> None:
 		"""Update wrapper for the scroll bar."""
 		if not config.SCROLL and not fetched and msg:
@@ -192,22 +195,19 @@ class UpdateProgress(text.AcquireProgress):
 			msg,
 			update_spinner=update_spinner,
 			apt_fetch=self.live.install,
-			use_bar=False
+			use_bar=False,
 		)
 
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is update (e.g. not modified on the server)."""
 		base.AcquireProgress.ims_hit(self, item)
 		line = _("{no_change} {info}").format(
-			no_change = color(NO_CHANGE, 'GREEN'),
-			info = item.description
+			no_change=color(NO_CHANGE, "GREEN"), info=item.description
 		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
 			line = _("{no_change} {info} [{size}B]").format(
-				no_change = color(NO_CHANGE, 'GREEN'),
-				info = item.description,
-				size = size
+				no_change=color(NO_CHANGE, "GREEN"), info=item.description, size=size
 			)
 		self._write(line)
 
@@ -217,17 +217,16 @@ class UpdateProgress(text.AcquireProgress):
 		if item.owner.status == item.owner.STAT_DONE:
 			self._write(
 				_("{ignored}   {info}").format(
-					ignored = color(IGNORED, 'YELLOW'),
-					info = item.description
+					ignored=color(IGNORED, "YELLOW"), info=item.description
 				)
 			)
 		else:
 			# spaces are to make the error message consistent with other messages.
 			self._write(
 				_("{error} {info}\n  {error_text}").format(
-					error = ERROR_PREFIX,
-					info = item.description,
-					error_text = item.owner.error_text
+					error=ERROR_PREFIX,
+					info=item.description,
+					error_text=item.owner.error_text,
 				)
 			)
 
@@ -238,23 +237,23 @@ class UpdateProgress(text.AcquireProgress):
 		if item.owner.complete:
 			return
 		line = _("{updated}   {info}").format(
-			updated = color(DOWNLOADED if self.live.install else UPDATED, 'BLUE'),
-			info = item.description
+			updated=color(DOWNLOADED if self.live.install else UPDATED, "BLUE"),
+			info=item.description,
 		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
 			line = _("{updated}   {info} [{size}B]").format(
-				updated = color(DOWNLOADED if self.live.install else UPDATED, 'BLUE'),
-				info = item.description,
-				size = size
+				updated=color(DOWNLOADED if self.live.install else UPDATED, "BLUE"),
+				info=item.description,
+				size=size,
 			)
 		self._write(line)
 
 	def _winch(self, *_args: object) -> None:
 		"""Signal handler for window resize signals."""
 		if hasattr(self._file, "fileno") and os.isatty(self._file.fileno()):
-			buf = fcntl.ioctl(self._file, termios.TIOCGWINSZ, 8 * b' ')
-			dummy, columns, dummy, dummy = struct.unpack('hhhh', buf)
+			buf = fcntl.ioctl(self._file, termios.TIOCGWINSZ, 8 * b" ")
+			dummy, columns, dummy, dummy = struct.unpack("hhhh", buf)
 			self._width = columns - 1  # 1 for the cursor
 
 	def start(self) -> None:
@@ -271,12 +270,14 @@ class UpdateProgress(text.AcquireProgress):
 
 	def final_msg(self) -> str:
 		"""Print closing fetched message."""
-		return color(_("{fetched} {size}B in {elapsed} ({speed}B/s)").format(
-			fetched = FETCHED,
-			size = apt_pkg.size_to_str(self.fetched_bytes),
-			elapsed = apt_pkg.time_to_str(self.elapsed_time),
-			speed = apt_pkg.size_to_str(self.current_cps)
-		))
+		return color(
+			_("{fetched} {size}B in {elapsed} ({speed}B/s)").format(
+				fetched=FETCHED,
+				size=apt_pkg.size_to_str(self.fetched_bytes),
+				elapsed=apt_pkg.time_to_str(self.elapsed_time),
+				speed=apt_pkg.size_to_str(self.current_cps),
+			)
+		)
 
 	def stop(self) -> None:
 		"""Invoke when the Acquire process stops running."""
@@ -287,6 +288,7 @@ class UpdateProgress(text.AcquireProgress):
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
 
+
 # We don't call super init because it opens some File Descriptors we don't need
 # There is no functionality we miss out on by doing a super init
 # pylint: disable=too-many-instance-attributes, too-many-public-methods
@@ -294,11 +296,7 @@ class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
 
 	def __init__(
-		self,
-		dpkg_log: TextIO,
-		term_log: TextIO,
-		live: DpkgLive,
-		task: TaskID
+		self, dpkg_log: TextIO, term_log: TextIO, live: DpkgLive, task: TaskID
 	) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
 		dprint("Init InstallProgress")
@@ -309,7 +307,7 @@ class InstallProgress(base.InstallProgress):
 		self.live = live
 		self.raw = False
 		self.bug_list = False
-		self.last_line = b''
+		self.last_line = b""
 		self.child: AptExpect
 		self.child_fd: int
 		self.child_pid: int
@@ -317,7 +315,7 @@ class InstallProgress(base.InstallProgress):
 		# Setting environment to xterm seems to work fine for linux terminal
 		# I don't think we will be supporting much more this this, at least for now
 		if not term.is_xterm() and not arguments.raw_dpkg:
-			os.environ["TERM"] = 'xterm'
+			os.environ["TERM"] = "xterm"
 
 	def finish_update(self) -> None:
 		"""Call when update has finished."""
@@ -341,18 +339,22 @@ class InstallProgress(base.InstallProgress):
 				if isinstance(apt, list):
 					# nosec because this isn't really a security issue. We're just running dpkg
 					os._exit(
-						os.spawnlp( # nosec
-							os.P_WAIT, "dpkg", "dpkg",
-							"--status-fd", str(self.write_stream.fileno()),
-							"-i", *apt
+						os.spawnlp(  # nosec
+							os.P_WAIT,
+							"dpkg",
+							"dpkg",
+							"--status-fd",
+							str(self.write_stream.fileno()),
+							"-i",
+							*apt,
 						)
 					)
 				# We ignore this with mypy because the attr is there
-				os._exit(apt.do_install(self.write_stream.fileno())) # type: ignore[attr-defined]
+				os._exit(apt.do_install(self.write_stream.fileno()))  # type: ignore[attr-defined]
 			# We need to catch every exception here.
 			# If we don't the code continues in the child,
 			# And bugs will be very confusing
-			except Exception: # pylint: disable=broad-except
+			except Exception:  # pylint: disable=broad-except
 				exception = format_exception(*sys.exc_info())
 				self.dpkg_log(f"{exception}\n")
 				os._exit(1)
@@ -369,11 +371,13 @@ class InstallProgress(base.InstallProgress):
 		self.child.interact(self.pre_filter)
 		return os.WEXITSTATUS(self.wait_child())
 
-	def sigwinch_passthrough(self, _sig_dummy: int, _data_dummy: FrameType | None) -> None:
+	def sigwinch_passthrough(
+		self, _sig_dummy: int, _data_dummy: FrameType | None
+	) -> None:
 		"""Pass through sigwinch signals to dpkg."""
 		buffer = struct.pack("HHHH", 0, 0, 0, 0)
 		term_size = struct.unpack(
-			'hhhh', fcntl.ioctl(term.STDIN, termios.TIOCGWINSZ , buffer)
+			"hhhh", fcntl.ioctl(term.STDIN, termios.TIOCGWINSZ, buffer)
 		)
 		if self.child.isalive():
 			_setwinsize(self.child_fd, term_size[0], term_size[1])
@@ -382,7 +386,7 @@ class InstallProgress(base.InstallProgress):
 		"""Check if we get a conf prompt."""
 		if CONF_MESSAGE in rawline:
 			self.raw_init()
-		if b"Parsing Found/Fixed information... Done" in rawline and b'bugs' in rawline:
+		if b"Parsing Found/Fixed information... Done" in rawline and b"bugs" in rawline:
 			self.bug_list = True
 			self.raw_init()
 
@@ -390,11 +394,10 @@ class InstallProgress(base.InstallProgress):
 		"""Check to see if the conf prompt is over."""
 		if self.bug_list:
 			return rawline == term.CRLF and (
-				b'[Y/n/?/...]' in self.last_line or self.last_line in (b'y', b'Y')
+				b"[Y/n/?/...]" in self.last_line or self.last_line in (b"y", b"Y")
 			)
 		return rawline == term.CRLF and (
-			CONF_MESSAGE in self.last_line
-			or self.last_line in CONF_ANSWERS
+			CONF_MESSAGE in self.last_line or self.last_line in CONF_ANSWERS
 		)
 
 	def dpkg_log(self, msg: str) -> None:
@@ -411,16 +414,19 @@ class InstallProgress(base.InstallProgress):
 		"""Handle any status messages."""
 		for status in DPKG_STATUS:
 			if status in data:
-				if status in (b'[Working]', b'[Connecting', b'[Waiting for headers]', b'[Connected to'):
+				if status in (
+					b"[Working]",
+					b"[Connecting",
+					b"[Waiting for headers]",
+					b"[Connected to",
+				):
 					return True
-				statuses = data.split(b'\r')
+				statuses = data.split(b"\r")
 				if len(statuses) > 2:
 					self.dpkg_log(f"Status_Split = {repr(statuses)}\n")
 				for msg in statuses:
-					if msg != b'':
-						spinner.text = from_ansi(
-							color(msg.decode().strip())
-						)
+					if msg != b"":
+						spinner.text = from_ansi(color(msg.decode().strip()))
 						self.live.scroll_bar(update_spinner=True)
 				self.dpkg_log(term.LF.decode())
 				return True
@@ -428,30 +434,26 @@ class InstallProgress(base.InstallProgress):
 
 	def apt_diff_pulse(self, data: bytes) -> bool:
 		"""Handle pulse messages from apt-listdifferences."""
-		if data.startswith(b'\r') and data.endswith(b's'):
-			spinner.text = from_ansi(
-				color(fill_pulse(data.decode().split()))
-			)
+		if data.startswith(b"\r") and data.endswith(b"s"):
+			spinner.text = from_ansi(color(fill_pulse(data.decode().split())))
 			self.live.scroll_bar(update_spinner=True)
 			return True
 		return False
 
 	def apt_differences(self, data: bytes) -> bool:
 		"""Handle messages from apt-listdifferences."""
-		if not data.strip().endswith((b'%', b'%]')):
+		if not data.strip().endswith((b"%", b"%]")):
 			return False
 		for line in data.splitlines():
 			if any(item in line.decode() for item in SPAM) or not line:
 				continue
-			if b'Get' in line:
+			if b"Get" in line:
 				self.dpkg_log(f"Get = [{repr(line)}]\n")
 				self.format_dpkg_output(line)
 				continue
 			pulse = [msg for msg in line.decode().split() if msg]
 			self.dpkg_log(f"Difference = [{pulse}]\n")
-			spinner.text = from_ansi(
-				color(' '.join(pulse))
-			)
+			spinner.text = from_ansi(color(" ".join(pulse)))
 			self.live.scroll_bar(update_spinner=True)
 		return True
 
@@ -471,13 +473,13 @@ class InstallProgress(base.InstallProgress):
 		"""Update the interface."""
 		pkgname = status = status_str = _percent = base_status = ""
 
-		if line.startswith('pm'):
+		if line.startswith("pm"):
 			try:
 				(status, pkgname, _percent, status_str) = line.split(":", 3)
 			except ValueError:
 				# Silently ignore lines that can't be parsed
 				return
-		elif line.startswith('status'):
+		elif line.startswith("status"):
 			try:
 				(base_status, pkgname, status, status_str) = line.split(":", 3)
 			except ValueError:
@@ -491,26 +493,27 @@ class InstallProgress(base.InstallProgress):
 		# This is the main branch for apt installs
 		if status == "pmstatus":
 			dprint(f"apt: {pkgname} {status_str}")
-			if status_str.startswith(('Unpacking', 'Removing')):
+			if status_str.startswith(("Unpacking", "Removing")):
 				unpacked.add(pkgname)
 				self.advance_progress()
 			# Either condition can satisfy this mark provided the package hasn't been advanced
 			elif (
-					status_str.startswith(('Installed', 'Configuring'))
-					and pkgname not in pkgnames
-					and pkgname in unpacked):
+				status_str.startswith(("Installed", "Configuring"))
+				and pkgname not in pkgnames
+				and pkgname in unpacked
+			):
 				pkgnames.add(pkgname)
 				self.advance_progress()
 		# This branch only happens for local .deb installs.
 		elif base_status == "status":
 			# Sometimes unpacked is notified twice for one package
 			# We check against out set to make sure not to over shoot progress
-			if status == 'unpacked' and pkgname not in pkgnames:
+			if status == "unpacked" and pkgname not in pkgnames:
 				self.advance_progress()
 				pkgnames.add(pkgname)
 			# Sometimes packages are notified as installed
 			# But we only care for ones that have been unpacked
-			if status == 'installed' and pkgname in pkgnames:
+			if status == "installed" and pkgname in pkgnames:
 				self.advance_progress()
 			dprint(f"dpkg: {pkgname} {status}")
 
@@ -521,8 +524,10 @@ class InstallProgress(base.InstallProgress):
 
 		# This is a work around for a hang in non-interactive mode
 		# https://github.com/liske/needrestart/issues/129
-		if (os.environ.get("DEBIAN_FRONTEND") == "noninteractive"
-			and b'so you should consider rebooting. [Return]' in data):
+		if (
+			os.environ.get("DEBIAN_FRONTEND") == "noninteractive"
+			and b"so you should consider rebooting. [Return]" in data
+		):
 			os.write(self.child_fd, term.CRLF)
 
 		# Save Term for debconf and Bracked Paste for the start of the shell
@@ -543,21 +548,21 @@ class InstallProgress(base.InstallProgress):
 
 			if self.line_fix:
 				self.dpkg_log(f"line_fix = {repr(self.line_fix)}\n")
-				data = b''.join(self.line_fix) + data
+				data = b"".join(self.line_fix) + data
 				self.line_fix.clear()
 
-			if data.count(b'\r\n') > 1:
+			if data.count(b"\r\n") > 1:
 				self.split_data(data)
 				return
 		self.format_dpkg_output(data)
 
 	def split_data(self, data: bytes) -> None:
 		"""Split data into clean single lines to format."""
-		data_split = data.split(b'\r\n')
+		data_split = data.split(b"\r\n")
 		error = data_split[0].decode() in dpkg_error
 		self.dpkg_log(f"Data_Split = {repr(data_split)}\n")
 		for line in data_split:
-			for new_line in line.split(b'\r'):
+			for new_line in line.split(b"\r"):
 				if new_line:
 					check_error(data, new_line.decode(), error)
 					self.format_dpkg_output(new_line)
@@ -580,7 +585,7 @@ class InstallProgress(base.InstallProgress):
 			return
 
 		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
-		if line == '' or '% [' in line:
+		if line == "" or "% [" in line:
 			return
 
 		self.term_log(rawline)
@@ -591,12 +596,10 @@ class InstallProgress(base.InstallProgress):
 		if not config.SCROLL:
 			print(msg)
 			self.live.scroll_bar()
-		elif 'Fetched:' in msg:
+		elif "Fetched:" in msg:
 			# This is some magic for apt-listdifferences to put
 			# the fetched message in the spinner since it gets spammy
-			spinner.text = from_ansi(
-				color(' '.join(line.split()[1:]))
-			)
+			spinner.text = from_ansi(color(" ".join(line.split()[1:])))
 			self.live.scroll_bar(msg, update_spinner=True)
 		else:
 			self.live.scroll_bar(msg)
@@ -627,8 +630,11 @@ class InstallProgress(base.InstallProgress):
 		if not config.SCROLL:
 			self.live.update(
 				Panel.fit(
-					dpkg_progress.get_renderable(), border_style='bold green', padding=(0,0)
-				), refresh=True
+					dpkg_progress.get_renderable(),
+					border_style="bold green",
+					padding=(0, 0),
+				),
+				refresh=True,
 			)
 
 	def raw_init(self) -> None:
@@ -639,17 +645,19 @@ class InstallProgress(base.InstallProgress):
 		term.set_raw()
 		self.raw = True
 
+
 def check_line_spam(line: str, rawline: bytes, last_line: bytes) -> bool:
 	"""Check for, and handle, notices and spam."""
 	for message in NOTICES:
 		if message in rawline and line not in notice:
 			notice.append(line)
 			return False
-	if b'but it can still be activated by:' in last_line:
+	if b"but it can still be activated by:" in last_line:
 		notice.append(f"  {line}")
 		return False
 
 	return any(item in line for item in SPAM)
+
 
 def check_error(data: bytes, line: str, error_in_list: bool = False) -> None:
 	"""Check dpkg errors and store them if we need too."""
@@ -661,36 +669,39 @@ def check_error(data: bytes, line: str, error_in_list: bool = False) -> None:
 		if error in data and all(item not in line for item in SPAM):
 			dpkg_error.append(line)
 
+
 def paren_color(match: Match[str]) -> str:
 	"""Color parenthesis."""
-	return color('(') if match.group(0) == '(' else color(')')
+	return color("(") if match.group(0) == "(" else color(")")
+
 
 def lines(line: str, zword: str, msg_color: str) -> str:
 	"""Color and space our line."""
-	space = ' '
+	space = " "
 	if zword == REMOVING:
 		space *= 3
 	elif zword == UNPACKING:
 		space *= 2
-	return line.replace(zword, color(f'{zword}:{space}', msg_color))
+	return line.replace(zword, color(f"{zword}:{space}", msg_color))
+
 
 def format_version(match: list[str], line: str) -> str:
 	"""Format version numbers."""
 	for ver in match:
 		version = ver[1:-1]
 		if version[0].isdigit():
-			new_ver = ver.replace(version, color(version, 'BLUE'))
+			new_ver = ver.replace(version, color(version, "BLUE"))
 			new_ver = re.sub(PARENTHESIS_PATTERN, paren_color, new_ver)
 			line = line.replace(ver, new_ver)
 	return line
+
 
 def fill_pulse(pulse: list[str]) -> str:
 	"""Fill the pulse message."""
 	last = len(pulse) - 1
 	fill = sum(len(line) for line in pulse) + last
 	# Set fill width to fit inside the rich panel
-	fill = ((term.columns - fill) - 5 if arguments.verbose else
-			(term.columns - fill) - 7)
+	fill = (term.columns - fill) - 5 if arguments.verbose else (term.columns - fill) - 7
 	# Minus 2 more to account for ascii simpleDots on the spinner
 	if term.console.options.ascii_only:
 		fill -= 2
@@ -698,26 +709,27 @@ def fill_pulse(pulse: list[str]) -> str:
 	# In case of extra 1 min as shown below.
 	# ['2407', 'kB/s', '30s']
 	# ['895', 'kB/s', '1min', '18s']
-	index = last-2
-	if '/s' in pulse[index]:
-		index = last-3
+	index = last - 2
+	if "/s" in pulse[index]:
+		index = last - 3
 
-	pulse.insert(index, ' '*fill)
-	return ' '.join(pulse)
+	pulse.insert(index, " " * fill)
+	return " ".join(pulse)
+
 
 def msg_formatter(line: str) -> str:
 	"""Format dpkg output."""
-	if line.endswith('...'):
-		line = line.replace('...', '')
+	if line.endswith("..."):
+		line = line.replace("...", "")
 
 	if line.startswith(REMOVING):
-		line = lines(line, REMOVING, 'RED')
+		line = lines(line, REMOVING, "RED")
 	elif line.startswith(UNPACKING):
-		line = lines(line, UNPACKING, 'GREEN')
+		line = lines(line, UNPACKING, "GREEN")
 	elif line.startswith(SETTING_UP):
-		line = lines(line, SETTING_UP, 'GREEN')
+		line = lines(line, SETTING_UP, "GREEN")
 	elif line.startswith(PROCESSING):
-		line = lines(line, PROCESSING, 'GREEN')
+		line = lines(line, PROCESSING, "GREEN")
 	elif line.startswith(GET):
 		line = f"{color(f'{FETCHED}:', 'BLUE')} {' '.join(line.split()[1:])}"
 
@@ -725,12 +737,13 @@ def msg_formatter(line: str) -> str:
 		return format_version(match, line)
 	return line
 
+
 class DpkgLive(Live):
 	"""Subclass for dpkg live display."""
 
 	def __init__(self, install: bool = True) -> None:
 		"""Subclass for dpkg live display."""
-		super().__init__(refresh_per_second = 10)
+		super().__init__(refresh_per_second=10)
 		self.install = install
 		self.scroll_list: list[str] = []
 		self.scroll_config = (False, False, True)
@@ -741,9 +754,9 @@ class DpkgLive(Live):
 		self.start(refresh=self._renderable is not None)
 		return self
 
-	def scroll_bar( # pylint: disable=too-many-arguments
+	def scroll_bar(  # pylint: disable=too-many-arguments
 		self,
-		msg: str = '',
+		msg: str = "",
 		apt_fetch: bool = False,
 		update_spinner: bool = False,
 		use_bar: bool = True,
@@ -772,8 +785,8 @@ class DpkgLive(Live):
 			table.add_row(
 				Panel(
 					self.get_group(update_spinner, use_bar),
-					padding=(0,0),
-					border_style='bold blue' if config.SCROLL else 'bold green'
+					padding=(0, 0),
+					border_style="bold blue" if config.SCROLL else "bold green",
 				)
 			)
 
@@ -786,38 +799,40 @@ class DpkgLive(Live):
 			Panel(
 				table,
 				title=self.get_title(self.install, apt_fetch),
-				title_align='left',
-				padding=(0,0),
-				border_style='bold green'
+				title_align="left",
+				padding=(0, 0),
+				border_style="bold green",
 			),
-			refresh=True
+			refresh=True,
 		)
 
 	@staticmethod
 	def get_title(install: bool, apt_fetch: bool) -> str:
 		"""Get the title for our panel."""
-		msg = '[bold default]'
+		msg = "[bold default]"
 		if arguments.command and install and not apt_fetch:
-			if arguments.command in ('remove', 'purge'):
-				msg += _('Removing Packages')
-			elif arguments.command == 'upgrade':
-				msg += _('Updating Packages')
-			elif arguments.command == 'install':
-				msg += _('Installing Packages')
-			elif arguments.command == 'history':
-				title = _('History Undo') if arguments.mode == 'undo' else _('History Redo')
+			if arguments.command in ("remove", "purge"):
+				msg += _("Removing Packages")
+			elif arguments.command == "upgrade":
+				msg += _("Updating Packages")
+			elif arguments.command == "install":
+				msg += _("Installing Packages")
+			elif arguments.command == "history":
+				title = (
+					_("History Undo") if arguments.mode == "undo" else _("History Redo")
+				)
 				msg += f"{title} {arguments.id}"
 			return msg
 		if install and apt_fetch:
-			return msg + _('Fetching Missed Packages')
+			return msg + _("Fetching Missed Packages")
 		if not arguments.command and arguments.fix_broken:
-			return msg + _('Fixing Broken Packages')
-		return msg + _('Updating Package List')
+			return msg + _("Fixing Broken Packages")
+		return msg + _("Updating Package List")
 
 	@staticmethod
 	def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
 		"""Get the group for our panel."""
-		if spinner.text.plain: # type: ignore[union-attr]
+		if spinner.text.plain:  # type: ignore[union-attr]
 			if update_spinner and use_bar:
 				return Group(
 					spinner,
@@ -843,14 +858,14 @@ class DpkgLive(Live):
 			self._refresh_thread = None
 
 		# We update the live display to blank before stopping it
-		self.update('', refresh=True)
+		self.update("", refresh=True)
 		self.stop()
 
 	def start(self, refresh: bool = False) -> None:
 		"""Start live rendering display.
 
 		Args:
-			refresh (bool, optional): Also refresh. Defaults to False.
+		        refresh (bool, optional): Also refresh. Defaults to False.
 		"""
 		with self._lock:
 			if self._started:
@@ -868,11 +883,13 @@ class DpkgLive(Live):
 				self._refresh_thread = Thread(self, self.refresh_per_second)
 				self._refresh_thread.start()
 
+
 def fork() -> tuple[int, int]:
 	"""Fork pty or regular."""
 	return (os.fork(), 0) if arguments.raw_dpkg else pty.fork()
 
-class AptExpect(fdspawn): # type: ignore[misc]
+
+class AptExpect(fdspawn):  # type: ignore[misc]
 	"""Subclass of fdspawn to add the interact method."""
 
 	def interact(self, output_filter: Callable[[bytes], None]) -> None:
@@ -892,7 +909,7 @@ class AptExpect(fdspawn): # type: ignore[misc]
 		self._buffer = self.buffer_type()
 
 		_setwinsize(self.child_fd, term.lines, term.columns)
-		#_setecho(self.child_fd, False)
+		# _setecho(self.child_fd, False)
 
 		self.interact_copy(output_filter)
 
@@ -906,13 +923,13 @@ class AptExpect(fdspawn): # type: ignore[misc]
 				if term.STDIN in ready:
 					self._write()
 			except KeyboardInterrupt:
-				term.write(term.CURSER_UP+term.CLEAR_LINE)
+				term.write(term.CURSER_UP + term.CLEAR_LINE)
 				eprint(
 					_("{warning} Quitting now could break your system!").format(
 						warning=WARNING_PREFIX
 					)
 				)
-				eprint(color(_("Ctrl+C twice quickly will exit..."), 'RED'))
+				eprint(color(_("Ctrl+C twice quickly will exit..."), "RED"))
 				sleep(0.5)
 
 	def _read(self, output_filter: Callable[[bytes], None]) -> bool:
@@ -924,7 +941,7 @@ class AptExpect(fdspawn): # type: ignore[misc]
 				# Linux-style EOF
 				return False
 			raise
-		if data == b'':
+		if data == b"":
 			# BSD-style EOF
 			return False
 		output_filter(data)
@@ -933,6 +950,6 @@ class AptExpect(fdspawn): # type: ignore[misc]
 	def _write(self) -> None:
 		"""Write user inputs into the pty."""
 		data = os.read(term.STDIN, 1000)
-		while data != b'' and self.isalive():
+		while data != b"" and self.isalive():
 			split = os.write(self.child_fd, data)
 			data = data[split:]

@@ -51,9 +51,7 @@ class NalaDebPackage(DebPackage):
 		"""List of packages on which this package depends on."""
 		depends = []
 		try:
-			depends.extend(
-				apt_pkg.parse_depends(self._sections[_type], False)
-			)
+			depends.extend(apt_pkg.parse_depends(self._sections[_type], False))
 		except KeyError:
 			pass
 		return depends
@@ -70,7 +68,10 @@ class NalaDebPackage(DebPackage):
 		depends_list = []
 		for _type in types:
 			for dep in self._get_depends(_type):
-				base_deps = [NalaBaseDep(*dep_or, _type, cast(Cache, self._cache)) for dep_or in dep]
+				base_deps = [
+					NalaBaseDep(*dep_or, _type, cast(Cache, self._cache))
+					for dep_or in dep
+				]
 				depends_list.append(NalaDep(base_deps, _type))
 		return depends_list
 
@@ -79,12 +80,18 @@ class NalaDebPackage(DebPackage):
 		"""Return the dependencies of the package version."""
 		return self.get_dependencies("PreDepends", "Depends")
 
+
 class NalaBaseDep:
 	"""Base Dependency class to contain debfile deps."""
 
-	def __init__(self, # pylint: disable=too-many-arguments
-		name: str, version: str, relation: str,
-		rawtype: str, cache: Cache) -> None:
+	def __init__(
+		self,  # pylint: disable=too-many-arguments
+		name: str,
+		version: str,
+		relation: str,
+		rawtype: str,
+		cache: Cache,
+	) -> None:
 		"""Initialize Base Dependency class to contain debfile deps."""
 		self.name = name
 		self.relation = relation
@@ -109,15 +116,15 @@ class NalaBaseDep:
 		include the type of the dependency.
 
 		Example for an unversioned dependency:
-			python3
+		        python3
 
 		Example for a versioned dependency:
-			python3 >= 3.2
+		        python3 >= 3.2
 
 		.. versionadded:: 1.0.0
 		"""
 		if self.version:
-			return f'{self.name} {self.relation} {self.version}'
+			return f"{self.name} {self.relation} {self.version}"
 		return self.name
 
 	@property
@@ -133,6 +140,7 @@ class NalaBaseDep:
 	def installed_target_versions(self) -> list[Version]:
 		"""Return the installed target versions if they exist."""
 		return [ver for ver in self.target_versions if ver.is_installed]
+
 
 # Nuitka doesn't seem to like typing with the lower case list on this class.
 class NalaDep(List[NalaBaseDep]):
@@ -156,6 +164,6 @@ class NalaDep(List[NalaBaseDep]):
 		does not include the type of the Or-group of dependencies.
 
 		Example:
-			python2 >= 2.7 | python3
+		        python2 >= 2.7 | python3
 		"""
-		return ' | '.join(bd.rawstr for bd in self)
+		return " | ".join(bd.rawstr for bd in self)
