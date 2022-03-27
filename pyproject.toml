@@ -53,6 +53,7 @@ anyio = "^3.5.0"
 jsbeautifier = "^1.14.0"
 
 [tool.poetry.dev-dependencies]
+black = { git = "https://github.com/volitank/black.git", branch = "main" }
 codespell = "^2.1.0"
 isort = "^5.10.1"
 mypy = "^0.941"

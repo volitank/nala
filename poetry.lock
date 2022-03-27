@@ -17,7 +17,7 @@ trio = ["trio (>=0.16)"]
 
 [[package]]
 name = "astroid"
-version = "2.11.1"
+version = "2.11.2"
 description = "An abstract syntax tree for Python with inference support."
 category = "dev"
 optional = false
@@ -27,6 +27,35 @@ python-versions = ">=3.6.2"
 lazy-object-proxy = ">=1.4.0"
 typing-extensions = {version = ">=3.10", markers = "python_version < \"3.10\""}
 wrapt = ">=1.11,<2"
+
+[[package]]
+name = "black"
+version = "22.1.1.dev1+gb0de1ca"
+description = "The uncompromising code formatter."
+category = "dev"
+optional = false
+python-versions = ">=3.6.2"
+develop = false
+
+[package.dependencies]
+click = ">=8.0.0"
+mypy-extensions = ">=0.4.3"
+pathspec = ">=0.9.0"
+platformdirs = ">=2"
+tomli = ">=1.1.0"
+typing-extensions = {version = ">=3.10.0.0", markers = "python_version < \"3.10\""}
+
+[package.extras]
+colorama = ["colorama (>=0.4.3)"]
+d = ["aiohttp (>=3.7.4)"]
+jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
+uvloop = ["uvloop (>=0.15.2)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/volitank/black.git"
+reference = "main"
+resolved_reference = "b0de1ca0e5556c841bdeb75c8d8cb529ad394ef8"
 
 [[package]]
 name = "certifi"
@@ -54,6 +83,17 @@ python-versions = ">=3.5.0"
 
 [package.extras]
 unicode_backport = ["unicodedata2"]
+
+[[package]]
+name = "click"
+version = "8.0.4"
+description = "Composable command line interface toolkit"
+category = "dev"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "codespell"
@@ -268,6 +308,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "pathspec"
+version = "0.9.0"
+description = "Utility library for gitignore style pattern matching of file paths."
+category = "dev"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
+
+[[package]]
 name = "pexpect"
 version = "4.8.0"
 description = "Pexpect allows easy control of interactive console applications."
@@ -338,14 +386,14 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "pylint"
-version = "2.13.0"
+version = "2.13.2"
 description = "python code static checker"
 category = "dev"
 optional = false
 python-versions = ">=3.6.2"
 
 [package.dependencies]
-astroid = ">=2.11.0,<=2.12.0-dev0"
+astroid = ">=2.11.2,<=2.12.0-dev0"
 colorama = {version = "*", markers = "sys_platform == \"win32\""}
 dill = ">=0.2"
 isort = ">=4.2.5,<6"
@@ -464,7 +512,7 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "virtualenv"
-version = "20.13.4"
+version = "20.14.0"
 description = "Virtual Python Environment builder"
 category = "dev"
 optional = false
@@ -491,7 +539,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "7fe7e55f5bac1e9b9cba2157aa10c224724c688fd99abdd6056bbab0f221f813"
+content-hash = "2bc7d6fb45e557792cd708da09bae9ac049c9ea4f62ca542e75e32c755bcac79"
 
 [metadata.files]
 anyio = [
@@ -499,9 +547,10 @@ anyio = [
     {file = "anyio-3.5.0.tar.gz", hash = "sha256:a0aeffe2fb1fdf374a8e4b471444f0f3ac4fb9f5a5b542b48824475e0042a5a6"},
 ]
 astroid = [
-    {file = "astroid-2.11.1-py3-none-any.whl", hash = "sha256:e3ae0984c28b7bae2a107dffbc6e9acecf9b06506322f3465e914405dd652394"},
-    {file = "astroid-2.11.1.tar.gz", hash = "sha256:33f1c15fe9661348a50b7ec6789947089ead2a5de727bb4782d530d9d2fff2c8"},
+    {file = "astroid-2.11.2-py3-none-any.whl", hash = "sha256:cc8cc0d2d916c42d0a7c476c57550a4557a083081976bf42a73414322a6411d9"},
+    {file = "astroid-2.11.2.tar.gz", hash = "sha256:8d0a30fe6481ce919f56690076eafbb2fb649142a89dc874f1ec0e7a011492d0"},
 ]
+black = []
 certifi = [
     {file = "certifi-2021.10.8-py2.py3-none-any.whl", hash = "sha256:d62a0163eb4c2344ac042ab2bdf75399a71a2d8c7d47eac2e2ee91b9d6339569"},
     {file = "certifi-2021.10.8.tar.gz", hash = "sha256:78884e7c1d4b00ce3cea67b44566851c4343c120abd683433ce934a68ea58872"},
@@ -513,6 +562,10 @@ cfgv = [
 charset-normalizer = [
     {file = "charset-normalizer-2.0.12.tar.gz", hash = "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597"},
     {file = "charset_normalizer-2.0.12-py3-none-any.whl", hash = "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"},
+]
+click = [
+    {file = "click-8.0.4-py3-none-any.whl", hash = "sha256:6a7a62563bbfabfda3a38f3023a1db4a35978c0abd76f6c9605ecd6554d6d9b1"},
+    {file = "click-8.0.4.tar.gz", hash = "sha256:8458d7b1287c5fb128c90e23381cf99dcde74beaf6c7ff6384ce84d6fe090adb"},
 ]
 codespell = [
     {file = "codespell-2.1.0-py3-none-any.whl", hash = "sha256:b864c7d917316316ac24272ee992d7937c3519be4569209c5b60035ac5d569b5"},
@@ -645,6 +698,10 @@ nodeenv = [
     {file = "nodeenv-1.6.0-py2.py3-none-any.whl", hash = "sha256:621e6b7076565ddcacd2db0294c0381e01fd28945ab36bcf00f41c5daf63bef7"},
     {file = "nodeenv-1.6.0.tar.gz", hash = "sha256:3ef13ff90291ba2a4a7a4ff9a979b63ffdd00a464dbe04acf0ea6471517a4c2b"},
 ]
+pathspec = [
+    {file = "pathspec-0.9.0-py2.py3-none-any.whl", hash = "sha256:7d15c4ddb0b5c802d161efc417ec1a2558ea2653c2e8ad9c19098201dc1c993a"},
+    {file = "pathspec-0.9.0.tar.gz", hash = "sha256:e564499435a2673d586f6b2130bb5b95f04a3ba06f81b8f895b651a3c76aabb1"},
+]
 pexpect = [
     {file = "pexpect-4.8.0-py2.py3-none-any.whl", hash = "sha256:0b48a55dcb3c05f3329815901ea4fc1537514d6ba867a152b581d69ae3710937"},
     {file = "pexpect-4.8.0.tar.gz", hash = "sha256:fc65a43959d153d0114afe13997d439c22823a27cefceb5ff35c2178c6784c0c"},
@@ -670,8 +727,8 @@ pygments = [
     {file = "Pygments-2.11.2.tar.gz", hash = "sha256:4e426f72023d88d03b2fa258de560726ce890ff3b630f88c21cbb8b2503b8c6a"},
 ]
 pylint = [
-    {file = "pylint-2.13.0-py3-none-any.whl", hash = "sha256:ea1692d409487a93cdcc015ddf2fd92f2367fb1193d46ece76df98b6fefc0dda"},
-    {file = "pylint-2.13.0.tar.gz", hash = "sha256:f04508086a0772f1a459b4e9facd02416943b47dda5a98ed79d4d87e709da04f"},
+    {file = "pylint-2.13.2-py3-none-any.whl", hash = "sha256:3cd8eb401c6aa6c66b614d72cf0c54a02d6bf7752aa9890fc41de71030f3c81a"},
+    {file = "pylint-2.13.2.tar.gz", hash = "sha256:0c6dd0e53e6e17f2d0d62660905f3868611e734e9d9b310dc651a4b9f3dc70da"},
 ]
 pyupgrade = [
     {file = "pyupgrade-2.31.1-py2.py3-none-any.whl", hash = "sha256:4060a7c20c79d373a3dcf34566b275c6de6cd2b034ad22465d3263fb0de82648"},
@@ -749,8 +806,8 @@ typing-extensions = [
     {file = "typing_extensions-4.1.1.tar.gz", hash = "sha256:1a9462dcc3347a79b1f1c0271fbe79e844580bb598bafa1ed208b94da3cdcd42"},
 ]
 virtualenv = [
-    {file = "virtualenv-20.13.4-py2.py3-none-any.whl", hash = "sha256:c3e01300fb8495bc00ed70741f5271fc95fed067eb7106297be73d30879af60c"},
-    {file = "virtualenv-20.13.4.tar.gz", hash = "sha256:ce8901d3bbf3b90393498187f2d56797a8a452fb2d0d7efc6fd837554d6f679c"},
+    {file = "virtualenv-20.14.0-py2.py3-none-any.whl", hash = "sha256:1e8588f35e8b42c6ec6841a13c5e88239de1e6e4e4cedfd3916b306dc826ec66"},
+    {file = "virtualenv-20.14.0.tar.gz", hash = "sha256:8e5b402037287126e81ccde9432b95a8be5b19d36584f64957060a3488c11ca8"},
 ]
 wrapt = [
     {file = "wrapt-1.14.0-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:5a9a1889cc01ed2ed5f34574c90745fab1dd06ec2eee663e8ebeefe363e8efd7"},
