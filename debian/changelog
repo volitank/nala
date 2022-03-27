@@ -1,3 +1,13 @@
+nala (0.7.1) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * No error when a package can't be found during install
+  * Not following redirects when downloading
+  * Handle connection errors when updating package list similar to apt
+  * `Nala Update` not showing packages that are upgradable
+
+ -- Blake Lee <blake@volian.org>  Sun, 27 Mar 2022 16:23:21 -0400
+
 nala (0.7.0) unstable; urgency=medium
 
   [ Changes ]
