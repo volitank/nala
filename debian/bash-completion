@@ -138,8 +138,10 @@ _nala()
 					;;
 				search)
 					COMPREPLY=( $( compgen -W '
-						--names
-						--installed
+						-n --names
+						-i --installed
+						-u --upgradeable
+						-V --virtual
 						--full'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;

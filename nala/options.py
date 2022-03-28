@@ -434,10 +434,16 @@ search_parser.add_argument(
 	"args", metavar="regex", nargs="?", help=_("regex or word to search for")
 )
 search_parser.add_argument(
-	"--names", action="store_true", help=_("Search only package names")
+	"-n", "--names", action="store_true", help=_("Search only package names")
 )
 search_parser.add_argument(
-	"--installed", action="store_true", help=_("Search only installed packages")
+	"-i", "--installed", action="store_true", help=_("Search only installed packages")
+)
+search_parser.add_argument(
+	"-u", "--upgradable", action="store_true", help=_("Search only upgradable packages")
+)
+search_parser.add_argument(
+	"-V", "--virtual", action="store_true", help=_("Search only virtual packages")
 )
 search_parser.add_argument(
 	"--full", action="store_true", help=_("Show the full description of packages found")

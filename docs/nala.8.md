@@ -74,9 +74,13 @@ Nala - A prettier front-end for libapt-pkg
 **search**
 : > all packages in the cache with a regex string. By default searches package names, source names, and descriptions.
 
-	*\--names* will search only package names. This is much faster than searching everything.
+	*\-n, \--names* will search only package names. This is much faster than searching everything.
 
-	*\--installed* will search only installed packages. This is much faster than searching all packages
+	*\-i, \--installed* will search only installed packages.
+
+	*\-u, \--upgradable* will search only upgradable packages.
+
+	*\-V, \--virtual* will search only virtual packages.
 
 	*\--full* will print the full description of each package found rather than just the short description.
 

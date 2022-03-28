@@ -248,6 +248,10 @@ def search() -> None:
 				progress.advance(task)
 				if arguments.installed and not pkg.installed:
 					continue
+				if arguments.upgradable and not pkg.is_upgradable:
+					continue
+				if arguments.virtual and not cache.is_virtual_package(pkg.name):
+					continue
 				if pkg.architecture() in arches:
 					search_name(pkg, search_pattern, found)
 	if not found:
