@@ -27,20 +27,21 @@ from __future__ import annotations
 import itertools
 import re
 import sys
-from asyncio import (
-	Semaphore,
-	create_subprocess_exec,
-	gather,
-	get_event_loop,
-	run as aiorun,
-)
-from asyncio.streams import StreamReader
-from asyncio.subprocess import PIPE, Process
+from asyncio import Semaphore, gather, get_event_loop, run as aiorun
+from ssl import SSLCertVerificationError
 from subprocess import run
-from typing import cast
+from typing import Union
 
 from apt_pkg import get_architectures
-from httpx import HTTPError, get
+from httpx import (
+	AsyncClient,
+	HTTPError,
+	HTTPStatusError,
+	Limits,
+	ReadTimeout,
+	Timeout,
+	get,
+)
 from rich.progress import Progress, TaskID
 
 from nala import _, color
@@ -51,122 +52,119 @@ from nala.constants import (
 	SOURCELIST,
 	SOURCEPARTS,
 )
+from nala.downloader import print_error
 from nala.options import arguments, parser
 from nala.rich import fetch_progress
-from nala.utils import ask, dprint, eprint, vprint
-
-netselect_scored = []
+from nala.utils import ask, dprint, eprint
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
 DOMAIN_PATTERN = re.compile(r"https?://([A-Za-z_0-9.-]+).*")
 UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
 UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
+LIMITS = Limits(max_connections=100)
+TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
+ErrorTypes = Union[HTTPStatusError, HTTPError, SSLCertVerificationError, ReadTimeout]
 
 
-async def ping_output(proc: Process, mirror: str) -> list[str] | bool:
-	"""Read the output of the ping process."""
-	lines: list[str] = []
-	no_answer = 0
-	while True:
-		line = await cast(StreamReader, proc.stdout).readline()
-		if line == b"":
-			break
-		if b"no answer yet" in line:
-			no_answer += 1
-			if no_answer == 2:
-				proc.terminate()
-				ping_error("", mirror)
-				return False
-		lines.append(line.decode("utf-8").rstrip())
-	return lines
+class MirrorTest:
+	"""Class to test mirrors."""
 
+	def __init__(self, netselect: tuple[str, ...], release: str):
+		"""Class to test mirrors."""
+		self.netselect = netselect
+		self.netselect_scored: list[str] = []
+		self.release = release
+		self.semp = Semaphore(1)
+		self.client: AsyncClient
+		self.progress: Progress
+		self.task: TaskID
 
-async def ping(mirror: str) -> float | bool:
-	"""Ping 5 times and return the result."""
-	proc = await create_subprocess_exec(
-		"ping", "-c", "5", "-W", "1", "-O", mirror, stdout=PIPE, stderr=PIPE
-	)
+	async def run_test(self) -> None:
+		"""Test mirrors."""
+		with fetch_progress as self.progress:
+			self.task = self.progress.add_task("", total=len(self.netselect))
+			async with AsyncClient(
+				follow_redirects=True, limits=LIMITS, timeout=TIMEOUT
+			) as self.client:
+				loop = get_event_loop()
+				tasks = (
+					loop.create_task(self.net_select(mirror))
+					for mirror in self.netselect
+				)
+				await gather(*tasks)
 
-	lines = await ping_output(proc, mirror)
-	if isinstance(lines, bool):
-		return False
-
-	if await proc.wait() != 0:
-		error = await cast(StreamReader, proc.stderr).read()
-		ping_error(error.decode("utf-8").strip(), mirror)
-		return False
-
-	stats = ""
-	for line in lines:
-		if line.startswith("rtt"):
-			stats = line
-	# 'rtt min/avg/max/mdev = 37.701/43.665/52.299/4.887 ms'
-	return round(float(stats.split(" = ")[1].split("/")[1]))
-
-
-async def net_select(
-	mirror: str, task: TaskID, progress: Progress, semp: Semaphore
-) -> None:
-	"""Take a URL, ping the domain and score the latency."""
-	async with semp:
+	async def net_select(self, mirror: str) -> None:
+		"""Take a URL, ping the domain and score the latency."""
 		debugger = [f"Current Mirror: {mirror}"]
-		# Regex to get the domain
+
 		regex = re.search(DOMAIN_PATTERN, mirror)
 		if not regex:
-			progress.advance(task)
+			self.progress.advance(self.task)
 			debugger.append("Regex Failed")
 			dprint(debugger)
 			return
+
 		domain = regex.group(1)
-		debugger.append(f"Pinged: {domain}")
-		await netping(domain, mirror, debugger)
-		progress.advance(task)
+		debugger.append(f"Release Fetched: {domain}")
+		await self.netping(mirror, debugger)
+		self.progress.advance(self.task)
 
+	async def netping(self, mirror: str, debugger: list[str]) -> bool:
+		"""Fetch release file and score mirror."""
+		try:
+			response = await self.client.get(f"{mirror}dists/{self.release}/Release")
+			response.raise_for_status()
+			res = str(int(response.elapsed.total_seconds() * 100))
+			if arguments.sources:
+				source_response = await self.client.get(
+					f"{mirror}dists/{self.release}/main/source/Release"
+				)
+				source_response.raise_for_status()
+			# We convert the float to integer in order to get rid of the decimal
+			# From there we convert it to a string so we can prefix zeros for sorting
 
-async def netping(domain: str, mirror: str, debugger: list[str]) -> bool:
-	"""Ping the domain and score it."""
-	# We convert the float to integer in order to get rid of the decimal
-	# From there we convert it to a string so we can prefix zeros for sorting
-	if not (res := str(await ping(domain))):
-		debugger.append("Ping ms: Packet Loss")
+		except (HTTPError, SSLCertVerificationError) as error:
+			mirror_error(error, debugger)
+			dprint(debugger)
+			return False
+
+		debugger.append(f"Download ms: {res}")
+		if len(res) == 2:
+			res = f"0{res}"
+		elif len(res) == 1:
+			res = f"00{res}"
+		elif len(res) > 3:
+			debugger.append("Mirror too slow")
+			dprint(debugger)
+			return False
+
+		debugger.append(f"Appended: {res} {mirror}")
 		dprint(debugger)
-		return False
+		self.netselect_scored.append(f"{res} {mirror}")
+		return True
 
-	debugger.append(f"Ping ms: {res}")
-	if len(res) == 2:
-		res = f"0{res}"
-	elif len(res) == 1:
-		res = f"00{res}"
-	elif len(res) > 3:
-		debugger.append("Mirror too slow")
-		dprint(debugger)
-		return False
-
-	debugger.append(f"Appended: {res} {mirror}")
-	dprint(debugger)
-	netselect_scored.append(f"{res} {mirror}")
-	return True
+	def get_scored(self) -> tuple[str, ...]:
+		"""Return sorted tuple."""
+		return tuple(sorted(self.netselect_scored))
 
 
-def ping_error(error: str, mirror: str) -> None:
-	"""Handle error on ping."""
+def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
+	"""Handle errors when mirror testing."""
+	if isinstance(error, HTTPStatusError):
+		if arguments.verbose:
+			print_error(error)
+		debugger.append(f"Status Code: {error.response.status_code}")
+		return
+
 	if arguments.verbose:
-		if not error:
-			eprint(
-				_("{error} Packets were lost: {mirror}").format(
-					error=ERROR_PREFIX, mirror=mirror
-				)
-			)
-			return
-		if "Temporary failure in name resolution" in error:
-			eprint(
-				_("{error} Temporary failure in name resolution: {mirror}").format(
-					error=ERROR_PREFIX, mirror=mirror
-				)
-			)
-			return
-		eprint(f"{color(error, 'RED')}")
+		if isinstance(error, SSLCertVerificationError):
+			eprint(f"{ERROR_PREFIX} {error.reason} {error.verify_message}")
+		else:
+			print_error(error)
+
+	if isinstance(error, ReadTimeout):
+		debugger.append("Mirror too slow")
 
 
 def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
@@ -359,56 +357,39 @@ def has_url(url: str) -> bool:
 		return False
 
 
-def write_sources(release: str, component: str, sources: list[str]) -> None:
+def build_sources(
+	release: str, component: str, sources: list[str], netselect_scored: tuple[str, ...]
+) -> str:
+	"""Build the sources file and return it as a string."""
+	source = _("# Sources file built for nala") + "\n\n"
+	num = 0
+	for line in netselect_scored:
+		# This splits off the score '030 http://mirror.steadfast.net/debian/'
+		line = line[line.index("h") :]
+		# This protects us from writing mirrors that we already have in the sources
+		if any(line in mirror and release in mirror for mirror in sources):
+			continue
+		source += f"deb {line} {release} {component}\n"
+		if arguments.sources:
+			source += f"deb-src {line} {release} {component}\n"
+		source += "\n"
+		num += 1
+		if num == arguments.fetches:
+			break
+	if num != arguments.fetches:
+		eprint(
+			_("{notice} We were unable to fetch {num} mirrors.").format(
+				notice=NOTICE_PREFIX, num=arguments.fetches
+			)
+		)
+	return source
+
+
+def write_sources(source: str) -> None:
 	"""Write mirrors to nala-sources.list."""
 	with open(NALA_SOURCES, "w", encoding="utf-8") as file:
-		writing = color(_("Writing:"), "GREEN")
-		print(f"{writing} {NALA_SOURCES}\n")
-		print(_("# Sources file built for nala"), file=file, end="\n\n")
-		num = 0
-		for line in netselect_scored:
-			# This splits off the score '030 http://mirror.steadfast.net/debian/'
-			line = line[line.index("h") :]
-			# This protects us from writing mirrors that we already have in the sources
-			if any(line in mirror and release in mirror for mirror in sources):
-				continue
-			if not has_url(f"{line}dists/{release}/Release"):
-				vprint(
-					_("{notice} {url} does not have the release {release}\n").format(
-						notice=NOTICE_PREFIX, url=line, release=color(release, "YELLOW")
-					)
-				)
-				continue
-			source = f"deb {line} {release} {component}\n"
-			if arguments.sources and has_url(
-				f"{line}dists/{release}/main/source/Release"
-			):
-				source += f"deb-src {line} {release} {component}\n"
-			print(source)
-			print(source, file=file)
-			num += 1
-			if num == arguments.fetches:
-				break
-		if num != arguments.fetches:
-			eprint(
-				_("{notice} We were unable to fetch {num} mirrors.").format(
-					notice=NOTICE_PREFIX, num=arguments.fetches
-				)
-			)
-
-
-async def test_mirrors(netselect: tuple[str, ...]) -> None:
-	"""Test mirrors."""
-	semp = Semaphore(256)
-	with fetch_progress as progress:
-		total = len(netselect)
-		task = progress.add_task("", total=total)
-		loop = get_event_loop()
-		tasks = (
-			loop.create_task(net_select(mirror, task, progress, semp))
-			for mirror in netselect
-		)
-		await gather(*tasks)
+		file.write(source)
+	print(_("Sources have been written to {file}").format(file=NALA_SOURCES))
 
 
 def check_supported(
@@ -446,26 +427,25 @@ def check_supported(
 
 def fetch_checks() -> None:
 	"""Perform checks and error if we shouldn't continue."""
-	if (
-		NALA_SOURCES.exists()
-		and not arguments.assume_yes
-		and not ask(
+	if NALA_SOURCES.exists():
+		if not ask(
 			_("{file} already exists.\n" "Continue and overwrite it?").format(
-				file=NALA_SOURCES
+				file=color(str(NALA_SOURCES), "YELLOW")
 			)
+		):
+			sys.exit(_("Abort."))
+
+	elif not ask(
+		_("The above mirrors will be written to {file}. Continue?").format(
+			file=NALA_SOURCES
 		)
 	):
 		sys.exit(_("Abort."))
-	# Make sure there aren't any shenanigans
-	if arguments.fetches not in range(1, 11):
-		sys.exit(_("Amount of fetches has to be 1-10..."))
 
 
 def fetch() -> None:
 	"""Fetch fast mirrors and write nala-sources.list."""
-	fetch_checks()
-
-	# If supplied a country it needs to be a list
+	# If supplied a country it needs to be a tuple
 	country_list = (arguments.country,) if arguments.country else None
 
 	distro, release = detect_release()
@@ -475,12 +455,16 @@ def fetch() -> None:
 	dprint(netselect)
 	dprint(f"Distro: {distro}, Release: {release}, Component: {component}")
 
-	aiorun(test_mirrors(netselect))
-	netselect_scored.sort()
+	mirror_test = MirrorTest(netselect, release)
+	aiorun(mirror_test.run_test())
+
+	netselect_scored = mirror_test.get_scored()
 
 	dprint(netselect_scored)
 	dprint(f"Size of original list: {len(netselect)}")
 	dprint(f"Size of scored list: {len(netselect_scored)}")
 	dprint(f"Writing from: {netselect_scored[:arguments.fetches]}")
-	sources = parse_sources()
-	write_sources(release, component, sources)
+	source = build_sources(release, component, parse_sources(), netselect_scored)
+	print(source, end="")
+	fetch_checks()
+	write_sources(source)
