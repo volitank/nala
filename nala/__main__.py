@@ -36,6 +36,7 @@ from nala.nala import (
 	clean,
 	history,
 	install,
+	list_pkgs,
 	moo,
 	remove,
 	search,
@@ -81,6 +82,9 @@ def start_nala() -> bool:
 		sys.exit()
 	if arguments.command == "search":
 		search()
+		sys.exit()
+	if arguments.command == "list":
+		list_pkgs()
 		sys.exit()
 	if arguments.command == "moo":
 		moo()

@@ -85,7 +85,7 @@ _nala()
 			COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur") )
 		else
 			COMPREPLY=( $( compgen -W '
-				show search install
+				list show search install
 				remove purge autoremove
 				autopurge update upgrade
 				fetch history clean moo' -- "$cur") )
@@ -137,6 +137,15 @@ _nala()
 					return 0
 					;;
 				search)
+					COMPREPLY=( $( compgen -W '
+						-n --names
+						-i --installed
+						-u --upgradeable
+						-V --virtual
+						--full'"$GLOBAL_OPTIONS" -- "$cur" ) )
+					return 0
+					;;
+				list)
 					COMPREPLY=( $( compgen -W '
 						-n --names
 						-i --installed

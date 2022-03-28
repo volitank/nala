@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 import re
-from typing import Pattern
+from typing import Iterable, Pattern
 
 from apt.package import Package, Version
 
@@ -49,12 +49,14 @@ def search_name(
 			break
 
 
-def print_search(found: list[tuple[Package, Version]]) -> None:
+def print_search(found: Iterable[tuple[Package, Version]]) -> bool:
 	"""Print the search results to the terminal."""
 	top_line = "├──" if is_utf8 else "+--"
 	bot_line = "└──" if is_utf8 else "`--"
+	pkg_list_check = []
 	for item in found:
 		pkg, version = item
+		pkg_list_check.append(pkg)
 		print(
 			ascii_replace(
 				set_search_description(
@@ -72,6 +74,10 @@ def print_search(found: list[tuple[Package, Version]]) -> None:
 			),
 			end="\n\n",
 		)
+
+	if not pkg_list_check:
+		return False
+	return True
 
 
 def set_search_origin(line: str, version: Version) -> str:

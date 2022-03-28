@@ -72,7 +72,7 @@ Nala - A prettier front-end for libapt-pkg
 	*\-a, \--all-versions* will print information about each version that is currently in the cache.
 
 **search**
-: > all packages in the cache with a regex string. By default searches package names, source names, and descriptions.
+: > **search** all packages in the cache with a regex string. By default searches package names, source names, and descriptions.
 
 	*\-n, \--names* will search only package names. This is much faster than searching everything.
 
@@ -83,6 +83,9 @@ Nala - A prettier front-end for libapt-pkg
 	*\-V, \--virtual* will search only virtual packages.
 
 	*\--full* will print the full description of each package found rather than just the short description.
+
+**list**
+: > **list** packages in the cache. The switches here are the same as the **search** command.
 
 **history**
 : > **history** is our other new command. Every **install**, **remove**, or **upgrade** command is stored with an id. You can use **history** to view these in a summary style view, and even go more in depth with **history info [id]**. If you're familiar with how *Fedora's* **dnf history** command works, then you'll feel right at home. That's what we drew inspiration from.

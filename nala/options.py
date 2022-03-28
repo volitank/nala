@@ -422,46 +422,58 @@ show_parser.add_argument(
 	"args", metavar="pkg(s)", nargs="*", help=_("package(s) to show")
 )
 
+search_list_options = NalaParser(add_help=False)
+search_list_options.add_argument(
+	"args", metavar="regex", nargs="?", help=_("regex or word to search for")
+)
+search_list_options.add_argument(
+	"-n", "--names", action="store_true", help=_("Search only package names")
+)
+search_list_options.add_argument(
+	"-i", "--installed", action="store_true", help=_("Search only installed packages")
+)
+search_list_options.add_argument(
+	"-u", "--upgradable", action="store_true", help=_("Search only upgradable packages")
+)
+search_list_options.add_argument(
+	"-V", "--virtual", action="store_true", help=_("Search only virtual packages")
+)
+search_list_options.add_argument(
+	"--full", action="store_true", help=_("Show the full description of packages found")
+)
 # Parser for the show command
 search_parser = subparsers.add_parser(
 	"search",
 	formatter_class=formatter,
 	help=_("search package names and descriptions"),
-	parents=[show_options, global_options],
+	parents=[search_list_options, global_options],
 	usage=f"{bin_name} search [--options] regex",
 )
-search_parser.add_argument(
-	"args", metavar="regex", nargs="?", help=_("regex or word to search for")
+
+# Parser for the list command
+list_parser = subparsers.add_parser(
+	"list",
+	formatter_class=formatter,
+	help=_("list packages based on package names"),
+	parents=[search_list_options, global_options],
+	usage=f"{bin_name} list [--options] [pkgs]",
 )
-search_parser.add_argument(
-	"-n", "--names", action="store_true", help=_("Search only package names")
-)
-search_parser.add_argument(
-	"-i", "--installed", action="store_true", help=_("Search only installed packages")
-)
-search_parser.add_argument(
-	"-u", "--upgradable", action="store_true", help=_("Search only upgradable packages")
-)
-search_parser.add_argument(
-	"-V", "--virtual", action="store_true", help=_("Search only virtual packages")
-)
-search_parser.add_argument(
-	"--full", action="store_true", help=_("Show the full description of packages found")
-)
+
 # Remove Global options that I don't want to see in show --help
-remove_help_options(
-	search_parser,
-	assume_yes=True,
-	download_only=True,
-	no_update=True,
-	raw_dpkg=True,
-	no_autoremove=True,
-	remove_essential=True,
-	fix_broken=True,
-	no_fix_broken=True,
-	install_suggests=True,
-	no_install_recommended=True,
-)
+for helper in (search_parser, list_parser):
+	remove_help_options(
+		helper,
+		assume_yes=True,
+		download_only=True,
+		no_update=True,
+		raw_dpkg=True,
+		no_autoremove=True,
+		remove_essential=True,
+		fix_broken=True,
+		no_fix_broken=True,
+		install_suggests=True,
+		no_install_recommends=True,
+	)
 
 # Parser for the History command
 history_parser = subparsers.add_parser(

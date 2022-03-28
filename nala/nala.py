@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 import sys
+from typing import Generator
 
 import apt_pkg
 from apt.package import Package, Version
@@ -66,6 +67,7 @@ from nala.utils import (
 	ask,
 	dprint,
 	eprint,
+	get_version,
 	iter_remove,
 	pkg_installed,
 	sudo_check,
@@ -261,6 +263,29 @@ def search() -> None:
 			)
 		)
 	print_search(found)
+
+
+def list_pkgs() -> None:
+	"""List command entry point."""
+	cache = setup_cache()
+
+	def _list_gen() -> Generator[tuple[Package, Version], None, None]:
+		"""Generate to speed things up."""
+		for pkg in cache:
+			if arguments.installed and not pkg.installed:
+				continue
+			if arguments.upgradable and not pkg.is_upgradable:
+				continue
+			if arguments.virtual and not cache.is_virtual_package(pkg.name):
+				continue
+			if arguments.args:
+				if pkg.shortname in arguments.args:
+					yield (pkg, get_version(pkg))
+				continue
+			yield (pkg, get_version(pkg))
+
+	if not print_search(_list_gen()):
+		sys.exit(_("Nothing was found to list."))
 
 
 def history() -> None:

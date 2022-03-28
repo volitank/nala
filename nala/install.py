@@ -766,6 +766,7 @@ def check_update() -> bool:
 		"remove",
 		"show",
 		"search",
+		"list",
 		"history",
 		"install",
 		"purge",

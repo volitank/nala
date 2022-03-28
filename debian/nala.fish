@@ -34,7 +34,7 @@ end
 
 function __fish_apt_use_package -d 'Test if nala command should have packages as potential completion'
     for i in (commandline -opc)
-        if contains -- $i install purge remove show
+        if contains -- $i install purge remove show list
             return 0
         end
     end
@@ -46,6 +46,8 @@ complete -c nala -n __fish_apt_use_package -a '(__fish_print_apt_packages)' -d P
 complete -c nala -s h -l help -d 'Display a brief help message. Identical to the help action'
 complete -f -n __fish_apt_no_subcommand -c nala -a install -d 'Install packages'
 complete -f -n __fish_apt_no_subcommand -c nala -a remove -d 'Remove packages'
+complete -f -n __fish_apt_no_subcommand -c nala -a autoremove -d 'Remove packages that are no longer needed'
+complete -f -n __fish_apt_no_subcommand -c nala -a autopurge -d 'Purge packages that are no longer needed'
 complete -f -n __fish_apt_no_subcommand -c nala -a update -d 'Update package list and upgrade the system'
 complete -f -n __fish_apt_no_subcommand -c nala -a upgrade -d 'Alias for update'
 complete -f -n __fish_apt_no_subcommand -c nala -a fetch -d 'Fetches fast mirrors to speed up downloads'
@@ -53,6 +55,7 @@ complete -f -n __fish_apt_no_subcommand -c nala -a history -d 'Show transaction 
 complete -f -n __fish_apt_no_subcommand -c nala -a purge -d 'Remove and delete all associated configuration and data files'
 complete -f -n __fish_apt_no_subcommand -c nala -a clean -d 'Clears out the local repository of retrieved package files'
 complete -f -n __fish_apt_no_subcommand -c nala -a show -d 'Display detailed information about the packages'
+complete -f -n __fish_apt_no_subcommand -c nala -a list -d 'List packages based on package names'
 complete -f -n __fish_apt_no_subcommand -c nala -a search -d 'Search package names and descriptions'
 
 complete -c nala -s h -l help -d 'Show help message'
