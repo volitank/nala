@@ -214,7 +214,7 @@ class Cache(_Cache):
 		if upgradeable := [
 			from_ansi(
 				f"{color(pkg.name, 'GREEN')} "
-				f"{color_version(pkg.installed.version)} '->' {color_version(pkg.candidate.version)}"
+				f"{color_version(pkg.installed.version)} -> {color_version(pkg.candidate.version)}"
 			)
 			for pkg in self.upgradable_pkgs()
 			if pkg.installed and pkg.candidate
