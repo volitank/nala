@@ -316,6 +316,8 @@ def ask(question: str, default_no: bool = False) -> bool:
 	Y returns True
 	N returns False
 	"""
+	if arguments.assume_yes:
+		return True
 	while True:
 		resp = input(f"{question} [Y/n] ")
 		if resp in ("y", "Y"):
