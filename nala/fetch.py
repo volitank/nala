@@ -308,11 +308,10 @@ def _lsb_release() -> tuple[str | None, str | None]:
 		return lsb_id, lsb_codename
 
 	for line in lsb_release.splitlines():
+		index = line.index("\t") + 1
 		if "Distributor ID" in line:
-			index = line.index("\t") + 1
 			lsb_id = line[index:]
 		if "Codename" in line:
-			index = line.index("\t") + 1
 			lsb_codename = line[index:]
 	return lsb_id, lsb_codename
 
@@ -421,7 +420,7 @@ def check_supported(
 
 	Error if the distro is not supported.
 	"""
-	if distro == DEBIAN:
+	if distro == DEBIAN and release != "n/a":
 		component = "main" if arguments.foss else "main contrib non-free"
 		return debian_mirror(country_list), component
 	if distro in (UBUNTU, "Pop"):
