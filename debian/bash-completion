@@ -133,6 +133,8 @@ _nala()
 						--ubuntu
 						--country
 						--foss
+						--auto
+						--count
 						--sources'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;

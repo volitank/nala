@@ -208,8 +208,17 @@ search_progress = Progress(
 )
 testing = _("Testing Mirrors")
 fetch_progress = Progress(
-	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn(f"[bold default]{testing} ...", justify="right"),
+	# 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
+	TextColumn(f"[bold blue]{testing} ...", justify="right"),
+	BAR_MIN,
+	PROGRESS_PERCENT,
+	SEPARATOR,
+	COMPLETED_TOTAL,
+	transient=True,
+)
+check_release = _("Generating Usable Mirrors")
+mirror_progress = Progress(
+	TextColumn(f"[bold blue]{check_release} ...", justify="right"),
 	BAR_MIN,
 	PROGRESS_PERCENT,
 	SEPARATOR,

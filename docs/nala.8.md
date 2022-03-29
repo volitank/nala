@@ -54,8 +54,6 @@ Nala - A prettier front-end for libapt-pkg
 
 	This functionality is much like you would expect from **netselect** and **netselect-apt**.
 
-	*\--fetches* lets you determine the amount of mirrors to fetch between 1-10. 3 is the default.
-
 	*\--debian* lets you specify that you're using **Debian** and what release you're using. *\--debian sid*
 
 	*\--ubuntu* This is just the **Ubuntu** version of the switch above. *\--ubuntu jammy*
@@ -65,6 +63,12 @@ Nala - A prettier front-end for libapt-pkg
 	*\--foss* on *Debian* will ensure that you don't get the *contrib* or *non-free* repos. Using this on *Ubuntu* does nothing.
 
 	*\--sources* add the source repos for the mirrors if it exists.
+
+	*\--count* choose the number of viable mirrors to display. by default it's 16, but if you want more you got it.
+
+	*\--auto* run fetch uninteractively. Will still prompt for overwrite.
+
+	*\--fetches* lets you determine the amount of mirrors to fetch between 1-10. 3 is the default. This switch only works with *\--auto*
 
 **show**
 : > **show** works exactly like the **apt** version except our output is a little easier to read. **show** will accept multiple packages as arguments.

@@ -40,7 +40,13 @@ class NalaParser(argparse.ArgumentParser):
 	def error(self, message: str) -> NoReturn:
 		"""Send `--help` on error."""
 		message = message.replace(r", 'moo')", ")")
-		print(f"{ERROR_PREFIX} {message}", file=sys.stderr)
+		if "invalid int value: " in message:
+			message = _("{error} {argument} is not a number").format(
+				error=ERROR_PREFIX, argument=message.replace("invalid int value: ", "")
+			)
+			print(message, file=sys.stderr)
+		else:
+			print(f"{ERROR_PREFIX} {message}", file=sys.stderr)
 		self.print_help()
 		sys.exit(1)
 
@@ -357,13 +363,6 @@ fetch_parser = subparsers.add_parser(
 	usage=f"{bin_name} fetch [--options]",
 )
 fetch_parser.add_argument(
-	"--fetches",
-	metavar="number",
-	type=int,
-	default=3,
-	help=_("number of mirrors to fetch"),
-)
-fetch_parser.add_argument(
 	"--debian", metavar="sid", help=_("choose the Debian release")
 )
 fetch_parser.add_argument(
@@ -382,7 +381,25 @@ fetch_parser.add_argument(
 	action="store_true",
 	help=_("add the source repos for the mirrors if it exists"),
 )
-
+fetch_parser.add_argument(
+	"--count",
+	metavar="number",
+	type=int,
+	default=16,
+	help=_("choose the number of viable mirrors to display"),
+)
+fetch_parser.add_argument(
+	"--auto",
+	action="store_true",
+	help=_("run fetch uninteractively. Will still prompt for overwrite"),
+)
+fetch_parser.add_argument(
+	"--fetches",
+	metavar="number",
+	type=int,
+	default=3,
+	help=_("number of mirrors to fetch in auto mode"),
+)
 # Remove Global options that I don't want to see in fetch --help
 remove_help_options(fetch_parser)
 

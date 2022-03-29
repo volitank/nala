@@ -30,7 +30,7 @@ import sys
 from asyncio import Semaphore, gather, get_event_loop, run as aiorun
 from ssl import SSLCertVerificationError
 from subprocess import run
-from typing import Union
+from typing import Iterable, Union
 
 from apt_pkg import get_architectures
 from httpx import (
@@ -54,8 +54,8 @@ from nala.constants import (
 )
 from nala.downloader import print_error
 from nala.options import arguments, parser
-from nala.rich import fetch_progress
-from nala.utils import ask, dprint, eprint
+from nala.rich import Live, Panel, Table, fetch_progress
+from nala.utils import ask, dprint, eprint, term
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
@@ -148,6 +148,100 @@ class MirrorTest:
 	def get_scored(self) -> tuple[str, ...]:
 		"""Return sorted tuple."""
 		return tuple(sorted(self.netselect_scored))
+
+
+class FetchLive:
+	"""Interactive Fetch."""
+
+	def __init__(
+		self,
+		live: Live,
+		release: str,
+		sources: list[str],
+		netselect_scored: tuple[str, ...],
+	) -> None:
+		"""Interactive Fetch."""
+		self.live = live
+		self.errors = 0
+		self.mirror_list: list[str] = []
+		self.user_list: list[str] = []
+		self.index_list: tuple[int, ...]
+		self._gen_mirror_list(release, sources, netselect_scored)
+
+	def _gen_mirror_list(
+		self, release: str, sources: Iterable[str], netselect_scored: Iterable[str]
+	) -> None:
+		"""Generate the mirror list for display."""
+		for line in netselect_scored:
+			url = line[line.index("h") :]
+			if any(url in mirror and release in mirror for mirror in sources):
+				continue
+			self.mirror_list.append(line)
+			if len(self.mirror_list) == arguments.count:
+				break
+
+	def clear(self, lines: int) -> None:
+		"""Clear lines for the live display."""
+		for _ in range(lines + self.errors):
+			term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
+		self.errors = 0
+
+	def ask(self, question: str) -> bool:
+		"""Ask the user {question}.
+
+		resp = input(f'{question}? [Y/n]
+
+		Y returns True
+		N returns False
+		"""
+		while True:
+			if (resp := input(f"{question} [Y/n] ")) in ("y", "Y"):
+				return True
+			if resp in ("n", "N"):
+				return False
+			self.errors += 1
+			print(_("Not a valid choice kiddo"))
+
+	def choose_mirrors(self) -> None:
+		"""Allow user to choose their mirrors."""
+		while True:
+			self.live.update(
+				Panel.fit(
+					gen_table(self.mirror_list),
+					title="[bold default] Fastest Mirrors",
+					title_align="left",
+					border_style="bold green",
+				),
+				refresh=True,
+			)
+			self.live.stop()
+			self.index_list = ask_index()
+			if self.index_list:
+				break
+			self.errors += 1
+
+	def final_mirrors(self) -> bool:
+		"""Confirm that the final mirrors are okay."""
+		self.live.start()
+		self.live.update(
+			Panel.fit(
+				gen_table(self.user_list, no_index=True),
+				title="[bold white] Selected Mirrors",
+				title_align="left",
+				border_style="bold green",
+			),
+			refresh=True,
+		)
+		self.live.stop()
+		return self.ask(_("Are these mirrors okay?"))
+
+	def set_user_list(self) -> None:
+		"""Set the user selected list of mirrors."""
+		self.user_list = [
+			mirror
+			for num, mirror in enumerate(self.mirror_list)
+			if num in self.index_list
+		]
 
 
 def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
@@ -348,18 +442,65 @@ def parse_sources() -> list[str]:
 	return sources
 
 
-def has_url(url: str) -> bool:
-	"""Check if the mirror has the source for deb-src."""
-	try:
-		response = get(url)
-		response.raise_for_status()
-		return True
-	except HTTPError:
-		return False
+def gen_table(str_list: list[str], no_index: bool = False) -> Table:
+	"""Generate table for the live display."""
+	table = Table(padding=(0, 2), box=None)
+	if not no_index:
+		table.add_column("Index", justify="right", style="bold blue")
+	table.add_column("Mirror")
+	table.add_column("Latency", style="bold blue")
+	for num, line in enumerate(str_list):
+		latency, mirror = line.split()
+		if no_index:
+			table.add_row(mirror, f"{latency.lstrip('0')} ms")
+			continue
+		table.add_row(str(num + 1), mirror, f"{latency.lstrip('0')} ms")
+	return table
+
+
+def ask_index() -> tuple[int, ...]:
+	"""Ask user about the mirrors they would like to use."""
+	index_list: set[int] = set()
+	response: list[str] | list[int]
+	response = input(
+		_("Mirrors you want to keep separated by spaces {selection}:").format(
+			selection=f"({color('1')}..{color(str(arguments.count))})"
+		)
+		+ " "
+	).split()
+
+	if not response:
+		response = list(range(arguments.count))
+
+	for index in response:
+		try:
+			intdex = int(index) - 1
+			if intdex not in range(arguments.count):
+				term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
+				eprint(
+					_("{error} Index {index} doesn't exist.").format(
+						error=ERROR_PREFIX, index=color(index, "YELLOW")
+					)
+				)
+				return ()
+			index_list.add(intdex)
+		except ValueError:
+			term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
+			eprint(
+				_("{error} Index {index} needs to be an integer.").format(
+					error=ERROR_PREFIX, index=color(index, "YELLOW")
+				)
+			)
+			return ()
+	return tuple(index_list)
 
 
 def build_sources(
-	release: str, component: str, sources: list[str], netselect_scored: tuple[str, ...]
+	release: str,
+	component: str,
+	sources: list[str],
+	netselect_scored: tuple[str, ...],
+	live: bool = False,
 ) -> str:
 	"""Build the sources file and return it as a string."""
 	source = _("# Sources file built for nala") + "\n\n"
@@ -375,9 +516,9 @@ def build_sources(
 			source += f"deb-src {line} {release} {component}\n"
 		source += "\n"
 		num += 1
-		if num == arguments.fetches:
+		if not live and num == arguments.fetches:
 			break
-	if num != arguments.fetches:
+	if not live and num != arguments.fetches:
 		eprint(
 			_("{notice} We were unable to fetch {num} mirrors.").format(
 				notice=NOTICE_PREFIX, num=arguments.fetches
@@ -426,12 +567,13 @@ def check_supported(
 	sys.exit(1)
 
 
-def fetch_checks() -> None:
+def fetch_checks(source: str) -> None:
 	"""Perform checks and error if we shouldn't continue."""
+	print(source, end="")
 	if NALA_SOURCES.exists():
 		if not ask(
 			_("{file} already exists.\n" "Continue and overwrite it?").format(
-				file=color(str(NALA_SOURCES), "YELLOW")
+				file=color(NALA_SOURCES, "YELLOW")
 			)
 		):
 			sys.exit(_("Abort."))
@@ -465,7 +607,25 @@ def fetch() -> None:
 	dprint(f"Size of original list: {len(netselect)}")
 	dprint(f"Size of scored list: {len(netselect_scored)}")
 	dprint(f"Writing from: {netselect_scored[:arguments.fetches]}")
-	source = build_sources(release, component, parse_sources(), netselect_scored)
-	print(source, end="")
-	fetch_checks()
+
+	if arguments.auto:
+		source = build_sources(release, component, parse_sources(), netselect_scored)
+		fetch_checks(source)
+		write_sources(source)
+		return
+
+	sources_list = parse_sources()
+	with Live(auto_refresh=False) as live:
+		fetch_live = FetchLive(live, release, sources_list, netselect_scored)
+		while True:
+			fetch_live.choose_mirrors()
+			fetch_live.clear(3)
+			fetch_live.set_user_list()
+			if fetch_live.final_mirrors():
+				break
+			fetch_live.clear(3)
+			fetch_live.live.start()
+		source = build_sources(
+			release, component, sources_list, tuple(fetch_live.user_list), live=True
+		)
 	write_sources(source)
