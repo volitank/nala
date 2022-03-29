@@ -128,7 +128,7 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 			"no_fix_broken": True,
 			"install_suggests": True,
 			"no_install_recommends": True,
-			"purge" : True,
+			"purge": True,
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -473,7 +473,7 @@ for helper in (search_parser, list_parser, show_parser):
 		no_fix_broken=True,
 		install_suggests=True,
 		no_install_recommends=True,
-		purge=True
+		purge=True,
 	)
 
 # Parser for the History command
@@ -522,7 +522,16 @@ clean_parser = subparsers.add_parser(
 	parents=[global_options],
 	usage=f"{bin_name} clean [--options]",
 )
-
+clean_parser.add_argument(
+	"--fetch",
+	action="store_true",
+	help=_("remove `nala-sources.list`"),
+)
+clean_parser.add_argument(
+	"--lists",
+	action="store_true",
+	help=_("remove package lists located in `/var/lib/apt/lists/`"),
+)
 # Remove Global options that I don't want to see in clean --help
 remove_help_options(clean_parser)
 

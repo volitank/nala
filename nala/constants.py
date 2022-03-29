@@ -82,6 +82,7 @@ SOURCELIST = Path(apt_pkg.config.find_file("Dir::Etc::sourcelist"))
 SOURCEPARTS = Path(apt_pkg.config.find_dir("Dir::Etc::sourceparts"))
 """/etc/apt/sources.list.d"""
 
+
 JSON_OPTIONS = jsbeautifier.BeautifierOptions(options={"indent_with_tabs": True})
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
 

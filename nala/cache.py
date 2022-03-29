@@ -186,7 +186,7 @@ class Cache(_Cache):
 			return True
 		return False
 
-	def purge_removed(self):
+	def purge_removed(self) -> None:
 		"""Make sure everything marked as removed is getting purged."""
 		if not arguments.purge:
 			return

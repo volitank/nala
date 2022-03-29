@@ -45,6 +45,10 @@ Nala - A prettier front-end for libapt-pkg
 **clean**
 : > **clean** is exactly like running *apt clean*.
 
+	*\--fetch* Remove `nala-sources.list` generated from **nala fetch**
+
+	*\--lists* Remove package lists located in `/var/lib/apt/lists/`
+
 **fetch**
 : > **fetch** is our first command that doesn't have an **apt** counterpart.
 

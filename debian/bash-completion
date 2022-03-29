@@ -124,7 +124,8 @@ _nala()
 						--foss
 						--auto
 						--count
-						--sources'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						--sources
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				search)
@@ -133,7 +134,8 @@ _nala()
 						-i --installed
 						-u --upgradeable
 						-V --virtual
-						--full'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						--full
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				list)
@@ -142,7 +144,8 @@ _nala()
 						-i --installed
 						-u --upgradeable
 						-V --virtual
-						--full'"$GLOBAL_OPTIONS" -- "$cur" ) )
+						--full
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				show)
@@ -155,7 +158,10 @@ _nala()
 					return 0
 					;;
 				clean)
-					COMPREPLY=( $( compgen -W "$GLOBAL_OPTIONS" -- "$cur" ) )
+					COMPREPLY=( $( compgen -W '
+						--fetches
+						--lists
+						'"$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				moo)

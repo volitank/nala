@@ -39,7 +39,9 @@ from nala.constants import (
 	ARCHIVE_DIR,
 	CAT_ASCII,
 	ERROR_PREFIX,
+	LISTS_DIR,
 	LISTS_PARTIAL_DIR,
+	NALA_SOURCES,
 	PARTIAL_DIR,
 	PKGCACHE,
 	SRCPKGCACHE,
@@ -327,6 +329,15 @@ def history() -> None:
 
 def clean() -> None:
 	"""Find and delete cache files."""
+	if arguments.lists:
+		iter_remove(LISTS_DIR)
+		iter_remove(LISTS_PARTIAL_DIR)
+		print(_("Package lists have been cleaned"))
+		return
+	if arguments.fetch:
+		NALA_SOURCES.unlink(missing_ok=True)
+		print(_("Nala sources.list has been cleaned"))
+		return
 	iter_remove(ARCHIVE_DIR)
 	iter_remove(PARTIAL_DIR)
 	iter_remove(LISTS_PARTIAL_DIR)
