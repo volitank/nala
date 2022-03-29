@@ -62,7 +62,7 @@ UBUNTU = "Ubuntu"
 DOMAIN_PATTERN = re.compile(r"https?://([A-Za-z_0-9.-]+).*")
 UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
 UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
-LIMITS = Limits(max_connections=100)
+LIMITS = Limits(max_connections=50)
 TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
 ErrorTypes = Union[HTTPStatusError, HTTPError, SSLCertVerificationError, ReadTimeout]
 
@@ -75,7 +75,6 @@ class MirrorTest:
 		self.netselect = netselect
 		self.netselect_scored: list[str] = []
 		self.release = release
-		self.semp = Semaphore(1)
 		self.client: AsyncClient
 		self.progress: Progress
 		self.task: TaskID
@@ -88,27 +87,29 @@ class MirrorTest:
 				follow_redirects=True, limits=LIMITS, timeout=TIMEOUT
 			) as self.client:
 				loop = get_event_loop()
-				tasks = (
-					loop.create_task(self.net_select(mirror))
+				semp = Semaphore(50)
+				tasks = [
+					loop.create_task(self.net_select(mirror, semp))
 					for mirror in self.netselect
-				)
+				]
 				await gather(*tasks)
 
-	async def net_select(self, mirror: str) -> None:
+	async def net_select(self, mirror: str, semp: Semaphore) -> None:
 		"""Take a URL, ping the domain and score the latency."""
-		debugger = [f"Current Mirror: {mirror}"]
+		async with semp:
+			debugger = [f"Current Mirror: {mirror}"]
 
-		regex = re.search(DOMAIN_PATTERN, mirror)
-		if not regex:
+			regex = re.search(DOMAIN_PATTERN, mirror)
+			if not regex:
+				self.progress.advance(self.task)
+				debugger.append("Regex Failed")
+				dprint(debugger)
+				return
+
+			domain = regex.group(1)
+			debugger.append(f"Release Fetched: {domain}")
+			await self.netping(mirror, debugger)
 			self.progress.advance(self.task)
-			debugger.append("Regex Failed")
-			dprint(debugger)
-			return
-
-		domain = regex.group(1)
-		debugger.append(f"Release Fetched: {domain}")
-		await self.netping(mirror, debugger)
-		self.progress.advance(self.task)
 
 	async def netping(self, mirror: str, debugger: list[str]) -> bool:
 		"""Fetch release file and score mirror."""
