@@ -340,24 +340,15 @@ auto_remove_parser = subparsers.add_parser(
 	aliases=["autopurge"],
 )
 
-
-def fetch_description() -> str:
-	"""Build and return the fetch description."""
-	nala_will_fetch = _("Nala will fetch mirrors with the lowest latency.")
-	for_debian = _("For Debian")
-	for_ubuntu = _("For Ubuntu")
-	return (
-		f"{nala_will_fetch}\n"
-		f"{for_debian} https://mirror-master.debian.org/status/Mirrors.masterlist\n"
-		f"{for_ubuntu} https://launchpad.net/ubuntu/+archivemirrors-rss"
-	)
-
-
 # Parser for the fetch command
 fetch_parser = subparsers.add_parser(
 	"fetch",
 	formatter_class=formatter,
-	description=(fetch_description()),
+	description=_(
+		"Nala will fetch mirrors with the lowest latency.\n"
+		"For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
+		"For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
+	),
 	help=_("fetches fast mirrors to speed up downloads"),
 	parents=[global_options],
 	usage=f"{bin_name} fetch [--options]",
