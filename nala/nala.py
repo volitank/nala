@@ -150,7 +150,7 @@ def remove(pkg_names: list[str]) -> None:
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 
-	_purge = arguments.command == "purge"
+	_purge = True if arguments.purge else arguments.command == "purge"
 	pkg_names = cache.glob_filter(pkg_names)
 	pkg_names = cache.virtual_filter(pkg_names)
 	broken, not_found, ver_failed = check_broken(
@@ -178,7 +178,7 @@ def remove(pkg_names: list[str]) -> None:
 def auto_remove() -> None:
 	"""Command for autoremove."""
 	cache = setup_cache()
-	_purge = arguments.command == "autopurge"
+	_purge = True if arguments.purge else arguments.command == "autopurge"
 	check_state(cache, nala_pkgs)
 	auto_remover(cache, nala_pkgs, _purge)
 	get_changes(cache, nala_pkgs, remove=True)

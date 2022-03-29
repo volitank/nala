@@ -186,6 +186,14 @@ class Cache(_Cache):
 			return True
 		return False
 
+	def purge_removed(self):
+		"""Make sure everything marked as removed is getting purged."""
+		if not arguments.purge:
+			return
+		for pkg in self:
+			if pkg.marked_delete:
+				pkg.mark_delete(purge=True)
+
 	def protect_upgrade_pkgs(self) -> list[Package]:
 		"""Mark excluded packages as protected."""
 		protected: list[Package] = []

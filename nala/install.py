@@ -82,6 +82,8 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -
 	"""Handle auto removal of packages."""
 	if not config.AUTO_REMOVE and arguments.command not in ("autoremove", "autopurge"):
 		return
+	if arguments.purge:
+		purge = True
 	with cache.actiongroup():  # type: ignore[attr-defined]
 		# Recurse 10 levels if we're installing .debs to make sure that all depends are safe
 		deps = recurse_deps(nala_pkgs.local_debs, levels=10, installed=False)
@@ -226,6 +228,7 @@ def get_changes(
 	cache: Cache, nala_pkgs: PackageHandler, upgrade: bool = False, remove: bool = False
 ) -> None:
 	"""Get packages requiring changes and process them."""
+	cache.purge_removed()
 	pkgs = sorted(cache.get_changes(), key=sort_pkg_name)
 	if not NALA_DIR.exists():
 		NALA_DIR.mkdir()

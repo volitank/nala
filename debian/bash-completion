@@ -101,16 +101,17 @@ _nala()
 						--raw-dpkg
 						--no-autoremove
 						--no-fix-broken
+						--purge
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				remove|purge|autoremove|autopurge)
 					COMPREPLY=( $( compgen -W '
 						-y --assume-yes
-						-d --download-only
 						--raw-dpkg
 						--no-autoremove
 						--no-fix-broken
+						--purge
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
@@ -123,6 +124,7 @@ _nala()
 						--raw-dpkg
 						--no-autoremove
 						--exclude
+						--purge
 						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
@@ -162,7 +164,14 @@ _nala()
 					return 0
 					;;
 				history)
-					COMPREPLY=( $( compgen -W "$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
+					COMPREPLY=( $( compgen -W '
+						-y --assume-yes
+						-d --download-only
+						--raw-dpkg
+						--no-autoremove
+						--no-fix-broken
+						--purge
+						'"$DPKG_OPTIONS""$GLOBAL_OPTIONS" -- "$cur" ) )
 					return 0
 					;;
 				clean)

@@ -128,6 +128,7 @@ def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
 			"no_fix_broken": True,
 			"install_suggests": True,
 			"no_install_recommends": True,
+			"purge" : True,
 		}
 
 	action_group = argparser._optionals._group_actions
@@ -172,6 +173,11 @@ global_options.add_argument(
 )
 global_options.add_argument(
 	"-f", "--fix-broken", action="store_true", help=_("attempts to fix broken packages")
+)
+global_options.add_argument(
+	"--purge",
+	action="store_true",
+	help=_("purge any packages that would be removed"),
 )
 global_options.add_argument(
 	"--no-fix-broken",
@@ -411,20 +417,6 @@ show_parser = subparsers.add_parser(
 	parents=[show_options, global_options],
 	usage=f"{bin_name} show [--options] [pkg1 pkg2 ...]",
 )
-# Remove Global options that I don't want to see in show --help
-remove_help_options(
-	show_parser,
-	assume_yes=True,
-	download_only=True,
-	no_update=True,
-	raw_dpkg=True,
-	no_autoremove=True,
-	remove_essential=True,
-	fix_broken=True,
-	no_fix_broken=True,
-	install_suggests=True,
-	no_install_recommended=True,
-)
 
 show_parser.add_argument(
 	"args", metavar="pkg(s)", nargs="*", help=_("package(s) to show")
@@ -468,7 +460,7 @@ list_parser = subparsers.add_parser(
 )
 
 # Remove Global options that I don't want to see in show --help
-for helper in (search_parser, list_parser):
+for helper in (search_parser, list_parser, show_parser):
 	remove_help_options(
 		helper,
 		assume_yes=True,
@@ -481,6 +473,7 @@ for helper in (search_parser, list_parser):
 		no_fix_broken=True,
 		install_suggests=True,
 		no_install_recommends=True,
+		purge=True
 	)
 
 # Parser for the History command
