@@ -43,6 +43,7 @@ from nala.options import (
 	DEBUG,
 	DOWNLOAD_ONLY,
 	FIX_BROKEN,
+	OPTION,
 	PURGE,
 	RAW_DPKG,
 	RECOMMENDS,
@@ -279,8 +280,9 @@ def history_undo(
 	auto_remove: bool = AUTO_REMOVE,
 	install_recommends: bool = RECOMMENDS,
 	install_suggests: bool = SUGGESTS,
-	assume_yes: bool = ASSUME_YES,
 	fix_broken: bool = FIX_BROKEN,
+	assume_yes: bool = ASSUME_YES,
+	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""History undo/redo commands."""

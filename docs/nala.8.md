@@ -127,6 +127,9 @@ Nala - A prettier front-end for libapt-pkg
 **-v, \--verbose**
 : >*\--verbose* prints more information that sticks around. By default we use "Progress Bars" to hide some things we consider unnecessary. Using *\--verbose* removes the progress bars and prints that information.
 
+**-o, \--option**
+: >*\--option* can pass any configuration option to **apt**/**dpkg** like Dpkg::Options::="--force-confnew" or APT::Default-Release="stable".
+
 **\--purge**
 : >*\--purge* any packages that would removed during the transaction.
 
@@ -160,37 +163,10 @@ Nala - A prettier front-end for libapt-pkg
 **\--license**
 : >*\--license* reads the licenses of software compiled in and then reads the GPLv3 which **nala** is licensed under.
 
-# DPKG OPTIONS
-The following options are advanced options to control what dpkg does during **install**, **update** and **upgrade**.
-
 **\--raw-dpkg**
 : >*\--raw-dpkg* forces **nala** not to mess with **dpkg** while running operations. This disables all formatting and it would look as if you were using **apt**. A more indepth explanation for what this switch does, **nala** will fork a tty instead of a pty for **dpkg**.
 
 	**nala** will also not display a progress bar for **dpkg** with this turned on. Additionally the language of the output will not be forced into English for this mode.
-
-**\--no-aptlist**
-: >*\--no-aptlist* sets 'APT_LISTCHANGES_FRONTEND=none'. With this option apt-listchanges will not bug you if you have it installed.
-
-**\--non-interactive**
-: >*\--non-interactive* sets 'DEBIAN_FRONTEND=noninteractive'. Accepts the default answers for everything. This also disables apt-listchanges.
-
-**\--non-interactive-full**
-: >*\--non-interactive-full* an alias for *\--non-interactive \--confdef \--confold*.
-
-**\--confold**
-: >*\--confold* If a conffile has been modified and the version in the package did change, always keep the old version without prompting, unless the --force-confdef is also specified, in which case the default action is preferred.
-
-**\--confnew**
-: >*\--confnew* If a conffile has been modified and the version in the package did change, always install the new version without prompting, unless the --force-confdef is also specified, in which case the default action is preferred.
-
-**\--confdef**
-: >*\--confdef* If a conffile has been modified and the version in the package did change, always choose the default action without prompting. If there is no default action it will stop to ask the user unless *\--confnew* or *\--confold* is also been given, in which case it will use that to decide the final action.
-
-**\--confmiss**
-: >*\--confmiss* Always install the missing conffile without prompting. This is dangerous, since it means not preserving a change (removing) made to the file.
-
-**\--confask**
-: >*\--confask* If a conffile has been modified always offer to replace it with the version in the package, even if the version in the package did not change (since dpkg 1.15.8).  If any of *\--confnew*, *\--confold*, or *\--confdef* is also given, it will be used to decide the final action.
 
 # EXAMPLES
 **nala install** *\--update* **wine**

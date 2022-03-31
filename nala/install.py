@@ -744,7 +744,6 @@ def print_notices(notices: Iterable[str]) -> None:
 
 def setup_cache() -> Cache:
 	"""Update the cache if necessary, and then return the Cache."""
-	# set_env()
 	try:
 		if arguments.update:
 			with DelayedKeyboardInterrupt():
@@ -828,29 +827,3 @@ def check_essential(pkgs: list[Package]) -> None:
 
 	if essential:
 		essential_error(essential)
-
-
-# def set_env() -> None:
-# 	"""Set environment."""
-# 	return
-# 	try:
-# 		if arguments.non_interactive:
-# 			os.environ["DEBIAN_FRONTEND"] = "noninteractive"
-# 		if arguments.non_interactive_full:
-# 			os.environ["DEBIAN_FRONTEND"] = "noninteractive"
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confdef")
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confold")
-# 		if arguments.no_aptlist:
-# 			os.environ["APT_LISTCHANGES_FRONTEND"] = "none"
-# 		if arguments.confdef:
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confdef")
-# 		if arguments.confold:
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confold")
-# 		if arguments.confnew:
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confnew")
-# 		if arguments.confmiss:
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confmiss")
-# 		if arguments.confask:
-# 			apt_pkg.config.set("Dpkg::Options::", "--force-confask")
-# 	except AttributeError:
-# 		return

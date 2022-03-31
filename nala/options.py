@@ -222,6 +222,21 @@ class Arguments:
 		"""Set option."""
 		self.debug = value
 
+	def set_dpkg_option(self, value: tuple[str, ...]) -> None:
+		"""Set option."""
+		if not value:
+			return
+		try:
+			for opt in value:
+				dpkg, option = opt.split("=")
+				config.set(dpkg, option)
+		except ValueError:
+			sys.exit(
+				_("{error} Option {option}: Configuration item must have a '='").format(
+					error = ERROR_PREFIX, option = opt
+				)
+			)
+
 	def state(self) -> str:
 		"""Return the state of the object as a string."""
 		return str(self)
@@ -372,6 +387,15 @@ ASSUME_YES = typer.Option(
 	callback=arguments.set_assume_yes,
 	is_eager=True,
 	help=_("Assume 'yes' to all prompts"),
+)
+
+OPTION = typer.Option(
+	[],
+	"-o",
+	"--option",
+	callback=arguments.set_dpkg_option,
+	is_eager=True,
+	help=_('Set options like Dpkg::Options::="--force-confnew"'),
 )
 
 RAW_DPKG = typer.Option(

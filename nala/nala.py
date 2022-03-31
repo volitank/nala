@@ -73,6 +73,7 @@ from nala.options import (
 	INSTALLED,
 	LISTS,
 	NAMES,
+	OPTION,
 	PURGE,
 	RAW_DPKG,
 	RECOMMENDS,
@@ -142,6 +143,7 @@ def upgrade(
 	full: bool = typer.Option(
 		True, help=_("Toggle runs a normal upgrade instead of full-upgrade")
 	),
+	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
 	verbose: bool = VERBOSE,
 ) -> None:
@@ -207,6 +209,7 @@ def install(
 	install_recommends: bool = RECOMMENDS,
 	install_suggests: bool = SUGGESTS,
 	fix_broken: bool = FIX_BROKEN,
+	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
 	verbose: bool = VERBOSE,
 ) -> None:
@@ -266,6 +269,7 @@ def remove(
 	auto_remove: bool = AUTO_REMOVE,
 	fix_broken: bool = FIX_BROKEN,
 	update: bool = UPDATE,
+	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
 	verbose: bool = VERBOSE,
 ) -> None:
@@ -315,6 +319,7 @@ def _auto_remove(
 	remove_essential: bool = REMOVE_ESSENTIAL,
 	update: bool = UPDATE,
 	fix_broken: bool = FIX_BROKEN,
+	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
 	verbose: bool = VERBOSE,
 ) -> None:
