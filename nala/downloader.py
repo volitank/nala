@@ -131,6 +131,7 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		self.live: Live
 		self.mirrors: list[str] = []
 		self.last_completed: str = ""
+		self.untrusted: list[str] = []
 		self.task = pkg_download_progress.add_task(
 			"", total=sum(pkg_candidate(pkg).size for pkg in self.pkgs)
 		)
@@ -142,6 +143,10 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		self.failed: list[str] = []
 		self.fatal: bool = False
 		self.exit: int | bool = False
+
+		if self.untrusted:
+			untrusted_error(self.untrusted)
+
 		self._set_proxy()
 
 	async def start_download(self) -> bool:
@@ -296,6 +301,8 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		"""Filter uris into usable urls."""
 		urls: list[str] = []
 		for uri in candidate.uris:
+			if not check_trusted(uri, candidate):
+				self.untrusted.append(color(candidate.package.name, "RED"))
 			# Regex to check if we're using mirror.txt
 			if regex := pattern.search(uri):
 				domain = regex.group(1)
@@ -361,6 +368,27 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 
 		pkg_download_progress.advance(self.task, advance=len_data)
 		self.live.update(self._gen_table())
+
+
+def untrusted_error(untrusted: list[str]) -> None:
+	"""Print the untrusted warnings and exit if we're not allowed."""
+	eprint(
+		_("{warn} The following packages cannot be authenticated!").format(
+			warn=WARNING_PREFIX
+		)
+	)
+	eprint(f"  {', '.join(untrusted)}")
+	if not apt_pkg.config.find_b("APT::Get::AllowUnauthenticated", False):
+		sys.exit(
+			_("{error} Some packages are unable to be authenticated").format(
+				error=ERROR_PREFIX
+			)
+		)
+	eprint(
+		_(
+			"{notice} Configuration is set to allow installation of unauthenticated packages."
+		).format(notice=NOTICE_PREFIX)
+	)
 
 
 def print_error(error: DownloadErrorTypes) -> None:
@@ -455,6 +483,15 @@ def guess_concurrent(pkg_urls: list[list[Version | str]]) -> int:
 	for pkg in pkg_urls:
 		max_uris = max(len(pkg[1:]) * 2, max_uris)
 	return max_uris
+
+
+def check_trusted(uri: str, candidate: Version) -> bool:
+	"""Check if the candidate is trusted."""
+	for (packagefile, _unused) in candidate._cand.file_list:
+		if packagefile.site in uri and packagefile.archive != "now":
+			indexfile = candidate.package._pcache._list.find_index(packagefile)
+			return bool(indexfile and indexfile.is_trusted)
+	return False
 
 
 def sort_pkg_size(pkg_url: list[Version | str]) -> int:
