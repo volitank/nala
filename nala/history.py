@@ -33,10 +33,27 @@ from pwd import getpwnam
 from typing import Iterable
 
 import jsbeautifier
+import typer
 
 from nala import _, color
 from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY
-from nala.options import arguments
+from nala.options import (
+	ASSUME_YES,
+	AUTO_REMOVE,
+	DEBUG,
+	DOWNLOAD_ONLY,
+	FIX_BROKEN,
+	PURGE,
+	RAW_DPKG,
+	RECOMMENDS,
+	REMOVE_ESSENTIAL,
+	SUGGESTS,
+	UPDATE,
+	VERBOSE,
+	_doc,
+	arguments,
+	history_typer,
+)
 from nala.rich import Column, Table
 from nala.utils import (
 	DelayedKeyboardInterrupt,
@@ -85,8 +102,13 @@ def write_history_file(
 			file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
 
 
-def history_summary() -> None:
-	"""History command."""
+@_doc
+@history_typer.callback(invoke_without_command=True)
+def history_summary(ctx: typer.Context) -> None:
+	"""Show transaction history."""
+	if ctx.invoked_subcommand:
+		return
+
 	if not NALA_HISTORY.exists():
 		eprint(_("{error} No history exists...").format(error=ERROR_PREFIX))
 		return
@@ -160,8 +182,16 @@ def get_hist_list(
 	return [pkg for pkg in hist_entry[key] if isinstance(pkg, str)]
 
 
-def history_info(hist_id: str) -> None:
-	"""History info command."""
+@_doc
+@history_typer.command("info")
+def history_info(
+	_hist_id: int = typer.Argument(..., metavar="ID"),
+	purge: bool = typer.Option(  # pylint: disable=unused-argument
+		False, "--purge", callback=arguments.set_purge, hidden=True
+	),
+) -> None:
+	"""Show information about a specific transaction."""
+	hist_id = str(_hist_id)
 	dprint(f"History info {hist_id}")
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")
@@ -176,16 +206,43 @@ def history_info(hist_id: str) -> None:
 	print_update_summary(nala_pkgs)
 
 
-def history_clear(hist_id: str) -> None:
-	"""Show command."""
+def history_sudo(
+	redo: bool = False,
+	clear: bool = False,
+) -> None:
+	"""Check if we need sudo."""
+	if not term.is_su():
+		if clear:
+			sys.exit(" ".join([ERROR_PREFIX, _("Nala needs root to clear history")]))
+		if redo:
+			sys.exit(" ".join([ERROR_PREFIX, _("Nala needs root to redo history")]))
+		sys.exit(" ".join([ERROR_PREFIX, _("Nala needs root to undo history")]))
+
+
+def unlink_history(value: bool) -> None:
+	"""Remove the history file."""
+	history_sudo(clear=True)
+	if not value:
+		return
+	dprint("History clear all")
+	NALA_HISTORY.unlink(missing_ok=True)
+	print(_("History has been cleared"))
+	sys.exit()
+
+
+@_doc
+@history_typer.command("clear")
+def history_clear(
+	_hist_id: int = typer.Argument(..., metavar="ID"),
+	_all: bool = typer.Option(  # pylint: disable=unused-argument
+		False, "--all", callback=unlink_history, help="Clear the entire history."
+	),
+) -> None:
+	"""Clear a transaction or the entire history."""
+	hist_id = str(_hist_id)
 	dprint(f"History clear {hist_id}")
 	if not NALA_HISTORY.exists():
 		eprint(_("No history exists to clear..."))
-		return
-
-	if hist_id == "all":
-		NALA_HISTORY.unlink()
-		print(_("History has been cleared"))
 		return
 
 	if hist_id not in (history_file := load_history_file()).keys():
@@ -206,14 +263,38 @@ def history_clear(hist_id: str) -> None:
 	write_history_file(history_edit)
 
 
-def history_undo(hist_id: str, redo: bool = False) -> None:
+@_doc
+@history_typer.command("undo", help=_("Undo a transaction"))
+@history_typer.command("redo", help=_("Redo a transaction"))
+# pylint: disable=unused-argument,too-many-arguments,too-many-locals
+def history_undo(
+	ctx: typer.Context,
+	hist_id: str,
+	purge: bool = PURGE,
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	download_only: bool = DOWNLOAD_ONLY,
+	remove_essential: bool = REMOVE_ESSENTIAL,
+	update: bool = UPDATE,
+	auto_remove: bool = AUTO_REMOVE,
+	install_recommends: bool = RECOMMENDS,
+	install_suggests: bool = SUGGESTS,
+	assume_yes: bool = ASSUME_YES,
+	fix_broken: bool = FIX_BROKEN,
+	verbose: bool = VERBOSE,
+) -> None:
 	"""History undo/redo commands."""
 	from nala.nala import (  # pylint: disable=cyclic-import, import-outside-toplevel
-		install,
-		remove,
+		_install,
+		_remove,
 	)
 
-	dprint(f"History: {arguments.mode} {hist_id}")
+	arguments.history = ctx.command.name
+	arguments.history_id = hist_id
+	redo = ctx.command.name == "redo"
+	history_sudo(redo=redo)
+
+	dprint(f"History: {ctx.command.name} {hist_id}")
 
 	transaction = get_history(hist_id)
 	dprint(f"Transaction: {transaction}")
@@ -224,21 +305,21 @@ def history_undo(hist_id: str, redo: bool = False) -> None:
 		pkgs.extend([str(pkg[0]) for pkg in transaction.get("Auto-Removed", [])])
 
 		if redo:
-			remove(pkgs)
+			_remove(pkgs)
 			return
-		install(pkgs)
+		_install(pkgs, ctx)
 		return
 
 	if command == "install":
 		pkgs = [str(pkg[0]) for pkg in transaction.get("Installed", [])]
 		if redo:
-			install(pkgs)
+			_install(pkgs, ctx)
 			return
-		remove(pkgs)
+		_remove(pkgs)
 		return
 	sys.exit(
 		NOT_SUPPORTED.format(
-			error=ERROR_PREFIX, command=f"{arguments.command} {arguments.mode}"
+			error=ERROR_PREFIX, command=f"{arguments.command} {ctx.command.name}"
 		)
 	)
 

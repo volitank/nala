@@ -28,9 +28,10 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Generator
+from typing import Generator, Optional
 
 import apt_pkg
+import typer
 from apt.package import Package, Version
 
 from nala import _, color
@@ -47,7 +48,6 @@ from nala.constants import (
 	SRCPKGCACHE,
 )
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
-from nala.history import history_clear, history_info, history_summary, history_undo
 from nala.install import (
 	auto_remover,
 	check_broken,
@@ -60,12 +60,39 @@ from nala.install import (
 	setup_cache,
 	split_local,
 )
-from nala.options import arguments
+from nala.options import (
+	ALL_ARCHES,
+	ALL_VERSIONS,
+	ASSUME_YES,
+	AUTO_REMOVE,
+	DEBUG,
+	DOWNLOAD_ONLY,
+	FETCH,
+	FIX_BROKEN,
+	FULL,
+	INSTALLED,
+	LISTS,
+	NAMES,
+	PURGE,
+	RAW_DPKG,
+	RECOMMENDS,
+	REMOVE_ESSENTIAL,
+	SUGGESTS,
+	UPDATE,
+	UPGRADABLE,
+	UPGRADEABLE,
+	VERBOSE,
+	VIRTUAL,
+	_doc,
+	arguments,
+	nala,
+)
 from nala.rich import search_progress
-from nala.search import print_search, search_name
+from nala.search import iter_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
 	PackageHandler,
+	arg_check,
 	ask,
 	dprint,
 	eprint,
@@ -79,47 +106,124 @@ from nala.utils import (
 nala_pkgs = PackageHandler()
 
 
-def upgrade(nested_cache: Cache | None = None) -> None:
-	"""Upgrade pkg[s]."""
-	cache = nested_cache or setup_cache()
-	check_state(cache, nala_pkgs)
-
-	is_upgrade = cache.upgradable_pkgs()
-	protected = cache.protect_upgrade_pkgs()
-	try:
-		cache.upgrade(dist_upgrade=not arguments.no_full)
-	except apt_pkg.Error as error:
-		if arguments.exclude:
-			arguments.exclude = fix_excluded(protected, is_upgrade)
-			if ask(_("Would you like us to protect these and try again?")):
-				cache.clear()
-				upgrade(cache)
-				sys.exit()
-			sys.exit(
-				_("{error} You have held broken packages").format(error=ERROR_PREFIX)
-			)
-		raise error from error
-
-	if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
-		cache.clear()
-		print(color(_("The following packages were kept back:"), "YELLOW"))
-		for pkg in kept_back:
-			broken_pkg(pkg, cache)
-		check_term_ask()
-		cache.upgrade(dist_upgrade=not arguments.no_full)
-
-	auto_remover(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs, upgrade=True)
+@_doc
+@nala.command("update")
+# pylint: disable=unused-argument
+def _update(
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Update package list."""
+	sudo_check()
+	arguments.update = True
+	setup_cache().print_upgradable()
 
 
-def install(pkg_names: list[str]) -> None:
-	"""Install pkg[s]."""
-	if arguments.fix_broken:
-		fix_broken()
-		return
+@_doc
+@nala.command()
+# pylint: disable=unused-argument,too-many-arguments
+def upgrade(
+	exclude: Optional[list[str]] = typer.Option(
+		None,
+		metavar="PKG",
+		help=_("Specify packages to exclude during upgrade. Accepts glob*"),
+	),
+	purge: bool = PURGE,
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	download_only: bool = DOWNLOAD_ONLY,
+	remove_essential: bool = REMOVE_ESSENTIAL,
+	update: bool = UPDATE,
+	auto_remove: bool = AUTO_REMOVE,
+	install_recommends: bool = RECOMMENDS,
+	install_suggests: bool = SUGGESTS,
+	fix_broken: bool = FIX_BROKEN,
+	full: bool = typer.Option(
+		True, help=_("Toggle runs a normal upgrade instead of full-upgrade")
+	),
+	assume_yes: bool = ASSUME_YES,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Update package list and upgrade the system."""
+	sudo_check()
+
+	def _upgrade(
+		full: bool = True,
+		exclude: list[str] | None = None,
+		nested_cache: Cache | None = None,
+	) -> None:
+		"""Upgrade pkg[s]."""
+		cache = nested_cache or setup_cache()
+		check_state(cache, nala_pkgs)
+
+		is_upgrade = cache.upgradable_pkgs()
+		protected = cache.protect_upgrade_pkgs(exclude)
+		try:
+			cache.upgrade(dist_upgrade=full)
+		except apt_pkg.Error as error:
+			if exclude:
+				exclude = fix_excluded(protected, is_upgrade)
+				if ask(_("Would you like us to protect these and try again?")):
+					cache.clear()
+					_upgrade(full, exclude, cache)
+					sys.exit()
+				sys.exit(
+					_("{error} You have held broken packages").format(
+						error=ERROR_PREFIX
+					)
+				)
+			raise error from error
+
+		if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
+			cache.clear()
+			print(color(_("The following packages were kept back:"), "YELLOW"))
+			for pkg in kept_back:
+				broken_pkg(pkg, cache)
+			check_term_ask()
+			cache.upgrade(dist_upgrade=arguments.full)
+
+		auto_remover(cache, nala_pkgs)
+		get_changes(cache, nala_pkgs, upgrade=True)
+
+	_upgrade(full, exclude)
+
+
+@_doc
+@nala.command()
+# pylint: disable=unused-argument,too-many-arguments
+def install(
+	ctx: typer.Context,
+	pkg_names: Optional[list[str]] = typer.Argument(
+		None, metavar="PKGS ...", help=_("Package(s) to install")
+	),
+	purge: bool = PURGE,
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	download_only: bool = DOWNLOAD_ONLY,
+	remove_essential: bool = REMOVE_ESSENTIAL,
+	update: bool = UPDATE,
+	auto_remove: bool = AUTO_REMOVE,
+	install_recommends: bool = RECOMMENDS,
+	install_suggests: bool = SUGGESTS,
+	fix_broken: bool = FIX_BROKEN,
+	assume_yes: bool = ASSUME_YES,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Install packages."""
+	_install(pkg_names, ctx)
+
+
+def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
+	sudo_check(pkg_names)
+	if not pkg_names:
+		if arguments.fix_broken:
+			_fix_broken()
+			return
+		ctx.fail(_("{error} Missing packages to install").format(error=ERROR_PREFIX))
+	pkg_names = arg_check(pkg_names)
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
-
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
 	install_local(nala_pkgs, cache)
 
@@ -147,8 +251,31 @@ def install(pkg_names: list[str]) -> None:
 	get_changes(cache, nala_pkgs)
 
 
-def remove(pkg_names: list[str]) -> None:
-	"""Remove or Purge pkg[s]."""
+@nala.command(help=_("Remove packages."))
+@nala.command("purge", help=_("Purge packages."))
+# pylint: disable=unused-argument,too-many-arguments
+def remove(
+	pkg_names: list[str] = typer.Argument(
+		..., metavar="PKGS ...", help=_("Package(s) to remove/purge")
+	),
+	purge: bool = PURGE,
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	download_only: bool = DOWNLOAD_ONLY,
+	remove_essential: bool = REMOVE_ESSENTIAL,
+	auto_remove: bool = AUTO_REMOVE,
+	fix_broken: bool = FIX_BROKEN,
+	update: bool = UPDATE,
+	assume_yes: bool = ASSUME_YES,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Remove or Purge packages."""
+	_remove(pkg_names)
+
+
+def _remove(pkg_names: list[str]) -> None:
+	sudo_check()
+	arg_check(pkg_names)
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 
@@ -177,8 +304,22 @@ def remove(pkg_names: list[str]) -> None:
 	get_changes(cache, nala_pkgs, remove=True)
 
 
-def auto_remove() -> None:
+@nala.command("autoremove", help=_("Autoremove packages that are no longer needed."))
+@nala.command("autopurge", help=_("Autopurge packages that are no longer needed."))
+# pylint: disable=unused-argument,too-many-arguments
+def _auto_remove(
+	purge: bool = PURGE,
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	download_only: bool = DOWNLOAD_ONLY,
+	remove_essential: bool = REMOVE_ESSENTIAL,
+	update: bool = UPDATE,
+	fix_broken: bool = FIX_BROKEN,
+	assume_yes: bool = ASSUME_YES,
+	verbose: bool = VERBOSE,
+) -> None:
 	"""Command for autoremove."""
+	sudo_check()
 	cache = setup_cache()
 	_purge = True if arguments.purge else arguments.command == "autopurge"
 	check_state(cache, nala_pkgs)
@@ -186,9 +327,10 @@ def auto_remove() -> None:
 	get_changes(cache, nala_pkgs, remove=True)
 
 
-def fix_broken(nested_cache: Cache | None = None) -> None:
+def _fix_broken(nested_cache: Cache | None = None) -> None:
 	"""Attempt to fix broken packages, if any."""
 	cache = nested_cache or setup_cache()
+	print("Fixing Broken Packages...")
 	cache.fix_broken()
 
 	if nested_cache:
@@ -203,8 +345,18 @@ def fix_broken(nested_cache: Cache | None = None) -> None:
 	get_changes(cache, nala_pkgs)
 
 
-def show(pkg_names: list[str]) -> None:
-	"""Show package information."""
+@_doc
+@nala.command()
+# pylint: disable=unused-argument
+def show(
+	pkg_names: list[str] = typer.Argument(..., help=_("Package(s) to show")),
+	debug: bool = DEBUG,
+	update: bool = UPDATE,
+	verbose: bool = VERBOSE,
+	all_versions: bool = ALL_VERSIONS,
+) -> None:
+	"""Show package details."""
+	sudo_check()
 	cache = setup_cache()
 	not_found: list[str] = []
 	pkg_names = cache.glob_filter(pkg_names)
@@ -226,18 +378,31 @@ def show(pkg_names: list[str]) -> None:
 		sys.exit(1)
 
 
-def search() -> None:
-	"""Search command entry point."""
-	if not (search_term := arguments.args):
-		sys.exit(
-			_("{error} you must specify a pattern to search").format(error=ERROR_PREFIX)
-		)
+@_doc
+@nala.command()
+# pylint: disable=unused-argument,too-many-arguments,too-many-locals
+def search(
+	regex: str = typer.Argument(..., help=_("Regex or word to search for")),
+	debug: bool = DEBUG,
+	full: bool = FULL,
+	update: bool = UPDATE,
+	names: bool = NAMES,
+	installed: bool = INSTALLED,
+	upgradable: bool = UPGRADABLE,
+	upgradeable: bool = UPGRADEABLE,
+	all_versions: bool = ALL_VERSIONS,
+	all_arches: bool = ALL_ARCHES,
+	virtual: bool = VIRTUAL,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Search package names and descriptions."""
+	sudo_check()
 	cache = setup_cache()
 	found: list[tuple[Package, Version]] = []
-	if search_term == "*":
-		search_term = ".*"
+	if regex == "*":
+		regex = ".*"
 	try:
-		search_pattern = re.compile(search_term, re.IGNORECASE)
+		search_pattern = re.compile(regex, re.IGNORECASE)
 	except re.error as error:
 		sys.exit(
 			_(
@@ -256,22 +421,44 @@ def search() -> None:
 					continue
 				if arguments.virtual and not cache.is_virtual_package(pkg.name):
 					continue
-				if pkg.architecture() in arches:
-					search_name(pkg, search_pattern, found)
+				if arguments.all_arches or pkg.architecture() in arches:
+					version = get_version(pkg)
+					if isinstance(version, tuple):
+						for ver in version:
+							search_name(pkg, ver, search_pattern, found)
+					else:
+						search_name(pkg, version, search_pattern, found)
 	if not found:
 		sys.exit(
-			_("{error} {regex} not found.").format(
-				error=ERROR_PREFIX, regex=search_term
-			)
+			_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=regex)
 		)
-	print_search(found)
+	iter_search(found)
 
 
-def list_pkgs() -> None:
-	"""List command entry point."""
+@_doc
+@nala.command("list")
+# pylint: disable=unused-argument,too-many-arguments
+def list_pkgs(
+	pkg_names: Optional[list[str]] = typer.Argument(
+		None, help=_("Package(s) to list.")
+	),
+	debug: bool = DEBUG,
+	full: bool = FULL,
+	update: bool = UPDATE,
+	installed: bool = INSTALLED,
+	upgradable: bool = UPGRADABLE,
+	upgradeable: bool = UPGRADEABLE,
+	all_versions: bool = ALL_VERSIONS,
+	virtual: bool = VIRTUAL,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""List packages based on package names."""
+	sudo_check()
 	cache = setup_cache()
 
-	def _list_gen() -> Generator[tuple[Package, Version], None, None]:
+	def _list_gen() -> Generator[
+		tuple[Package, Version | tuple[Version, ...]], None, None
+	]:
 		"""Generate to speed things up."""
 		for pkg in cache:
 			if arguments.installed and not pkg.installed:
@@ -280,61 +467,33 @@ def list_pkgs() -> None:
 				continue
 			if arguments.virtual and not cache.is_virtual_package(pkg.name):
 				continue
-			if arguments.args:
-				if pkg.shortname in arguments.args:
+			if pkg_names:
+				if pkg.shortname in pkg_names:
 					yield (pkg, get_version(pkg))
 				continue
 			yield (pkg, get_version(pkg))
 
-	if not print_search(_list_gen()):
+	if not iter_search(_list_gen()):
 		sys.exit(_("Nothing was found to list."))
 
 
-def history() -> None:
-	"""Coordinate the history command."""
-	mode = arguments.mode
-	# Eventually we should probably make argparser better and handle this for us.
-	if mode and mode not in ("undo", "redo", "info", "clear"):
-		sys.exit(
-			_("{error} {command} isn't a valid history command").format(
-				error=ERROR_PREFIX, command=mode
-			)
-		)
-	if mode and not arguments.id:
-		sys.exit(_("{error} We need a transaction ID").format(error=ERROR_PREFIX))
-	if mode in ("undo", "redo", "info"):
-		try:
-			# We are basically just type checking here
-			int(arguments.id)
-		except ValueError:
-			sys.exit(_("{error} ID must be a number").format(error=ERROR_PREFIX))
-	if mode in ("undo", "redo"):
-		if mode == "undo":
-			sudo_check(_("Nala needs root to undo history"))
-		elif mode == "redo":
-			sudo_check(_("Nala needs root to redo history"))
-		history_undo(arguments.id, redo=mode == "redo")
-		return
-
-	if mode == "info":
-		history_info(arguments.id)
-		return
-
-	if mode == "clear":
-		sudo_check(_("Nala needs root to clear history"))
-		history_clear(arguments.id)
-		return
-	history_summary()
-
-
-def clean() -> None:
-	"""Find and delete cache files."""
-	if arguments.lists:
+@_doc
+@nala.command()
+# pylint: disable=unused-argument
+def clean(
+	lists: bool = LISTS,
+	fetch: bool = FETCH,
+	debug: bool = DEBUG,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Clear out the local archive of downloaded package files."""
+	sudo_check()
+	if lists:
 		iter_remove(LISTS_DIR)
 		iter_remove(LISTS_PARTIAL_DIR)
 		print(_("Package lists have been cleaned"))
 		return
-	if arguments.fetch:
+	if fetch:
 		NALA_SOURCES.unlink(missing_ok=True)
 		print(_("Nala sources.list has been cleaned"))
 		return
@@ -352,22 +511,30 @@ def clean() -> None:
 	print(_("Cache has been cleaned"))
 
 
-def moo() -> None:
+@nala.command(hidden=True)
+# pylint: disable=unused-argument
+def moo(
+	moos: Optional[list[str]] = typer.Argument(None, hidden=True),
+	debug: bool = typer.Option(
+		False, "--debug", callback=arguments.set_debug, is_eager=True, hidden=True
+	),
+	update: bool = typer.Option(None, hidden=True),
+) -> None:
 	"""I beg, pls moo."""
-	moos = arguments.moo
-	moos = moos.count("moo")
+	moo_count = moos.count("moo") if moos else 0
 	dprint(f"moo number is {moos}")
-	if moos == 1:
+	if moo_count == 1:
 		print(CAT_ASCII["2"])
-	elif moos == 2:
+	elif moo_count == 2:
 		print(CAT_ASCII["3"])
 	else:
 		print(CAT_ASCII["1"])
 	can_no_moo = _("I can't moo for I'm a cat")
 	print(f'..."{can_no_moo}"...')
-	if arguments.no_update:
-		what_did_you_expect = _("What did you expect no-update to do?")
-		print(f"...{what_did_you_expect}...")
-	if arguments.update:
+	if update:
 		what_did_you_expect = _("What did you expect to update?")
-		print(f"...{what_did_you_expect}...")
+		print(f'..."{what_did_you_expect}"...')
+		return
+	if update is not None:
+		what_did_you_expect = _("What did you expect no-update to do?")
+		print(f'..."{what_did_you_expect}"...')

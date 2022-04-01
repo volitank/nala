@@ -132,7 +132,7 @@ _nala()
 					COMPREPLY=( $( compgen -W '
 						-n --names
 						-i --installed
-						-u --upgradeable
+						-u --upgradable
 						-V --virtual
 						--full
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )
@@ -142,7 +142,7 @@ _nala()
 					COMPREPLY=( $( compgen -W '
 						-n --names
 						-i --installed
-						-u --upgradeable
+						-u --upgradable
 						-V --virtual
 						--full
 						'"$GLOBAL_OPTIONS" -- "$cur" ) )

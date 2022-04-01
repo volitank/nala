@@ -37,7 +37,7 @@ import jsbeautifier
 from nala import _, color
 
 # File Constants
-LICENSE = Path("/usr/share/common-licenses/GPL-3")
+GPL3_LICENSE = Path("/usr/share/common-licenses/GPL-3")
 """/usr/share/common-licenses/GPL-3"""
 NALA_SOURCES = Path("/etc/apt/sources.list.d/nala-sources.list")
 """/etc/apt/sources.list.d/nala-sources.list"""

@@ -194,13 +194,13 @@ class Cache(_Cache):
 			if pkg.marked_delete:
 				pkg.mark_delete(purge=True)
 
-	def protect_upgrade_pkgs(self) -> list[Package]:
+	def protect_upgrade_pkgs(self, exclude: list[str] | None) -> list[Package]:
 		"""Mark excluded packages as protected."""
 		protected: list[Package] = []
-		if not arguments.exclude:
+		if not exclude:
 			return protected
 		resolver = apt_pkg.ProblemResolver(self._depcache)
-		for pkg_name in self.glob_filter(arguments.exclude):
+		for pkg_name in self.glob_filter(exclude):
 			if pkg_name in self:
 				pkg = self[pkg_name]
 				if pkg.is_upgradable:
@@ -217,9 +217,9 @@ class Cache(_Cache):
 		"""Return a list of upgradable packages."""
 		return [pkg for pkg in self if pkg.is_upgradable]
 
-	def print_upgradeable(self) -> None:
+	def print_upgradable(self) -> None:
 		"""Print packages that are upgradable."""
-		if upgradeable := [
+		if upgradable := [
 			from_ansi(
 				f"{color(pkg.name, 'GREEN')} "
 				f"{color_version(pkg.installed.version)} -> {color_version(pkg.candidate.version)}"
@@ -229,10 +229,10 @@ class Cache(_Cache):
 		]:
 			print(
 				_("\nThe following {total} packages can be upgraded:").format(
-					total=color(str(len(upgradeable)))
+					total=color(str(len(upgradable)))
 				)
 			)
-			term.console.print(Columns(upgradeable, padding=(0, 2), equal=True))
+			term.console.print(Columns(upgradable, padding=(0, 2), equal=True))
 			return
 		print(color(_("All packages are up to date.")))
 

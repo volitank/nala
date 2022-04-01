@@ -33,7 +33,7 @@ import tty
 from datetime import datetime
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Iterable, Literal, cast
 
 import jsbeautifier
 from apt.package import Package, Version
@@ -329,10 +329,28 @@ def ask(question: str, default_no: bool = False) -> bool:
 		print(_("Not a valid choice kiddo"))
 
 
-def sudo_check(msg: str) -> None:
-	"""Check for root and exits if not root."""
-	if not term.is_su():
-		sys.exit(f"{ERROR_PREFIX} {msg}")
+def sudo_check(args: Iterable[str] | None = None) -> None:
+	"""Check for root and exit if not root."""
+	no_update = (
+		"update",
+		"upgrade",
+		"install",
+		"remove",
+		"fetch",
+		"clean",
+		"purge",
+		"autoremove",
+		"autopurge",
+	)
+	msg = _("{error} Nala needs root to {command}")
+	if (arguments.command in no_update or arguments.update) and not term.is_su():
+		if arguments.command == "install" and arguments.fix_broken and not args:
+			msg = _("{error} Nala needs root to fix broken packages")
+			sys.exit(msg.format(error=ERROR_PREFIX))
+		if arguments.command in ("show", "search", "list") and arguments.update:
+			msg = _("{error} Nala needs root to update the cache")
+			sys.exit(msg.format(error=ERROR_PREFIX))
+		sys.exit(msg.format(error=ERROR_PREFIX, command=arguments.command))
 
 
 def get_date() -> str:
@@ -355,17 +373,22 @@ def iter_remove(path: Path) -> None:
 	vprint(_("Removing files in {dir}").format(dir=path))
 	for file in path.iterdir():
 		if file.is_file():
-			dprint(_("Removed: {filename}").format(filename=file))
-			dprint(f"Removed: {file}")
+			vprint(_("Removed: {filename}").format(filename=file))
 			file.unlink(missing_ok=True)
 
 
-def get_version(pkg: Package) -> Version:
+def get_version(
+	pkg: Package, cand_first: bool = False
+) -> Version | tuple[Version, ...]:
 	"""Get the version, any version of a package."""
-	if pkg.candidate:
+	if not cand_first and arguments.all_versions:
+		return tuple(pkg.versions)
+	if cand_first and pkg.candidate:
 		return pkg.candidate
 	if pkg.installed:
 		return pkg.installed
+	if pkg.candidate:
+		return pkg.candidate
 	for version in pkg.versions:
 		return version
 	# It would be really weird if we ever actually hit this error
@@ -436,37 +459,25 @@ def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 	print(msg.strip())
 
 
-def arg_check() -> None:
+def arg_check(args: Iterable[str]) -> list[str]:
 	"""Check arguments and errors if no packages are specified.
 
 	If args exists then duplicates will be removed.
 	"""
 	dprint(f"Raw Arguments: {sys.argv}")
-	if arguments.no_update and arguments.update:
-		sys.exit(
-			_(
-				"{error} {update} and {no_update} cannot be used at the same time"
-			).format(
-				error=ERROR_PREFIX,
-				update=color("--update", "YELLOW"),
-				no_update=color("--no-update", "YELLOW"),
-			)
-		)
-
 	if arguments.command in ("install", "remove", "purge", "show"):
 		if arguments.command == "install" and arguments.fix_broken:
-			arguments.args = dedupe_list(arguments.args)
-			return
-		if not arguments.args:
+			return dedupe_list(args)
+		if not args:
 			sys.exit(
 				_("{error} You must specify a package to {command}").format(
 					error=ERROR_PREFIX, command=arguments.command
 				)
 			)
-		arguments.args = dedupe_list(arguments.args)
+	return dedupe_list(args)
 
 
-def dedupe_list(original: list[str]) -> list[str]:
+def dedupe_list(original: Iterable[str]) -> list[str]:
 	"""Deduplicate a list.
 
 	Useful for when we want to maintain the list order and can't use set()

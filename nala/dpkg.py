@@ -44,7 +44,7 @@ from pexpect.fdpexpect import fdspawn
 from pexpect.utils import poll_ignore_interrupts
 from ptyprocess.ptyprocess import _setwinsize
 
-from nala import _, color, config
+from nala import _, color
 from nala.constants import (
 	CONF_ANSWERS,
 	CONF_MESSAGE,
@@ -189,7 +189,7 @@ class UpdateProgress(text.AcquireProgress):
 		self, msg: str = "", fetched: bool = False, update_spinner: bool = False
 	) -> None:
 		"""Update wrapper for the scroll bar."""
-		if not config.SCROLL and not fetched and msg:
+		if not arguments.scroll and not fetched and msg:
 			print(msg)
 			return
 
@@ -595,7 +595,7 @@ class InstallProgress(base.InstallProgress):
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
-		if not config.SCROLL:
+		if not arguments.scroll:
 			print(msg)
 			self.live.scroll_bar()
 		elif "Fetched:" in msg:
@@ -629,7 +629,7 @@ class InstallProgress(base.InstallProgress):
 	def advance_progress(self) -> None:
 		"""Advance the dpkg progress bar."""
 		dpkg_progress.advance(self.task)
-		if not config.SCROLL:
+		if not arguments.scroll:
 			self.live.update(
 				Panel.fit(
 					dpkg_progress.get_renderable(),
@@ -788,12 +788,12 @@ class DpkgLive(Live):
 				Panel(
 					self.get_group(update_spinner, use_bar),
 					padding=(0, 0),
-					border_style="bold blue" if config.SCROLL else "bold green",
+					border_style="bold blue" if arguments.scroll else "bold green",
 				)
 			)
 
 		# We don't need to build the extra panel if we're not scrolling
-		if not config.SCROLL:
+		if not arguments.scroll:
 			self.update(table, refresh=True)
 			return
 
@@ -821,9 +821,11 @@ class DpkgLive(Live):
 				msg += _("Installing Packages")
 			elif arguments.command == "history":
 				title = (
-					_("History Undo") if arguments.mode == "undo" else _("History Redo")
+					_("History Undo")
+					if arguments.history == "undo"
+					else _("History Redo")
 				)
-				msg += f"{title} {arguments.id}"
+				msg += f"{title} {arguments.history_id}"
 			return msg
 		if install and apt_fetch:
 			return msg + _("Fetching Missed Packages")
@@ -913,7 +915,6 @@ class AptExpect(fdspawn):  # type: ignore[misc]
 		self._buffer = self.buffer_type()
 
 		_setwinsize(self.child_fd, term.lines, term.columns)
-		# _setecho(self.child_fd, False)
 
 		self.interact_copy(output_filter)
 

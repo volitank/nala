@@ -24,7 +24,6 @@
 """Functions for the Nala Install command."""
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import Iterable, cast
@@ -34,7 +33,7 @@ from apt.cache import FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package
 from apt_pkg import DepCache, Error as AptError, get_architectures
 
-from nala import _, color, color_version, config
+from nala import _, color, color_version
 from nala.cache import Cache
 from nala.constants import (
 	ARCHIVE_DIR,
@@ -80,7 +79,10 @@ from nala.utils import (
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
 	"""Handle auto removal of packages."""
-	if not config.AUTO_REMOVE and arguments.command not in ("autoremove", "autopurge"):
+	if not arguments.auto_remove and arguments.command not in (
+		"autoremove",
+		"autopurge",
+	):
 		return
 	if arguments.purge:
 		purge = True
@@ -234,7 +236,7 @@ def get_changes(
 		NALA_DIR.mkdir()
 
 	if not upgrade and not remove:
-		if arguments.no_install_recommends:
+		if not arguments.install_recommends:
 			get_extra_pkgs("Recommends", pkgs, nala_pkgs.recommend_pkgs)
 		if not arguments.install_suggests:
 			get_extra_pkgs("Suggests", pkgs, nala_pkgs.suggest_pkgs)
@@ -479,13 +481,11 @@ def package_manager(
 				try:
 					if remove:
 						if pkg.installed:
-							pkg.mark_delete(
-								auto_fix=not arguments.no_fix_broken, purge=purge
-							)
+							pkg.mark_delete(auto_fix=arguments.fix_broken, purge=purge)
 							dprint(f"Marked Remove: {pkg.name}")
 						continue
 					if not pkg.installed or pkg.marked_downgrade:
-						pkg.mark_install(auto_fix=not arguments.no_fix_broken)
+						pkg.mark_install(auto_fix=arguments.fix_broken)
 						dprint(f"Marked Install: {pkg.name}")
 					elif pkg.is_upgradable:
 						pkg.mark_upgrade()
@@ -538,12 +538,13 @@ def set_candidate_versions(
 	return not_found, failed
 
 
+# pylint: disable=import-outside-toplevel, cyclic-import
 def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Check if pkg needs to be configured so we can show it."""
-	from nala.nala import fix_broken  # pylint: disable=import-outside-toplevel
+	from nala.nala import _fix_broken
 
-	if cache.broken_count and arguments.no_fix_broken:
-		fix_broken(cache)
+	if cache.broken_count and arguments.fix_broken:
+		_fix_broken(cache)
 		sys.exit()
 	for raw_pkg in cache._cache.packages:
 		if raw_pkg.current_state in (
@@ -625,7 +626,7 @@ def check_broken(
 			pkg = cache[pkg_name]
 			if not mark_pkg(pkg, depcache, remove=remove, purge=purge):
 				pkg_names.remove(pkg_name)
-			if depcache.broken_count > broken_count and not arguments.no_fix_broken:
+			if depcache.broken_count > broken_count and arguments.fix_broken:
 				broken.append(pkg)
 				broken_count += 1
 	return broken, not_found, failed
@@ -743,13 +744,9 @@ def print_notices(notices: Iterable[str]) -> None:
 
 def setup_cache() -> Cache:
 	"""Update the cache if necessary, and then return the Cache."""
-	if arguments.no_install_recommends:
-		apt_pkg.config.set("APT::Install-Recommends", "0")
-	if arguments.install_suggests:
-		apt_pkg.config.set("APT::Install-Suggests", "1")
-	set_env()
+	# set_env()
 	try:
-		if not check_update():
+		if arguments.update:
 			with DelayedKeyboardInterrupt():
 				with DpkgLive(install=False) as live:
 					Cache().update(UpdateProgress(live))
@@ -761,29 +758,6 @@ def setup_cache() -> Cache:
 	except BrokenPipeError:
 		sys.stderr.close()
 	return Cache(OpProgress())
-
-
-def check_update() -> bool:
-	"""Check if we should update the cache or not."""
-	no_update_list = (
-		"remove",
-		"show",
-		"search",
-		"list",
-		"history",
-		"install",
-		"purge",
-		"autoremove",
-		"autopurge",
-	)
-	no_update = cast(bool, arguments.no_update)
-	if arguments.command in no_update_list:
-		no_update = True
-	if not arguments.command and arguments.fix_broken:
-		no_update = True
-	if arguments.update:
-		no_update = False
-	return no_update
 
 
 def sort_pkg_name(pkg: Package) -> str:
@@ -805,7 +779,7 @@ def check_term_ask() -> None:
 			).format(error=ERROR_PREFIX)
 		)
 
-	if arguments.no_fix_broken:
+	if not arguments.fix_broken:
 		print(
 			_("{warning} Using {switch} can be very dangerous!").format(
 				warning=WARNING_PREFIX, switch=color("--no-fix-broken", "YELLOW")
@@ -839,7 +813,7 @@ def check_work(
 
 def check_essential(pkgs: list[Package]) -> None:
 	"""Check removal of essential packages."""
-	dprint(f"Checking Essential: {not arguments.remove_essential}")
+	dprint(f"Checking Essential: {arguments.remove_essential}")
 	if arguments.remove_essential:
 		return
 	essential: list[Text] = []
@@ -856,26 +830,27 @@ def check_essential(pkgs: list[Package]) -> None:
 		essential_error(essential)
 
 
-def set_env() -> None:
-	"""Set environment."""
-	try:
-		if arguments.non_interactive:
-			os.environ["DEBIAN_FRONTEND"] = "noninteractive"
-		if arguments.non_interactive_full:
-			os.environ["DEBIAN_FRONTEND"] = "noninteractive"
-			apt_pkg.config.set("Dpkg::Options::", "--force-confdef")
-			apt_pkg.config.set("Dpkg::Options::", "--force-confold")
-		if arguments.no_aptlist:
-			os.environ["APT_LISTCHANGES_FRONTEND"] = "none"
-		if arguments.confdef:
-			apt_pkg.config.set("Dpkg::Options::", "--force-confdef")
-		if arguments.confold:
-			apt_pkg.config.set("Dpkg::Options::", "--force-confold")
-		if arguments.confnew:
-			apt_pkg.config.set("Dpkg::Options::", "--force-confnew")
-		if arguments.confmiss:
-			apt_pkg.config.set("Dpkg::Options::", "--force-confmiss")
-		if arguments.confask:
-			apt_pkg.config.set("Dpkg::Options::", "--force-confask")
-	except AttributeError:
-		return
+# def set_env() -> None:
+# 	"""Set environment."""
+# 	return
+# 	try:
+# 		if arguments.non_interactive:
+# 			os.environ["DEBIAN_FRONTEND"] = "noninteractive"
+# 		if arguments.non_interactive_full:
+# 			os.environ["DEBIAN_FRONTEND"] = "noninteractive"
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confdef")
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confold")
+# 		if arguments.no_aptlist:
+# 			os.environ["APT_LISTCHANGES_FRONTEND"] = "none"
+# 		if arguments.confdef:
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confdef")
+# 		if arguments.confold:
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confold")
+# 		if arguments.confnew:
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confnew")
+# 		if arguments.confmiss:
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confmiss")
+# 		if arguments.confask:
+# 			apt_pkg.config.set("Dpkg::Options::", "--force-confask")
+# 	except AttributeError:
+# 		return

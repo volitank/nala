@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Pattern
+from typing import Iterable, Pattern, cast
 
 from apt.package import Package, Version
 
@@ -34,12 +34,17 @@ from nala.options import arguments
 from nala.rich import ascii_replace, is_utf8
 from nala.utils import get_version, pkg_installed
 
+TOP_LINE = "├──" if is_utf8 else "+--"
+BOT_LINE = "└──" if is_utf8 else "`--"
+
 
 def search_name(
-	pkg: Package, search_pattern: Pattern[str], found: list[tuple[Package, Version]]
+	pkg: Package,
+	version: Version,
+	search_pattern: Pattern[str],
+	found: list[tuple[Package, Version]],
 ) -> None:
 	"""Search the package name and description."""
-	version = get_version(pkg)
 	searches = [pkg.name]
 	if not arguments.names:
 		searches.extend([version.raw_description, version.source_name])
@@ -49,35 +54,43 @@ def search_name(
 			break
 
 
-def print_search(found: Iterable[tuple[Package, Version]]) -> bool:
-	"""Print the search results to the terminal."""
-	top_line = "├──" if is_utf8 else "+--"
-	bot_line = "└──" if is_utf8 else "`--"
-	pkg_list_check = []
+def iter_search(found: Iterable[tuple[Package, Version | tuple[Version, ...]]]) -> bool:
+	"""Iterate the search results."""
+	pkg_list_check: list[Package] = []
 	for item in found:
 		pkg, version = item
-		pkg_list_check.append(pkg)
-		print(
-			ascii_replace(
-				set_search_description(
-					set_search_installed(
-						set_search_origin(
-							f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}",
-							version,
-						),
-						top_line,
-						pkg,
-					),
-					bot_line,
-					version,
-				)
-			),
-			end="\n\n",
-		)
+		if isinstance(version, tuple):
+			for ver in version:
+				print_search(pkg, ver, pkg_list_check)
+		else:
+			print_search(pkg, version, pkg_list_check)
 
 	if not pkg_list_check:
 		return False
 	return True
+
+
+def print_search(pkg: Package, version: Version, pkg_list_check: list[Package]) -> None:
+	"""Print the search results to the terminal."""
+	pkg_list_check.append(pkg)
+	print(
+		ascii_replace(
+			set_search_description(
+				set_search_installed(
+					set_search_origin(
+						f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}",
+						cast(Version, get_version(pkg, cand_first=True)),
+					),
+					TOP_LINE,
+					pkg,
+					version,
+				),
+				BOT_LINE,
+				version,
+			)
+		),
+		end="\n\n",
+	)
 
 
 def set_search_origin(line: str, version: Version) -> str:
@@ -89,19 +102,29 @@ def set_search_origin(line: str, version: Version) -> str:
 	return line
 
 
-def set_search_installed(line: str, top_line: str, pkg: Package) -> str:
+def set_search_installed(
+	line: str, top_line: str, pkg: Package, version: Version
+) -> str:
 	"""Return the provided string with install and upgrade information."""
-	if not pkg.is_installed:
-		return line
+	if version.is_installed and pkg.is_upgradable:
+		return _(
+			"{pkg_name}\n{tree_start} is installed and upgradable from {version}"
+		).format(
+			pkg_name=line,
+			tree_start=top_line,
+			version=color(pkg_installed(pkg).version, "BLUE"),
+		)
 	if pkg.is_upgradable:
 		return _("{pkg_name}\n{tree_start} is upgradable from {version}").format(
 			pkg_name=line,
 			tree_start=top_line,
 			version=color(pkg_installed(pkg).version, "BLUE"),
 		)
-	return _("{pkg_name}\n{tree_start} is installed").format(
-		pkg_name=line, tree_start=top_line
-	)
+	if version.is_installed:
+		return _("{pkg_name}\n{tree_start} is installed").format(
+			pkg_name=line, tree_start=top_line
+		)
+	return line
 
 
 def set_search_description(line: str, bot_line: str, version: Version) -> str:

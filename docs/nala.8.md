@@ -88,12 +88,18 @@ Nala - A prettier front-end for libapt-pkg
 
 	*\-u, \--upgradable* will search only upgradable packages.
 
+	*\-a, \--all-versions* will print information about each version that is currently in the cache.
+
+	*\-A, \--all-arches* will search all architectures of a package.
+
 	*\-V, \--virtual* will search only virtual packages.
 
 	*\--full* will print the full description of each package found rather than just the short description.
 
 **list**
-: > **list** packages in the cache. The switches here are the same as the **search** command.
+: > **list** packages in the cache.
+
+	The switches here are the same as the **search** command except *\-n, \--names* and *\-A, \--all-arches* are absent.
 
 **history**
 : > **history** is our other new command. Every **install**, **remove**, or **upgrade** command is stored with an id. You can use **history** to view these in a summary style view, and even go more in depth with **history info [id]**. If you're familiar with how *Fedora's* **dnf history** command works, then you'll feel right at home. That's what we drew inspiration from.

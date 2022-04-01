@@ -21,546 +21,483 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
-"""Command line argument parsing."""
+"""The options module."""
 from __future__ import annotations
 
-import argparse
 import sys
-from pathlib import Path
 from pydoc import pager
-from typing import Any, NoReturn, Sequence
 
-from nala import _, __version__
-from nala.constants import ERROR_PREFIX, LICENSE, THIRD_PARTY_LICENSES
+import typer
+from apt_pkg import Error, config, read_config_file
 
+from nala import _, __version__, color
+from nala.constants import (
+	ERROR_PREFIX,
+	GPL3_LICENSE,
+	NOTICE_PREFIX,
+	THIRD_PARTY_LICENSES,
+)
 
-class NalaParser(argparse.ArgumentParser):
-	"""Subclass of ArgumentParser for better error."""
+CONF_FILE = "/etc/nala/nala.conf"
 
-	def error(self, message: str) -> NoReturn:
-		"""Send `--help` on error."""
-		message = message.replace(r", 'moo')", ")")
-		if "invalid int value: " in message:
-			message = _("{error} {argument} is not a number").format(
-				error=ERROR_PREFIX, argument=message.replace("invalid int value: ", "")
-			)
-			print(message, file=sys.stderr)
-		else:
-			print(f"{ERROR_PREFIX} {message}", file=sys.stderr)
-		self.print_help()
-		sys.exit(1)
-
-
-class NalaFormatter(argparse.RawDescriptionHelpFormatter):
-	"""Subclass HelpFormatter to remove subparser metavar."""
-
-	def _format_action(self, action: argparse.Action) -> str:
-		"""Format help action."""
-		parts = super()._format_action(action)
-		if action.nargs == argparse.PARSER:
-			# Fix for empty help line due to no metavar in the subparser
-			parts = "\n".join(parts.split("\n")[1:])
-			# Fix a format error with aliases as below
-			# autoremove (autopurge)
-			# 							remove packages that are no longer needed
-			parts = "    " + "  ".join(part.lstrip() for part in parts.split(")\n"))
-			parts = parts.replace(")", "  ").replace("(", "\b/")
-		return parts
-
-
-gpl_help: str = _("reads the licenses of software compiled in and then reads the GPLv3")
-
-
-class GPLv3(argparse.Action):
-	"""Print the GPLv3 with `--license`."""
-
-	def __init__(
-		self,
-		option_strings: str,
-		dest: str = argparse.SUPPRESS,
-		default: str = argparse.SUPPRESS,
-		_help: str = gpl_help,
-	):
-		"""Print the GPLv3 with `--license`."""
-		super().__init__(
-			option_strings=option_strings,
-			dest=dest,
-			default=default,
-			nargs=0,
-			help=_help,
+try:
+	read_config_file(config, CONF_FILE)
+except Error as error:
+	print(
+		str(error)
+		.replace("E:", f"{ERROR_PREFIX} ")
+		.replace(CONF_FILE, color(CONF_FILE, "YELLOW")),
+		file=sys.stderr,
+	)
+	sys.exit(1)
+except SystemError:
+	print(
+		_("{notice} Unable to read config file: {filename}. Using defaults").format(
+			notice=NOTICE_PREFIX, filename=color(CONF_FILE, "YELLOW"), file=sys.stderr
 		)
+	)
 
-	def __call__(
-		self,
-		_parser: argparse.ArgumentParser,
-		args: argparse.Namespace,
-		values: str | Sequence[Any] | None,
-		option_string: None | str = None,
-	) -> None:
-		"""Print the GPLv3 with `--license`."""
-		pager(THIRD_PARTY_LICENSES)
-		if LICENSE.exists():
-			with open(LICENSE, encoding="utf-8") as file:
-				pager(file.read())
-		else:
-			it_seems = _("It seems the system has no license file")
-			find_gpl = _("The full GPLv3 can be found at")
-			print(f"{it_seems}\n{find_gpl}:\nhttps://www.gnu.org/licenses/gpl-3.0.txt")
-		parser.exit()
-
-
-def remove_help_options(argparser: NalaParser, **kwargs: bool) -> None:
-	"""Remove options that we do not want in our help message.
-
-	If an argument is True it will remove the option.
-	False to keep it.
-	"""
-	if not kwargs:
-		kwargs = {
-			"assume_yes": True,
-			"download_only": True,
-			"update": True,
-			"no_update": True,
-			"raw_dpkg": True,
-			"no_autoremove": True,
-			"remove_essential": True,
-			"fix_broken": True,
-			"no_fix_broken": True,
-			"install_suggests": True,
-			"no_install_recommends": True,
-			"purge": True,
-		}
-
-	action_group = argparser._optionals._group_actions
-	for action in action_group[:]:
-		for key, value in kwargs.items():
-			if value and "--" + key.replace("_", "-") in action.option_strings:
-				action_group.remove(action)
-
-
-def remove_dpkg_options(argparser: NalaParser) -> None:
-	"""Remove the dpkg options from help menu."""
-	action_group = argparser._action_groups
-	for group in action_group[:]:
-		if group.title == "dpkg options":
-			group._group_actions.clear()
-			group.title = None
-			group.description = None
-
-
-formatter = lambda prog: NalaFormatter(prog, max_help_position=64)
-bin_name = Path(sys.argv[0]).name
-
-# Define global options to be given to subparsers
-global_options = NalaParser(add_help=False)
-global_options.add_argument(
-	"-y",
-	"--assume-yes",
-	action="store_true",
-	help=_("assume 'yes' to all prompts and run non-interactively"),
+no_update = (
+	"remove",
+	"show",
+	"search",
+	"list",
+	"history",
+	"install",
+	"purge",
+	"autoremove",
+	"autopurge",
 )
-global_options.add_argument(
-	"-d",
-	"--download-only",
-	action="store_true",
-	help=_("package files are only retrieved, not unpacked or installed"),
+
+
+class Arguments:
+	"""Arguments class."""
+
+	# pylint: disable=too-many-instance-attributes
+	def __init__(self) -> None:
+		"""Arguments class."""
+		self.command: str = ""
+		# True Global
+		self.verbose: bool
+		self.debug: bool
+
+		# Semi Global
+		self.download_only: bool
+		self.install_recommends: bool
+		self.install_suggests: bool
+		self.remove_essential: bool
+		self.assume_yes: bool
+		self.update: bool
+		self.raw_dpkg: bool
+		self.purge: bool
+		self.fix_broken: bool
+
+		# Used in Show, List and Search
+		self.all_versions: bool
+
+		# Used in Search
+		self.all_arches: bool
+
+		# Search and List Arguments
+		self.names: bool
+		self.upgradable: bool
+		self.installed: bool
+		self.virtual: bool
+		self.full: bool
+
+		self.history: str
+		self.history_id: str
+
+		self.scroll = config.find_b("Nala::ScrollingText", True)
+		self.auto_remove = config.find_b("Nala::AutoRemove", True)
+
+	def __str__(self) -> str:
+		"""Return the state of the object as a string."""
+		kwarg = "\n    ".join(
+			(f"{key} = {value},") for key, value in self.__dict__.items()
+		)
+		return f"Options = [\n    {kwarg}\n]"
+
+	def set_verbose(self, value: bool) -> None:
+		"""Set option."""
+		if not value:
+			self.verbose = False
+			return
+		self.verbose = True
+		self.scroll = False
+
+	def set_auto_remove(self, value: bool) -> None:
+		"""Set option."""
+		if value is None:
+			return
+		self.auto_remove = value
+
+	def set_purge(self, value: bool) -> None:
+		"""Set option."""
+		self.purge = value
+
+	def set_remove_essential(self, value: bool) -> None:
+		"""Set option."""
+		self.remove_essential = value
+
+	def set_download_only(self, value: bool) -> None:
+		"""Set option."""
+		self.download_only = value
+
+	def set_fix_broken(self, value: bool) -> None:
+		"""Set option."""
+		self.fix_broken = value
+
+	def set_assume_yes(self, value: bool) -> None:
+		"""Set option."""
+		self.assume_yes = value
+
+	def set_raw_dpkg(self, value: bool) -> None:
+		"""Set option."""
+		self.raw_dpkg = value
+
+	def set_all_versions(self, value: bool) -> None:
+		"""Set option."""
+		self.all_versions = value
+
+	def set_all_arches(self, value: bool) -> None:
+		"""Set option."""
+		self.all_arches = value
+
+	def set_names(self, value: bool) -> None:
+		"""Set option."""
+		self.names = value
+
+	def set_installed(self, value: bool) -> None:
+		"""Set option."""
+		self.installed = value
+
+	def set_upgradable(self, value: bool) -> None:
+		"""Set option."""
+		if not value and hasattr(self, "upgradable"):
+			return
+		self.upgradable = value
+
+	def set_virtual(self, value: bool) -> None:
+		"""Set option."""
+		self.virtual = value
+
+	def set_full(self, value: bool) -> None:
+		"""Set option."""
+		self.full = value
+
+	def set_recommends(self, value: bool) -> None:
+		"""Set option."""
+		if value is None:
+			self.install_recommends = config.find_b("APT::Install-Recommends", True)
+			return
+		self.install_recommends = value
+		if value:
+			config.set("APT::Install-Recommends", "1")
+		if not value:
+			config.set("APT::Install-Recommends", "0")
+
+	def set_suggests(self, value: bool) -> None:
+		"""Set option."""
+		if value is None:
+			self.install_suggests = config.find_b("APT::Install-Suggests", False)
+			return
+		self.install_suggests = value
+		if value:
+			config.set("APT::Install-Suggests", "1")
+		if not value:
+			config.set("APT::Install-Suggests", "0")
+
+	def set_update(self, value: bool) -> None:
+		"""Set option."""
+		if value is None:
+			self.update = self.command not in no_update
+			return
+		if value:
+			self.update = True
+		if not value:
+			self.update = False
+
+	def set_debug(self, value: bool) -> None:
+		"""Set option."""
+		self.debug = value
+
+	def state(self) -> str:
+		"""Return the state of the object as a string."""
+		return str(self)
+
+
+arguments = Arguments()
+nala = typer.Typer(add_completion=False, no_args_is_help=True)
+history_typer = typer.Typer(name="history", add_completion=False)
+nala.add_typer(history_typer)
+
+
+def _doc(obj: object) -> object:
+	"""Translate the docstring for typer help."""
+	if not obj.__doc__:
+		return obj
+	obj.__doc__ = _(obj.__doc__)
+	return obj
+
+
+def print_license(value: bool) -> None:
+	"""Print the GPLv3 with `--license`."""
+	if not value:
+		return
+	pager(THIRD_PARTY_LICENSES)
+	if GPL3_LICENSE.exists():
+		with open(GPL3_LICENSE, encoding="utf-8") as file:
+			pager(file.read())
+	else:
+		print(
+			_(
+				"It seems the system has no license file\n"
+				"The full GPLv3 can be found at:\n"
+				"https://www.gnu.org/licenses/gpl-3.0.txt"
+			)
+		)
+	sys.exit()
+
+
+def version(value: bool) -> None:
+	"""Print version."""
+	if not value:
+		return
+	print(f"nala {__version__}")
+	sys.exit()
+
+
+@nala.command("help", hidden=True)
+def _help() -> None:
+	...
+
+
+VERSION = typer.Option(
+	False,
+	"--version",
+	callback=version,
+	is_eager=True,
+	help=_("Show program's version number and exit"),
 )
-global_options.add_argument(
+
+LICENSE = typer.Option(
+	False,
+	"--license",
+	callback=print_license,
+	is_eager=True,
+	help=_("Reads the licenses of software compiled in and then reads the GPLv3"),
+)
+
+VERBOSE = typer.Option(
+	False,
 	"-v",
 	"--verbose",
-	action="store_true",
-	help=_("disable scrolling text and print extra information"),
+	callback=arguments.set_verbose,
+	is_eager=True,
+	help=_("Disable scrolling text and print extra information"),
 )
-global_options.add_argument(
-	"-f", "--fix-broken", action="store_true", help=_("attempts to fix broken packages")
+
+DEBUG = typer.Option(
+	False,
+	"--debug",
+	callback=arguments.set_debug,
+	is_eager=True,
+	help=_("Logs extra information for debugging"),
 )
-global_options.add_argument(
+
+AUTO_REMOVE = typer.Option(
+	None,
+	callback=arguments.set_auto_remove,
+	is_eager=True,
+	help=_("Toggle autoremoving packages"),
+)
+
+RECOMMENDS = typer.Option(
+	None,
+	callback=arguments.set_recommends,
+	is_eager=True,
+	help=_("Toggle installing recommended packages"),
+)
+
+SUGGESTS = typer.Option(
+	None,
+	callback=arguments.set_suggests,
+	is_eager=True,
+	help=_("Toggle installing suggested packages"),
+)
+
+UPDATE = typer.Option(
+	None,
+	callback=arguments.set_update,
+	is_eager=True,
+	help=_("Toggle updating the package list"),
+)
+
+PURGE = typer.Option(
+	False,
 	"--purge",
-	action="store_true",
-	help=_("purge any packages that would be removed"),
+	callback=arguments.set_purge,
+	is_eager=True,
+	help=_("Purge any packages that would be removed"),
 )
-global_options.add_argument(
-	"--no-fix-broken",
-	action="store_true",
-	help=_("skips attempting to fix broken packages"),
-)
-global_options.add_argument(
-	"--no-update", action="store_true", help=_("skips updating the package list")
-)
-global_options.add_argument(
-	"--no-install-recommends",
-	action="store_true",
-	help=_("stops the installation of recommended packages"),
-)
-global_options.add_argument(
-	"--install-suggests", action="store_true", help=_("installs suggested packages")
-)
-global_options.add_argument(
-	"--no-autoremove",
-	action="store_true",
-	help=_("stops nala from autoremoving packages"),
-)
-global_options.add_argument(
+
+REMOVE_ESSENTIAL = typer.Option(
+	False,
 	"--remove-essential",
-	action="store_true",
-	help=_("allows the removal of essential packages"),
-)
-global_options.add_argument(
-	"--update", action="store_true", help=_("updates the package list")
-)
-global_options.add_argument(
-	"--debug", action="store_true", help=_("logs extra information for debugging")
+	callback=arguments.set_remove_essential,
+	is_eager=True,
+	help=_("Allow the removal of essential packages"),
 )
 
-# Define interactive options
-dpkg_options = NalaParser(add_help=False)
-dpkg_options.add_argument(
+DOWNLOAD_ONLY = typer.Option(
+	False,
+	"--download-only",
+	callback=arguments.set_download_only,
+	is_eager=True,
+	help=_("Packages are only retrieved, not unpacked or installed"),
+)
+
+FIX_BROKEN = typer.Option(
+	True,
+	callback=arguments.set_fix_broken,
+	is_eager=True,
+	help=_("Attempt to fix broken packages"),
+)
+
+ASSUME_YES = typer.Option(
+	False,
+	"-y",
+	"--assume-yes",
+	callback=arguments.set_assume_yes,
+	is_eager=True,
+	help=_("Assume 'yes' to all prompts"),
+)
+
+RAW_DPKG = typer.Option(
+	False,
 	"--raw-dpkg",
-	action="store_true",
-	help=_("skips all formatting and you get raw dpkg output"),
-)
-dpkg_options.add_argument(
-	"--no-aptlist",
-	action="store_true",
-	help=_("sets 'APT_LISTCHANGES_FRONTEND=none', apt-listchanges will not bug you"),
-)
-dpkg_options.add_argument(
-	"--non-interactive",
-	action="store_true",
-	help=_("sets 'DEBIAN_FRONTEND=noninteractive', this also disables apt-listchanges"),
-)
-dpkg_options.add_argument(
-	"--non-interactive-full",
-	action="store_true",
-	help=_("an alias for --non-interactive --confdef --confold"),
-)
-dpkg_options.add_argument(
-	"--confold",
-	action="store_true",
-	help=_("always keep the old version without prompting"),
-)
-dpkg_options.add_argument(
-	"--confnew",
-	action="store_true",
-	help=_("always install the new version without prompting"),
-)
-dpkg_options.add_argument(
-	"--confdef",
-	action="store_true",
-	help=_("always choose the default action without prompting"),
-)
-dpkg_options.add_argument(
-	"--confmiss",
-	action="store_true",
-	help=_("always install the missing conffile without prompting. This is dangerous!"),
-)
-dpkg_options.add_argument(
-	"--confask",
-	action="store_true",
-	help=_("always offer to replace it with the version in the package"),
-)
-dpkg_options._action_groups[1].title = "dpkg options"
-dpkg_options._action_groups[1].description = _(
-	"read the man page if you are unsure about these options"
+	callback=arguments.set_raw_dpkg,
+	is_eager=True,
+	help=_("Skips all formatting and you get raw dpkg output"),
 )
 
-parser = NalaParser(
-	formatter_class=formatter,
-	description="Each command has its own help page.\nFor Example: `nala history --help`",
-	usage=f"{bin_name} <command> [--options]",
-)
-parser.add_argument("--version", action="version", version=f"{bin_name} {__version__}")
-parser.add_argument("--license", action=GPLv3)
-
-# Define our subparser
-subparsers = parser.add_subparsers(metavar="", dest="command")
-assert parser._subparsers
-# Parser for the install command
-install_parser = subparsers.add_parser(
-	"install",
-	formatter_class=formatter,
-	help=_("install packages"),
-	parents=[global_options, dpkg_options],
-	usage=f"{bin_name} install [--options] [pkg1 pkg2 ...]",
-)
-
-install_parser.add_argument(
-	"args", metavar="pkg(s)", nargs="*", help=_("package(s) to install")
-)
-
-remove_help_options(install_parser, no_update=True, fix_broken=True)
-
-# Parser for the remove command
-remove_parser = subparsers.add_parser(
-	"remove",
-	formatter_class=formatter,
-	help=_("remove or purge packages"),
-	parents=[global_options, dpkg_options],
-	usage=f"{bin_name} remove/purge [--options] [pkg1 pkg2 ...]",
-	aliases=["purge"],
-)
-
-# Remove Global options that I don't want to see in remove --help
-remove_help_options(remove_parser, download_only=True, no_update=True, fix_broken=True)
-
-remove_parser.add_argument(
-	"args", metavar="pkg(s)", nargs="*", help=_("package(s) to remove")
-)
-
-# Parser for the update command
-update_parser = subparsers.add_parser(
-	"update",
-	formatter_class=formatter,
-	help=_("update package list"),
-	parents=[global_options, dpkg_options],
-	usage=f"{bin_name} update [--options]",
-)
-
-# Parser for the upgrade command
-upgrade_parser = subparsers.add_parser(
-	"upgrade",
-	formatter_class=formatter,
-	help=_("update package list and upgrade the system"),
-	parents=[global_options, dpkg_options],
-	usage=f"{bin_name} update [--options]",
-)
-upgrade_parser.add_argument(
-	"--no-full",
-	action="store_true",
-	help=_("runs a normal upgrade instead of full-upgrade"),
-)
-upgrade_parser.add_argument(
-	"--exclude",
-	nargs="*",
-	metavar="PKG",
-	help=_("specify packages to exclude during upgrade"),
-)
-
-# Parser for the autoremove/autopurge commands
-auto_remove_parser = subparsers.add_parser(
-	"autoremove",
-	formatter_class=formatter,
-	help=_("remove or purge packages that are no longer needed"),
-	parents=[global_options, dpkg_options],
-	usage=f"{bin_name} autoremove [--options]",
-	aliases=["autopurge"],
-)
-
-# Parser for the fetch command
-fetch_parser = subparsers.add_parser(
-	"fetch",
-	formatter_class=formatter,
-	description=_(
-		"Nala will fetch mirrors with the lowest latency.\n"
-		"For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
-		"For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
-	),
-	help=_("fetches fast mirrors to speed up downloads"),
-	parents=[global_options],
-	usage=f"{bin_name} fetch [--options]",
-)
-fetch_parser.add_argument(
-	"--debian", metavar="sid", help=_("choose the Debian release")
-)
-fetch_parser.add_argument(
-	"--ubuntu", metavar="jammy", help=_("choose an Ubuntu release")
-)
-fetch_parser.add_argument(
-	"--country",
-	metavar="US",
-	help=_("choose only mirrors of a specific ISO country code"),
-)
-fetch_parser.add_argument(
-	"--foss", action="store_true", help=_("omits contrib and non-free repos")
-)
-fetch_parser.add_argument(
-	"--sources",
-	action="store_true",
-	help=_("add the source repos for the mirrors if it exists"),
-)
-fetch_parser.add_argument(
-	"--count",
-	metavar="number",
-	type=int,
-	default=16,
-	help=_("choose the number of viable mirrors to display"),
-)
-fetch_parser.add_argument(
-	"--auto",
-	action="store_true",
-	help=_("run fetch uninteractively. Will still prompt for overwrite"),
-)
-fetch_parser.add_argument(
-	"--fetches",
-	metavar="number",
-	type=int,
-	default=3,
-	help=_("number of mirrors to fetch in auto mode"),
-)
-# Remove Global options that I don't want to see in fetch --help
-remove_help_options(fetch_parser)
-
-# We do the same thing that we did with update options
-show_options = NalaParser(add_help=False)
-show_options.add_argument(
+ALL_VERSIONS = typer.Option(
+	False,
 	"-a",
 	"--all-versions",
-	action="store_true",
+	callback=arguments.set_all_versions,
+	is_eager=True,
 	help=_("Show all versions of a package"),
 )
 
-# Parser for the show command
-show_parser = subparsers.add_parser(
-	"show",
-	formatter_class=formatter,
-	help=_("show package details"),
-	parents=[show_options, global_options],
-	usage=f"{bin_name} show [--options] [pkg1 pkg2 ...]",
+ALL_ARCHES = typer.Option(
+	False,
+	"-A",
+	"--all-arches",
+	callback=arguments.set_all_arches,
+	is_eager=True,
+	help=_("Show all architectures of a package"),
 )
 
-show_parser.add_argument(
-	"args", metavar="pkg(s)", nargs="*", help=_("package(s) to show")
+DOWNLOAD_ONLY = typer.Option(
+	False,
+	"--download-only",
+	callback=arguments.set_download_only,
+	is_eager=True,
+	help=_("Packages are only retrieved, not unpacked or installed"),
 )
 
-search_list_options = NalaParser(add_help=False)
-search_list_options.add_argument(
-	"args", metavar="regex", nargs="?", help=_("regex or word to search for")
-)
-search_list_options.add_argument(
-	"-n", "--names", action="store_true", help=_("Search only package names")
-)
-search_list_options.add_argument(
-	"-i", "--installed", action="store_true", help=_("Search only installed packages")
-)
-search_list_options.add_argument(
-	"-u", "--upgradable", action="store_true", help=_("Search only upgradable packages")
-)
-search_list_options.add_argument(
-	"-V", "--virtual", action="store_true", help=_("Search only virtual packages")
-)
-search_list_options.add_argument(
-	"--full", action="store_true", help=_("Show the full description of packages found")
-)
-# Parser for the show command
-search_parser = subparsers.add_parser(
-	"search",
-	formatter_class=formatter,
-	help=_("search package names and descriptions"),
-	parents=[search_list_options, global_options],
-	usage=f"{bin_name} search [--options] regex",
+NAMES = typer.Option(
+	False,
+	"-n",
+	"--names",
+	callback=arguments.set_names,
+	is_eager=True,
+	help=_("Search only package names."),
 )
 
-# Parser for the list command
-list_parser = subparsers.add_parser(
-	"list",
-	formatter_class=formatter,
-	help=_("list packages based on package names"),
-	parents=[search_list_options, global_options],
-	usage=f"{bin_name} list [--options] [pkgs]",
+INSTALLED = typer.Option(
+	False,
+	"-i",
+	"--installed",
+	callback=arguments.set_installed,
+	is_eager=True,
+	help=_("Only installed packages."),
 )
 
-# Remove Global options that I don't want to see in show --help
-for helper in (search_parser, list_parser, show_parser):
-	remove_help_options(
-		helper,
-		assume_yes=True,
-		download_only=True,
-		no_update=True,
-		raw_dpkg=True,
-		no_autoremove=True,
-		remove_essential=True,
-		fix_broken=True,
-		no_fix_broken=True,
-		install_suggests=True,
-		no_install_recommends=True,
-		purge=True,
-	)
-
-# Parser for the History command
-history_parser = subparsers.add_parser(
-	"history",
-	formatter_class=formatter,
-	help=_("show transaction history"),
-	description=_("'history' without additional arguments will list a history summary"),
-	parents=[global_options, dpkg_options],
-	usage=f"{bin_name} history [--options] <command> <id|all>",
-)
-# Remove Global options that I don't want to see in history --help
-remove_help_options(
-	history_parser,
-	download_only=True,
-	no_update=True,
-	fix_broken=True,
-	install_suggests=True,
-	no_install_recommended=True,
+UPGRADABLE = typer.Option(
+	False,
+	"-u",
+	"--upgradable",
+	callback=arguments.set_upgradable,
+	is_eager=True,
+	help=_("Only upgradable packages."),
 )
 
-history_parser.add_argument(
-	"mode",
-	metavar="info <id>",
-	nargs="?",
-	help=_("show information about a specific transaction"),
-)
-history_parser.add_argument(
-	"id", metavar="undo <id>", nargs="?", help=_("undo a transaction")
-)
-history_parser.add_argument(
-	"placeholder", metavar="redo <id>", nargs="?", help=_("redo a transaction")
-)
-history_parser.add_argument(
-	"placeholder2",
-	metavar="clear <id>|all",
-	nargs="?",
-	help=_("clear a transaction or the entire history"),
+UPGRADEABLE = typer.Option(
+	False,
+	"--upgradeable",
+	callback=arguments.set_upgradable,
+	is_eager=True,
+	hidden=True,
 )
 
-# Parser for the clean command
-clean_parser = subparsers.add_parser(
-	"clean",
-	formatter_class=formatter,
-	help=_("clears out the local repository of retrieved package files"),
-	parents=[global_options],
-	usage=f"{bin_name} clean [--options]",
+VIRTUAL = typer.Option(
+	False,
+	"-V",
+	"--virtual",
+	callback=arguments.set_virtual,
+	is_eager=True,
+	help=_("Only virtual packages."),
 )
-clean_parser.add_argument(
-	"--fetch",
-	action="store_true",
-	help=_("remove `nala-sources.list`"),
+
+FULL = typer.Option(
+	False,
+	"--full",
+	callback=arguments.set_full,
+	is_eager=True,
+	help=_("Print the full description of each package."),
 )
-clean_parser.add_argument(
+
+LISTS = typer.Option(
+	False,
 	"--lists",
-	action="store_true",
-	help=_("remove package lists located in `/var/lib/apt/lists/`"),
-)
-# Remove Global options that I don't want to see in clean --help
-remove_help_options(clean_parser)
-
-# This is just moo, but we can't cause are cat
-moo_parser = subparsers.add_parser(
-	"moo",
-	formatter_class=formatter,
-	description=_("nala is unfortunately unable to moo"),
-	parents=[global_options],
-	usage=f"{bin_name} moo [--options]",
-)
-moo_parser.add_argument("moo", nargs="*", help=argparse.SUPPRESS)
-
-parsers = (
-	install_parser,
-	remove_parser,
-	upgrade_parser,
-	moo_parser,
-	fetch_parser,
-	show_parser,
-	clean_parser,
-	history_parser,
+	help=_("Remove package lists located in `/var/lib/apt/lists/`."),
 )
 
-for fragrance in parsers:
-	fragrance._positionals.title = "arguments"
-	fragrance._optionals.title = "options"
-parser._subparsers.title = "commands"
+FETCH = typer.Option(
+	False,
+	"--fetch",
+	help=_("Remove `nala-sources.list`."),
+)
 
-arguments = parser.parse_args()
-if not arguments.command:
-	parser.error(_("A Subcommand is required"))
+AUTO = typer.Option(
+	False, help=_("Run fetch uninteractively. Will still prompt for overwrite")
+)
+
+CONTEXT_SETTINGS = {
+	"help_option_names": ["-h", "--help"],
+}
+
+
+@nala.callback(
+	context_settings=CONTEXT_SETTINGS, no_args_is_help=True, invoke_without_command=True
+)
+# pylint: disable=unused-argument
+def global_options(
+	ctx: typer.Context,
+	_version: bool = VERSION,
+	_license: bool = LICENSE,
+	debug: bool = DEBUG,
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Each command has its own help page.
+
+	For Example: `nala history --help`
+	"""
+	if ctx.invoked_subcommand:
+		arguments.command = ctx.invoked_subcommand
+		if arguments.command == "help":
+			print(ctx.get_help())
+			sys.exit()

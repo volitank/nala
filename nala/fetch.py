@@ -30,8 +30,9 @@ import sys
 from asyncio import Semaphore, gather, get_event_loop, run as aiorun
 from ssl import SSLCertVerificationError
 from subprocess import run
-from typing import Iterable, Union
+from typing import Iterable, Optional, Union
 
+import typer
 from apt_pkg import get_architectures
 from httpx import (
 	AsyncClient,
@@ -53,9 +54,9 @@ from nala.constants import (
 	SOURCEPARTS,
 )
 from nala.downloader import print_error
-from nala.options import arguments, parser
+from nala.options import ASSUME_YES, DEBUG, VERBOSE, _doc, arguments, nala
 from nala.rich import Live, Panel, Table, fetch_progress
-from nala.utils import ask, dprint, eprint, term
+from nala.utils import ask, dprint, eprint, sudo_check, term
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
@@ -70,11 +71,12 @@ ErrorTypes = Union[HTTPStatusError, HTTPError, SSLCertVerificationError, ReadTim
 class MirrorTest:
 	"""Class to test mirrors."""
 
-	def __init__(self, netselect: tuple[str, ...], release: str):
+	def __init__(self, netselect: tuple[str, ...], release: str, check_sources: bool):
 		"""Class to test mirrors."""
 		self.netselect = netselect
 		self.netselect_scored: list[str] = []
 		self.release = release
+		self.sources = check_sources
 		self.client: AsyncClient
 		self.progress: Progress
 		self.task: TaskID
@@ -117,7 +119,7 @@ class MirrorTest:
 			response = await self.client.get(f"{mirror}dists/{self.release}/Release")
 			response.raise_for_status()
 			res = str(int(response.elapsed.total_seconds() * 100))
-			if arguments.sources:
+			if self.sources:
 				source_response = await self.client.get(
 					f"{mirror}dists/{self.release}/main/source/Release"
 				)
@@ -153,16 +155,18 @@ class MirrorTest:
 class FetchLive:
 	"""Interactive Fetch."""
 
-	def __init__(
+	def __init__(  # pylint: disable=too-many-arguments
 		self,
 		live: Live,
 		release: str,
 		sources: list[str],
+		count: int,
 		netselect_scored: tuple[str, ...],
 	) -> None:
 		"""Interactive Fetch."""
 		self.live = live
 		self.errors = 0
+		self.count = count
 		self.mirror_list: list[str] = []
 		self.user_list: list[str] = []
 		self.index_list: tuple[int, ...]
@@ -177,7 +181,7 @@ class FetchLive:
 			if any(url in mirror and release in mirror for mirror in sources):
 				continue
 			self.mirror_list.append(line)
-			if len(self.mirror_list) == arguments.count:
+			if len(self.mirror_list) == self.count:
 				break
 
 	def clear(self, lines: int) -> None:
@@ -215,7 +219,7 @@ class FetchLive:
 				refresh=True,
 			)
 			self.live.stop()
-			self.index_list = ask_index()
+			self.index_list = ask_index(self.count)
 			if self.index_list:
 				break
 			self.errors += 1
@@ -262,7 +266,7 @@ def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
 		debugger.append("Mirror too slow")
 
 
-def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
+def ubuntu_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
 	"""Get and parse the Ubuntu mirror list."""
 	print(_("Fetching Ubuntu mirrors..."))
 	ubuntu = fetch_mirrors("https://launchpad.net/ubuntu/+archivemirrors-rss", "<item>")
@@ -283,7 +287,7 @@ def ubuntu_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
 	return parse_mirror(UBUNTU, ubuntu, country_list, tuple(get_architectures()))
 
 
-def debian_mirror(country_list: tuple[str, ...] | None) -> tuple[str, ...]:
+def debian_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
 	"""Get and parse the Debian mirror list."""
 	print(_("Fetching Debian mirrors..."))
 	debian = fetch_mirrors(
@@ -320,7 +324,7 @@ def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
 def parse_mirror(
 	distro: str,
 	master_mirror: tuple[str, ...],
-	country_list: tuple[str, ...] | None,
+	country_list: Iterable[str] | None,
 	arches: tuple[str, ...],
 ) -> tuple[str, ...]:
 	"""Parse the mirror."""
@@ -409,14 +413,14 @@ def _lsb_release() -> tuple[str | None, str | None]:
 	return lsb_id, lsb_codename
 
 
-def detect_release() -> tuple[str | None, str | None]:
+def detect_release(debian: str, ubuntu: str) -> tuple[str | None, str | None]:
 	"""Detect the distro and release."""
-	if not arguments.debian and not arguments.ubuntu:
+	if not debian and not ubuntu:
 		return _lsb_release()
 
-	if arguments.debian:
-		return DEBIAN, arguments.debian
-	return UBUNTU, arguments.ubuntu
+	if debian:
+		return DEBIAN, debian
+	return UBUNTU, ubuntu
 
 
 def parse_sources() -> list[str]:
@@ -458,24 +462,24 @@ def gen_table(str_list: list[str], no_index: bool = False) -> Table:
 	return table
 
 
-def ask_index() -> tuple[int, ...]:
+def ask_index(count: int) -> tuple[int, ...]:
 	"""Ask user about the mirrors they would like to use."""
 	index_list: set[int] = set()
 	response: list[str] | list[int]
 	response = input(
 		_("Mirrors you want to keep separated by spaces {selection}:").format(
-			selection=f"({color('1')}..{color(str(arguments.count))})"
+			selection=f"({color('1')}..{color(str(count))})"
 		)
 		+ " "
 	).split()
 
 	if not response:
-		response = list(range(arguments.count))
+		response = list(range(count))
 
 	for index in response:
 		try:
 			intdex = int(index) - 1
-			if intdex not in range(arguments.count):
+			if intdex not in range(count):
 				term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
 				eprint(
 					_("{error} Index {index} doesn't exist.").format(
@@ -495,12 +499,14 @@ def ask_index() -> tuple[int, ...]:
 	return tuple(index_list)
 
 
-def build_sources(
+def build_sources(  # pylint: disable=too-many-arguments
 	release: str,
 	component: str,
 	sources: list[str],
 	netselect_scored: tuple[str, ...],
+	fetches: int = 3,
 	live: bool = False,
+	check_sources: bool = False,
 ) -> str:
 	"""Build the sources file and return it as a string."""
 	source = _("# Sources file built for nala") + "\n\n"
@@ -512,16 +518,16 @@ def build_sources(
 		if any(line in mirror and release in mirror for mirror in sources):
 			continue
 		source += f"deb {line} {release} {component}\n"
-		if arguments.sources:
+		if check_sources:
 			source += f"deb-src {line} {release} {component}\n"
 		source += "\n"
 		num += 1
-		if not live and num == arguments.fetches:
+		if not live and num == fetches:
 			break
-	if not live and num != arguments.fetches:
+	if not live and num != fetches:
 		eprint(
 			_("{notice} We were unable to fetch {num} mirrors.").format(
-				notice=NOTICE_PREFIX, num=arguments.fetches
+				notice=NOTICE_PREFIX, num=fetches
 			)
 		)
 	return source
@@ -535,7 +541,11 @@ def write_sources(source: str) -> None:
 
 
 def check_supported(
-	distro: str | None, release: str | None, country_list: tuple[str, ...] | None
+	distro: str | None,
+	release: str | None,
+	country_list: Iterable[str] | None,
+	foss: bool,
+	ctx: typer.Context,
 ) -> tuple[tuple[str, ...], str]:
 	"""Check if the distro is supported or not.
 
@@ -544,7 +554,7 @@ def check_supported(
 	Error if the distro is not supported.
 	"""
 	if distro == DEBIAN and release != "n/a":
-		component = "main" if arguments.foss else "main contrib non-free"
+		component = "main" if foss else "main contrib non-free"
 		return debian_mirror(country_list), component
 	if distro in (UBUNTU, "Pop"):
 		# It's ubuntu, you probably don't care about foss
@@ -563,7 +573,7 @@ def check_supported(
 				"You can specify Ubuntu or Debian manually.\n"
 			).format(error=ERROR_PREFIX, distro=distro, release=release)
 		)
-	parser.parse_args(["fetch", "--help"])
+	eprint(ctx.get_help())
 	sys.exit(1)
 
 
@@ -586,19 +596,58 @@ def fetch_checks(source: str) -> None:
 		sys.exit(_("Abort."))
 
 
-def fetch() -> None:
-	"""Fetch fast mirrors and write nala-sources.list."""
-	# If supplied a country it needs to be a tuple
-	country_list = (arguments.country,) if arguments.country else None
+@_doc
+@nala.command(short_help=_("Fetch fast mirrors to speed up downloads."))
+# pylint: disable=unused-argument,too-many-arguments,too-many-locals
+def fetch(
+	ctx: typer.Context,
+	debian: str = typer.Option("", metavar="sid", help="Choose the Debian release"),
+	ubuntu: str = typer.Option("", metavar="jammy", help="Choose the Ubuntu release"),
+	fetches: int = typer.Option(
+		0,
+		help="Number of mirrors to fetch [defaults: 16, --auto(3)]",
+		show_default=False,
+	),
+	sources: bool = typer.Option(
+		False, "--sources", help="Add the source repos for the mirrors if it exists"
+	),
+	foss: bool = typer.Option(False, "--foss", help="Omits contrib and non-free repos"),
+	auto: bool = typer.Option(
+		False,
+		"--auto",
+		help="Run fetch uninteractively. Will still prompt for overwrite",
+	),
+	debug: bool = DEBUG,
+	assume_yes: bool = ASSUME_YES,
+	country_list: Optional[list[str]] = typer.Option(
+		None,
+		"-c",
+		"--country",
+		metavar="US",
+		help="Choose only mirrors of a specific ISO country code",
+	),
+	verbose: bool = VERBOSE,
+) -> None:
+	"""Nala will fetch mirrors with the lowest latency.
 
-	distro, release = detect_release()
-	netselect, component = check_supported(distro, release, country_list)
+	For Debian https://mirror-master.debian.org/status/Mirrors.masterlist
+
+	For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss
+	"""
+	sudo_check()
+
+	# Set dynamic default fetch option
+	if fetches == 0:
+		fetches = 3 if auto else 16
+
+	distro, release = detect_release(debian, ubuntu)
+	netselect, component = check_supported(distro, release, country_list, foss, ctx)
 	assert distro and release
 
 	dprint(netselect)
 	dprint(f"Distro: {distro}, Release: {release}, Component: {component}")
 
-	mirror_test = MirrorTest(netselect, release)
+	mirror_test = MirrorTest(netselect, release, sources)
 	aiorun(mirror_test.run_test())
 
 	netselect_scored = mirror_test.get_scored()
@@ -606,17 +655,25 @@ def fetch() -> None:
 	dprint(netselect_scored)
 	dprint(f"Size of original list: {len(netselect)}")
 	dprint(f"Size of scored list: {len(netselect_scored)}")
-	dprint(f"Writing from: {netselect_scored[:arguments.fetches]}")
+	dprint(f"Writing from: {netselect_scored[:fetches]}")
 
-	if arguments.auto:
-		source = build_sources(release, component, parse_sources(), netselect_scored)
+	if auto:
+		source = build_sources(
+			release,
+			component,
+			parse_sources(),
+			netselect_scored,
+			fetches=fetches,
+			check_sources=sources,
+		)
+
 		fetch_checks(source)
 		write_sources(source)
 		return
 
 	sources_list = parse_sources()
 	with Live(auto_refresh=False) as live:
-		fetch_live = FetchLive(live, release, sources_list, netselect_scored)
+		fetch_live = FetchLive(live, release, sources_list, fetches, netselect_scored)
 		while True:
 			fetch_live.choose_mirrors()
 			fetch_live.clear(3)
@@ -626,6 +683,11 @@ def fetch() -> None:
 			fetch_live.clear(3)
 			fetch_live.live.start()
 		source = build_sources(
-			release, component, sources_list, tuple(fetch_live.user_list), live=True
+			release,
+			component,
+			sources_list,
+			tuple(fetch_live.user_list),
+			live=True,
+			check_sources=sources,
 		)
 	write_sources(source)
