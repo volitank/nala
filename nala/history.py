@@ -30,7 +30,7 @@ from getpass import getuser
 from json.decoder import JSONDecodeError
 from os import environ, getuid
 from pwd import getpwnam
-from typing import Iterable
+from typing import Iterable, Union, cast
 
 import jsbeautifier
 import typer
@@ -75,17 +75,21 @@ else:
 	USER = environ.get("SUDO_USER", getuser())
 	UID = int(environ.get("SUDO_UID", getuid()))
 
+HistoryFile = dict[str, dict[str, Union[str, list[str], list[list[str]]]]]
+HistoryEntry = dict[str, Union[str, list[str], list[list[str]]]]
+
 NOT_SUPPORTED = _(
 	"{error} '{command}' for operations other than install or remove are not currently supported"
 )
 
 
-def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]]]:
+def load_history_file() -> HistoryFile:
 	"""Load Nala history."""
 	try:
-		check = json.loads(NALA_HISTORY.read_text(encoding="utf-8"))
-		assert isinstance(check, dict)
-		return check
+		return cast(
+			HistoryFile,
+			json.loads(NALA_HISTORY.read_text(encoding="utf-8")),
+		)
 	except JSONDecodeError:
 		sys.exit(
 			_(
@@ -94,9 +98,7 @@ def load_history_file() -> dict[str, dict[str, str | list[str] | list[list[str]]
 		)
 
 
-def write_history_file(
-	data: dict[str, dict[str, str | list[str] | list[list[str]]]]
-) -> None:
+def write_history_file(data: HistoryFile) -> None:
 	"""Write history to file."""
 	with DelayedKeyboardInterrupt():
 		with open(NALA_HISTORY, "w", encoding="utf-8") as file:
@@ -151,9 +153,7 @@ def history_summary(ctx: typer.Context) -> None:
 	term.console.print(history_table)
 
 
-def get_hist_package(
-	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str
-) -> list[NalaPackage]:
+def get_hist_package(hist_entry: HistoryEntry, key: str) -> list[NalaPackage]:
 	"""Type enforce history package is list of lists."""
 	nala_pkgs = []
 	for pkg_list in hist_entry.get(key, []):
@@ -176,9 +176,7 @@ def get_hist_package(
 	return nala_pkgs
 
 
-def get_hist_list(
-	hist_entry: dict[str, str | list[str] | list[list[str]]], key: str
-) -> list[str]:
+def get_hist_list(hist_entry: HistoryEntry, key: str) -> list[str]:
 	"""Type enforce history package is list of strings."""
 	return [pkg for pkg in hist_entry[key] if isinstance(pkg, str)]
 
@@ -252,7 +250,7 @@ def history_clear(
 				error=ERROR_PREFIX, hist_id=color(hist_id, "YELLOW")
 			)
 		)
-	history_edit: dict[str, dict[str, str | list[str] | list[list[str]]]] = {}
+	history_edit: HistoryFile = {}
 	num = 0
 	# Using sum increments to relabled the IDs so when you remove just one
 	# There isn't a gap in ID numbers and it looks concurrent.
@@ -339,7 +337,7 @@ def write_history(handler: PackageHandler) -> None:
 		+ handler.downgrade_total
 	)
 
-	transaction: dict[str, str | list[str] | list[list[str]]] = {
+	transaction: HistoryEntry = {
 		"Date": get_date(),
 		"Requested-By": f"{USER} ({UID})",
 		"Command": sys.argv[1:],
@@ -370,15 +368,12 @@ def write_history(handler: PackageHandler) -> None:
 	write_history_file(history_dict)
 
 
-def get_history(hist_id: str) -> dict[str, str | list[str] | list[list[str]]]:
+def get_history(hist_id: str) -> HistoryEntry:
 	"""Get the history from file."""
 	dprint(f"Getting history {hist_id}")
 	if not NALA_HISTORY.exists():
 		sys.exit(_("{error} No history exists...").format(error=ERROR_PREFIX))
-	history_file: dict[str, dict[str, str | list[str] | list[list[str]]]] = json.loads(
-		NALA_HISTORY.read_text(encoding="utf-8")
-	)
-	if transaction := history_file.get(hist_id):
+	if transaction := load_history_file().get(hist_id):
 		return transaction
 	sys.exit(
 		_("{error} Transaction {num} doesn't exist.").format(
