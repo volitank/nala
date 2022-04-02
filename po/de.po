@@ -1256,4 +1256,3 @@ msgstr "\n"
 #: nala/error.py:119
 msgid "{notice} Some index files failed to download. They have been ignored, or old ones used instead."
 msgstr "{notice} Einige Indexdateien konnten nicht heruntergeladen werden. Sie wurden ignoriert oder alte an ihrer Stelle benutzt."
-

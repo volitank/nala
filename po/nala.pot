@@ -1226,4 +1226,3 @@ msgstr ""
 #: nala/error.py:119
 msgid "{notice} Some index files failed to download. They have been ignored, or old ones used instead."
 msgstr ""
-
