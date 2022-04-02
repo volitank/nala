@@ -137,13 +137,16 @@ def get_hist_package(
 		if isinstance(pkg_list, list):
 			dprint(f"{key} List: {pkg_list}")
 			if len(pkg_list) == 4:
-				(
-					name,
-					new_version,
-					size,
-					old_version,
-				) = pkg_list
-				nala_pkgs.append(NalaPackage(name, new_version, int(size), old_version))
+				try:
+					name, new_version, size, old_version = pkg_list
+					nala_pkgs.append(
+						NalaPackage(name, new_version, int(size), old_version)
+					)
+				except ValueError:
+					name, old_version, new_version, size = pkg_list
+					nala_pkgs.append(
+						NalaPackage(name, new_version, int(size), old_version)
+					)
 				continue
 			name, new_version, size = pkg_list
 			nala_pkgs.append(NalaPackage(name, new_version, int(size)))
