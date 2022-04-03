@@ -35,6 +35,8 @@ We have the 2 thread per mirror limit to minimize how hard we are hitting mirror
 Additionally we alternate downloads between the available mirrors to improve download speeds even further.
 If a mirror fails for whatever reason, we just try the next until all defined mirrors are exhausted.
 
+`Note: Nala does not use APT for package downloading and verification`
+
 # Fetch
 =======
 
