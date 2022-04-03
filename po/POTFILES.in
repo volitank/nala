@@ -1,0 +1,18 @@
+[encoding: UTF-8]
+nala/__main__.py
+nala/cache.py
+nala/config.py
+nala/constants.py
+nala/debfile.py
+nala/downloader.py
+nala/dpkg.py
+nala/error.py
+nala/fetch.py
+nala/history.py
+nala/install.py
+nala/nala.py
+nala/options.py
+nala/rich.py
+nala/search.py
+nala/show.py
+nala/utils.py
