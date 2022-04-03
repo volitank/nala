@@ -1,9 +1,9 @@
 #!/usr/bin/make -f
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-
+export PYBUILD_NAME = nala
 %:
 	set -x
-	dh $@ --buildsystem=none
+	dh $@ --with python3 --buildsystem=pybuild
 
 execute_before_dh_installman:
 	pandoc docs/nala.8.md \
@@ -11,46 +11,9 @@ execute_before_dh_installman:
 	--from markdown \
 	--to man | gzip -c > docs/nala.8.gz
 
-execute_before_dh_install:
-	mkdir -p debian/nala/usr/bin
-	mkdir -p debian/nala/usr/share/locale/de/LC_MESSAGES
-	mv nala-cli.build/nala debian/nala/usr/bin/nala
-	chrpath -d debian/nala/usr/bin/nala
-	pybabel compile \
-	--directory=debian/nala/usr/share/locale \
-	--domain=nala \
-	--input-file=po/de.po \
-	--locale=de \
-	--use-fuzzy
+override_dh_auto_install:
+	python3 setup.py install --root=$(CURDIR)/debian/nala/ --install-layout=deb
 
-override_dh_clean:
-	rm -rf nala.egg-info
-	rm -f docs/nala.8.gz
-	rm -rf nala-cli.build
-	rm -rf nala/__pycache__
-	dh_clean
-
-override_dh_auto_build:
-	nuitka3 --assume-yes-for-downloads \
-	--follow-import-to=nala \
-	--follow-import-to=rich \
-	--follow-import-to=httpx \
-	--follow-import-to=httpcore \
-	--follow-import-to=h11 \
-	--follow-import-to=charset_normalizer \
-	--include-module=anyio \
-	--nofollow-import-to=typing_extensions \
-	--nofollow-import-to=rfc3986 \
-	--nofollow-import-to=certifi \
-	--nofollow-import-to=sniffio \
-	--nofollow-import-to=idna \
-	--nofollow-import-to=jsbeautifier \
-	--nofollow-import-to=apt \
-	--nofollow-import-to=pygments \
-	--nofollow-import-to=pexpect \
-	--nofollow-import-to=aptsources \
-	--nofollow-import-to=colorama \
-	--nofollow-import-to=commonmark \
-	--nofollow-import-to=ptyprocess \
-	--plugin-enable=pylint-warnings \
-	nala-cli.py -o nala-cli.build/nala
+override_dh_auto_clean:
+	python3 setup.py clean -a
+	rm -rf .pybuild __pycache__ nala/__pycache__ nala.egg-info docs/nala.8.gz

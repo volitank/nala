@@ -1,46 +1,47 @@
 Source: nala
-VCS-Git: https://gitlab.com/volian/nala.git
-VCS-Browser: https://gitlab.com/volian/nala
-Priority: important
+Priority: optional
 Section: admin
-Homepage: https://gitlab.com/volian/nala
 Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
+Build-Depends:
+  debhelper-compat (= 13),
+  dh-python,
+  python3-all,
+  python3-setuptools,
+  pybuild-plugin-pyproject,
+  python3-distutils-extra,
+  python3-poetry,
+  python3-apt,
+  python3-anyio,
+  python3-pexpect,
+  python3-ptyprocess,
+  python3-jsbeautifier,
+  python3-httpx,
+  python3-rich,
+  pandoc,
+  bash-completion,
+  dh-sequence-bash-completion,
+Rules-Requires-Root: no
 Standards-Version: 4.6.0
-Build-Depends:	debhelper-compat (= 13),
-				apt,
-				nuitka,
-				python3-apt,
-				python3-pexpect,
-				python3-jsbeautifier,
-				python3-rich,
-				python3-httpx,
-				python3-anyio,
-				python3.9-dev,
-				python3-babel,
-				python3-yaml,
-				python3-charset-normalizer,
-				pandoc,
-				chrpath,
-				bash-completion,
-				dh-sequence-bash-completion
+Homepage: https://gitlab.com/volian/nala
+Vcs-Git: https://gitlab.com/volian/nala.git
+Vcs-Browser: https://gitlab.com/volian/nala
 
 Package: nala
 Architecture: any
-Depends:	${shlibs:Depends},
-			${misc:Depends},
-			apt,
-			libpython3.9,
-			python3-apt,
-			python3-pexpect,
-			python3-typing-extensions,
-			python3-rfc3986,
-			python3-sniffio,
-			python3-certifi,
-			python3-idna,
-			python3-jsbeautifier,
-Description: commandline frontend for the apt package manager
- nala is a frontend for the apt package manager. It has a lot
+Depends:
+  ${python3:Depends},
+  ${misc:Depends},
+  apt,
+  python3-apt,
+  python3-anyio,
+  python3-pexpect,
+  python3-ptyprocess,
+  python3-jsbeautifier,
+  python3-httpx,
+  python3-rich,
+Description: Commandline frontend for the APT package manager
+ Nala is a frontend for the APT package manager. It has a lot
  of the same functionality, but formats the output to be more
  human readable. Also implements a history function to see past
  transactions and undo/redo them. Much like Fedora's dnf history.
