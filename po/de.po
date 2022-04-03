@@ -1187,7 +1187,7 @@ msgstr "{error} Vorübergehender Fehler bei der Namensauflösung: {mirror}"
 #: nala/fetch.py:378
 msgid "{notice} {url} does not have the release {release}\n"
 ""
-msgstr "{notice} {url} hat nicht die Version {release}"
+msgstr "{notice} {url} hat nicht die Version {release}\n"
 
 #: nala/fetch.py:395
 msgid "{notice} We were unable to fetch {num} mirrors."
