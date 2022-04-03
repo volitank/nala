@@ -93,5 +93,5 @@ ignore = "D206, D203, D213"
 nala = "nala.__main__:main"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
