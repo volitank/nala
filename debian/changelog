@@ -1,3 +1,11 @@
+nala (0.7.2) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * CRITICAL: Nala not erroring when downloading unauthenticated packages
+  * Exception when reading older history files
+
+ -- Blake Lee <blake@volian.org>  Sun, 03 Apr 2022 14:37:03 -0400
+
 nala (0.7.1) unstable; urgency=medium
 
   [ Bug Fixes ]
