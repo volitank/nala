@@ -3,7 +3,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export PYBUILD_NAME = nala
 %:
 	set -x
-	dh $@ --with python3 --buildsystem=pybuild
+	dh $@ --buildsystem=pybuild
 
 execute_before_dh_installman:
 	pandoc docs/nala.8.md \

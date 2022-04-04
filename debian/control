@@ -5,7 +5,7 @@ Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
 Build-Depends:
   debhelper-compat (= 13),
-  dh-python,
+  dh-sequence-python3,
   python3-all,
   python3-setuptools,
   pybuild-plugin-pyproject,
