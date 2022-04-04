@@ -13,7 +13,3 @@ execute_before_dh_installman:
 
 override_dh_auto_install:
 	python3 setup.py install --root=$(CURDIR)/debian/nala/ --install-layout=deb
-
-override_dh_auto_clean:
-	python3 setup.py clean -a
-	rm -rf .pybuild __pycache__ nala/__pycache__ nala.egg-info docs/nala.8.gz
