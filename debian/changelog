@@ -1,3 +1,10 @@
+nala (0.7.3) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Fix Debian files with the help of <stephanlachnit@debian.org>
+
+ -- Blake Lee <blake@volian.org>  Mon, 04 Apr 2022 12:40:02 -0400
+
 nala (0.7.2) unstable; urgency=medium
 
   [ Bug Fixes ]
