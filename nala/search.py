@@ -24,7 +24,6 @@
 """Functions for the Nala Search command."""
 from __future__ import annotations
 
-import re
 from typing import Iterable, Pattern, cast
 
 from apt.package import Package, Version
@@ -40,18 +39,22 @@ BOT_LINE = "└──" if is_utf8 else "`--"
 
 def search_name(
 	pkg: Package,
-	version: Version,
 	search_pattern: Pattern[str],
 	found: list[tuple[Package, Version]],
 ) -> None:
 	"""Search the package name and description."""
-	searches = [pkg.name]
+	searches = pkg.name
 	if not arguments.names:
-		searches.extend([version.raw_description, version.source_name])
-	for string in searches:
-		if re.findall(search_pattern, string):
-			found.append((pkg, version))
-			break
+		records = pkg._pcache._records
+		records.lookup(pkg._pkg.version_list[0].file_list[0])
+		searches += f"{records.long_desc} {records.source_pkg}"
+
+	if search_pattern.findall(searches):
+		version = get_version(pkg)
+		if isinstance(version, tuple):
+			found.extend((pkg, ver) for ver in version)
+			return
+		found.append((pkg, version))
 
 
 def iter_search(found: Iterable[tuple[Package, Version | tuple[Version, ...]]]) -> bool:
@@ -81,11 +84,9 @@ def print_search(pkg: Package, version: Version, pkg_list_check: list[Package]) 
 						f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}",
 						cast(Version, get_version(pkg, cand_first=True)),
 					),
-					TOP_LINE,
 					pkg,
 					version,
 				),
-				BOT_LINE,
 				version,
 			)
 		),
@@ -102,37 +103,36 @@ def set_search_origin(line: str, version: Version) -> str:
 	return line
 
 
-def set_search_installed(
-	line: str, top_line: str, pkg: Package, version: Version
-) -> str:
+def set_search_installed(line: str, pkg: Package, version: Version) -> str:
 	"""Return the provided string with install and upgrade information."""
 	if version.is_installed and pkg.is_upgradable:
 		return _(
 			"{pkg_name}\n{tree_start} is installed and upgradable from {version}"
 		).format(
 			pkg_name=line,
-			tree_start=top_line,
+			tree_start=TOP_LINE,
 			version=color(pkg_installed(pkg).version, "BLUE"),
 		)
 	if pkg.is_upgradable:
 		return _("{pkg_name}\n{tree_start} is upgradable from {version}").format(
 			pkg_name=line,
-			tree_start=top_line,
+			tree_start=TOP_LINE,
 			version=color(pkg_installed(pkg).version, "BLUE"),
 		)
 	if version.is_installed:
 		return _("{pkg_name}\n{tree_start} is installed").format(
-			pkg_name=line, tree_start=top_line
+			pkg_name=line, tree_start=TOP_LINE
 		)
 	return line
 
 
-def set_search_description(line: str, bot_line: str, version: Version) -> str:
+def set_search_description(line: str, version: Version) -> str:
 	"""Return the provided string with the package description."""
-	if arguments.full and version._translated_records:
-		desc = "\n    ".join(version._translated_records.long_desc.splitlines())
-		return f"{line}\n{bot_line} {desc}"
-	if version.summary:
-		return f"{line}\n{bot_line} {version.summary}"
+	records = version._translated_records
+	if arguments.full and records:
+		desc = "\n    ".join(records.long_desc.splitlines())
+		return f"{line}\n{BOT_LINE} {desc}"
+	if records:
+		return f"{line}\n{BOT_LINE} {records.short_desc}"
 	no_desc = _("No Description")
-	return f"{line}\n{bot_line}{COLOR_CODES['ITALIC']} {no_desc}{COLOR_CODES['RESET']}"
+	return f"{line}\n{BOT_LINE}{COLOR_CODES['ITALIC']} {no_desc}{COLOR_CODES['RESET']}"

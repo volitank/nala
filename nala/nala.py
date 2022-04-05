@@ -88,7 +88,6 @@ from nala.options import (
 	arguments,
 	nala,
 )
-from nala.rich import search_progress
 from nala.search import iter_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
@@ -414,25 +413,17 @@ def search(
 				"{error} failed regex compilation '{error_msg} at position {position}"
 			).format(error=ERROR_PREFIX, error_msg=error.msg, position=error.pos)
 		)
-	with search_progress as progress:
-		task = progress.add_task("", total=len(cache))
-		arches = apt_pkg.get_architectures()
-		with cache.actiongroup():  # type: ignore[attr-defined]
-			for pkg in cache:
-				progress.advance(task)
-				if arguments.installed and not pkg.installed:
-					continue
-				if arguments.upgradable and not pkg.is_upgradable:
-					continue
-				if arguments.virtual and not cache.is_virtual_package(pkg.name):
-					continue
-				if arguments.all_arches or pkg.architecture() in arches:
-					version = get_version(pkg)
-					if isinstance(version, tuple):
-						for ver in version:
-							search_name(pkg, ver, search_pattern, found)
-					else:
-						search_name(pkg, version, search_pattern, found)
+	arches = apt_pkg.get_architectures()
+	for pkg in cache:
+		if arguments.installed and not pkg.installed:
+			continue
+		if arguments.upgradable and not pkg.is_upgradable:
+			continue
+		if arguments.virtual and not cache.is_virtual_package(pkg.name):
+			continue
+		if arguments.all_arches or pkg.architecture() in arches:
+			search_name(pkg, search_pattern, found)
+
 	if not found:
 		sys.exit(
 			_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=regex)

@@ -196,16 +196,6 @@ dpkg_progress = Progress(
 	SEPARATOR,
 	COMPLETED_TOTAL,
 )
-searching = _("Searching")
-search_progress = Progress(
-	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn(f"[bold default]{searching} ...", justify="right"),
-	BAR_MIN,
-	PROGRESS_PERCENT,
-	SEPARATOR,
-	TimeRemaining(),
-	transient=True,
-)
 testing = _("Testing Mirrors")
 fetch_progress = Progress(
 	# 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
