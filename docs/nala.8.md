@@ -54,7 +54,7 @@ Nala - A prettier front-end for libapt-pkg
 
 	**nala** will parse either the **Debian** mirror list from *https://mirror-master.debian.org/status/Mirrors.masterlist*, or the **Ubuntu** mirror list from *https://launchpad.net/ubuntu/+archivemirrors-rss* and then fetch (3 by default) mirrors that we have determined are the closest to you.
 
-	**nala** will attempt to detect your distro and release by default. Don't worry if it's not able too, as you can specify it manually with some switches we'll go over in a later section.
+	**nala** will attempt to detect your distro and release by default. Don't worry if it's not able too, as you can specify it manually with some switches below.
 
 	This functionality is much like you would expect from **netselect** and **netselect-apt**.
 
@@ -133,23 +133,40 @@ Nala - A prettier front-end for libapt-pkg
 **\--purge**
 : >*\--purge* any packages that would removed during the transaction.
 
-**\--no-fix-broken**
-: >*\--no-fix-broken* can be used if you don't want Nala to attempt to fix broken packages. This switch does nothing if used with **nala --fix-broken**.
+**\--fix-broken** / **\--no-fix-broken**
+: >*\--fix-broken* / *\--no-fix-broken/* toggles for fixing broken packages
 
-**\--no-install-recommends**
-: >*\--no-install-recommends* stops the installation of recommended packages. If this option is selected Nala will display the recommended packages that won't be installed.
+	*\--fix-broken* will attempt to fix broken packages. **nala install** *\--fix-broken*
 
-**\--install-suggests**
-: >*\--install-suggests* installs suggested package. If this option is not selected Nala will display the suggested packages that won't be installed.
+	*\--no-fix-broken* can be used if you don't want Nala to attempt to fix broken packages.
 
-**\--no-update**
-: >*\--no-update* skips updating the package cache if for whatever reason you would like to skip that.
+**\--install-recommends** / **\--no-install-recommends**
+: >*\--install-recommends* / *\--no-install-recommends* toggles for recommended packages
 
-**\--update**
-: >*\--update* updates the package cache. Typically run as **nala install** *\--update* or **nala** *\--update*.
+	*\--install-recommends** sets recommended packages to be installed. [Default]
 
-**\--no-autoremove**
-: >*\--no-autoremove* stops nala from autoremoving packages. Packages that need to be removed in order to continue the update will still be removed.
+	*\--no-install-recommends* stops the installation of recommended packages. If this option is selected Nala will display the recommended packages that won't be installed.
+
+**\--install-suggests** / **\--no-install-suggests**
+: >*\--install-suggests* / *\--no-install-suggests* toggles for suggested packages
+
+	*\--install-suggests* installs suggested package. If this option is not selected Nala will display the suggested packages that won't be installed.
+
+	*\--no-install-suggests* suggested packages will not be installed. [Default]
+
+**\--update** / **\--no-update**
+: >*\--update* / *\--no-update* toggles for updating the package list
+
+	*\--no-update* skips updating the package cache if for whatever reason you would like to skip that.
+
+	*\--update* updates the package cache. Typically run as **nala install** *\--update* or **nala** *\--update*.
+
+**\--autoremove** / **\--no-autoremove**
+: >*\--autoremove* / *\--no-autoremove* toggles for autoremoving packages
+
+	*\--autoremove* nala will autoremove unneeded packages. [Default]
+
+	*\--no-autoremove* stops nala from autoremoving packages. Packages that need to be removed in order to continue the upgrade will still be removed.
 
 **\--remove-essential**
 : >*\--remove-essential* allows the removal of essential packages. This is very dangerous, but we thought you should have the option.
