@@ -31,6 +31,7 @@ import sys
 import termios
 import tty
 from datetime import datetime
+from fcntl import LOCK_EX, LOCK_NB, lockf
 from pathlib import Path
 from types import FrameType
 from typing import TYPE_CHECKING, Any, Iterable, Literal, cast
@@ -39,13 +40,21 @@ import jsbeautifier
 from apt.package import Package, Version
 
 from nala import _, color, console
-from nala.constants import ERROR_PREFIX, HANDLER, JSON_OPTIONS, NALA_DEBUGLOG
+from nala.constants import (
+	ERROR_PREFIX,
+	HANDLER,
+	JSON_OPTIONS,
+	NALA_DEBUGLOG,
+	NALA_LOCK_FILE,
+)
 from nala.options import arguments
 from nala.rich import Group, Table, Tree, from_ansi
 
 if TYPE_CHECKING:
 	from nala.cache import Cache
 	from nala.debfile import NalaDebPackage
+
+LOCK_FILE = None
 
 
 class Terminal:
@@ -342,12 +351,38 @@ def sudo_check(args: Iterable[str] | None = None) -> None:
 		"autoremove",
 		"autopurge",
 	)
-	msg = _("{error} Nala needs root to {command}")
 	if (arguments.command in no_update or arguments.update) and not term.is_su():
 		if arguments.command == "install" and arguments.fix_broken and not args:
-			msg = _("{error} Nala needs root to fix broken packages")
-			sys.exit(msg.format(error=ERROR_PREFIX))
-		sys.exit(msg.format(error=ERROR_PREFIX, command=arguments.command))
+			sys.exit(
+				_("{error} Nala needs root to fix broken packages").format(
+					error=ERROR_PREFIX
+				)
+			)
+		sys.exit(
+			_("{error} Nala needs root to {command}").format(
+				error=ERROR_PREFIX, command=arguments.command
+			)
+		)
+
+	NALA_LOCK_FILE.touch(exist_ok=True)
+	global LOCK_FILE  # pylint: disable=global-statement
+	LOCK_FILE = NALA_LOCK_FILE.open("r+", encoding="ascii")
+	current_pid = os.getpid()
+	last_pid = LOCK_FILE.read()
+
+	try:
+		dprint("Setting Lock")
+		lockf(LOCK_FILE, LOCK_EX | LOCK_NB)
+		LOCK_FILE.seek(0)
+		LOCK_FILE.write(f"{current_pid}")
+		LOCK_FILE.truncate()
+		dprint("Lock Set")
+	except OSError:
+		sys.exit(
+			_("{error} Nala is already running another instance {last_pid}").format(
+				error=ERROR_PREFIX, last_pid=color(last_pid, "YELLOW")
+			)
+		)
 
 
 def get_date() -> str:

@@ -63,6 +63,8 @@ REBOOT_PKGS = Path("/var/run/reboot-required.pkgs")
 """'/var/run/reboot-required.pkgs'"""
 NEED_RESTART = Path("/var/run/needrestart")
 """/var/run/needrestart"""
+NALA_LOCK_FILE = Path("/var/lock/nala.lock")
+"""/var/lock/nala.lock"""
 
 # Apt Directories
 ARCHIVE_DIR = Path(apt_pkg.config.find_dir("Dir::Cache::Archives"))
