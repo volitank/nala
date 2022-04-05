@@ -33,6 +33,7 @@ from rich.console import Console, Group, RenderableType
 from rich.live import Live, _RefreshThread
 from rich.markup import escape
 from rich.panel import Panel
+from rich.pretty import Pretty
 from rich.progress import (
 	BarColumn,
 	DownloadColumn,
@@ -66,6 +67,7 @@ __all__ = (
 	"Group",
 	"TaskID",
 	"Panel",
+	"Pretty",
 	"Progress",
 	"RenderableType",
 )

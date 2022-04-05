@@ -29,14 +29,14 @@ import contextlib
 import hashlib
 import re
 import sys
-from asyncio import AbstractEventLoop, CancelledError, Semaphore, gather, run
+from asyncio import AbstractEventLoop, CancelledError, gather, run, sleep
+from collections import Counter
 from errno import ENOENT
 from functools import partial
 from pathlib import Path
-from random import shuffle
 from signal import Signals  # pylint: disable=no-name-in-module #Codacy
 from signal import SIGINT, SIGTERM
-from typing import Pattern, Union, cast
+from typing import Union
 
 import apt_pkg
 from anyio import open_file
@@ -53,7 +53,6 @@ from httpx import (
 	RequestError,
 	get,
 )
-from rich.panel import Panel
 
 from nala import _, color
 from nala.constants import (
@@ -66,7 +65,7 @@ from nala.constants import (
 )
 from nala.error import ExitCode, FileDownloadError
 from nala.options import arguments
-from nala.rich import Live, Table, from_ansi, pkg_download_progress
+from nala.rich import Live, Panel, Pretty, Table, from_ansi, pkg_download_progress
 from nala.utils import (
 	dprint,
 	eprint,
@@ -77,7 +76,8 @@ from nala.utils import (
 	vprint,
 )
 
-MIRROR_PATTERN = re.compile(r"mirror://([A-Za-z_0-9.-]+).*")
+MIRROR_PATTERN = re.compile(r"mirror://(.*?/.*?)/")
+DOMAIN_PATTERN = re.compile(r"(https?://.*?/.*?)/")
 
 TOTAL_PACKAGES = color(_("Total Packages:"), "GREEN")
 STARTING_DOWNLOADS = color(_("Starting Downloads..."), "BLUE")
@@ -125,43 +125,46 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 
 	def __init__(self, pkgs: list[Package]) -> None:
 		"""Manage Package Downloads."""
-		self.pkgs = pkgs
-		self.total_pkgs: int = len(self.pkgs)
+		dprint("Downloader Initializing")
+		self.total_pkgs: int = len(pkgs)
 		self.count: int = 0
 		self.live: Live
-		self.mirrors: list[str] = []
+		self.mirrors: dict[str, list[str]] = {}
 		self.last_completed: str = ""
 		self.untrusted: list[str] = []
-		self.task = pkg_download_progress.add_task(
-			"", total=sum(pkg_candidate(pkg).size for pkg in self.pkgs)
-		)
-		self.pkg_urls: list[list[Version | str]] = []
-		self._set_pkg_urls()
-		# We want to start the larger files first, as they take the longest
-		self.pkg_urls = sorted(self.pkg_urls, key=sort_pkg_size, reverse=True)
 		self.proxy: dict[URL | str, URL | str | Proxy | None] = {}
 		self.failed: list[str] = []
+		self.current: Counter[str] = Counter()
 		self.fatal: bool = False
 		self.exit: int | bool = False
+
+		self.pkg_urls: dict[Version, list[str]] = {
+			pkg.candidate: self.filter_uris(pkg.candidate)
+			for pkg in pkgs
+			if pkg.candidate
+		}
+		self.task = pkg_download_progress.add_task(
+			"", total=sum(candidate.size for candidate in self.pkg_urls)
+		)
 
 		if self.untrusted:
 			untrusted_error(self.untrusted)
 
 		self._set_proxy()
+		dprint("Initialization Complete")
 
 	async def start_download(self) -> bool:
 		"""Start async downloads."""
-		if not self.pkgs:
+		if not self.pkg_urls:
 			return True
-		semaphore = Semaphore(min(guess_concurrent(self.pkg_urls), 16))
-		with Live(get_renderable=self._gen_table) as self.live:
+		with Live(get_renderable=self._gen_table, refresh_per_second=10) as self.live:
 			async with AsyncClient(
 				timeout=20, proxies=self.proxy, follow_redirects=True
 			) as client:
 				loop = asyncio.get_running_loop()
 				tasks = (
-					loop.create_task(self._init_download(client, urls, semaphore))
-					for urls in self.pkg_urls
+					loop.create_task(self._init_download(client, candidate, urls))
+					for candidate, urls in self.pkg_urls.items()
 				)
 				# Setup handlers for Interrupts
 				for signal_enum in (SIGINT, SIGTERM):
@@ -207,64 +210,68 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 			)
 		return total_data
 
-	async def _download(
-		self, client: AsyncClient, semaphore: Semaphore, candidate: Version, url: str
-	) -> int:
+	async def _download(self, client: AsyncClient, candidate: Version, url: str) -> int:
 		"""Download and write package."""
 		dest = PARTIAL_DIR / get_pkg_name(candidate)
-		async with semaphore:
-			vprint(f"{STARTING_DOWNLOAD} {url} {unit_str(candidate.size, 1)}")
-			assert isinstance(url, str)
-			second_attempt = False
-			while True:
-				try:
-					total_data = await self._stream_deb(client, candidate, url, dest)
-					break
-				# Sometimes mirrors play a little dirty and close the connection
-				# Before we're done, so we catch this and try one more time.
-				except RemoteProtocolError as error:
-					if (
-						"Server disconnected" not in str(error)
-						or "can't handle event type ConnectionClosed" not in str(error)
-						or second_attempt
-					):
-						raise error from error
-					second_attempt = True
-					dprint(
-						f"Mirror Failed: {url[:url.index('/pool')]} {error}, will try again."
-					)
-					continue
+		vprint(f"{STARTING_DOWNLOAD} {url} {unit_str(candidate.size, 1)}")
+		second_attempt = False
+		while True:
+			try:
+				total_data = await self._stream_deb(client, candidate, url, dest)
+				break
+			# Sometimes mirrors play a little dirty and close the connection
+			# Before we're done, so we catch this and try one more time.
+			except RemoteProtocolError as error:
+				if (
+					"Server disconnected" not in str(error)
+					or "can't handle event type ConnectionClosed" not in str(error)
+					or second_attempt
+				):
+					raise error from error
+				second_attempt = True
+				if domain := DOMAIN_PATTERN.search(url):
+					dprint(f"Mirror Failed: {domain.group(1)} {error}, will try again.")
+				continue
 		return total_data
 
 	async def _init_download(
-		self, client: AsyncClient, urls: list[Version | str], semaphore: Semaphore
+		self,
+		client: AsyncClient,
+		candidate: Version,
+		urls: list[str],
 	) -> None:
 		"""Download pkgs."""
-		candidate = urls.pop(0)
-		assert isinstance(candidate, Version)
-		for num, url in enumerate(urls):
-			assert isinstance(url, str)
-			total_data = 0
-			try:
-				total_data = await self._download(client, semaphore, candidate, url)
+		while urls:
+			for num, url in enumerate(urls):
+				if regex := DOMAIN_PATTERN.search(url):
+					domain = regex.group(1)
+					if self.current[domain] > 1:
+						await sleep(0.1)
+						continue
+					self.current[domain] += 1
+				total_data = 0
+				try:
+					total_data = await self._download(client, candidate, url)
 
-				if not await process_downloads(candidate):
+					await process_downloads(candidate)
+					check_pkg(ARCHIVE_DIR, candidate, is_download=True)
+					vprint(f"{DOWNLOAD_COMPLETE} {url}")
+
+					self.count += 1
+					self.current[domain] -= 1
+					self.last_completed = Path(candidate.filename).name
+					self.live.update(self._gen_table())
+					break
+
+				except (HTTPError, OSError, FileDownloadError) as error:
+					urls.pop(num)
+					self.current[domain] -= 1
 					await self._update_progress(total_data, failed=True)
+					self.download_error(error, num, urls, candidate)
 					continue
-				if not check_pkg(ARCHIVE_DIR, candidate, is_download=True):
-					continue
-
-				vprint(f"{DOWNLOAD_COMPLETE} {url}")
-
-				self.count += 1
-				self.last_completed = Path(candidate.filename).name
-				self.live.update(self._gen_table())
-				break
-
-			except (HTTPError, OSError, FileDownloadError) as error:
-				await self._update_progress(total_data, failed=True)
-				self.download_error(error, num, urls, candidate)
+			else:
 				continue
+			break
 
 	def interrupt(self, signal_enum: Signals, loop: AbstractEventLoop) -> None:
 		"""Shutdown the loop."""
@@ -286,37 +293,33 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		if ftp_proxy := apt_pkg.config.find("Acquire::ftp::Proxy"):
 			self.proxy["ftp://"] = ftp_proxy
 
-	def _set_pkg_urls(self) -> None:
-		"""Set pkg_urls list."""
-		for pkg in self.pkgs:
-			candidate = pkg_candidate(pkg)
-			urls: list[Version | str] = []
-			urls.extend(self.filter_uris(candidate, MIRROR_PATTERN))
-			# Randomize the urls to minimize load on a single mirror.
-			shuffle(urls)
-			urls.insert(0, candidate)
-			self.pkg_urls.append(urls)
+	def set_mirrors_txt(self, domain: str) -> None:
+		"""Check if user has mirrors:// and handle accordingly."""
+		if domain not in self.mirrors:
+			url = f"http://{domain}"
+			try:
+				self.mirrors[domain] = get(url, follow_redirects=True).text.splitlines()
+			except HTTPError:
+				sys.exit(
+					_("{error} unable to connect to {url}").format(
+						error=ERROR_PREFIX, url=url
+					)
+				)
 
-	def filter_uris(self, candidate: Version, pattern: Pattern[str]) -> list[str]:
+	def filter_uris(self, candidate: Version) -> list[str]:
 		"""Filter uris into usable urls."""
 		urls: list[str] = []
 		for uri in candidate.uris:
 			if not check_trusted(uri, candidate):
 				self.untrusted.append(color(candidate.package.name, "RED"))
-			# Regex to check if we're using mirror.txt
-			if regex := pattern.search(uri):
-				domain = regex.group(1)
-				if not self.mirrors:
-					url = f"http://{domain}/mirrors.txt"
-					try:
-						self.mirrors = get(url, follow_redirects=True).text.splitlines()
-					except HTTPError:
-						sys.exit(
-							_("{error} unable to connect to {url}").format(
-								error=ERROR_PREFIX, url=url
-							)
-						)
-				urls.extend([link + candidate.filename for link in self.mirrors])
+			# Regex to check if we're using mirror://
+			if regex := MIRROR_PATTERN.search(uri):
+				self.set_mirrors_txt(domain := regex.group(1))
+				urls.extend(
+					link + candidate.filename
+					for link in self.mirrors[domain]
+					if not link.startswith("#")
+				)
 				continue
 			urls.append(uri)
 		return urls
@@ -324,7 +327,8 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 	def _gen_table(self) -> Panel:
 		"""Generate Rich Table."""
 		table = Table.grid()
-
+		if arguments.debug:
+			table.add_row(Pretty(self.current))
 		table.add_row(from_ansi(f"{TOTAL_PACKAGES} {self.count}/{self.total_pkgs}"))
 		if not self.last_completed:
 			table.add_row(from_ansi(STARTING_DOWNLOADS))
@@ -344,14 +348,11 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		self,
 		error: DownloadErrorTypes,
 		num: int,
-		urls: list[Version | str],
+		urls: list[str],
 		candidate: Version,
 	) -> None:
 		"""Handle download errors."""
-		if isinstance(error, FileDownloadError):
-			file_error(error)
-		else:
-			print_error(error)
+		print_error(error)
 
 		if not (next_url := more_urls(urls, num, self.failed, candidate)):
 			# Status error are fatal as apt_pkg is likely to fail with these as well
@@ -404,6 +405,16 @@ def print_error(error: DownloadErrorTypes) -> None:
 	if isinstance(error, FileDownloadError):
 		file_error(error)
 		return
+	if isinstance(error, OSError) and error.errno != ENOENT:
+		eprint(
+			FAILED_MOVE.format(
+				error=ERROR_PREFIX,
+				str_err=error.strerror,
+				file1=error.filename,
+				file2=error.filename2,
+			)
+		)
+		return
 	msg = str(error) or type(error).__name__
 	msg = msg.replace("\n", "\n  ")
 	eprint(f"{ERROR_PREFIX} {msg}")
@@ -438,12 +449,10 @@ def file_error(error: FileDownloadError) -> None:
 	eprint(REMOVING_FILE.format(notice=NOTICE_PREFIX, filename=filename))
 
 
-def more_urls(
-	urls: list[Version | str], num: int, failed: list[str], candidate: Version
-) -> str:
+def more_urls(urls: list[str], num: int, failed: list[str], candidate: Version) -> str:
 	"""Check if there is another url to try. Return False if not."""
 	try:
-		return cast(str, urls[num + 1])
+		return urls[num + 1]
 	except IndexError:
 		filename = Path(candidate.filename).name
 		eprint(
@@ -477,14 +486,6 @@ async def process_downloads(candidate: Version) -> bool:
 	return True
 
 
-def guess_concurrent(pkg_urls: list[list[Version | str]]) -> int:
-	"""Determine how many concurrent downloads to do."""
-	max_uris = 2
-	for pkg in pkg_urls:
-		max_uris = max(len(pkg[1:]) * 2, max_uris)
-	return max_uris
-
-
 def check_trusted(uri: str, candidate: Version) -> bool:
 	"""Check if the candidate is trusted."""
 	for (packagefile, _unused) in candidate._cand.file_list:
@@ -492,17 +493,6 @@ def check_trusted(uri: str, candidate: Version) -> bool:
 			indexfile = candidate.package._pcache._list.find_index(packagefile)
 			return bool(indexfile and indexfile.is_trusted)
 	return False
-
-
-def sort_pkg_size(pkg_url: list[Version | str]) -> int:
-	"""Sort by package size.
-
-	This is to be used as sorted(key=sort_pkg_size)
-	"""
-	candidate = pkg_url[0]
-	assert isinstance(candidate, Version)
-	assert isinstance(candidate.size, int)
-	return candidate.size
 
 
 def check_pkg(
@@ -592,12 +582,12 @@ def get_hash(version: Version) -> tuple[str, str]:
 			return _type.lower(), hash_list.find(_type).hashvalue
 
 	filename = Path(version.filename).name or version.package.name
-	sys.exit(
-		_(
-			"{error} {filename} can't be checked for integrity.\n"
-			"There are no hashes available for this package."
-		).format(error=ERROR_PREFIX, filename=color(filename, "YELLOW"))
+	eprint(
+		_("{error} {filename} can't be checked for integrity.").format(
+			error=ERROR_PREFIX, filename=color(filename, "YELLOW")
+		)
 	)
+	sys.exit(_("There are no hashes available for this package."))
 
 
 def download(pkgs: list[Package]) -> None:
@@ -605,7 +595,11 @@ def download(pkgs: list[Package]) -> None:
 
 	Does not return if in Download Only mode.
 	"""
-	downloader = PkgDownloader(pkgs)
+	downloader = PkgDownloader(
+		# Start the larger files first, as they take the longest
+		# Ignore mypy here because the pkgs definitely have a candidate if they made it here
+		sorted(pkgs, key=lambda pkg: pkg.candidate.size, reverse=True)  # type: ignore[union-attr]
+	)
 	try:
 		run(downloader.start_download())
 	except CancelledError as error:
@@ -627,6 +621,8 @@ def download(pkgs: list[Package]) -> None:
 
 		if downloader.fatal:
 			sys.exit(1)
+		if arguments.download_only:
+			sys.exit(_("In download only mode. Not falling back to apt_pkg."))
 		eprint(
 			_(
 				"{warning} Falling back to apt_pkg. The following downloads failed:"
