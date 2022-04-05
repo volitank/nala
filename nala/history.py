@@ -108,7 +108,10 @@ def write_history_file(data: HistoryFile) -> None:
 @_doc
 @history_typer.callback(invoke_without_command=True)
 def history_summary(ctx: typer.Context) -> None:
-	"""Show transaction history."""
+	"""Show transaction history.
+
+	Running `nala history` with no subcommands prints an overview of all transations.
+	"""
 	if ctx.invoked_subcommand:
 		return
 
@@ -184,7 +187,7 @@ def get_hist_list(hist_entry: HistoryEntry, key: str) -> list[str]:
 @_doc
 @history_typer.command("info")
 def history_info(
-	_hist_id: int = typer.Argument(..., metavar="ID"),
+	_hist_id: int = typer.Argument(..., metavar="ID", help=_("Transaction number to show info about")),
 	purge: bool = typer.Option(  # pylint: disable=unused-argument
 		False, "--purge", callback=arguments.set_purge, hidden=True
 	),
@@ -232,9 +235,9 @@ def unlink_history(value: bool) -> None:
 @_doc
 @history_typer.command("clear")
 def history_clear(
-	_hist_id: int = typer.Argument(..., metavar="ID"),
+	_hist_id: int = typer.Argument(..., metavar="ID", help=_("Transaction number to clear")),
 	_all: bool = typer.Option(  # pylint: disable=unused-argument
-		False, "--all", callback=unlink_history, help="Clear the entire history."
+		False, "--all", callback=unlink_history, help=_("Clear the entire history.")
 	),
 ) -> None:
 	"""Clear a transaction or the entire history."""
@@ -263,12 +266,12 @@ def history_clear(
 
 
 @_doc
-@history_typer.command("undo", help=_("Undo a transaction"))
-@history_typer.command("redo", help=_("Redo a transaction"))
+@history_typer.command("undo", help=_("Undo a transaction."))
+@history_typer.command("redo", help=_("Redo a transaction."))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def history_undo(
 	ctx: typer.Context,
-	hist_id: str,
+	hist_id: str = typer.Argument(..., metavar="ID", help=_("Transaction number")),
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
 	raw_dpkg: bool = RAW_DPKG,

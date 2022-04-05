@@ -601,21 +601,25 @@ def fetch_checks(source: str) -> None:
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def fetch(
 	ctx: typer.Context,
-	debian: str = typer.Option("", metavar="sid", help="Choose the Debian release"),
-	ubuntu: str = typer.Option("", metavar="jammy", help="Choose the Ubuntu release"),
+	debian: str = typer.Option("", metavar="sid", help=_("Choose the Debian release")),
+	ubuntu: str = typer.Option(
+		"", metavar="jammy", help=_("Choose the Ubuntu release")
+	),
 	fetches: int = typer.Option(
 		0,
-		help="Number of mirrors to fetch [defaults: 16, --auto(3)]",
+		help=_("Number of mirrors to fetch [defaults: 16, --auto(3)]"),
 		show_default=False,
 	),
 	sources: bool = typer.Option(
-		False, "--sources", help="Add the source repos for the mirrors if it exists"
+		False, "--sources", help=_("Add the source repos for the mirrors if it exists")
 	),
-	foss: bool = typer.Option(False, "--foss", help="Omits contrib and non-free repos"),
+	foss: bool = typer.Option(
+		False, "--foss", help=_("Omits contrib and non-free repos")
+	),
 	auto: bool = typer.Option(
 		False,
 		"--auto",
-		help="Run fetch uninteractively. Will still prompt for overwrite",
+		help=_("Run fetch uninteractively. Will still prompt for overwrite"),
 	),
 	debug: bool = DEBUG,
 	assume_yes: bool = ASSUME_YES,
@@ -624,7 +628,7 @@ def fetch(
 		"-c",
 		"--country",
 		metavar="US",
-		help="Choose only mirrors of a specific ISO country code",
+		help=_("Choose only mirrors of a specific ISO country code"),
 	),
 	verbose: bool = VERBOSE,
 ) -> None:
