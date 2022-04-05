@@ -188,7 +188,7 @@ class Cache(_Cache):
 
 	def purge_removed(self) -> None:
 		"""Make sure everything marked as removed is getting purged."""
-		if not arguments.purge:
+		if not arguments.is_purge():
 			return
 		for pkg in self:
 			if pkg.marked_delete:

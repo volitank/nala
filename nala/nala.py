@@ -283,17 +283,18 @@ def _remove(pkg_names: list[str]) -> None:
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 
-	_purge = True if arguments.purge else arguments.command == "purge"
 	pkg_names = cache.glob_filter(pkg_names)
 	pkg_names = cache.virtual_filter(pkg_names)
 	broken, not_found, ver_failed = check_broken(
-		pkg_names, cache, remove=True, purge=_purge
+		pkg_names,
+		cache,
+		remove=True,
 	)
 
 	if not_found or ver_failed:
 		pkg_error(not_found, cache, remove=True)
 
-	if not package_manager(pkg_names, cache, remove=True, purge=_purge):
+	if not package_manager(pkg_names, cache, remove=True):
 		broken_error(
 			broken,
 			cache,
@@ -304,7 +305,7 @@ def _remove(pkg_names: list[str]) -> None:
 			),
 		)
 
-	auto_remover(cache, nala_pkgs, _purge)
+	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, remove=True)
 
 
@@ -326,9 +327,8 @@ def _auto_remove(
 	"""Command for autoremove."""
 	sudo_check()
 	cache = setup_cache()
-	_purge = True if arguments.purge else arguments.command == "autopurge"
 	check_state(cache, nala_pkgs)
-	auto_remover(cache, nala_pkgs, _purge)
+	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, remove=True)
 
 

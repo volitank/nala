@@ -813,8 +813,11 @@ class DpkgLive(Live):
 		"""Get the title for our panel."""
 		msg = "[bold default]"
 		if arguments.command and install and not apt_fetch:
-			if arguments.command in ("remove", "purge"):
-				msg += _("Removing Packages")
+			if arguments.command in ("remove", "purge", "autoremove", "autopurge"):
+				if arguments.is_purge():
+					msg += _("Purging Packages")
+				else:
+					msg += _("Removing Packages")
 			elif arguments.command == "upgrade":
 				msg += _("Updating Packages")
 			elif arguments.command == "install":

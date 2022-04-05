@@ -77,15 +77,13 @@ from nala.utils import (
 )
 
 
-def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -> None:
+def auto_remover(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Handle auto removal of packages."""
 	if not arguments.auto_remove and arguments.command not in (
 		"autoremove",
 		"autopurge",
 	):
 		return
-	if arguments.purge:
-		purge = True
 	with cache.actiongroup():  # type: ignore[attr-defined]
 		# Recurse 10 levels if we're installing .debs to make sure that all depends are safe
 		deps = recurse_deps(nala_pkgs.local_debs, levels=10, installed=False)
@@ -95,7 +93,7 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, purge: bool = False) -
 					dprint(f"Dependency: ['{pkg.name}'] Protected from removal")
 					continue
 				# We don't have to autofix while autoremoving
-				pkg.mark_delete(auto_fix=False, purge=purge)
+				pkg.mark_delete(auto_fix=False, purge=arguments.is_purge())
 				nala_pkgs.autoremoved.append(pkg.name)
 	dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
@@ -470,9 +468,7 @@ def split_local(
 	return not_exist
 
 
-def package_manager(
-	pkg_names: list[str], cache: Cache, remove: bool = False, purge: bool = False
-) -> bool:
+def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) -> bool:
 	"""Manage installation or removal of packages."""
 	with cache.actiongroup():  # type: ignore[attr-defined]
 		for pkg_name in pkg_names:
@@ -481,7 +477,10 @@ def package_manager(
 				try:
 					if remove:
 						if pkg.installed:
-							pkg.mark_delete(auto_fix=arguments.fix_broken, purge=purge)
+							pkg.mark_delete(
+								auto_fix=arguments.fix_broken,
+								purge=arguments.is_purge(),
+							)
 							dprint(f"Marked Remove: {pkg.name}")
 						continue
 					if not pkg.installed or pkg.marked_downgrade:
@@ -609,7 +608,7 @@ def get_extra_pkgs(  # pylint: disable=too-many-branches
 
 
 def check_broken(
-	pkg_names: list[str], cache: Cache, remove: bool = False, purge: bool = False
+	pkg_names: list[str], cache: Cache, remove: bool = False
 ) -> tuple[list[Package], list[str], bool]:
 	"""Check if packages will be broken."""
 	broken_count = 0
@@ -624,7 +623,7 @@ def check_broken(
 				continue
 
 			pkg = cache[pkg_name]
-			if not mark_pkg(pkg, depcache, remove=remove, purge=purge):
+			if not mark_pkg(pkg, depcache, remove=remove):
 				pkg_names.remove(pkg_name)
 			if depcache.broken_count > broken_count and arguments.fix_broken:
 				broken.append(pkg)
@@ -632,9 +631,7 @@ def check_broken(
 	return broken, not_found, failed
 
 
-def mark_pkg(
-	pkg: Package, depcache: DepCache, remove: bool = False, purge: bool = False
-) -> bool:
+def mark_pkg(pkg: Package, depcache: DepCache, remove: bool = False) -> bool:
 	"""Mark Packages in depcache for broken checks."""
 	if remove:
 		if not pkg.installed:
@@ -644,7 +641,7 @@ def mark_pkg(
 				)
 			)
 			return False
-		depcache.mark_delete(pkg._pkg, purge)
+		depcache.mark_delete(pkg._pkg, arguments.is_purge())
 		return True
 
 	# Check the installed version against the candidate version in case we're downgrading or upgrading.

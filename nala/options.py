@@ -249,6 +249,10 @@ class Arguments:
 		"""Return the state of the object as a string."""
 		return str(self)
 
+	def is_purge(self) -> bool:
+		"""Return if we are to be purging or not."""
+		return bool(self.purge or "purge" in self.command)
+
 
 arguments = Arguments()
 nala = typer.Typer(add_completion=False, no_args_is_help=True)
