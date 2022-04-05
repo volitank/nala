@@ -22,8 +22,10 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 """Where Utilities who don't have a special home come together."""
+
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import signal
@@ -110,11 +112,8 @@ class Terminal:
 		"""Check and set various environment variables."""
 		# Termios can't run if we aren't in a terminal
 		# Just catch the exception and continue.
-		try:
+		with contextlib.suppress(termios.error):
 			self.mode = termios.tcgetattr(self.STDIN)
-		except termios.error:
-			pass
-
 		if self.lines < 13 or self.columns < 31:
 			print(
 				_("Terminal can't support dialog, falling back to readline"),
@@ -143,10 +142,8 @@ class Terminal:
 		"""Restore the mode the Terminal was initialized with."""
 		if not self.console.is_terminal:
 			return
-		try:
+		with contextlib.suppress(termios.error):
 			termios.tcsetattr(self.STDIN, termios.TCSAFLUSH, self.mode)
-		except termios.error:
-			pass
 
 	def restore_locale(self) -> None:
 		"""Restore the locale to it's original value."""
@@ -154,10 +151,8 @@ class Terminal:
 
 	def set_raw(self) -> None:
 		"""Set terminal raw."""
-		try:
+		with contextlib.suppress(termios.error):
 			tty.setraw(self.STDIN)
-		except termios.error:
-			pass
 
 	def write(self, data: bytes) -> None:
 		"""Write bytes directly to stdout."""
@@ -599,7 +594,7 @@ def transaction_summary(
 
 	if nala_pkgs.install_pkgs:
 		table.add_row(
-			_("Install") if not history else _("Installed"),
+			_("Installed") if history else _("Install"),
 			str(nala_pkgs.install_total),
 			_("Packages"),
 		)
@@ -609,7 +604,7 @@ def transaction_summary(
 
 	if nala_pkgs.upgrade_total:
 		table.add_row(
-			_("Upgrade") if not history else _("Upgraded"),
+			_("Upgraded") if history else _("Upgrade"),
 			str(nala_pkgs.upgrade_total),
 			_("Packages"),
 		)

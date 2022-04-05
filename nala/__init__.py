@@ -32,7 +32,6 @@ import sys
 PY_PATH = "/usr/lib/python3/dist-packages"
 if PY_PATH not in sys.path:
 	sys.path.append(PY_PATH)
-
 import gettext
 
 import apt_pkg
