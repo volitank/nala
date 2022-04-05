@@ -523,13 +523,14 @@ def dedupe_list(original: Iterable[str]) -> list[str]:
 
 def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
 	"""Return the correct headers for the summary."""
-	if "purge" in arguments.command or arguments.purge and history:
-		return _("Purged"), _("Purged:"), _("Auto-Purged"), _("Auto-Purged:")
-	if "purge" in arguments.command or arguments.purge and not history:
+	if history:
+		if arguments.is_purge():
+			return _("Purged"), _("Purged:"), _("Auto-Purged"), _("Auto-Purged:")
+		return _("Removed"), _("Removed:"), _("Auto-Removed"), _("Auto-Removed:")
+
+	if arguments.is_purge():
 		return _("Purge"), _("Purging:"), _("Auto-Purge"), _("Auto-Purging:")
-	if not history:
-		return _("Remove"), _("Removing:"), _("Auto-Remove"), _("Auto-Removing:")
-	return _("Removed"), _("Removed:"), _("Auto-Removed"), _("Auto-Removed:")
+	return _("Remove"), _("Removing:"), _("Auto-Remove"), _("Auto-Removing:")
 
 
 def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
