@@ -45,7 +45,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "3.8"
 httpx = "~0.22.0"
 rich = "^11.2.0"
 pexpect = "^4.8.0"
