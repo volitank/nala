@@ -112,6 +112,7 @@ nala_pkgs = PackageHandler()
 def _update(
 	debug: bool = DEBUG,
 	raw_dpkg: bool = RAW_DPKG,
+	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Update package list."""
@@ -122,7 +123,7 @@ def _update(
 
 @_doc
 @nala.command()
-# pylint: disable=unused-argument,too-many-arguments
+# pylint: disable=unused-argument,too-many-arguments, too-many-locals
 def upgrade(
 	exclude: Optional[list[str]] = typer.Option(
 		None,
