@@ -73,7 +73,7 @@ no_update = (
 class Arguments:
 	"""Arguments class."""
 
-	# pylint: disable=too-many-instance-attributes
+	# pylint: disable=too-many-instance-attributes, too-many-public-methods
 	def __init__(self) -> None:
 		"""Arguments class."""
 		self.command: str = ""
@@ -108,8 +108,9 @@ class Arguments:
 		self.history: str
 		self.history_id: str
 
-		self.scroll = config.find_b("Nala::ScrollingText", True)
-		self.auto_remove = config.find_b("Nala::AutoRemove", True)
+		self.scroll: bool
+		self.auto_remove: bool
+		self.init_config()
 
 	def __str__(self) -> str:
 		"""Return the state of the object as a string."""
@@ -229,13 +230,20 @@ class Arguments:
 		try:
 			for opt in value:
 				dpkg, option = opt.split("=")
-				config.set(dpkg, option)
+				config.set(dpkg, option.strip('"'))
+			# Reinitialize Nala configs in case a Nala option was given
+			self.init_config()
 		except ValueError:
 			sys.exit(
 				_("{error} Option {option}: Configuration item must have a '='").format(
-					error = ERROR_PREFIX, option = opt
+					error=ERROR_PREFIX, option=opt
 				)
 			)
+
+	def init_config(self) -> None:
+		"""Initialize Nala Configs."""
+		self.scroll = config.find_b("Nala::ScrollingText", True)
+		self.auto_remove = config.find_b("Nala::AutoRemove", True)
 
 	def state(self) -> str:
 		"""Return the state of the object as a string."""
@@ -323,6 +331,7 @@ DEBUG = typer.Option(
 
 AUTO_REMOVE = typer.Option(
 	None,
+	"--autoremove / --no-autoremove",
 	callback=arguments.set_auto_remove,
 	is_eager=True,
 	help=_("Toggle autoremoving packages"),

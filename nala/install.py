@@ -812,7 +812,7 @@ def check_work(
 
 def check_essential(pkgs: list[Package]) -> None:
 	"""Check removal of essential packages."""
-	dprint(f"Checking Essential: {arguments.remove_essential}")
+	dprint(f"Checking Essential: {not arguments.remove_essential}")
 	if arguments.remove_essential:
 		return
 	essential: list[Text] = []

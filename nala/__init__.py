@@ -38,6 +38,7 @@ import gettext
 import apt_pkg
 from rich.console import Console
 from rich.traceback import install
+
 install(show_locals=True)
 
 if "APT" not in apt_pkg.config:
