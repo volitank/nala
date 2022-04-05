@@ -356,13 +356,11 @@ def _fix_broken(nested_cache: Cache | None = None) -> None:
 def show(
 	pkg_names: list[str] = typer.Argument(..., help=_("Package(s) to show")),
 	debug: bool = DEBUG,
-	update: bool = UPDATE,
 	verbose: bool = VERBOSE,
 	all_versions: bool = ALL_VERSIONS,
 ) -> None:
 	"""Show package details."""
-	sudo_check()
-	cache = setup_cache()
+	cache = Cache()
 	not_found: list[str] = []
 	pkg_names = cache.glob_filter(pkg_names)
 	pkg_names = cache.virtual_filter(pkg_names)
@@ -390,7 +388,6 @@ def search(
 	regex: str = typer.Argument(..., help=_("Regex or word to search for")),
 	debug: bool = DEBUG,
 	full: bool = FULL,
-	update: bool = UPDATE,
 	names: bool = NAMES,
 	installed: bool = INSTALLED,
 	upgradable: bool = UPGRADABLE,
@@ -401,8 +398,7 @@ def search(
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Search package names and descriptions."""
-	sudo_check()
-	cache = setup_cache()
+	cache = Cache()
 	found: list[tuple[Package, Version]] = []
 	if regex == "*":
 		regex = ".*"
@@ -441,7 +437,6 @@ def list_pkgs(
 	),
 	debug: bool = DEBUG,
 	full: bool = FULL,
-	update: bool = UPDATE,
 	installed: bool = INSTALLED,
 	upgradable: bool = UPGRADABLE,
 	upgradeable: bool = UPGRADEABLE,
@@ -450,8 +445,7 @@ def list_pkgs(
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""List packages based on package names."""
-	sudo_check()
-	cache = setup_cache()
+	cache = Cache()
 
 	def _list_gen() -> Generator[
 		tuple[Package, Version | tuple[Version, ...]], None, None

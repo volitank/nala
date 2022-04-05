@@ -347,9 +347,6 @@ def sudo_check(args: Iterable[str] | None = None) -> None:
 		if arguments.command == "install" and arguments.fix_broken and not args:
 			msg = _("{error} Nala needs root to fix broken packages")
 			sys.exit(msg.format(error=ERROR_PREFIX))
-		if arguments.command in ("show", "search", "list") and arguments.update:
-			msg = _("{error} Nala needs root to update the cache")
-			sys.exit(msg.format(error=ERROR_PREFIX))
 		sys.exit(msg.format(error=ERROR_PREFIX, command=arguments.command))
 
 
