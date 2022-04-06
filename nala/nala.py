@@ -236,7 +236,7 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 	not_found.extend(not_exist)
 
 	if not_found or ver_failed:
-		pkg_error(not_found, cache, terminate=True)
+		pkg_error(not_found, cache)
 
 	pkgs = [cache[pkg_name] for pkg_name in pkg_names]
 	if (

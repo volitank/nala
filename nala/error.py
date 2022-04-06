@@ -175,33 +175,29 @@ def essential_error(pkg_list: list[Text]) -> NoReturn:
 	sys.exit(1)
 
 
-def pkg_error(
-	pkg_list: list[str], cache: Cache, terminate: bool = False, remove: bool = False
-) -> None:
+def pkg_error(pkg_list: list[str], cache: Cache, remove: bool = False) -> NoReturn:
 	"""Print error for package in list."""
-	header = NOTICE_PREFIX if remove else ERROR_PREFIX
 	for pkg_name in pkg_list:
 		if cache.is_any_virtual(pkg_name):
 			if remove:
 				eprint(
 					_(
 						"{error} Virtual Packages like {pkg_name} can't be removed."
-					).format(error=header, pkg_name=color(pkg_name, "YELLOW"))
+					).format(error=ERROR_PREFIX, pkg_name=color(pkg_name, "YELLOW"))
 				)
 				continue
 			eprint(
 				_("{error} {pkg_name} has no installation candidate.").format(
-					error=header, pkg_name=color(pkg_name, "YELLOW")
+					error=ERROR_PREFIX, pkg_name=color(pkg_name, "YELLOW")
 				)
 			)
 			continue
 		eprint(
 			_("{error} {pkg_name} not found").format(
-				error=header, pkg_name=color(pkg_name, "YELLOW")
+				error=ERROR_PREFIX, pkg_name=color(pkg_name, "YELLOW")
 			)
 		)
-	if terminate:
-		sys.exit(1)
+	sys.exit(1)
 
 
 def print_dpkg_errors() -> None:
