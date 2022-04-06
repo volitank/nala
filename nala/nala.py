@@ -186,7 +186,7 @@ def upgrade(
 			cache.upgrade(dist_upgrade=arguments.full)
 
 		auto_remover(cache, nala_pkgs)
-		get_changes(cache, nala_pkgs, upgrade=True)
+		get_changes(cache, nala_pkgs, "upgrade")
 
 	_upgrade(full, exclude)
 
@@ -238,20 +238,20 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 	if not_found or ver_failed:
 		pkg_error(not_found, cache)
 
-	pkgs = [cache[pkg_name] for pkg_name in pkg_names]
+	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
 	if (
 		not package_manager(pkg_names, cache)
 		# We also check to make sure that all the packages are still
 		# Marked upgrade or install after the package manager is run
 		or not all(
 			(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
-			for pkg in pkgs
+			for pkg in nala_pkgs.user_explicit
 		)
 	) and not broken_error(broken, cache):
-		unmarked_error(pkgs)
+		unmarked_error(nala_pkgs.user_explicit)
 
 	auto_remover(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs)
+	get_changes(cache, nala_pkgs, "install")
 
 
 @nala.command(help=_("Remove packages."))
@@ -279,7 +279,8 @@ def remove(
 
 def _remove(pkg_names: list[str]) -> None:
 	sudo_check()
-	arg_check(pkg_names)
+	pkg_names = arg_check(pkg_names)
+
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 
@@ -294,6 +295,7 @@ def _remove(pkg_names: list[str]) -> None:
 	if not_found or ver_failed:
 		pkg_error(not_found, cache, remove=True)
 
+	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
 	if not package_manager(pkg_names, cache, remove=True):
 		broken_error(
 			broken,
@@ -304,9 +306,8 @@ def _remove(pkg_names: list[str]) -> None:
 				if pkg.is_installed and pkg_installed(pkg).dependencies
 			),
 		)
-
 	auto_remover(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs, remove=True)
+	get_changes(cache, nala_pkgs, "remove")
 
 
 @nala.command("autoremove", help=_("Autoremove packages that are no longer needed."))
@@ -329,7 +330,7 @@ def _auto_remove(
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 	auto_remover(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs, remove=True)
+	get_changes(cache, nala_pkgs, "remove")
 
 
 def _fix_broken(nested_cache: Cache | None = None) -> None:
@@ -347,7 +348,7 @@ def _fix_broken(nested_cache: Cache | None = None) -> None:
 		)
 	else:
 		check_state(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs)
+	get_changes(cache, nala_pkgs, "fix-broken")
 
 
 @_doc

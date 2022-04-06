@@ -224,22 +224,20 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				term_log.write(_("Log Ended: [{date}]\n\n").format(date=get_date()))
 
 
-def get_changes(
-	cache: Cache, nala_pkgs: PackageHandler, upgrade: bool = False, remove: bool = False
-) -> None:
+def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None:
 	"""Get packages requiring changes and process them."""
 	cache.purge_removed()
 	pkgs = sorted(cache.get_changes(), key=sort_pkg_name)
 	if not NALA_DIR.exists():
 		NALA_DIR.mkdir()
 
-	if not upgrade and not remove:
+	if operation not in ("upgrade", "remove"):
 		if not arguments.install_recommends:
 			get_extra_pkgs("Recommends", pkgs, nala_pkgs.recommend_pkgs)
 		if not arguments.install_suggests:
 			get_extra_pkgs("Suggests", pkgs, nala_pkgs.suggest_pkgs)
 
-	check_work(pkgs, nala_pkgs, upgrade, remove)
+	check_work(pkgs, nala_pkgs, operation)
 
 	if pkgs or nala_pkgs.local_debs or nala_pkgs.configure_pkgs:
 		check_essential(pkgs)
@@ -265,7 +263,7 @@ def get_changes(
 
 	download(pkgs)
 
-	write_history(nala_pkgs)
+	write_history(cache, nala_pkgs, operation)
 	start_dpkg(cache, nala_pkgs)
 
 
@@ -787,23 +785,24 @@ def check_term_ask() -> None:
 		sys.exit(0)
 
 
-def check_work(
-	pkgs: list[Package], nala_pkgs: PackageHandler, upgrade: bool, remove: bool
-) -> None:
+def check_work(pkgs: list[Package], nala_pkgs: PackageHandler, operation: str) -> None:
 	"""Check if there is any work for nala to do.
 
 	Returns None if there is work, exit's successful if not.
 	"""
 	if nala_pkgs.configure_pkgs:
 		return
-	if upgrade and not pkgs:
+	if operation == "upgrade" and not pkgs:
 		print(color(_("All packages are up to date.")))
 		sys.exit(0)
-	elif not remove and not pkgs and not nala_pkgs.local_debs:
+	elif operation == "install" and not pkgs and not nala_pkgs.local_debs:
 		print(color(_("Nothing for Nala to do.")))
 		sys.exit(0)
-	elif remove and not pkgs:
+	elif operation == "remove" and not pkgs:
 		print(color(_("Nothing for Nala to remove.")))
+		sys.exit(0)
+	elif operation == "fix-broken" and not pkgs:
+		print(color(_("Nothing for Nala to fix.")))
 		sys.exit(0)
 
 

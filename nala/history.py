@@ -34,8 +34,10 @@ from typing import Iterable, Union, cast
 
 import jsbeautifier
 import typer
+from apt.package import Package
 
 from nala import _, color
+from nala.cache import Cache
 from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY, WARNING_PREFIX
 from nala.options import (
 	ASSUME_YES,
@@ -117,13 +119,14 @@ def history_summary(ctx: typer.Context) -> None:
 		return
 
 	if not NALA_HISTORY.exists():
-		eprint(_("{error} No history exists...").format(error=ERROR_PREFIX))
-		return
+		sys.exit(_("{error} No history exists.").format(error=ERROR_PREFIX))
 	history_file = load_history_file()
+	pop_nala(history_file)
+
 	names: list[Iterable[str]] = []
 
 	for key, entry in history_file.items():
-		command = get_history_command(entry)
+		command = get_list(entry, "Command")
 		if command[0] in ("update", "upgrade"):
 			for pkg in get_nala_packages(entry, "Upgraded"):
 				command.append(pkg.name)
@@ -140,6 +143,8 @@ def history_summary(ctx: typer.Context) -> None:
 				),
 			)
 		)
+	if not names:
+		sys.exit(_("{error} No history exists.").format(error=ERROR_PREFIX))
 
 	max_width = term.columns - 69
 	history_table = Table(
@@ -160,7 +165,7 @@ def history_summary(ctx: typer.Context) -> None:
 def get_nala_packages(hist_entry: HistoryEntry, key: str) -> list[NalaPackage]:
 	"""Type cast history package is list of lists."""
 	nala_pkgs = []
-	for pkg_list in get_history_packages(hist_entry, key):
+	for pkg_list in get_packages(hist_entry, key):
 		dprint(f"{key} List: {pkg_list}")
 		if len(pkg_list) == 4:
 			try:
@@ -175,19 +180,29 @@ def get_nala_packages(hist_entry: HistoryEntry, key: str) -> list[NalaPackage]:
 	return nala_pkgs
 
 
-def get_history_packages(hist_entry: HistoryEntry, key: str) -> list[list[str]]:
+def get_packages(hist_entry: HistoryEntry, key: str) -> list[list[str]]:
 	"""Type cast history packages is list of strings."""
-	return cast(list[list[str]], hist_entry.get(key, [[""]]))
+	return cast(list[list[str]], hist_entry.get(key, [[]]))
 
 
-def get_history_command(hist_entry: HistoryEntry) -> list[str]:
+def get_list(hist_entry: HistoryEntry, key: str) -> list[str]:
 	"""Type cast history command is list of strings."""
-	return cast(list[str], hist_entry.get("Command", [""]))
+	return cast(list[str], hist_entry.get(key, []))
 
 
-def get_history_bool(hist_entry: HistoryEntry, key: str) -> bool:
+def get_bool(hist_entry: HistoryEntry, key: str) -> bool:
 	"""Type cast history entry is bool."""
 	return cast(bool, hist_entry.get(key, False))
+
+
+def get_str(hist_entry: HistoryEntry, key: str) -> str:
+	"""Type cast history entry is str."""
+	return cast(str, hist_entry.get(key, ""))
+
+
+def pop_nala(hist_file: HistoryFile) -> HistoryEntry:
+	"""Pop the Nala field from the history."""
+	return hist_file.pop("Nala", {})
 
 
 @_doc
@@ -202,7 +217,7 @@ def history_info(
 	dprint(f"History info {hist_id}")
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")
-	arguments.purge = get_history_bool(hist_entry, "Purged")
+	arguments.purge = get_bool(hist_entry, "Purged")
 	nala_pkgs = PackageHandler()
 	nala_pkgs.autoremove_pkgs = get_nala_packages(hist_entry, "Auto-Removed")
 	nala_pkgs.delete_pkgs = get_nala_packages(hist_entry, "Removed")
@@ -233,7 +248,11 @@ def unlink_history(value: bool) -> None:
 	if not value:
 		return
 	dprint("History clear all")
+
+	history_dict = {"Nala": get_history("Nala")}
 	NALA_HISTORY.unlink(missing_ok=True)
+	write_history_file(history_dict)
+
 	print(_("History has been cleared"))
 	sys.exit()
 
@@ -262,6 +281,7 @@ def history_clear(
 			)
 		)
 	history_edit: HistoryFile = {}
+	nala_dict = pop_nala(history_file)
 	num = 0
 	# Using sum increments to relabled the IDs so when you remove just one
 	# There isn't a gap in ID numbers and it looks concurrent.
@@ -269,6 +289,7 @@ def history_clear(
 		if key != hist_id:
 			num += 1
 			history_edit[str(num)] = value
+	history_edit["Nala"] = nala_dict
 	print(_("History has been altered..."))
 	write_history_file(history_edit)
 
@@ -311,30 +332,36 @@ def history_undo(
 	dprint(f"Transaction: {transaction}")
 
 	if not arguments.purge:
-		if purge := get_history_bool(transaction, "Purged"):
+		if purge := get_bool(transaction, "Purged"):
 			eprint(
 				_("{warn} This history entry was a purge.").format(warn=WARNING_PREFIX)
 			)
 			if ask(_("Do you want to continue with purge enabled?")):
 				arguments.purge = purge
 
-	command = get_history_command(transaction)[0]
-	if command == "remove":
-		pkgs = [pkg[0] for pkg in get_history_packages(transaction, "Removed")]
-		pkgs.extend(
-			[pkg[0] for pkg in get_history_packages(transaction, "Auto-Removed")]
-		)
+	explicit = get_list(transaction, "Explicit")
+	operation = get_str(transaction, "Operation")
+	command = get_list(transaction, "Command")[0]
+
+	if operation == "remove" or command in (
+		"remove",
+		"purge",
+		"autoremove",
+		"autopurge",
+	):
+		pkgs = [pkg[0] for pkg in get_packages(transaction, "Removed")]
+		pkgs.extend([pkg[0] for pkg in get_packages(transaction, "Auto-Removed")])
 
 		if redo:
 			_remove(pkgs)
 			return
-		_install(pkgs, ctx)
+		_install(explicit or pkgs, ctx)
 		return
 
-	if command == "install":
-		pkgs = [pkg[0] for pkg in get_history_packages(transaction, "Installed")]
+	if operation == "install" or command == "install":
+		pkgs = [pkg[0] for pkg in get_packages(transaction, "Installed")]
 		if redo:
-			_install(pkgs, ctx)
+			_install(explicit or pkgs, ctx)
 			return
 		_remove(pkgs)
 		return
@@ -345,9 +372,32 @@ def history_undo(
 	)
 
 
-def write_history(handler: PackageHandler) -> None:
+def set_user_installed(
+	cache: Cache, user_explicit: list[Package], user_installed: set[str]
+) -> None:
+	"""Set the User-Installed field."""
+	if user_explicit:
+		for pkg in user_explicit:
+			if pkg.marked_install:
+				user_installed.add(pkg.name)
+			if pkg.marked_delete:
+				user_installed.discard(pkg.name)
+
+	for pkg_name in user_installed:
+		if pkg_name not in cache:
+			user_installed.discard(pkg_name)
+		pkg = cache[pkg_name]
+		if pkg.installed or pkg.marked_install:
+			continue
+		user_installed.discard(pkg.name)
+
+
+def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None:
 	"""Prepare history for writing."""
 	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
+	nala_dict = pop_nala(history_dict)
+	user_installed = set(get_list(nala_dict, "User-Installed"))
+
 	hist_id = str(len(history_dict) + 1 if history_dict else 1)
 	altered = (
 		handler.delete_total
@@ -358,12 +408,16 @@ def write_history(handler: PackageHandler) -> None:
 		+ handler.downgrade_total
 	)
 
+	set_user_installed(cache, handler.user_explicit, user_installed)
+
 	transaction: HistoryEntry = {
 		"Date": get_date(),
 		"Requested-By": f"{USER} ({UID})",
 		"Command": sys.argv[1:],
 		"Altered": str(altered),
 		"Purged": arguments.is_purge(),
+		"Operation": operation,
+		"Explicit": [pkg.name for pkg in handler.user_explicit],
 		"Removed": [
 			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs
 		],
@@ -387,6 +441,9 @@ def write_history(handler: PackageHandler) -> None:
 	}
 
 	history_dict[hist_id] = transaction
+	nala_dict["History-Version"] = "1"
+	nala_dict["User-Installed"] = list(user_installed)
+	history_dict["Nala"] = nala_dict
 	write_history_file(history_dict)
 
 
