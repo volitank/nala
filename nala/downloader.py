@@ -602,7 +602,7 @@ def download(pkgs: list[Package]) -> None:
 	)
 	try:
 		run(downloader.start_download())
-	except CancelledError as error:
+	except (CancelledError, RuntimeError) as error:
 		if downloader.exit:
 			sys.exit(downloader.exit)
 		raise error from error
