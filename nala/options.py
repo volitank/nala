@@ -87,6 +87,7 @@ class Arguments:
 		self.install_suggests: bool
 		self.remove_essential: bool
 		self.assume_yes: bool
+		self.assume_no: bool
 		self.update: bool
 		self.raw_dpkg: bool
 		self.purge: bool
@@ -149,9 +150,13 @@ class Arguments:
 		"""Set option."""
 		self.fix_broken = value
 
-	def set_assume_yes(self, value: bool) -> None:
+	def set_assume_prompt(self, value: Optional[bool]) -> None:
 		"""Set option."""
-		self.assume_yes = value
+		if value is None:
+			self.assume_yes = self.assume_no = False
+		else:
+			self.assume_yes = value
+			self.assume_no = not value
 
 	def set_raw_dpkg(self, value: bool) -> None:
 		"""Set option."""
@@ -394,10 +399,10 @@ FIX_BROKEN = typer.Option(
 )
 
 ASSUME_YES = typer.Option(
-	False,
-	"-y",
-	"--assume-yes",
-	callback=arguments.set_assume_yes,
+	None,
+	"-y / -n",
+	"--assume-yes / --assume-no",
+	callback=arguments.set_assume_prompt,
 	is_eager=True,
 	help=_("Assume 'yes' to all prompts"),
 )

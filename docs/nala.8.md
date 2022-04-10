@@ -40,7 +40,7 @@ Nala - A prettier front-end for libapt-pkg
 	*\--exclude* packages to exclude when updating. Glob enabled, for example. **nala update** *\--exclude* *linux-image**
 
 **autoremove**, **autopurge**
-: > **autoremove/purge** removes or purges packages that are no longer needed.
+: > **autoremove/autopurge** removes or purges packages that are no longer needed.
 
 **clean**
 : > **clean** is exactly like running *apt clean*.
@@ -118,8 +118,10 @@ Nala - A prettier front-end for libapt-pkg
 **\--help**
 : >*\--help* will print out a help message for each subcommand. **nala install** *\--help* is a different message than **nala update** *\--help*.
 
-**-y, \--assume-yes**
+**-y, \--assume-yes** / **-n, \--assume-no**
 : >*\--assume-yes* will automatically select yes for any prompts which may need your input. This can potentially be dangerous.
+
+	*\--assume-no* will automatically select no for any prompts which may need your input.
 
 **-d, \--download-only**
 : >*\--download-only* will do just that, download packages only. It will not unpack or configure anything.
