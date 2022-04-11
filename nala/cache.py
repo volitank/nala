@@ -44,6 +44,9 @@ if TYPE_CHECKING:
 	from nala.dpkg import InstallProgress, UpdateProgress
 
 
+PACKAGES_CAN_BE_UPGRADED = "\n" + _("The following {total} packages can be upgraded:")
+
+
 class Cache(_Cache):
 	"""Subclass of apt.cache to add features."""
 
@@ -204,11 +207,19 @@ class Cache(_Cache):
 			if pkg_name in self:
 				pkg = self[pkg_name]
 				if pkg.is_upgradable:
-					print(f"Protecting {color(pkg_name, 'GREEN')} from upgrade")
+					print(
+						_("Protecting {package} from upgrade").format(
+							package=color(pkg_name, "GREEN")
+						)
+					)
 					resolver.protect(self._cache[pkg_name])
 					protected.append(pkg)
 				elif pkg.is_auto_removable:
-					print(f"Protecting {color(pkg_name, 'GREEN')} from auto-removal")
+					print(
+						_("Protecting {package} from auto-removal").format(
+							package=color(pkg_name, "GREEN")
+						)
+					)
 					resolver.protect(self._cache[pkg_name])
 					protected.append(pkg)
 		return protected
@@ -227,11 +238,7 @@ class Cache(_Cache):
 			for pkg in self.upgradable_pkgs()
 			if pkg.installed and pkg.candidate
 		]:
-			print(
-				_("\nThe following {total} packages can be upgraded:").format(
-					total=color(str(len(upgradable)))
-				)
-			)
+			print(PACKAGES_CAN_BE_UPGRADED.format(total=color(len(upgradable))))
 			term.console.print(Columns(upgradable, padding=(0, 2), equal=True))
 			return
 		print(color(_("All packages are up to date.")))
@@ -259,28 +266,31 @@ def install_archives(
 def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 	"""Print the virtual package string."""
 	print(
-		_(
-			"{pkg_name} is a virtual package provided by:\n  {provides}\n"
-			"You should select just one."
-		).format(
-			pkg_name=color(pkg_name, "GREEN"),
-			provides="\n  ".join(
-				f"{color(pkg.name, 'GREEN')} {color_version(pkg.candidate.version)}"
-				for pkg in provides
-				if pkg.candidate
-			),
+		_("{package} is a virtual package provided by:").format(
+			package=color(pkg_name, "GREEN")
 		)
 	)
+	print(
+		"".join(
+			[
+				f"\n  {color(pkg.name, 'GREEN')} {color_version(pkg.candidate.version)}"
+				for pkg in provides
+				if pkg.candidate
+			]
+		).strip("\n")
+	)
+	print(_("You should select just one."))
 
 
 def print_selecting_pkg(provider: str, pkg_name: str) -> None:
 	"""Print that we are selecting a different package."""
 	print(
 		_(
-			"{notice} Selecting {provider}\n" "  Instead of virtual package {package}\n"
+			"{notice} Selecting {provider}\n  Instead of virtual package {package}"
 		).format(
 			notice=NOTICE_PREFIX,
 			provider=color(provider, "GREEN"),
 			package=color(pkg_name, "GREEN"),
-		)
+		),
+		end="\n\n",
 	)

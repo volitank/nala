@@ -40,11 +40,11 @@ def main() -> None:
 	try:
 		nala()
 	except KeyboardInterrupt:
-		eprint(_("\nExiting at your request"))
+		eprint("\n" + _("Exiting at your request."))
 		sys.exit(130)
 	except BrokenPipeError:
 		sys.stderr.close()
 	except OSError as error:
 		if error.errno == errno.ENOSPC:
-			sys.exit(_("{error} No space left on device").format(error=ERROR_PREFIX))
+			sys.exit(_("{error} No space left on device.").format(error=ERROR_PREFIX))
 		raise error from error

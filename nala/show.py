@@ -39,6 +39,8 @@ from nala.options import arguments
 from nala.rich import ascii_replace
 from nala.utils import term, unit_str
 
+# NOTE: This is for `nala show`
+# NOTE: header info looks like "Package: steam:i386"
 SHOW_INFO = _("{header} {info}\n")
 URL_PATTERN = re.compile(r"(https?://.*?/.*?/)")
 
@@ -307,8 +309,7 @@ def additional_notice(additional_records: int) -> None:
 	"""Print notice of additional records."""
 	print(
 		_(
-			"{notice} There are {num} additional records. "
-			"Please use the {switch} switch to see them."
+			"{notice} There are {num} additional records. Please use the {switch} switch to see them."
 		).format(
 			notice=NOTICE_PREFIX,
 			num=color(str(additional_records), "YELLOW"),
@@ -323,11 +324,11 @@ def pkg_not_found(pkg_name: str, cache: Cache, not_found: list[str]) -> None:
 		return
 	if cache.is_secret_virtual(pkg_name):
 		not_found.append(
-			_("{error} {name} has no version to show").format(
-				error=ERROR_PREFIX, name=pkg_name
+			_("{error} {package} has no version to show").format(
+				error=ERROR_PREFIX, package=pkg_name
 			)
 		)
 		return
 	not_found.append(
-		_("{error} {name} not found").format(error=ERROR_PREFIX, name=pkg_name)
+		_("{error} {package} not found").format(error=ERROR_PREFIX, package=pkg_name)
 	)

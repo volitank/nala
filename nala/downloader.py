@@ -65,7 +65,15 @@ from nala.constants import (
 )
 from nala.error import ExitCode, FileDownloadError
 from nala.options import arguments
-from nala.rich import Live, Panel, Pretty, Table, from_ansi, pkg_download_progress
+from nala.rich import (
+	ELLIPSIS,
+	Live,
+	Panel,
+	Pretty,
+	Table,
+	from_ansi,
+	pkg_download_progress,
+)
 from nala.utils import (
 	dprint,
 	eprint,
@@ -79,19 +87,33 @@ from nala.utils import (
 MIRROR_PATTERN = re.compile(r"mirror://(.*?/.*?)/")
 DOMAIN_PATTERN = re.compile(r"(https?://.*?/.*?)/")
 
-TOTAL_PACKAGES = color(_("Total Packages:"), "GREEN")
-STARTING_DOWNLOADS = color(_("Starting Downloads..."), "BLUE")
-STARTING_DOWNLOAD = color(_("Starting Download:"), "BLUE")
-LAST_COMPLETED = color(_("Last Completed:"), "GREEN")
-MIRROR_TIMEOUT = _("Mirror Timedout:")
-DOWNLOAD_COMPLETE = color(_("Download Complete:"), "GREEN")
-TRYING = color(_("Trying:"))
 
-REMOVING_FILE = _("{notice} We have removed {filename} but will try another mirror")
+STARTING_DOWNLOADS = color(_("Starting Downloads") + ELLIPSIS, "BLUE")
+
+STARTING_DOWNLOAD = color(_("Starting Download:"), "BLUE")
+# NOTE: "Starting Download: http://deb.debian.org/debian 3MB"
+# NOTE: "Starting Download:" will be colored blue
+STARTING_DOWNLOAD_STATUS = _("{starting_download} {url} {size}")
+
+DOWNLOAD_COMPLETE = color(_("Download Complete:"), "GREEN")
+# NOTE: "Download Complete: http://deb.debian.org/debian"
+# NOTE: "Download Complete:" will be colored green
+DOWNLOAD_COMPLETE_STATUS = _("{download_complete} {url}")
+
+TOTAL_PACKAGES = color(_("Total Packages:"), "GREEN")
+# NOTE: "Total Packages: 30/100"
+# NOTE: "Starting Download:" will be colored green
+TOTAL_PACKAGES_STATUS = _("{total_packages} {current}/{total}")
+
+LAST_COMPLETED = color(_("Last Completed:"), "GREEN")
+LAST_COMPLETED_STATUS = _("{last_completed} {package}")
+
+
+REMOVING_FILE = _("{notice} Nala has removed {filename} but will try another mirror")
 FAILED_MOVE = _(
 	"{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'"
 )
-FILE_NO_EXIST = _("{error} {filename} Does not exist!")
+FILE_NO_EXIST = _("{error} {filename} does not exist!")
 HASH_MISMATCH = _(
 	"{error} Hash Sum does not match: {filename}\n"
 	"  Expected Hash: {expected}\n"
@@ -102,6 +124,8 @@ SIZE_WRONG = _(
 	"  Expected Size: {expected}\n"
 	"  Received Size: {received}"
 )
+
+## Debugging messages, No translation
 HASH_STATUS = (
 	"Hash Status = [\n    File: {filepath},\n"
 	"    Candidate Hash: {hash_type} {expected},\n"
@@ -114,7 +138,7 @@ HTTPX_STATUS_ERROR = (
 	"    Local Hash: {received},\n"
 	"    Hash Success: {result},\n]"
 )
-
+PEER_CLOSED = "peer closed connection without sending complete message body"
 DownloadErrorTypes = Union[
 	HTTPError, HTTPStatusError, RequestError, OSError, ConnectError, FileDownloadError
 ]
@@ -179,7 +203,13 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 	) -> None:
 		"""Download and write package."""
 		dest = PARTIAL_DIR / get_pkg_name(candidate)
-		vprint(f"{STARTING_DOWNLOAD} {url} {unit_str(candidate.size, 1)}")
+		vprint(
+			STARTING_DOWNLOAD_STATUS.format(
+				starting_download=STARTING_DOWNLOAD,
+				url=url,
+				size=unit_str(candidate.size, 1),
+			)
+		)
 		second_attempt = False
 		while True:
 			total_data = 0
@@ -241,7 +271,11 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 
 					await process_downloads(candidate)
 					check_pkg(ARCHIVE_DIR, candidate, is_download=True)
-					vprint(f"{DOWNLOAD_COMPLETE} {url}")
+					vprint(
+						DOWNLOAD_COMPLETE_STATUS.format(
+							download_complete=DOWNLOAD_COMPLETE, url=url
+						)
+					)
 
 					self.count += 1
 					self.current[domain] -= 1
@@ -325,16 +359,31 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		table = Table.grid()
 		if arguments.debug:
 			table.add_row(Pretty(self.current))
-		table.add_row(from_ansi(f"{TOTAL_PACKAGES} {self.count}/{self.total_pkgs}"))
+		table.add_row(
+			from_ansi(
+				TOTAL_PACKAGES_STATUS.format(
+					total_packages=TOTAL_PACKAGES,
+					current=self.count,
+					total=self.total_pkgs,
+				)
+			)
+		)
+
 		if not self.last_completed:
 			table.add_row(from_ansi(STARTING_DOWNLOADS))
 		else:
-			table.add_row(from_ansi(f"{LAST_COMPLETED} {self.last_completed}"))
+			table.add_row(
+				from_ansi(
+					LAST_COMPLETED_STATUS.format(
+						last_completed=LAST_COMPLETED, package=self.last_completed
+					)
+				)
+			)
 
 		table.add_row(pkg_download_progress.get_renderable())
 		return Panel(
 			table,
-			title="[bold default]" + _("Downloading..."),
+			title="[bold default]" + _("Downloading") + ELLIPSIS,
 			title_align="left",
 			border_style="bold green",
 		)
@@ -355,7 +404,7 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 				self.fatal = True
 			return
 
-		vprint(f"{TRYING} {next_url}")
+		vprint(_("Trying the next url: {url}").format(url=next_url))
 
 	async def _update_progress(self, len_data: int, failed: bool = False) -> None:
 		"""Update download progress."""
@@ -371,14 +420,14 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 def untrusted_error(untrusted: list[str]) -> None:
 	"""Print the untrusted warnings and exit if we're not allowed."""
 	eprint(
-		_("{warn} The following packages cannot be authenticated!").format(
-			warn=WARNING_PREFIX
+		_("{warning} The following packages cannot be authenticated!").format(
+			warning=WARNING_PREFIX
 		)
 	)
 	eprint(f"  {', '.join(untrusted)}")
 	if not apt_pkg.config.find_b("APT::Get::AllowUnauthenticated", False):
 		sys.exit(
-			_("{error} Some packages are unable to be authenticated").format(
+			_("{error} Some packages were unable to be authenticated").format(
 				error=ERROR_PREFIX
 			)
 		)
@@ -392,7 +441,11 @@ def untrusted_error(untrusted: list[str]) -> None:
 def print_error(error: DownloadErrorTypes) -> None:
 	"""Print the download error to console."""
 	if isinstance(error, ConnectTimeout):
-		eprint(f"{ERROR_PREFIX} {MIRROR_TIMEOUT} {error.request.url}")
+		eprint(
+			_("{error} {url} timed out:").format(
+				error=ERROR_PREFIX, url=error.request.url
+			)
+		)
 		return
 	if isinstance(error, ConnectError):
 		# ConnectError: [Errno -2] Name or service not known

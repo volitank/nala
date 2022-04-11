@@ -62,6 +62,7 @@ from nala.error import (
 from nala.history import write_history
 from nala.options import arguments
 from nala.rich import Text, dpkg_progress, from_ansi
+from nala.summary import print_update_summary
 from nala.utils import (
 	DelayedKeyboardInterrupt,
 	NalaPackage,
@@ -72,7 +73,6 @@ from nala.utils import (
 	get_date,
 	pkg_candidate,
 	pkg_installed,
-	print_update_summary,
 	term,
 )
 
@@ -213,7 +213,9 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	with DpkgLive(install=True) as live:
 		with open(DPKG_LOG, "w", encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, "a", encoding="utf-8") as term_log:
-				term_log.write(_("Log Started: [{date}]\n").format(date=get_date()))
+				term_log.write(
+					_("Log Started: [{date}]").format(date=get_date()) + "\n"
+				)
 				if arguments.raw_dpkg:
 					live.stop()
 				install = InstallProgress(dpkg_log, term_log, live, task)
@@ -221,7 +223,9 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				cache.commit_pkgs(install, update)
 				if nala_pkgs.local_debs:
 					cache.commit_pkgs(install, update, nala_pkgs.local_debs)
-				term_log.write(_("Log Ended: [{date}]\n\n").format(date=get_date()))
+				term_log.write(
+					_("Log Ended: [{date}]").format(date=get_date()) + "\n\n"
+				)
 
 
 def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None:
@@ -282,7 +286,7 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		with open(DPKG_LOG, "a", encoding="utf-8") as file:
 			file.write("FetchedFailedException:\n")
 			file.write(str(error))
-		eprint(_("{error} Fetching Packages has failed!").format(error=ERROR_PREFIX))
+		eprint(_("{error} Fetching packages has failed!").format(error=ERROR_PREFIX))
 		sys.exit(1)
 	except KeyboardInterrupt:
 		eprint(_("Exiting due to SIGINT"))
@@ -339,14 +343,11 @@ def satisfy_notice(pkg: NalaDebPackage) -> None:
 		)
 	if fixer:
 		print(
-			_(
-				"{notice} The following will be installed to satisfy {pkg_name}:\n  {depends}"
-			).format(
-				notice=NOTICE_PREFIX,
-				pkg_name=color(pkg.name, "GREEN"),
-				depends=", ".join(fixer),
+			_("{notice} The following will be installed to satisfy {package}:").format(
+				notice=NOTICE_PREFIX, pkg_name=color(pkg.name, "GREEN")
 			)
 		)
+		print(f"  {', '.join(fixer)}")
 
 
 def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> bool:
@@ -386,12 +387,12 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> bool:
 				color_name = color(cache_pkg.name, "GREEN")
 				print(
 					_(
-						"{notice} Newer version {cache_pkg} {cache_ver} exists in the cache.\n"
+						"{notice} Newer version {package} {version} exists in the cache.\n"
 						"You should consider using `{command}`"
 					).format(
 						notice=NOTICE_PREFIX,
-						cache_pkg=color_name,
-						cache_ver=color_version(cache_pkg.candidate.version),
+						package=color_name,
+						version=color_version(cache_pkg.candidate.version),
 						command=f"{color('nala install')} {color_name}",
 					)
 				)
@@ -428,10 +429,10 @@ def prioritize_local(
 	"""Print a notice of prioritization and remove the pkg name from list."""
 	assert deb_pkg.filename
 	print(
-		_("{notice} {deb} has taken priority over {pkg} from the cache.").format(
+		_("{notice} {deb} has taken priority over {package} from the cache.").format(
 			notice=NOTICE_PREFIX,
 			deb=color(deb_pkg.filename.split("/")[-1], "GREEN"),
-			pkg=color(cache_name, "YELLOW"),
+			package=color(cache_name, "YELLOW"),
 		)
 	)
 	pkg_names.remove(cache_name)
@@ -526,10 +527,10 @@ def set_candidate_versions(
 			continue
 		failed = True
 		eprint(
-			_("{error} Version {version} not found for package {pkg}").format(
+			_("{error} Version {version} not found for package {package}").format(
 				error=ERROR_PREFIX,
 				version=color_version(version),
-				pkg=color(pkg_name, "GREEN"),
+				package=color(pkg_name, "GREEN"),
 			)
 		)
 	return not_found, failed
@@ -634,8 +635,8 @@ def mark_pkg(pkg: Package, depcache: DepCache, remove: bool = False) -> bool:
 	if remove:
 		if not pkg.installed:
 			eprint(
-				_("{notice} {pkg_name} is not installed").format(
-					notice=NOTICE_PREFIX, pkg_name=color(pkg.name, "YELLOW")
+				_("{notice} {package} is not installed").format(
+					notice=NOTICE_PREFIX, package=color(pkg.name, "YELLOW")
 				)
 			)
 			return False
@@ -649,8 +650,8 @@ def mark_pkg(pkg: Package, depcache: DepCache, remove: bool = False) -> bool:
 		and pkg.installed.version == pkg.candidate.version
 	):
 		print(
-			_("{pkg_name} is already at the latest version {version}").format(
-				pkg_name=color(pkg.name, "GREEN"),
+			_("{package} is already at the latest version {version}").format(
+				package=color(pkg.name, "GREEN"),
 				version=color(pkg.installed.version, "BLUE"),
 			)
 		)
@@ -766,7 +767,11 @@ def check_term_ask() -> None:
 	"""Check terminal and ask user if they want to continue."""
 	# If we're piped or something the user should specify --assume-yes
 	# As They are aware it can be dangerous to continue
-	if not term.console.is_terminal and not arguments.assume_yes:
+	if (
+		not term.console.is_terminal
+		and not arguments.assume_yes
+		and not arguments.assume_no
+	):
 		sys.exit(
 			_(
 				"{error} It can be dangerous to continue without a terminal. Use `--assume-yes`"

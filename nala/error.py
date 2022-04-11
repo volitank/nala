@@ -49,17 +49,13 @@ BREAKS = color(_("Breaks:"))
 """'Breaks:'"""
 CONFLICTS = color(_("Conflicts:"))
 """'Conflicts:'"""
-SECRET_VIRTUAL = _("{pkg_name} is only referenced by name, no packages provides it")
-"""'{pkg_name} is a secret virtual package, nothing provides it'"""
-BREAKS_MSG = _("{dependency} will break {pkg_name} {version}")
-"""'{dependency} will break {pkg_name} {version}'"""
-CONFLICTS_MSG = _("{dependency} conflicts with {pkg_name} {version}")
-"""'{dependency} conflicts with {pkg_name} {version}'"""
+SECRET_VIRTUAL = _("{package} is only referenced by name, no packages provides it")
+"""'{package} is a secret virtual package, nothing provides it'"""
+BREAKS_MSG = _("{dependency} will break {package} {version}")
+"""'{dependency} will break {package} {version}'"""
+CONFLICTS_MSG = _("{dependency} conflicts with {package} {version}")
+"""'{dependency} conflicts with {package} {version}'"""
 
-INSTALL_FAILED = _(
-	"{error} Installation has failed.\n"
-	"If you'd like to file a bug report please include '/var/log/nala/dpkg-debug.log'"
-)
 NO_PROPER_ERR = _(
 	"{error} python-apt gave us {apt_err} This isn't a proper error as it's empty"
 )
@@ -128,24 +124,24 @@ def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
 		sys.exit(NO_PROPER_ERR.format(error=ERROR_PREFIX, apt_err=repr(apt_err)))
 
 	if "installArchives() failed" in msg:
-		eprint(INSTALL_FAILED.format(error=ERROR_PREFIX))
+
+		eprint(_("{error} Installation has failed.").format(error=ERROR_PREFIX))
+		eprint(
+			"If you'd like to file a bug report please include '/var/log/nala/dpkg-debug.log'"
+		)
 		sys.exit(1)
 
 	if "," in msg:
 		err_list = set(msg.split(","))
 		for err in err_list:
 			if "E:" in err:
-				err = err.replace("E:", "")
-				eprint(f"{ERROR_PREFIX} {err.strip()}")
+				eprint(f"{ERROR_PREFIX} {err.replace('E:', '').strip()}")
 				continue
 			if "W:" in err:
-				err = err.replace("W:", "")
-				warn = color(_("Warning:"), "YELLOW")
-				eprint(f"{warn} {err.strip()}")
+				eprint(f"{WARNING_PREFIX} {err.replace('W:', '').strip()}")
 				continue
 		sys.exit(1)
-	msg = msg.replace("E:", "")
-	eprint(f"{ERROR_PREFIX} {msg}")
+	eprint(f"{ERROR_PREFIX} {msg.replace('E:', '').strip()}")
 	if not term.is_su():
 		sys.exit(_("Are you root?"))
 	sys.exit(1)
@@ -154,17 +150,13 @@ def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
 def essential_error(pkg_list: list[Text]) -> NoReturn:
 	"""Print error message for essential packages and exit."""
 	print("=" * term.columns)
-	print(
-		_("The Following Packages are {essential}").format(
-			essential=color("Essential!", "RED")
-		)
-	)
+	print(_("{error} The following packages are essential!").format(error=ERROR_PREFIX))
 	print("=" * term.columns)
 	term.console.print(Columns(pkg_list, padding=(0, 2), equal=True))
 	print("=" * term.columns)
 	eprint(
-		_("{error} You have attempted to remove {essential}").format(
-			error=ERROR_PREFIX, essential=color("essential packages", "RED")
+		_("{error} You have attempted to remove essential packages").format(
+			error=ERROR_PREFIX
 		)
 	)
 	eprint(
@@ -182,19 +174,19 @@ def pkg_error(pkg_list: list[str], cache: Cache, remove: bool = False) -> NoRetu
 			if remove:
 				eprint(
 					_(
-						"{error} Virtual Packages like {pkg_name} can't be removed."
-					).format(error=ERROR_PREFIX, pkg_name=color(pkg_name, "YELLOW"))
+						"{error} Virtual Packages like {package} can't be removed."
+					).format(error=ERROR_PREFIX, package=color(pkg_name, "YELLOW"))
 				)
 				continue
 			eprint(
-				_("{error} {pkg_name} has no installation candidate.").format(
-					error=ERROR_PREFIX, pkg_name=color(pkg_name, "YELLOW")
+				_("{error} {package} has no installation candidate.").format(
+					error=ERROR_PREFIX, package=color(pkg_name, "YELLOW")
 				)
 			)
 			continue
 		eprint(
-			_("{error} {pkg_name} not found").format(
-				error=ERROR_PREFIX, pkg_name=color(pkg_name, "YELLOW")
+			_("{error} {package} not found").format(
+				error=ERROR_PREFIX, package=color(pkg_name, "YELLOW")
 			)
 		)
 	sys.exit(1)
@@ -227,16 +219,16 @@ def local_deb_error(error: apt_pkg.Error, name: str) -> NoReturn:
 	msg = str(error)
 	if "Invalid archive signature" in msg:
 		eprint(
-			_("{error} {apt}\n  Unsupported File: {filename}").format(
+			_("{error} {apt_error}\n  Unsupported File: {filename}").format(
 				error=ERROR_PREFIX,
-				apt=msg.replace("E:", ""),
+				apt_error=msg.replace("E:", "").strip(),
 				filename=Path(name).resolve(),
 			)
 		)
 		sys.exit(1)
 	eprint(
-		_("{error} {apt}\n  Could not read meta data from {filename}").format(
-			error=ERROR_PREFIX, apt=msg, filename=Path(name).resolve()
+		_("{error} {apt_error}\n  Could not read meta data from {filename}").format(
+			error=ERROR_PREFIX, apt_error=msg, filename=Path(name).resolve()
 		)
 	)
 	sys.exit(1)
@@ -255,21 +247,19 @@ def format_broken(
 	if cache.is_virtual_package(dep_name):
 		return ""
 	if cache.is_secret_virtual(dep_name):
-		return SECRET_VIRTUAL.format(pkg_name=formatted_dep)
+		return SECRET_VIRTUAL.format(package=formatted_dep)
 	if dep_name not in cache:
-		return _("{pkg_name} but it isn't in the cache").format(pkg_name=formatted_dep)
+		return _("{package} but it isn't in the cache").format(package=formatted_dep)
 	if dep.version and not dep.target_versions and not dep.installed_target_versions:
 		dep_pkg = cache[dep.name]
 		if dep_pkg.candidate and not apt_pkg.check_dep(
 			dep_pkg.candidate.version, dep.relation_deb, dep.version
 		):
-			return _("{pkg_name} but the cache version is {version}").format(
-				pkg_name=formatted_dep, version=color_version(dep_pkg.candidate.version)
+			return _("{package} but the cache version is {version}").format(
+				package=formatted_dep, version=color_version(dep_pkg.candidate.version)
 			)
 		# If none of our conditions are met we just fall back to a general error
-		return _("{pkg_name} but it cannont be installed").format(
-			pkg_name=formatted_dep
-		)
+		return _("{package} but it cannont be installed").format(package=formatted_dep)
 	return ""
 
 
@@ -294,7 +284,7 @@ def format_broken_conflict(
 				from_ansi(
 					msg.format(
 						dependency=formatted_dep,
-						pkg_name=color(break_name, "GREEN"),
+						package=color(break_name, "GREEN"),
 						version=color_version(break_pkg.version),
 					)
 				)

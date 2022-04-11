@@ -54,9 +54,9 @@ from nala.constants import (
 	SOURCEPARTS,
 )
 from nala.downloader import print_error
-from nala.options import ASSUME_YES, DEBUG, VERBOSE, _doc, arguments, nala
-from nala.rich import Live, Panel, Table, fetch_progress
-from nala.utils import ask, dprint, eprint, sudo_check, term
+from nala.options import ASSUME_YES, DEBUG, VERBOSE, arguments, nala
+from nala.rich import ELLIPSIS, Live, Panel, Table, fetch_progress
+from nala.utils import NO, YES, ask, dprint, eprint, sudo_check, term
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
@@ -66,6 +66,16 @@ UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
 LIMITS = Limits(max_connections=50)
 TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
 ErrorTypes = Union[HTTPStatusError, HTTPError, SSLCertVerificationError, ReadTimeout]
+
+FETCH_HELP = _(
+	"""
+Nala will fetch mirrors with the lowest latency.
+
+For Debian https://mirror-master.debian.org/status/Mirrors.masterlist
+
+For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss
+"""
+)
 
 
 class MirrorTest:
@@ -199,9 +209,10 @@ class FetchLive:
 		N returns False
 		"""
 		while True:
-			if (resp := input(f"{question} [Y/n] ")) in ("y", "Y"):
+			resp = input(f"{question} [{YES[0]}/{NO[1]}] ")
+			if resp in YES:
 				return True
-			if resp in ("n", "N"):
+			if resp in NO:
 				return False
 			self.errors += 1
 			print(_("Not a valid choice kiddo"))
@@ -268,7 +279,7 @@ def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
 
 def ubuntu_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
 	"""Get and parse the Ubuntu mirror list."""
-	print(_("Fetching Ubuntu mirrors..."))
+	print(_("Fetching Ubuntu mirrors") + ELLIPSIS)
 	ubuntu = fetch_mirrors("https://launchpad.net/ubuntu/+archivemirrors-rss", "<item>")
 	# This is what one of our "Mirrors might look like after split"
 	#      <title>Steadfast Networks</title>
@@ -289,7 +300,7 @@ def ubuntu_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
 
 def debian_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
 	"""Get and parse the Debian mirror list."""
-	print(_("Fetching Debian mirrors..."))
+	print(_("Fetching Debian mirrors") + ELLIPSIS)
 	debian = fetch_mirrors(
 		"https://mirror-master.debian.org/status/Mirrors.masterlist", "\n\n"
 	)
@@ -509,7 +520,7 @@ def build_sources(  # pylint: disable=too-many-arguments
 	check_sources: bool = False,
 ) -> str:
 	"""Build the sources file and return it as a string."""
-	source = _("# Sources file built for nala") + "\n\n"
+	source = "# Sources file built for nala\n\n"
 	num = 0
 	for line in netselect_scored:
 		# This splits off the score '030 http://mirror.steadfast.net/debian/'
@@ -526,7 +537,7 @@ def build_sources(  # pylint: disable=too-many-arguments
 			break
 	if not live and num != fetches:
 		eprint(
-			_("{notice} We were unable to fetch {num} mirrors.").format(
+			_("{notice} Nala was unable to fetch {num} mirrors.").format(
 				notice=NOTICE_PREFIX, num=fetches
 			)
 		)
@@ -561,18 +572,18 @@ def check_supported(
 		return ubuntu_mirror(country_list), "main restricted universe multiverse"
 	if distro is None or release is None:
 		eprint(
-			_(
-				"{error} There was an issue detecting release. "
-				"You can specify manually\n"
-			).format(error=ERROR_PREFIX)
+			_("{error} There was an issue detecting release.").format(
+				error=ERROR_PREFIX
+			),
+			end="\n\n",
 		)
 	else:
 		eprint(
-			_(
-				"{error} {distro} {release} is unsupported.\n"
-				"You can specify Ubuntu or Debian manually.\n"
-			).format(error=ERROR_PREFIX, distro=distro, release=release)
+			_("{error} {distro} {release} is unsupported.").format(
+				error=ERROR_PREFIX, distro=distro, release=release
+			)
 		)
+	eprint(_("You can specify Ubuntu or Debian manually."), end="\n\n")
 	eprint(ctx.get_help())
 	sys.exit(1)
 
@@ -582,7 +593,7 @@ def fetch_checks(source: str) -> None:
 	print(source, end="")
 	if NALA_SOURCES.exists():
 		if not ask(
-			_("{file} already exists.\n" "Continue and overwrite it?").format(
+			_("{file} already exists.\nContinue and overwrite it?").format(
 				file=color(NALA_SOURCES, "YELLOW")
 			)
 		):
@@ -596,8 +607,7 @@ def fetch_checks(source: str) -> None:
 		sys.exit(_("Abort."))
 
 
-@_doc
-@nala.command(short_help=_("Fetch fast mirrors to speed up downloads."))
+@nala.command(short_help=_("Fetch fast mirrors to speed up downloads"), help=FETCH_HELP)
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def fetch(
 	ctx: typer.Context,

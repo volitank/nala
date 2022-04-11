@@ -53,11 +53,11 @@ from nala.options import (
 	SUGGESTS,
 	UPDATE,
 	VERBOSE,
-	_doc,
 	arguments,
 	history_typer,
 )
-from nala.rich import Column, Table
+from nala.rich import OVERFLOW, Column, Table
+from nala.summary import print_update_summary
 from nala.utils import (
 	DelayedKeyboardInterrupt,
 	NalaPackage,
@@ -66,7 +66,6 @@ from nala.utils import (
 	dprint,
 	eprint,
 	get_date,
-	print_update_summary,
 	term,
 )
 
@@ -83,6 +82,14 @@ HistoryEntry = dict[str, Union[str, bool, list[str], list[list[str]]]]
 
 NOT_SUPPORTED = _(
 	"{error} '{command}' for operations other than install or remove are not currently supported"
+)
+
+HISTORY_HELP = _(
+	"""
+Show transaction history.
+
+Running `nala history` with no subcommands prints an overview of all transactions.
+"""
 )
 
 
@@ -108,8 +115,7 @@ def write_history_file(data: HistoryFile) -> None:
 			file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
 
 
-@_doc
-@history_typer.callback(invoke_without_command=True)
+@history_typer.callback(invoke_without_command=True, help=HISTORY_HELP)
 def history_summary(ctx: typer.Context) -> None:
 	"""Show transaction history.
 
@@ -149,7 +155,7 @@ def history_summary(ctx: typer.Context) -> None:
 	max_width = term.columns - 69
 	history_table = Table(
 		Column("ID"),
-		Column("Command", no_wrap=True, max_width=max_width, overflow=term.overflow),
+		Column("Command", no_wrap=True, max_width=max_width, overflow=OVERFLOW),
 		Column("Date and Time", no_wrap=True),
 		Column("Altered", justify="right"),
 		Column("Requested-By"),
@@ -205,8 +211,7 @@ def pop_nala(hist_file: HistoryFile) -> HistoryEntry:
 	return hist_file.pop("Nala", {})
 
 
-@_doc
-@history_typer.command("info")
+@history_typer.command("info", help=_("Show information about a specific transaction."))
 def history_info(
 	_hist_id: int = typer.Argument(
 		..., metavar="ID", help=_("Transaction number to show info about")
@@ -257,8 +262,7 @@ def unlink_history(value: bool) -> None:
 	sys.exit()
 
 
-@_doc
-@history_typer.command("clear")
+@history_typer.command("clear", help=_("Clear a transaction or the entire history."))
 def history_clear(
 	_hist_id: int = typer.Argument(
 		..., metavar="ID", help=_("Transaction number to clear")
@@ -294,7 +298,6 @@ def history_clear(
 	write_history_file(history_edit)
 
 
-@_doc
 @history_typer.command("undo", help=_("Undo a transaction."))
 @history_typer.command("redo", help=_("Redo a transaction."))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
@@ -334,7 +337,9 @@ def history_undo(
 	if not arguments.purge:
 		if purge := get_bool(transaction, "Purged"):
 			eprint(
-				_("{warn} This history entry was a purge.").format(warn=WARNING_PREFIX)
+				_("{warning} This history entry was a purge.").format(
+					warning=WARNING_PREFIX
+				)
 			)
 			if ask(_("Do you want to continue with purge enabled?")):
 				arguments.purge = purge
@@ -451,7 +456,7 @@ def get_history(hist_id: str) -> HistoryEntry:
 	"""Get the history from file."""
 	dprint(f"Getting history {hist_id}")
 	if not NALA_HISTORY.exists():
-		sys.exit(_("{error} No history exists...").format(error=ERROR_PREFIX))
+		sys.exit(_("{error} No history exists.").format(error=ERROR_PREFIX))
 	if transaction := load_history_file().get(hist_id):
 		return transaction
 	sys.exit(

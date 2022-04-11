@@ -22,7 +22,6 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 """Where Utilities who don't have a special home come together."""
-
 from __future__ import annotations
 
 import contextlib
@@ -36,7 +35,7 @@ from datetime import datetime
 from fcntl import LOCK_EX, LOCK_NB, lockf
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Iterable, Literal, cast
+from typing import TYPE_CHECKING, Any, Iterable
 
 import jsbeautifier
 from apt.package import Package, Version
@@ -50,13 +49,17 @@ from nala.constants import (
 	NALA_LOCK_FILE,
 )
 from nala.options import arguments
-from nala.rich import Group, Table, Tree, from_ansi
+from nala.rich import from_ansi
 
 if TYPE_CHECKING:
-	from nala.cache import Cache
 	from nala.debfile import NalaDebPackage
 
 LOCK_FILE = None
+
+# NOTE: Answers for the Question prompt "[Y/n]"
+YES_NO = _("Y/y N/n").split()
+YES = YES_NO[0].split("/")
+NO = YES_NO[1].split("/")
 
 
 class Terminal:
@@ -161,14 +164,6 @@ class Terminal:
 	def is_xterm(self) -> bool:
 		"""Return True if we're in an xterm, False otherwise."""
 		return "xterm" in self.term_type
-
-	@property
-	def overflow(self) -> Literal["crop"]:
-		"""Return overflow method for Rich."""
-		# We only cast Literal['crop'] here to make mypy happy.
-		return cast(
-			Literal["crop"], "crop" if self.console.options.ascii_only else "ellipsis"
-		)
 
 	@staticmethod
 	def is_su() -> bool:
@@ -307,7 +302,7 @@ class NalaPackage:
 	@property
 	def unit_size(self) -> str:
 		"""Return the size as a readable unit. Example 12MB."""
-		return unit_str(int(self.size))
+		return unit_str(self.size)
 
 
 term = Terminal()
@@ -323,11 +318,13 @@ def ask(question: str, default_no: bool = False) -> bool:
 	"""
 	if arguments.assume_yes:
 		return True
+	if arguments.assume_no:
+		return False
 	while True:
-		resp = input(f"{question} [Y/n] ")
-		if resp in ("y", "Y"):
+		resp = input(f"{question} [{YES[0]}/{NO[1]}] ")
+		if resp in YES:
 			return True
-		if resp in ("n", "N"):
+		if resp in NO:
 			return False
 		if resp == "":
 			return not default_no
@@ -336,18 +333,7 @@ def ask(question: str, default_no: bool = False) -> bool:
 
 def sudo_check(args: Iterable[str] | None = None) -> None:
 	"""Check for root and exit if not root."""
-	no_update = (
-		"update",
-		"upgrade",
-		"install",
-		"remove",
-		"fetch",
-		"clean",
-		"purge",
-		"autoremove",
-		"autopurge",
-	)
-	if (arguments.command in no_update or arguments.update) and not term.is_su():
+	if not term.is_su():
 		if arguments.command == "install" and arguments.fix_broken and not args:
 			sys.exit(
 				_("{error} Nala needs root to fix broken packages").format(
@@ -419,8 +405,8 @@ def get_version(
 		return version
 	# It would be really weird if we ever actually hit this error
 	sys.exit(
-		_("{error} can't find version for {pkg_name}").format(
-			error=ERROR_PREFIX, pkg_name=pkg.name
+		_("{error} can't find version for {package}").format(
+			error=ERROR_PREFIX, package=pkg.name
 		)
 	)
 
@@ -466,41 +452,23 @@ def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, .
 def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
 	"""Print the installed reverse depends of a package."""
 	msg = color(
-		_("Installed Packages that Depend on {pkg_name}\n").format(
-			pkg_name=color(name, "GREEN")
-		),
+		_("Installed packages that depend on {package}").format(
+			package=color(name, "GREEN")
+		)
+		+ "\n",
 		"YELLOW",
 	)
 	for pkg in installed_pkgs:
 		for dep in pkg_installed(pkg).dependencies:
 			if name in dep.rawstr:
+				dep_msg = f"  {color(pkg.name, 'GREEN')}"
 				if pkg.essential:
-					msg += _("  {pkg_name} is an {essential} package!\n").format(
-						pkg_name=color(pkg.name, "GREEN"),
-						essential=color("Essential", "RED"),
+					dep_msg = _("{package} is an Essential package!").format(
+						package=dep_msg
 					)
-					continue
-				msg += f"  {color(pkg.name, 'GREEN')}\n"
+				msg += f"{dep_msg}\n"
 				break
 	print(msg.strip())
-
-
-def arg_check(args: Iterable[str]) -> list[str]:
-	"""Check arguments and errors if no packages are specified.
-
-	If args exists then duplicates will be removed.
-	"""
-	dprint(f"Raw Arguments: {sys.argv}")
-	if arguments.command in ("install", "remove", "purge", "show"):
-		if arguments.command == "install" and arguments.fix_broken:
-			return dedupe_list(args)
-		if not args:
-			sys.exit(
-				_("{error} You must specify a package to {command}").format(
-					error=ERROR_PREFIX, command=arguments.command
-				)
-			)
-	return dedupe_list(args)
 
 
 def dedupe_list(original: Iterable[str]) -> list[str]:
@@ -513,181 +481,6 @@ def dedupe_list(original: Iterable[str]) -> list[str]:
 		if item not in dedupe:
 			dedupe.append(item)
 	return dedupe
-
-
-def get_summary_header(history: bool = False) -> tuple[str, str, str, str]:
-	"""Return the correct headers for the summary."""
-	if history:
-		if arguments.is_purge():
-			return _("Purged"), _("Purged:"), _("Auto-Purged"), _("Auto-Purged:")
-		return _("Removed"), _("Removed:"), _("Auto-Removed"), _("Auto-Removed:")
-
-	if arguments.is_purge():
-		return _("Purge"), _("Purging:"), _("Auto-Purge"), _("Auto-Purging:")
-	return _("Remove"), _("Removing:"), _("Auto-Remove"), _("Auto-Removing:")
-
-
-def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) -> None:
-	"""Print our transaction summary."""
-	dprint("Printing Update Summary")
-
-	delete, deleting, auto_remove, auto_removing = get_summary_header(not cache)
-
-	default_header = [_("Package:"), _("Version:"), _("Size:")]
-	upgrade_header = [_("Package:"), _("Old Version:"), _("New Version:"), _("Size:")]
-
-	print_packages(default_header, nala_pkgs.delete_pkgs, deleting, "bold red")
-
-	print_packages(default_header, nala_pkgs.autoremove_pkgs, auto_removing, "bold red")
-
-	print_packages(
-		default_header, nala_pkgs.install_pkgs, _("Installing:"), "bold green"
-	)
-
-	print_packages(
-		upgrade_header, nala_pkgs.reinstall_pkgs, _("Reinstalling:"), "bold green"
-	)
-
-	print_packages(upgrade_header, nala_pkgs.upgrade_pkgs, _("Upgrading:"), "bold blue")
-
-	print_packages(
-		upgrade_header, nala_pkgs.downgrade_pkgs, _("Downgrading:"), "bold orange_red1"
-	)
-
-	print_packages(
-		default_header, nala_pkgs.configure_pkgs, _("Configuring:"), "bold magenta"
-	)
-
-	print_packages(
-		default_header,
-		nala_pkgs.recommend_pkgs,
-		_("Recommended, Will Not Be Installed:"),
-		"bold magenta",
-	)
-
-	print_packages(
-		default_header,
-		nala_pkgs.suggest_pkgs,
-		_("Suggested, Will Not Be Installed:"),
-		"bold magenta",
-	)
-
-	transaction_summary(delete, auto_remove, nala_pkgs, not cache)
-	if cache:
-		transaction_footer(cache)
-
-
-def transaction_summary(
-	delete_header: str,
-	auto_header: str,
-	nala_pkgs: PackageHandler,
-	history: bool = False,
-) -> None:
-	"""Print a small transaction summary."""
-	print("=" * term.columns)
-	print(_("Summary"))
-	print("=" * term.columns)
-	table = Table.grid("", padding=(0, 1))
-	table.add_column(justify="right", overflow=term.overflow)
-	table.add_column(overflow=term.overflow)
-
-	if nala_pkgs.install_pkgs:
-		table.add_row(
-			_("Installed") if history else _("Install"),
-			str(nala_pkgs.install_total),
-			_("Packages"),
-		)
-
-	if nala_pkgs.reinstall_pkgs:
-		table.add_row(_("Reinstall"), str(nala_pkgs.reinstall_total), _("Packages"))
-
-	if nala_pkgs.upgrade_total:
-		table.add_row(
-			_("Upgraded") if history else _("Upgrade"),
-			str(nala_pkgs.upgrade_total),
-			_("Packages"),
-		)
-
-	if nala_pkgs.downgrade_pkgs:
-		table.add_row(_("Downgrade"), str(nala_pkgs.downgrade_total), _("Packages"))
-
-	if nala_pkgs.configure_pkgs:
-		table.add_row(_("Configure"), str(nala_pkgs.configure_total), _("Packages"))
-
-	if nala_pkgs.delete_total:
-		table.add_row(delete_header, str(nala_pkgs.delete_total), _("Packages"))
-
-	if nala_pkgs.autoremove_total:
-		table.add_row(auto_header, str(nala_pkgs.autoremove_total), _("Packages"))
-	term.console.print(table)
-
-
-def transaction_footer(cache: Cache) -> None:
-	"""Print transaction footer."""
-	print()
-	if (download := cache.required_download) > 0:
-		msg = _("Total download size:")
-		print(f"{msg} {unit_str(download)}")
-	if (space := cache.required_space) < 0:
-		msg = _("Disk space to free:")
-		print(f"{msg} {unit_str(-int(space))}")
-	if space > 0:
-		msg = _("Disk space required:")
-		print(f"{msg} {unit_str(space)}")
-	if arguments.download_only:
-		print(_("Nala will only download the packages"))
-
-
-def print_packages(
-	headers: list[str],
-	nala_packages: list[NalaPackage] | list[NalaPackage | list[NalaPackage]],
-	title: str,
-	style: str,
-) -> None:
-	"""Print package transactions in a pretty format."""
-	if not nala_packages:
-		return
-
-	package_table = Table(padding=(0, 2), box=None)
-	# Setup rich table and columns
-	for header in headers:
-		if header == _("Package:"):
-			package_table.add_column(header, style=style, overflow=term.overflow)
-		elif header == _("Size:"):
-			package_table.add_column(header, justify="right", overflow=term.overflow)
-		else:
-			package_table.add_column(header, overflow="fold")
-
-	# Add our packages
-	for pkg in nala_packages:
-		if isinstance(pkg, list):
-			continue
-		if pkg.old_version:
-			package_table.add_row(pkg.name, pkg.old_version, pkg.version, pkg.unit_size)
-			continue
-		package_table.add_row(pkg.name, pkg.version, pkg.unit_size)
-
-	# We iterate again so or_deps will be grouped at the bottom
-	for pkg in nala_packages:
-		if isinstance(pkg, list):
-			package_table.add_row(*summary_or_depends(pkg))
-
-	sep = "=" * term.columns
-	term.console.print(sep, title, sep, package_table)
-
-
-def summary_or_depends(pkg: list[NalaPackage]) -> tuple[Tree, Table, Table]:
-	"""Format Recommend and Suggests or dependencies."""
-	either = _("Either:")
-	pkg_tree = Tree(f"{color(either)}", guide_style="white")
-	for npkg in pkg:
-		pkg_tree.add(npkg.name)
-	ver_table = Table("", border_style="bold blue", box=None, pad_edge=False)
-	ver_table.add_row(Group(*(npkg.version for npkg in pkg)))
-	size_table = Table("", border_style="bold blue", box=None, pad_edge=False)
-	size_table.add_row(Group(*(npkg.unit_size for npkg in pkg)))
-
-	return pkg_tree, ver_table, size_table
 
 
 def vprint(msg: object) -> None:

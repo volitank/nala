@@ -98,7 +98,7 @@ def set_search_origin(line: str, version: Version) -> str:
 	"""Return the provided string with the origin information."""
 	if origin := version._cand.file_list[0][0]:
 		if origin.component == "now":
-			return _("{pkg} [local]").format(pkg=line)
+			return _("{package} [local]").format(package=line)
 		return f"{line} [{origin.label}/{origin.codename} {origin.component}]"
 	return line
 
@@ -106,22 +106,30 @@ def set_search_origin(line: str, version: Version) -> str:
 def set_search_installed(line: str, pkg: Package, version: Version) -> str:
 	"""Return the provided string with install and upgrade information."""
 	if version.is_installed and pkg.is_upgradable:
-		return _(
-			"{pkg_name}\n{tree_start} is installed and upgradable to {version}"
+		# NOTE: Formatting looks as below:
+		# NOTE: vim 2:8.2.3995-1+b2 [Debian/sid main]
+		# NOTE: ├── is installed and upgradable to 2:8.2.4659-1
+		# NOTE: └── Vi IMproved - enhanced vi editor
+		return f"{line}\n{TOP_LINE} " + _(
+			"is installed and upgradable to {version}"
 		).format(
-			pkg_name=line,
-			tree_start=TOP_LINE,
 			version=color(pkg_candidate(pkg).version, "BLUE"),
 		)
-	if pkg.is_upgradable:
-		return _("{pkg_name}\n{tree_start} is upgradable from {version}").format(
+	if version == pkg.candidate and pkg.is_upgradable:
+		# NOTE: vim 2:8.2.4659-1 [Debian/sid main]
+		# NOTE: ├── is upgradable from 2:8.2.3995-1+b2
+		# NOTE: └── Vi IMproved - enhanced vi editor
+		return f"{line}\n{TOP_LINE} " + _("is upgradable from {version}").format(
 			pkg_name=line,
 			tree_start=TOP_LINE,
 			version=color(pkg_installed(pkg).version, "BLUE"),
 		)
 	if version.is_installed:
-		return _("{pkg_name}\n{tree_start} is installed").format(
-			pkg_name=line, tree_start=TOP_LINE
+		# NOTE: vim 2:8.2.3995-1+b2 [Debian/sid main]
+		# NOTE: ├── is installed
+		# NOTE: └── Vi IMproved - enhanced vi editor
+		return f"{line}\n{TOP_LINE} " + _("is installed").format(
+			package=line, tree_start=TOP_LINE
 		)
 	return line
 
@@ -134,5 +142,8 @@ def set_search_description(line: str, version: Version) -> str:
 		return f"{line}\n{BOT_LINE} {desc}"
 	if records:
 		return f"{line}\n{BOT_LINE} {records.short_desc}"
+	# NOTE: vim 2:8.2.3995-1+b2 [Debian/sid main]
+	# NOTE: ├── is installed
+	# NOTE: └── No Description
 	no_desc = _("No Description")
 	return f"{line}\n{BOT_LINE}{COLOR_CODES['ITALIC']} {no_desc}{COLOR_CODES['RESET']}"

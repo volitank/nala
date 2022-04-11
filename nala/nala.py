@@ -84,16 +84,16 @@ from nala.options import (
 	UPGRADEABLE,
 	VERBOSE,
 	VIRTUAL,
-	_doc,
 	arguments,
 	nala,
 )
+from nala.rich import ELLIPSIS
 from nala.search import iter_search, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
 	PackageHandler,
-	arg_check,
 	ask,
+	dedupe_list,
 	dprint,
 	eprint,
 	get_version,
@@ -106,8 +106,7 @@ from nala.utils import (
 nala_pkgs = PackageHandler()
 
 
-@_doc
-@nala.command("update")
+@nala.command("update", help=_("Update package list"))
 # pylint: disable=unused-argument
 def _update(
 	debug: bool = DEBUG,
@@ -121,8 +120,7 @@ def _update(
 	setup_cache().print_upgradable()
 
 
-@_doc
-@nala.command()
+@nala.command(help=_("Update package list and upgrade the system"))
 # pylint: disable=unused-argument,too-many-arguments, too-many-locals
 def upgrade(
 	exclude: Optional[list[str]] = typer.Option(
@@ -191,8 +189,7 @@ def upgrade(
 	_upgrade(full, exclude)
 
 
-@_doc
-@nala.command()
+@nala.command(help=_("Install packages"))
 # pylint: disable=unused-argument,too-many-arguments
 def install(
 	ctx: typer.Context,
@@ -224,7 +221,8 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 			_fix_broken()
 			return
 		ctx.fail(_("{error} Missing packages to install").format(error=ERROR_PREFIX))
-	pkg_names = arg_check(pkg_names)
+
+	pkg_names = dedupe_list(pkg_names)  # type: ignore[arg-type]
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
@@ -279,12 +277,11 @@ def remove(
 
 def _remove(pkg_names: list[str]) -> None:
 	sudo_check()
-	pkg_names = arg_check(pkg_names)
 
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
 
-	pkg_names = cache.glob_filter(pkg_names)
+	pkg_names = cache.glob_filter(dedupe_list(pkg_names))
 	pkg_names = cache.virtual_filter(pkg_names)
 	broken, not_found, ver_failed = check_broken(
 		pkg_names,
@@ -310,8 +307,8 @@ def _remove(pkg_names: list[str]) -> None:
 	get_changes(cache, nala_pkgs, "remove")
 
 
-@nala.command("autoremove", help=_("Autoremove packages that are no longer needed."))
-@nala.command("autopurge", help=_("Autopurge packages that are no longer needed."))
+@nala.command("autoremove", help=_("Autoremove packages that are no longer needed"))
+@nala.command("autopurge", help=_("Autopurge packages that are no longer needed"))
 # pylint: disable=unused-argument,too-many-arguments
 def _auto_remove(
 	purge: bool = PURGE,
@@ -351,8 +348,7 @@ def _fix_broken(nested_cache: Cache | None = None) -> None:
 	get_changes(cache, nala_pkgs, "fix-broken")
 
 
-@_doc
-@nala.command()
+@nala.command(help=_("Show package details"))
 # pylint: disable=unused-argument
 def show(
 	pkg_names: list[str] = typer.Argument(..., help=_("Package(s) to show")),
@@ -382,8 +378,7 @@ def show(
 		sys.exit(1)
 
 
-@_doc
-@nala.command()
+@nala.command(help=_("Search package names and descriptions"))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def search(
 	regex: str = typer.Argument(..., help=_("Regex or word to search for")),
@@ -429,8 +424,7 @@ def search(
 	iter_search(found)
 
 
-@_doc
-@nala.command("list")
+@nala.command("list", help=_("List packages based on package names"))
 # pylint: disable=unused-argument,too-many-arguments
 def list_pkgs(
 	pkg_names: Optional[list[str]] = typer.Argument(
@@ -469,8 +463,7 @@ def list_pkgs(
 		sys.exit(_("Nothing was found to list."))
 
 
-@_doc
-@nala.command()
+@nala.command(help=_("Clear out the local archive of downloaded package files"))
 # pylint: disable=unused-argument
 def clean(
 	lists: bool = LISTS,
@@ -503,7 +496,7 @@ def clean(
 	print(_("Cache has been cleaned"))
 
 
-@nala.command(hidden=True)
+@nala.command(hidden=True, help=_("I beg, pls moo"))
 # pylint: disable=unused-argument
 def moo(
 	moos: Optional[list[str]] = typer.Argument(None, hidden=True),
@@ -522,11 +515,11 @@ def moo(
 	else:
 		print(CAT_ASCII["1"])
 	can_no_moo = _("I can't moo for I'm a cat")
-	print(f'..."{can_no_moo}"...')
+	print(f'{ELLIPSIS}"{can_no_moo}"{ELLIPSIS}')
 	if update:
 		what_did_you_expect = _("What did you expect to update?")
-		print(f'..."{what_did_you_expect}"...')
+		print(f'{ELLIPSIS}"{what_did_you_expect}"{ELLIPSIS}')
 		return
 	if update is not None:
 		what_did_you_expect = _("What did you expect no-update to do?")
-		print(f'..."{what_did_you_expect}"...')
+		print(f'{ELLIPSIS}"{what_did_you_expect}"{ELLIPSIS}')

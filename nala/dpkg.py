@@ -58,6 +58,7 @@ from nala.constants import (
 )
 from nala.options import arguments
 from nala.rich import (
+	OVERFLOW,
 	Group,
 	Live,
 	Panel,
@@ -85,14 +86,53 @@ REMOVING = "Removing"
 UNPACKING = "Unpacking"
 SETTING_UP = "Setting up"
 PROCESSING = "Processing"
-FETCHED = _("Fetched")
 GET = "GET"
 
 UPDATED = _("Updated:")
 DOWNLOADED = _("Downloaded:")
 IGNORED = _("Ignored:")
-ERROR = _("Error:")
 NO_CHANGE = _("No Change:")
+
+# NOTE: Spacing of following status messages
+# NOTE: is to allow the urls to be properly aligned
+# NOTE: Especially if your status would come after the package
+# NOTE: You do not have to follow this scheme
+# NOTE: but do note that the headers will be colored regardless
+# NOTE: No Change: http://deb.volian.org/volian scar InRelease
+# NOTE: Ignored:   http://deb.volian.org/volian scar InRelease
+# NOTE: Updated:   http://deb.volian.org/volian scar InRelease
+NO_CHANGE_MSG = _("{no_change} {info}")
+NO_CHANGE_SIZE_MSG = _("{no_change} {info} [{size}B]")
+IGNORED_MSG = _("{ignored}   {info}")
+UPDATE_MSG = _("{updated}   {info}")
+UPDATE_SIZE_MSG = _("{updated}   {info} [{size}B]")
+
+REMOVING_HEAD = color(_("Removing:"), "RED")
+UNPACKING_HEAD = color(_("Unpacking:"), "GREEN")
+SETTING_UP_HEAD = color(_("Setting up:"), "GREEN")
+PROCESSING_HEAD = color(_("Processing:"), "GREEN")
+
+# NOTE: Spacing of following status messages
+# NOTE: is to allow dpkg messages to be properly aligned
+# NOTE: Especially if your status would come after the package
+# NOTE: You do not have to follow this scheme
+# NOTE: but do note that the headers will be colored regardless
+# NOTE: Unpacking:   neofetch (7.1.0-3)
+# NOTE: Setting up:  neofetch (7.1.0-3)
+# NOTE: Removing:    neofetch (7.1.0-3)
+# NOTE: Processing:  triggers for man-db (2.10.2-1)
+# NOTE: You can change the headers and positions as you would like,
+# NOTE: but do note that the headers will be colored regardless
+SETTING_UP_MSG = _("{setting_up} {dpkg_msg}")
+PROCESSING_MSG = _("{processing} {dpkg_msg}")
+UNPACKING_MSG = _("{unpacking}  {dpkg_msg}")
+REMOVING_MSG = _("{removing}   {dpkg_msg}")
+
+# NOTE: That's the end of alignment spacing
+ERROR_MSG = _("{error} {info}\n  {error_text}")
+
+FETCHED = _("Fetched")
+FETCHED_MSG = _("{fetched} {size}B in {elapsed} ({speed}B/s)")
 
 
 class OpProgress(text.OpProgress):
@@ -176,7 +216,7 @@ class UpdateProgress(text.AcquireProgress):
 				self.table_print(msg, fetched=True)
 				return
 
-			if ERROR in msg:
+			if ERROR_PREFIX in msg:
 				for line in msg.splitlines():
 					update_error.append(line)
 					eprint(line)
@@ -203,12 +243,12 @@ class UpdateProgress(text.AcquireProgress):
 	def ims_hit(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when an item is update (e.g. not modified on the server)."""
 		base.AcquireProgress.ims_hit(self, item)
-		line = _("{no_change} {info}").format(
+		line = NO_CHANGE_MSG.format(
 			no_change=color(NO_CHANGE, "GREEN"), info=item.description
 		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
-			line = _("{no_change} {info} [{size}B]").format(
+			line = NO_CHANGE_SIZE_MSG.format(
 				no_change=color(NO_CHANGE, "GREEN"), info=item.description, size=size
 			)
 		self._write(line)
@@ -218,14 +258,13 @@ class UpdateProgress(text.AcquireProgress):
 		base.AcquireProgress.fail(self, item)
 		if item.owner.status == item.owner.STAT_DONE:
 			self._write(
-				_("{ignored}   {info}").format(
+				IGNORED_MSG.format(
 					ignored=color(IGNORED, "YELLOW"), info=item.description
 				)
 			)
 		else:
-			# spaces are to make the error message consistent with other messages.
 			self._write(
-				_("{error} {info}\n  {error_text}").format(
+				ERROR_MSG.format(
 					error=ERROR_PREFIX,
 					info=item.description,
 					error_text=item.owner.error_text,
@@ -238,13 +277,13 @@ class UpdateProgress(text.AcquireProgress):
 		# It's complete already (e.g. Hit)
 		if item.owner.complete:
 			return
-		line = _("{updated}   {info}").format(
+		line = UPDATE_MSG.format(
 			updated=color(DOWNLOADED if self.live.install else UPDATED, "BLUE"),
 			info=item.description,
 		)
 		if item.owner.filesize:
 			size = apt_pkg.size_to_str(item.owner.filesize)
-			line = _("{updated}   {info} [{size}B]").format(
+			line = UPDATE_SIZE_MSG.format(
 				updated=color(DOWNLOADED if self.live.install else UPDATED, "BLUE"),
 				info=item.description,
 				size=size,
@@ -273,7 +312,7 @@ class UpdateProgress(text.AcquireProgress):
 	def final_msg(self) -> str:
 		"""Print closing fetched message."""
 		return color(
-			_("{fetched} {size}B in {elapsed} ({speed}B/s)").format(
+			FETCHED_MSG.format(
 				fetched=FETCHED,
 				size=apt_pkg.size_to_str(self.fetched_bytes),
 				elapsed=apt_pkg.time_to_str(self.elapsed_time),
@@ -291,8 +330,6 @@ class UpdateProgress(text.AcquireProgress):
 		signal.signal(signal.SIGWINCH, self._signal)
 
 
-# We don't call super init because it opens some File Descriptors we don't need
-# There is no functionality we miss out on by doing a super init
 # pylint: disable=too-many-instance-attributes, too-many-public-methods
 class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
@@ -677,14 +714,9 @@ def paren_color(match: Match[str]) -> str:
 	return color("(") if match.group(0) == "(" else color(")")
 
 
-def lines(line: str, zword: str, msg_color: str) -> str:
-	"""Color and space our line."""
-	space = " "
-	if zword == REMOVING:
-		space *= 3
-	elif zword == UNPACKING:
-		space *= 2
-	return line.replace(zword, color(f"{zword}:{space}", msg_color))
+def line_replace(line: str, header: str) -> str:
+	"""Replace wrapper for removing header."""
+	return line.replace(header, "").strip()
 
 
 def format_version(match: list[str], line: str) -> str:
@@ -725,13 +757,21 @@ def msg_formatter(line: str) -> str:
 		line = line.replace("...", "")
 
 	if line.startswith(REMOVING):
-		line = lines(line, REMOVING, "RED")
+		line = REMOVING_MSG.format(
+			removing=REMOVING_HEAD, dpkg_msg=line_replace(line, REMOVING)
+		)
 	elif line.startswith(UNPACKING):
-		line = lines(line, UNPACKING, "GREEN")
+		line = UNPACKING_MSG.format(
+			unpacking=UNPACKING_HEAD, dpkg_msg=line_replace(line, UNPACKING)
+		)
 	elif line.startswith(SETTING_UP):
-		line = lines(line, SETTING_UP, "GREEN")
+		line = SETTING_UP_MSG.format(
+			setting_up=SETTING_UP_HEAD, dpkg_msg=line_replace(line, SETTING_UP)
+		)
 	elif line.startswith(PROCESSING):
-		line = lines(line, PROCESSING, "GREEN")
+		line = PROCESSING_MSG.format(
+			processing=PROCESSING_HEAD, dpkg_msg=line_replace(line, PROCESSING)
+		)
 	elif line.startswith(GET):
 		line = f"{color(f'{FETCHED}:', 'BLUE')} {' '.join(line.split()[1:])}"
 
@@ -778,7 +818,7 @@ class DpkgLive(Live):
 		self.slice_list()
 
 		table = Table.grid()
-		table.add_column(no_wrap=True, width=term.columns, overflow=term.overflow)
+		table.add_column(no_wrap=True, width=term.columns, overflow=OVERFLOW)
 
 		for item in self.scroll_list:
 			table.add_row(from_ansi(item))

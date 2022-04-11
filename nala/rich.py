@@ -26,8 +26,10 @@ from __future__ import annotations
 
 import sys
 from datetime import timedelta
+from typing import Literal, cast
 
 from rich.ansi import AnsiDecoder
+from rich.box import Box
 from rich.columns import Columns
 from rich.console import Console, Group, RenderableType
 from rich.live import Live, _RefreshThread
@@ -52,7 +54,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from nala import _
+from nala import _, console
 
 __all__ = (
 	"Spinner",
@@ -146,6 +148,25 @@ SPIN_TYPE = "dots" if is_utf8 else "simpleDots"
 FINISHED_TEXT = "[bold green]:heavy_check_mark:" if is_utf8 else " "
 PROGRESS_PERCENT = "[bold blue]{task.percentage:>3.1f}%"
 COMPLETED_TOTAL = "{task.completed}/{task.total}"
+ELLIPSIS = "…" if is_utf8 else "..."
+OVERFLOW = cast(Literal["crop"], "crop" if console.options.ascii_only else "ellipsis")
+
+HORIZONTALS = Box(
+	"\n".join(
+		(
+			"====",
+			"    ",
+			"====",
+			"    ",
+			"====",
+			"====",
+			"    ",
+			"    ",
+		)
+	),
+	ascii=True,
+)
+
 BAR_MAX = BarColumn(
 	bar_width=None,
 	# The background of our bar
@@ -190,7 +211,7 @@ pkg_download_progress = Progress(
 running_dpkg = _("Running dpkg")
 dpkg_progress = Progress(
 	SpinnerColumn(SPIN_TYPE, style="bold default", finished_text=FINISHED_TEXT),
-	TextColumn(f"[bold blue]{running_dpkg} ...", justify="right"),
+	TextColumn(f"[bold blue]{running_dpkg} {ELLIPSIS}", justify="right"),
 	BAR_MAX,
 	PROGRESS_PERCENT,
 	SEPARATOR,
@@ -201,16 +222,7 @@ dpkg_progress = Progress(
 testing = _("Testing Mirrors")
 fetch_progress = Progress(
 	# 	SpinnerColumn(SPIN_TYPE, style="bold blue"),
-	TextColumn(f"[bold blue]{testing} ...", justify="right"),
-	BAR_MIN,
-	PROGRESS_PERCENT,
-	SEPARATOR,
-	COMPLETED_TOTAL,
-	transient=True,
-)
-check_release = _("Generating Usable Mirrors")
-mirror_progress = Progress(
-	TextColumn(f"[bold blue]{check_release} ...", justify="right"),
+	TextColumn(f"[bold blue]{testing} {ELLIPSIS}", justify="right"),
 	BAR_MIN,
 	PROGRESS_PERCENT,
 	SEPARATOR,

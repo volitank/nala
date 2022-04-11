@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import sys
 from pydoc import pager
+from typing import Optional
 
 import typer
 from apt_pkg import Error, config, read_config_file
@@ -90,7 +91,7 @@ class Arguments:
 		self.assume_no: bool
 		self.update: bool
 		self.raw_dpkg: bool
-		self.purge: bool
+		self.purge: bool = False
 		self.fix_broken: bool
 
 		# Used in Show, List and Search
@@ -192,7 +193,7 @@ class Arguments:
 		"""Set option."""
 		self.full = value
 
-	def set_recommends(self, value: bool) -> None:
+	def set_recommends(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
 			self.install_recommends = config.find_b("APT::Install-Recommends", True)
@@ -203,7 +204,7 @@ class Arguments:
 		if not value:
 			config.set("APT::Install-Recommends", "0")
 
-	def set_suggests(self, value: bool) -> None:
+	def set_suggests(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
 			self.install_suggests = config.find_b("APT::Install-Suggests", False)
@@ -211,18 +212,15 @@ class Arguments:
 		self.install_suggests = value
 		if value:
 			config.set("APT::Install-Suggests", "1")
-		if not value:
+		else:
 			config.set("APT::Install-Suggests", "0")
 
-	def set_update(self, value: bool) -> None:
+	def set_update(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
 			self.update = self.command not in no_update
 			return
-		if value:
-			self.update = True
-		if not value:
-			self.update = False
+		self.update = value
 
 	def set_debug(self, value: bool) -> None:
 		"""Set option."""
@@ -263,14 +261,6 @@ arguments = Arguments()
 nala = typer.Typer(add_completion=False, no_args_is_help=True)
 history_typer = typer.Typer(name="history", add_completion=False)
 nala.add_typer(history_typer)
-
-
-def _doc(obj: object) -> object:
-	"""Translate the docstring for typer help."""
-	if not obj.__doc__:
-		return obj
-	obj.__doc__ = _(obj.__doc__)
-	return obj
 
 
 def print_license(value: bool) -> None:
@@ -404,7 +394,7 @@ ASSUME_YES = typer.Option(
 	"--assume-yes / --assume-no",
 	callback=arguments.set_assume_prompt,
 	is_eager=True,
-	help=_("Assume 'yes' to all prompts"),
+	help=_("Assume 'yes' or 'no' to all prompts"),
 )
 
 OPTION = typer.Option(
