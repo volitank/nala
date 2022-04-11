@@ -127,6 +127,7 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		"""Manage Package Downloads."""
 		dprint("Downloader Initializing")
 		self.total_pkgs: int = len(pkgs)
+		self.total_data: int = 0
 		self.count: int = 0
 		self.live: Live
 		self.mirrors: dict[str, list[str]] = {}
@@ -173,66 +174,56 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 
 				return all(await gather(*tasks))
 
-	async def _stream_deb(
-		self, client: AsyncClient, candidate: Version, url: str, dest: Path
-	) -> int:
-		"""Stream the deb package and write it to file."""
-		total_data = 0
-		hash_type, expected = get_hash(candidate)
-		hash_fun = hashlib.new(hash_type)
-		async with client.stream("GET", url) as response:
-			response.raise_for_status()
-			async with await open_file(dest, mode="wb") as file:
-				async for data in response.aiter_bytes():
-					if data:
-						await file.write(data)
-						hash_fun.update(data)
-						total_data += (len_data := len(data))
-						await self._update_progress(len_data)
-		dprint(
-			HASH_STATUS.format(
-				filepath=dest,
-				hash_type=hash_type.upper(),
-				expected=expected,
-				received=(received := hash_fun.hexdigest()),
-				result=received == expected,
-			)
-		)
-		if expected != received:
-			dest.unlink()
-			self.fatal = True
-			await self._update_progress(total_data, failed=True)
-			raise FileDownloadError(
-				errno=FileDownloadError.ERRHASH,
-				filename=dest.name,
-				expected=f"{hash_type.upper()}: {expected}",
-				received=f"{hash_type.upper()}: {received}",
-			)
-		return total_data
-
-	async def _download(self, client: AsyncClient, candidate: Version, url: str) -> int:
+	async def _download(
+		self, client: AsyncClient, candidate: Version, url: str
+	) -> None:
 		"""Download and write package."""
 		dest = PARTIAL_DIR / get_pkg_name(candidate)
 		vprint(f"{STARTING_DOWNLOAD} {url} {unit_str(candidate.size, 1)}")
 		second_attempt = False
 		while True:
+			total_data = 0
+			hash_type, expected = get_hash(candidate)
+			hash_fun = hashlib.new(hash_type)
 			try:
-				total_data = await self._stream_deb(client, candidate, url, dest)
-				break
+				async with client.stream("GET", url) as response:
+					response.raise_for_status()
+					async with await open_file(dest, mode="wb") as file:
+						async for data in response.aiter_bytes():
+							if data:
+								await file.write(data)
+								hash_fun.update(data)
+								total_data += len(data)
+								await self._update_progress(len(data))
 			# Sometimes mirrors play a little dirty and close the connection
-			# Before we're done, so we catch this and try one more time.
 			except RemoteProtocolError as error:
-				if (
-					"Server disconnected" not in str(error)
-					or "can't handle event type ConnectionClosed" not in str(error)
-					or second_attempt
-				):
+				await self._update_progress(total_data, failed=True)
+				if second_attempt:
 					raise error from error
 				second_attempt = True
-				if domain := DOMAIN_PATTERN.search(url):
-					dprint(f"Mirror Failed: {domain.group(1)} {error}, will try again.")
+				dprint(f"Mirror Failed: {url} {error}, will try again.")
 				continue
-		return total_data
+
+			dprint(
+				HASH_STATUS.format(
+					filepath=dest,
+					hash_type=hash_type.upper(),
+					expected=expected,
+					received=(received := hash_fun.hexdigest()),
+					result=received == expected,
+				)
+			)
+			if expected != received:
+				dest.unlink()
+				self.fatal = True
+				await self._update_progress(total_data, failed=True)
+				raise FileDownloadError(
+					errno=FileDownloadError.ERRHASH,
+					filename=dest.name,
+					expected=f"{hash_type.upper()}: {expected}",
+					received=f"{hash_type.upper()}: {received}",
+				)
+			break
 
 	async def _init_download(
 		self,
@@ -243,15 +234,10 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		"""Download pkgs."""
 		while urls:
 			for num, url in enumerate(urls):
-				if regex := DOMAIN_PATTERN.search(url):
-					domain = regex.group(1)
-					if self.current[domain] > 1:
-						await sleep(0.1)
-						continue
-					self.current[domain] += 1
-				total_data = 0
+				if not (domain := await self._check_count(url)):
+					continue
 				try:
-					total_data = await self._download(client, candidate, url)
+					await self._download(client, candidate, url)
 
 					await process_downloads(candidate)
 					check_pkg(ARCHIVE_DIR, candidate, is_download=True)
@@ -266,7 +252,6 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 				except (HTTPError, OSError, FileDownloadError) as error:
 					urls.pop(num)
 					self.current[domain] -= 1
-					await self._update_progress(total_data, failed=True)
 					self.download_error(error, num, urls, candidate)
 					continue
 			else:
@@ -324,6 +309,17 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 			urls.append(uri)
 		return urls
 
+	async def _check_count(self, url: str) -> str:
+		"""Check the url count and return if Nala should continue."""
+		domain = ""
+		if regex := DOMAIN_PATTERN.search(url):
+			domain = regex.group(1)
+			if self.current[domain] > 2:
+				await sleep(0.1)
+				return ""
+			self.current[domain] += 1
+		return domain
+
 	def _gen_table(self) -> Panel:
 		"""Generate Rich Table."""
 		table = Table.grid()
@@ -335,7 +331,6 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		else:
 			table.add_row(from_ansi(f"{LAST_COMPLETED} {self.last_completed}"))
 
-		pkg_download_progress.advance(self.task, advance=0)
 		table.add_row(pkg_download_progress.get_renderable())
 		return Panel(
 			table,
@@ -365,8 +360,10 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 	async def _update_progress(self, len_data: int, failed: bool = False) -> None:
 		"""Update download progress."""
 		if failed:
-			len_data = -len_data
-
+			self.total_data -= len_data
+			pkg_download_progress.reset(self.task, completed=self.total_data)
+			return
+		self.total_data += len_data
 		pkg_download_progress.advance(self.task, advance=len_data)
 		self.live.update(self._gen_table())
 
