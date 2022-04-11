@@ -879,14 +879,11 @@ class DpkgLive(Live):
 	@staticmethod
 	def get_group(update_spinner: bool, use_bar: bool) -> RenderableType:
 		"""Get the group for our panel."""
-		if spinner.text.plain:  # type: ignore[union-attr]
-			if update_spinner and use_bar:
-				return Group(
-					spinner,
-					dpkg_progress.get_renderable(),
-				)
-			if update_spinner:
-				return spinner
+		if spinner.text.plain and update_spinner:  # type: ignore[union-attr]
+			return (
+				Group(spinner, dpkg_progress.get_renderable()) if use_bar else spinner
+			)
+
 		return dpkg_progress.get_renderable()
 
 	def slice_list(self) -> None:
