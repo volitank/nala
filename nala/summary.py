@@ -24,7 +24,8 @@
 """Module for printing the transaction summary."""
 from __future__ import annotations
 
-from typing import Generator, NamedTuple
+from dataclasses import dataclass
+from typing import Generator
 
 from nala import _, console
 from nala.cache import Cache
@@ -119,7 +120,8 @@ def get_rows(pkg: NalaPackage, layout: list[str]) -> Generator[str, None, None]:
 		yield getattr(pkg, ROW_MAP[key])
 
 
-class PackageHeaders(NamedTuple):
+@dataclass
+class PackageHeaders:
 	"""Tuple for package headers."""
 
 	layout: list[str]
@@ -127,7 +129,8 @@ class PackageHeaders(NamedTuple):
 	summary: str = ""
 
 
-class Headers(NamedTuple):
+@dataclass
+class Headers:  # pylint: disable=too-many-instance-attributes
 	"""Tuple for headers."""
 
 	deleting: PackageHeaders

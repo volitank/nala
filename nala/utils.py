@@ -31,6 +31,7 @@ import signal
 import sys
 import termios
 import tty
+from dataclasses import dataclass, field
 from datetime import datetime
 from fcntl import LOCK_EX, LOCK_NB, lockf
 from pathlib import Path
@@ -199,105 +200,51 @@ class DelayedKeyboardInterrupt:
 			self.old_handler(*self.signal_received)
 
 
+@dataclass
 class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	"""Class for storing package lists."""
 
-	def __init__(self) -> None:
-		"""Class for storing package lists."""
-		self.autoremoved: list[str] = []
-		self.user_explicit: list[Package] = []
-		self.local_debs: list[NalaDebPackage] = []
-		self.delete_pkgs: list[NalaPackage] = []
-		self.install_pkgs: list[NalaPackage] = []
-		self.reinstall_pkgs: list[NalaPackage] = []
-		self.upgrade_pkgs: list[NalaPackage] = []
-		self.autoremove_pkgs: list[NalaPackage] = []
-		self.recommend_pkgs: list[NalaPackage | list[NalaPackage]] = []
-		self.suggest_pkgs: list[NalaPackage | list[NalaPackage]] = []
-		self.configure_pkgs: list[NalaPackage] = []
-		self.downgrade_pkgs: list[NalaPackage] = []
+	autoremoved: list[str] = field(default_factory=list)
+	user_explicit: list[Package] = field(default_factory=list)
+	local_debs: list[NalaDebPackage] = field(default_factory=list)
+	delete_pkgs: list[NalaPackage] = field(default_factory=list)
+	install_pkgs: list[NalaPackage] = field(default_factory=list)
+	reinstall_pkgs: list[NalaPackage] = field(default_factory=list)
+	upgrade_pkgs: list[NalaPackage] = field(default_factory=list)
+	autoremove_pkgs: list[NalaPackage] = field(default_factory=list)
+	recommend_pkgs: list[NalaPackage | list[NalaPackage]] = field(default_factory=list)
+	suggest_pkgs: list[NalaPackage | list[NalaPackage]] = field(default_factory=list)
+	configure_pkgs: list[NalaPackage] = field(default_factory=list)
+	downgrade_pkgs: list[NalaPackage] = field(default_factory=list)
 
-	@property
-	def extended_deleted(self) -> list[NalaPackage]:
-		"""Return deleted_pkgs + autoremove_pkgs."""
-		return self.delete_pkgs + self.autoremove_pkgs
-
-	@property
-	def delete_total(self) -> int:
-		"""Return total deleted pkgs."""
-		return len(self.delete_pkgs)
-
-	@property
-	def install_total(self) -> int:
-		"""Return total installed pkgs."""
-		return len(self.install_pkgs)
-
-	@property
-	def reinstall_total(self) -> int:
-		"""Return total installed pkgs."""
-		return len(self.reinstall_pkgs)
-
-	@property
-	def upgrade_total(self) -> int:
-		"""Return total upgraded pkgs."""
-		return len(self.upgrade_pkgs)
-
-	@property
-	def downgrade_total(self) -> int:
-		"""Return total upgraded pkgs."""
-		return len(self.downgrade_pkgs)
-
-	@property
-	def autoremove_total(self) -> int:
-		"""Return total autoremoved pkgs."""
-		return len(self.autoremove_pkgs)
-
-	@property
-	def configure_total(self) -> int:
-		"""Return total autoremoved pkgs."""
-		return len(self.configure_pkgs)
-
-	@property
-	def local_total(self) -> int:
-		"""Return total local pkgs."""
-		return len(self.local_debs)
-
-	@property
 	def dpkg_progress_total(self) -> int:
 		"""Calculate our total operations for the dpkg progress bar."""
 		return (
-			self.delete_total * 2
-			+ self.autoremove_total * 2
+			len(self.delete_pkgs) * 2
+			+ len(self.autoremove_pkgs) * 2
 			# We add an extra for each install due to Unpacking: and Setting up:
-			+ self.install_total * 2
-			+ self.reinstall_total * 2
-			+ self.downgrade_total * 2
-			+ self.upgrade_total * 2
+			+ len(self.install_pkgs) * 2
+			+ len(self.reinstall_pkgs) * 2
+			+ len(self.downgrade_pkgs) * 2
+			+ len(self.upgrade_pkgs) * 2
 			# For local deb installs we add 1 more because of having to start
 			# and stop InstallProgress an extra time for each package
-			+ self.local_total
+			+ len(self.local_debs)
 			# Configure needs an extra because it isn't unpacked
-			+ self.configure_total * 2
+			+ len(self.configure_pkgs) * 2
 			# This last +1 for the ending of dpkg itself
 			+ 1
 		)
 
 
+@dataclass
 class NalaPackage:
 	"""Class that represents a Nala package."""
 
-	def __init__(
-		self, name: str, version: str, size: int, old_version: str | None = None
-	) -> None:
-		"""Class that represents a Nala package."""
-		self.name = name
-		self.version = version
-		self.size = size
-		self.old_version = old_version
-
-	def __repr__(self) -> str:
-		"""Return string representation of the object."""
-		return f"NalaPackage: name:{self.name} version:{self.version}"
+	name: str
+	version: str
+	size: int
+	old_version: str | None = None
 
 	@property
 	def unit_size(self) -> str:

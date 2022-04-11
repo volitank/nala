@@ -209,7 +209,7 @@ def fix_excluded(protected: list[Package], is_upgrade: list[Package]) -> list[st
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")
-	task = dpkg_progress.add_task("", total=nala_pkgs.dpkg_progress_total)
+	task = dpkg_progress.add_task("", total=nala_pkgs.dpkg_progress_total())
 	with DpkgLive(install=True) as live:
 		with open(DPKG_LOG, "w", encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, "a", encoding="utf-8") as term_log:

@@ -425,12 +425,14 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 
 	hist_id = str(len(history_dict) + 1 if history_dict else 1)
 	altered = (
-		handler.delete_total
-		+ handler.autoremove_total
-		+ handler.install_total
-		+ handler.upgrade_total
-		+ handler.reinstall_total
-		+ handler.downgrade_total
+		len(handler.delete_pkgs)
+		+ len(handler.autoremove_pkgs)
+		+ len(handler.install_pkgs)
+		+ len(handler.upgrade_pkgs)
+		+ len(handler.downgrade_pkgs)
+		+ len(handler.reinstall_pkgs)
+		+ len(handler.configure_pkgs)
+		+ len(handler.local_debs)
 	)
 
 	set_user_installed(cache, handler.user_explicit, user_installed)
