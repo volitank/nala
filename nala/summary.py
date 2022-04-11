@@ -288,24 +288,28 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 		package_table = Table(header.title, padding=0, box=HORIZONTALS, expand=True)
 		package_table.add_row(gen_package_table(pkg_set, header))
 		main_table.add_row(package_table)
+		# We don't need empty rows from these in the summary
+		if pkg_set in (nala_pkgs.suggest_pkgs, nala_pkgs.recommend_pkgs):
+			continue
 		summary_table.add_row(
 			*header.summary.format(package_total=len(pkg_set)).split("/")
 		)
 
 	summary_header.add_row(summary_table)
 	main_table.add_row(summary_header)
+	console.print(main_table)
 
 	if cache:
-		footer_table = Table.grid()
+		footer_table = Table(
+			*get_columns(SUMMARY_LAYOUT), box=None, show_footer=True, show_header=False
+		)
 		if (download := cache.required_download) > 0:
-			footer_table.add_row(_("Total download size"), unit_str(download))
+			footer_table.add_row(_("Total download size"), unit_str(download, 1))
 		if (space := cache.required_space) < 0:
-			footer_table.add_row(_("Disk space to free"), unit_str(-space))
+			footer_table.add_row(_("Disk space to free"), unit_str(-space, 1))
 		if space > 0:
-			footer_table.add_row(_("Disk space required"), unit_str(space))
-		if footer_table.columns:
-			summary_header.add_row(footer_table)
+			footer_table.add_row(_("Disk space required"), unit_str(space, 1))
+		console.print(footer_table)
 
-	console.print(main_table)
 	if cache and arguments.download_only:
 		print(_("Nala will only download the packages"))
