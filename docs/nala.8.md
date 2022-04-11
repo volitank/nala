@@ -114,6 +114,8 @@ Nala - A prettier front-end for libapt-pkg
 
 	**history clear [id]** will remove the transaction from the history. Alternatively you can use "all" for the ID which will remove the entire history
 
+	*\--installed* prints the names of packages explicitly installed with Nala.
+
 # OPTIONS
 **\--help**
 : >*\--help* will print out a help message for each subcommand. **nala install** *\--help* is a different message than **nala update** *\--help*.

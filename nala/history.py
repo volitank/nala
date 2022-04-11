@@ -115,8 +115,28 @@ def write_history_file(data: HistoryFile) -> None:
 			file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
 
 
+def nala_installed(value: bool) -> None:
+	"""Print packages that are explicitly installed by Nala."""
+	if not value:
+		return
+	user_installed = get_list(get_history("Nala"), "User-Installed")
+	for pkg in user_installed:
+		print(pkg)
+	sys.exit()
+
+
 @history_typer.callback(invoke_without_command=True, help=HISTORY_HELP)
-def history_summary(ctx: typer.Context) -> None:
+# pylint: disable=unused-argument
+def history_summary(
+	ctx: typer.Context,
+	installed: bool = typer.Option(
+		False,
+		"--installed",
+		callback=nala_installed,
+		is_eager=True,
+		help=_("Show packages that were explicitly installed with Nala"),
+	),
+) -> None:
 	"""Show transaction history.
 
 	Running `nala history` with no subcommands prints an overview of all translations.
