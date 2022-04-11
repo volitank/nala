@@ -458,6 +458,14 @@ INSTALLED = typer.Option(
 	help=_("Only installed packages."),
 )
 
+NALA_INSTALLED = typer.Option(
+	False,
+	"-N",
+	"--nala-installed",
+	is_eager=True,
+	help=_("Only packages explicitly installed with Nala."),
+)
+
 UPGRADABLE = typer.Option(
 	False,
 	"-u",

@@ -86,6 +86,8 @@ Nala - A prettier front-end for libapt-pkg
 
 	*\-i, \--installed* will search only installed packages.
 
+	*\-N, \--nala-installed* Only packages explicitly installed with Nala.
+
 	*\-u, \--upgradable* will search only upgradable packages.
 
 	*\-a, \--all-versions* will print information about each version that is currently in the cache.

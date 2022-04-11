@@ -48,6 +48,7 @@ from nala.constants import (
 	SRCPKGCACHE,
 )
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
+from nala.history import get_history, get_list
 from nala.install import (
 	auto_remover,
 	check_broken,
@@ -72,6 +73,7 @@ from nala.options import (
 	FULL,
 	INSTALLED,
 	LISTS,
+	NALA_INSTALLED,
 	NAMES,
 	OPTION,
 	PURGE,
@@ -386,6 +388,7 @@ def search(
 	full: bool = FULL,
 	names: bool = NAMES,
 	installed: bool = INSTALLED,
+	nala_installed: bool = NALA_INSTALLED,
 	upgradable: bool = UPGRADABLE,
 	upgradeable: bool = UPGRADEABLE,
 	all_versions: bool = ALL_VERSIONS,
@@ -396,6 +399,9 @@ def search(
 	"""Search package names and descriptions."""
 	cache = Cache()
 	found: list[tuple[Package, Version]] = []
+	user_installed = (
+		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
+	)
 	if regex == "*":
 		regex = ".*"
 	try:
@@ -408,6 +414,8 @@ def search(
 		)
 	arches = apt_pkg.get_architectures()
 	for pkg in cache:
+		if nala_installed and pkg.name not in user_installed:
+			continue
 		if arguments.installed and not pkg.installed:
 			continue
 		if arguments.upgradable and not pkg.is_upgradable:
@@ -433,6 +441,7 @@ def list_pkgs(
 	debug: bool = DEBUG,
 	full: bool = FULL,
 	installed: bool = INSTALLED,
+	nala_installed: bool = NALA_INSTALLED,
 	upgradable: bool = UPGRADABLE,
 	upgradeable: bool = UPGRADEABLE,
 	all_versions: bool = ALL_VERSIONS,
@@ -441,12 +450,17 @@ def list_pkgs(
 ) -> None:
 	"""List packages based on package names."""
 	cache = Cache()
+	user_installed = (
+		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
+	)
 
 	def _list_gen() -> Generator[
 		tuple[Package, Version | tuple[Version, ...]], None, None
 	]:
 		"""Generate to speed things up."""
 		for pkg in cache:
+			if nala_installed and pkg.name not in user_installed:
+				continue
 			if arguments.installed and not pkg.installed:
 				continue
 			if arguments.upgradable and not pkg.is_upgradable:
