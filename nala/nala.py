@@ -461,9 +461,9 @@ def list_pkgs(
 				continue
 			if pkg_names:
 				if pkg.shortname in pkg_names:
-					yield (pkg, get_version(pkg))
+					yield (pkg, get_version(pkg, inst_first=True))
 				continue
-			yield (pkg, get_version(pkg))
+			yield (pkg, get_version(pkg, inst_first=True))
 
 	if not iter_search(_list_gen()):
 		sys.exit(_("Nothing was found to list."))

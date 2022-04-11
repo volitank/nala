@@ -31,7 +31,7 @@ from apt.package import Package, Version
 from nala import COLOR_CODES, _, color
 from nala.options import arguments
 from nala.rich import ascii_replace, is_utf8
-from nala.utils import get_version, pkg_installed
+from nala.utils import get_version, pkg_candidate, pkg_installed
 
 TOP_LINE = "├──" if is_utf8 else "+--"
 BOT_LINE = "└──" if is_utf8 else "`--"
@@ -50,7 +50,7 @@ def search_name(
 		searches += f"{records.long_desc} {records.source_pkg}"
 
 	if search_pattern.findall(searches):
-		version = get_version(pkg)
+		version = get_version(pkg, inst_first=True)
 		if isinstance(version, tuple):
 			found.extend((pkg, ver) for ver in version)
 			return
@@ -107,11 +107,11 @@ def set_search_installed(line: str, pkg: Package, version: Version) -> str:
 	"""Return the provided string with install and upgrade information."""
 	if version.is_installed and pkg.is_upgradable:
 		return _(
-			"{pkg_name}\n{tree_start} is installed and upgradable from {version}"
+			"{pkg_name}\n{tree_start} is installed and upgradable to {version}"
 		).format(
 			pkg_name=line,
 			tree_start=TOP_LINE,
-			version=color(pkg_installed(pkg).version, "BLUE"),
+			version=color(pkg_candidate(pkg).version, "BLUE"),
 		)
 	if pkg.is_upgradable:
 		return _("{pkg_name}\n{tree_start} is upgradable from {version}").format(

@@ -406,17 +406,15 @@ def iter_remove(path: Path) -> None:
 
 
 def get_version(
-	pkg: Package, cand_first: bool = False
+	pkg: Package, cand_first: bool = False, inst_first: bool = False
 ) -> Version | tuple[Version, ...]:
 	"""Get the version, any version of a package."""
 	if not cand_first and arguments.all_versions:
 		return tuple(pkg.versions)
-	if cand_first and pkg.candidate:
-		return pkg.candidate
-	if pkg.installed:
-		return pkg.installed
-	if pkg.candidate:
-		return pkg.candidate
+	if cand_first:
+		return pkg.candidate or pkg.installed or pkg.versions[0]
+	if inst_first:
+		return pkg.installed or pkg.candidate or pkg.versions[0]
 	for version in pkg.versions:
 		return version
 	# It would be really weird if we ever actually hit this error
