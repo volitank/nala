@@ -226,6 +226,10 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				term_log.write(
 					_("Log Ended: [{date}]").format(date=get_date()) + "\n\n"
 				)
+		# If we made it this far just set the total to 100%.
+		dpkg_progress.reset(task)
+		dpkg_progress.advance(task, advance=nala_pkgs.dpkg_progress_total())
+		live.scroll_bar(rerender=True)
 
 
 def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None:
