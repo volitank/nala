@@ -346,6 +346,24 @@ def get_version(
 	)
 
 
+def get_pkg_version(
+	pkg: Package, cand_first: bool = False, inst_first: bool = False
+) -> Version:
+	"""Get the version."""
+	if cand_first:
+		return pkg.candidate or pkg.installed or pkg.versions[0]
+	if inst_first:
+		return pkg.installed or pkg.candidate or pkg.versions[0]
+	for version in pkg.versions:
+		return version
+	# It would be really weird if we ever actually hit this error
+	sys.exit(
+		_("{error} can't find version for {package}").format(
+			error=ERROR_PREFIX, package=pkg.name
+		)
+	)
+
+
 def get_pkg_name(candidate: Version) -> str:
 	"""Return the package name.
 

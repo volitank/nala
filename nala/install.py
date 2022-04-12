@@ -71,7 +71,7 @@ from nala.utils import (
 	dprint,
 	eprint,
 	get_date,
-	pkg_candidate,
+	get_pkg_version,
 	pkg_installed,
 	term,
 )
@@ -475,7 +475,9 @@ def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) ->
 				pkg = cache[pkg_name]
 				try:
 					if remove:
-						if pkg.installed:
+						if pkg.installed or (
+							pkg.has_config_files and arguments.is_purge()
+						):
 							pkg.mark_delete(
 								auto_fix=arguments.fix_broken,
 								purge=arguments.is_purge(),
@@ -633,7 +635,7 @@ def check_broken(
 def mark_pkg(pkg: Package, depcache: DepCache, remove: bool = False) -> bool:
 	"""Mark Packages in depcache for broken checks."""
 	if remove:
-		if not pkg.installed:
+		if not pkg.installed and not (pkg.has_config_files and arguments.is_purge()):
 			eprint(
 				_("{notice} {package} is not installed").format(
 					notice=NOTICE_PREFIX, package=color(pkg.name, "YELLOW")
@@ -665,7 +667,7 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 	dprint("Sorting Package Changes")
 	for pkg in pkgs:
 		if pkg.marked_delete:
-			installed = pkg_installed(pkg)
+			installed = get_pkg_version(pkg, inst_first=True)
 			if pkg.name not in nala_pkgs.autoremoved:
 				nala_pkgs.delete_pkgs.append(
 					NalaPackage(pkg.name, installed.version, installed.installed_size),
@@ -676,14 +678,14 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 				)
 			continue
 
-		candidate = pkg_candidate(pkg)
+		candidate = get_pkg_version(pkg, cand_first=True)
 		if pkg.marked_install:
 			nala_pkgs.install_pkgs.append(
 				NalaPackage(pkg.name, candidate.version, candidate.size)
 			)
 
 		elif pkg.marked_downgrade:
-			installed = pkg_installed(pkg)
+			installed = get_pkg_version(pkg, inst_first=True)
 			nala_pkgs.downgrade_pkgs.append(
 				NalaPackage(
 					pkg.name, candidate.version, candidate.size, installed.version
@@ -691,13 +693,13 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 			)
 
 		elif pkg.marked_reinstall:
-			installed = pkg_installed(pkg)
+			installed = get_pkg_version(pkg, inst_first=True)
 			nala_pkgs.reinstall_pkgs.append(
 				NalaPackage(pkg.name, candidate.version, candidate.size)
 			)
 
 		elif pkg.marked_upgrade:
-			installed = pkg_installed(pkg)
+			installed = get_pkg_version(pkg, inst_first=True)
 			nala_pkgs.upgrade_pkgs.append(
 				NalaPackage(
 					pkg.name,
