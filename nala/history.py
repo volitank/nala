@@ -114,6 +114,20 @@ def write_history_file(data: HistoryFile) -> None:
 			file.write(json.dumps(data, separators=(",", ":")))
 
 
+def get_history(hist_id: str) -> HistoryEntry:
+	"""Get the history from file."""
+	dprint(f"Getting History Entry: {hist_id}")
+	if not NALA_HISTORY.exists():
+		sys.exit(_("{error} No history exists.").format(error=ERROR_PREFIX))
+	if transaction := load_history_file().get(hist_id):
+		return transaction
+	sys.exit(
+		_("{error} Transaction {num} doesn't exist.").format(
+			error=ERROR_PREFIX, num=hist_id
+		)
+	)
+
+
 def nala_installed(value: bool) -> None:
 	"""Print packages that are explicitly installed by Nala."""
 	if not value:
@@ -122,6 +136,128 @@ def nala_installed(value: bool) -> None:
 	for pkg in user_installed:
 		print(pkg)
 	sys.exit()
+
+
+def get_nala_packages(hist_entry: HistoryEntry, key: str) -> list[NalaPackage]:
+	"""Type cast history package is list of lists."""
+	nala_pkgs = []
+	for pkg_list in get_packages(hist_entry, key):
+		dprint(f"{key} List: {pkg_list}")
+		if len(pkg_list) == 4:
+			try:
+				name, new_version, size, old_version = pkg_list
+				nala_pkgs.append(NalaPackage(name, new_version, int(size), old_version))
+			except ValueError:
+				name, old_version, new_version, size = pkg_list
+				nala_pkgs.append(NalaPackage(name, new_version, int(size), old_version))
+			continue
+		name, new_version, size = pkg_list
+		nala_pkgs.append(NalaPackage(name, new_version, int(size)))
+	return nala_pkgs
+
+
+def get_packages(hist_entry: HistoryEntry, key: str) -> list[list[str]]:
+	"""Type cast history packages is list of strings."""
+	return cast(list[list[str]], hist_entry.get(key, [[]]))
+
+
+def get_list(hist_entry: HistoryEntry, key: str) -> list[str]:
+	"""Type cast history command is list of strings."""
+	item = cast(list[str], hist_entry.get(key, []))
+	dprint(f"Getting List {key} {item}")
+	return item
+
+
+def get_bool(hist_entry: HistoryEntry, key: str) -> bool:
+	"""Type cast history entry is bool."""
+	return cast(bool, hist_entry.get(key, False))
+
+
+def get_str(hist_entry: HistoryEntry, key: str) -> str:
+	"""Type cast history entry is str."""
+	return cast(str, hist_entry.get(key, ""))
+
+
+def pop_nala(hist_file: HistoryFile) -> HistoryEntry:
+	"""Pop the Nala field from the history."""
+	return hist_file.pop("Nala", {})
+
+
+def set_user_installed(
+	cache: Cache, user_explicit: list[Package], user_installed: set[str]
+) -> None:
+	"""Set the User-Installed field."""
+	if user_explicit:
+		for pkg in user_explicit:
+			if pkg.marked_install:
+				user_installed.add(pkg.name)
+			if pkg.marked_delete:
+				user_installed.discard(pkg.name)
+
+	for pkg_name in user_installed:
+		if pkg_name not in cache:
+			user_installed.discard(pkg_name)
+		pkg = cache[pkg_name]
+		if pkg.installed or pkg.marked_install:
+			continue
+		user_installed.discard(pkg.name)
+
+
+def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None:
+	"""Prepare history for writing."""
+	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
+	nala_dict = pop_nala(history_dict)
+	user_installed = set(get_list(nala_dict, "User-Installed"))
+
+	hist_id = str(len(history_dict) + 1 if history_dict else 1)
+	altered = (
+		len(handler.delete_pkgs)
+		+ len(handler.autoremove_pkgs)
+		+ len(handler.install_pkgs)
+		+ len(handler.upgrade_pkgs)
+		+ len(handler.downgrade_pkgs)
+		+ len(handler.reinstall_pkgs)
+		+ len(handler.configure_pkgs)
+		+ len(handler.local_debs)
+	)
+
+	set_user_installed(cache, handler.user_explicit, user_installed)
+
+	transaction: HistoryEntry = {
+		"Date": get_date(),
+		"Requested-By": f"{USER} ({UID})",
+		"Command": sys.argv[1:],
+		"Altered": str(altered),
+		"Purged": arguments.is_purge(),
+		"Operation": operation,
+		"Explicit": [pkg.name for pkg in handler.user_explicit],
+		"Removed": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs
+		],
+		"Auto-Removed": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs
+		],
+		"Installed": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs
+		],
+		"Reinstalled": [
+			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs
+		],
+		"Upgraded": [
+			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
+			for pkg in handler.upgrade_pkgs
+		],
+		"Downgraded": [
+			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
+			for pkg in handler.downgrade_pkgs
+		],
+	}
+
+	history_dict[hist_id] = transaction
+	nala_dict["History-Version"] = "1"
+	nala_dict["User-Installed"] = list(user_installed)
+	history_dict["Nala"] = nala_dict
+	write_history_file(history_dict)
 
 
 def hist_id_completion() -> Generator[tuple[str, str], None, None]:
@@ -198,51 +334,6 @@ def history_summary(
 	for item in names:
 		history_table.add_row(*item)
 	term.console.print(history_table)
-
-
-def get_nala_packages(hist_entry: HistoryEntry, key: str) -> list[NalaPackage]:
-	"""Type cast history package is list of lists."""
-	nala_pkgs = []
-	for pkg_list in get_packages(hist_entry, key):
-		dprint(f"{key} List: {pkg_list}")
-		if len(pkg_list) == 4:
-			try:
-				name, new_version, size, old_version = pkg_list
-				nala_pkgs.append(NalaPackage(name, new_version, int(size), old_version))
-			except ValueError:
-				name, old_version, new_version, size = pkg_list
-				nala_pkgs.append(NalaPackage(name, new_version, int(size), old_version))
-			continue
-		name, new_version, size = pkg_list
-		nala_pkgs.append(NalaPackage(name, new_version, int(size)))
-	return nala_pkgs
-
-
-def get_packages(hist_entry: HistoryEntry, key: str) -> list[list[str]]:
-	"""Type cast history packages is list of strings."""
-	return cast(list[list[str]], hist_entry.get(key, [[]]))
-
-
-def get_list(hist_entry: HistoryEntry, key: str) -> list[str]:
-	"""Type cast history command is list of strings."""
-	item = cast(list[str], hist_entry.get(key, []))
-	dprint(f"Getting List {key} {item}")
-	return item
-
-
-def get_bool(hist_entry: HistoryEntry, key: str) -> bool:
-	"""Type cast history entry is bool."""
-	return cast(bool, hist_entry.get(key, False))
-
-
-def get_str(hist_entry: HistoryEntry, key: str) -> str:
-	"""Type cast history entry is str."""
-	return cast(str, hist_entry.get(key, ""))
-
-
-def pop_nala(hist_file: HistoryFile) -> HistoryEntry:
-	"""Pop the Nala field from the history."""
-	return hist_file.pop("Nala", {})
 
 
 @history_typer.command("info", help=_("Show information about a specific transaction."))
@@ -410,96 +501,5 @@ def history_undo(
 	sys.exit(
 		NOT_SUPPORTED.format(
 			error=ERROR_PREFIX, command=f"{arguments.command} {ctx.command.name}"
-		)
-	)
-
-
-def set_user_installed(
-	cache: Cache, user_explicit: list[Package], user_installed: set[str]
-) -> None:
-	"""Set the User-Installed field."""
-	if user_explicit:
-		for pkg in user_explicit:
-			if pkg.marked_install:
-				user_installed.add(pkg.name)
-			if pkg.marked_delete:
-				user_installed.discard(pkg.name)
-
-	for pkg_name in user_installed:
-		if pkg_name not in cache:
-			user_installed.discard(pkg_name)
-		pkg = cache[pkg_name]
-		if pkg.installed or pkg.marked_install:
-			continue
-		user_installed.discard(pkg.name)
-
-
-def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None:
-	"""Prepare history for writing."""
-	history_dict = load_history_file() if NALA_HISTORY.exists() else {}
-	nala_dict = pop_nala(history_dict)
-	user_installed = set(get_list(nala_dict, "User-Installed"))
-
-	hist_id = str(len(history_dict) + 1 if history_dict else 1)
-	altered = (
-		len(handler.delete_pkgs)
-		+ len(handler.autoremove_pkgs)
-		+ len(handler.install_pkgs)
-		+ len(handler.upgrade_pkgs)
-		+ len(handler.downgrade_pkgs)
-		+ len(handler.reinstall_pkgs)
-		+ len(handler.configure_pkgs)
-		+ len(handler.local_debs)
-	)
-
-	set_user_installed(cache, handler.user_explicit, user_installed)
-
-	transaction: HistoryEntry = {
-		"Date": get_date(),
-		"Requested-By": f"{USER} ({UID})",
-		"Command": sys.argv[1:],
-		"Altered": str(altered),
-		"Purged": arguments.is_purge(),
-		"Operation": operation,
-		"Explicit": [pkg.name for pkg in handler.user_explicit],
-		"Removed": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs
-		],
-		"Auto-Removed": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs
-		],
-		"Installed": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs
-		],
-		"Reinstalled": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs
-		],
-		"Upgraded": [
-			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
-			for pkg in handler.upgrade_pkgs
-		],
-		"Downgraded": [
-			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
-			for pkg in handler.downgrade_pkgs
-		],
-	}
-
-	history_dict[hist_id] = transaction
-	nala_dict["History-Version"] = "1"
-	nala_dict["User-Installed"] = list(user_installed)
-	history_dict["Nala"] = nala_dict
-	write_history_file(history_dict)
-
-
-def get_history(hist_id: str) -> HistoryEntry:
-	"""Get the history from file."""
-	dprint(f"Getting History Entry: {hist_id}")
-	if not NALA_HISTORY.exists():
-		sys.exit(_("{error} No history exists.").format(error=ERROR_PREFIX))
-	if transaction := load_history_file().get(hist_id):
-		return transaction
-	sys.exit(
-		_("{error} Transaction {num} doesn't exist.").format(
-			error=ERROR_PREFIX, num=hist_id
 		)
 	)

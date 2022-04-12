@@ -109,7 +109,126 @@ from nala.utils import (
 nala_pkgs = PackageHandler()
 
 
-@nala.command("update", help=_("Update package list"))
+def _fix_broken(nested_cache: Cache | None = None) -> None:
+	"""Attempt to fix broken packages, if any."""
+	cache = nested_cache or setup_cache()
+	print("Fixing Broken Packages...")
+	cache.fix_broken()
+
+	if nested_cache:
+		print(color(_("There are broken packages that need to be fixed!"), "YELLOW"))
+		print(
+			_("You can use {switch} if you'd like to try without fixing them.").format(
+				switch=color("--no-fix-broken", "YELLOW")
+			)
+		)
+	else:
+		check_state(cache, nala_pkgs)
+	get_changes(cache, nala_pkgs, "fix-broken")
+
+
+def _remove(pkg_names: list[str]) -> None:
+	sudo_check()
+
+	cache = setup_cache()
+	check_state(cache, nala_pkgs)
+
+	pkg_names = cache.glob_filter(dedupe_list(pkg_names))
+	pkg_names = cache.virtual_filter(pkg_names)
+	broken, not_found, ver_failed = check_broken(
+		pkg_names,
+		cache,
+		remove=True,
+	)
+
+	if not_found or ver_failed:
+		pkg_error(not_found, cache, remove=True)
+
+	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
+	if not package_manager(pkg_names, cache, remove=True):
+		broken_error(
+			broken,
+			cache,
+			tuple(
+				pkg
+				for pkg in cache
+				if pkg.is_installed and pkg_installed(pkg).dependencies
+			),
+		)
+	auto_remover(cache, nala_pkgs)
+	get_changes(cache, nala_pkgs, "remove")
+
+
+def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
+	sudo_check(pkg_names)
+	if not pkg_names:
+		if arguments.fix_broken:
+			_fix_broken()
+			return
+		ctx.fail(_("{error} Missing packages to install").format(error=ERROR_PREFIX))
+
+	pkg_names = dedupe_list(pkg_names)  # type: ignore[arg-type]
+	cache = setup_cache()
+	check_state(cache, nala_pkgs)
+	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
+	install_local(nala_pkgs, cache)
+
+	pkg_names = cache.glob_filter(pkg_names)
+	pkg_names = cache.virtual_filter(pkg_names)
+	broken, not_found, ver_failed = check_broken(pkg_names, cache)
+	not_found.extend(not_exist)
+
+	if not_found or ver_failed:
+		pkg_error(not_found, cache)
+
+	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
+	if (
+		not package_manager(pkg_names, cache)
+		# We also check to make sure that all the packages are still
+		# Marked upgrade or install after the package manager is run
+		or not all(
+			(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
+			for pkg in nala_pkgs.user_explicit
+		)
+	) and not broken_error(broken, cache):
+		unmarked_error(nala_pkgs.user_explicit)
+
+	auto_remover(cache, nala_pkgs)
+	get_changes(cache, nala_pkgs, "install")
+
+
+def remove_completion() -> Generator[str, None, None]:
+	"""Complete remove command arguments."""
+	yield from run(
+		[
+			"grep-status",
+			"-P",
+			"-e",
+			".*",
+			"-a",
+			"-FStatus",
+			"ok installed",
+			"-n",
+			"-s",
+			"Package",
+		],
+		capture_output=True,
+		check=True,
+		text=True,
+	).stdout.split()
+
+
+def package_completion(cur: str) -> Generator[str, None, None]:
+	"""Complete install command arguments."""
+	yield from run(
+		["apt-cache", "--no-generate", "pkgnames", cur],
+		capture_output=True,
+		check=True,
+		text=True,
+	).stdout.split()
+
+
+@nala.command("update", help=_("Update package list."))
 # pylint: disable=unused-argument
 def _update(
 	debug: bool = DEBUG,
@@ -123,7 +242,7 @@ def _update(
 	setup_cache().print_upgradable()
 
 
-@nala.command(help=_("Update package list and upgrade the system"))
+@nala.command(help=_("Update package list and upgrade the system."))
 # pylint: disable=unused-argument,too-many-arguments, too-many-locals
 def upgrade(
 	exclude: Optional[list[str]] = typer.Option(
@@ -192,38 +311,7 @@ def upgrade(
 	_upgrade(full, exclude)
 
 
-def remove_completion() -> Generator[str, None, None]:
-	"""Complete remove command arguments."""
-	yield from run(
-		[
-			"grep-status",
-			"-P",
-			"-e",
-			".*",
-			"-a",
-			"-FStatus",
-			"ok installed",
-			"-n",
-			"-s",
-			"Package",
-		],
-		capture_output=True,
-		check=True,
-		text=True,
-	).stdout.split()
-
-
-def package_completion(cur: str) -> Generator[str, None, None]:
-	"""Complete install command arguments."""
-	yield from run(
-		["apt-cache", "--no-generate", "pkgnames", cur],
-		capture_output=True,
-		check=True,
-		text=True,
-	).stdout.split()
-
-
-@nala.command(help=_("Install packages"))
+@nala.command(help=_("Install packages."))
 # pylint: disable=unused-argument,too-many-arguments
 def install(
 	ctx: typer.Context,
@@ -249,44 +337,6 @@ def install(
 ) -> None:
 	"""Install packages."""
 	_install(pkg_names, ctx)
-
-
-def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
-	sudo_check(pkg_names)
-	if not pkg_names:
-		if arguments.fix_broken:
-			_fix_broken()
-			return
-		ctx.fail(_("{error} Missing packages to install").format(error=ERROR_PREFIX))
-
-	pkg_names = dedupe_list(pkg_names)  # type: ignore[arg-type]
-	cache = setup_cache()
-	check_state(cache, nala_pkgs)
-	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
-	install_local(nala_pkgs, cache)
-
-	pkg_names = cache.glob_filter(pkg_names)
-	pkg_names = cache.virtual_filter(pkg_names)
-	broken, not_found, ver_failed = check_broken(pkg_names, cache)
-	not_found.extend(not_exist)
-
-	if not_found or ver_failed:
-		pkg_error(not_found, cache)
-
-	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
-	if (
-		not package_manager(pkg_names, cache)
-		# We also check to make sure that all the packages are still
-		# Marked upgrade or install after the package manager is run
-		or not all(
-			(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
-			for pkg in nala_pkgs.user_explicit
-		)
-	) and not broken_error(broken, cache):
-		unmarked_error(nala_pkgs.user_explicit)
-
-	auto_remover(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs, "install")
 
 
 @nala.command(help=_("Remove packages."))
@@ -315,40 +365,8 @@ def remove(
 	_remove(pkg_names)
 
 
-def _remove(pkg_names: list[str]) -> None:
-	sudo_check()
-
-	cache = setup_cache()
-	check_state(cache, nala_pkgs)
-
-	pkg_names = cache.glob_filter(dedupe_list(pkg_names))
-	pkg_names = cache.virtual_filter(pkg_names)
-	broken, not_found, ver_failed = check_broken(
-		pkg_names,
-		cache,
-		remove=True,
-	)
-
-	if not_found or ver_failed:
-		pkg_error(not_found, cache, remove=True)
-
-	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
-	if not package_manager(pkg_names, cache, remove=True):
-		broken_error(
-			broken,
-			cache,
-			tuple(
-				pkg
-				for pkg in cache
-				if pkg.is_installed and pkg_installed(pkg).dependencies
-			),
-		)
-	auto_remover(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs, "remove")
-
-
-@nala.command("autoremove", help=_("Autoremove packages that are no longer needed"))
-@nala.command("autopurge", help=_("Autopurge packages that are no longer needed"))
+@nala.command("autoremove", help=_("Autoremove packages that are no longer needed."))
+@nala.command("autopurge", help=_("Autopurge packages that are no longer needed."))
 # pylint: disable=unused-argument,too-many-arguments
 def _auto_remove(
 	purge: bool = PURGE,
@@ -370,25 +388,7 @@ def _auto_remove(
 	get_changes(cache, nala_pkgs, "remove")
 
 
-def _fix_broken(nested_cache: Cache | None = None) -> None:
-	"""Attempt to fix broken packages, if any."""
-	cache = nested_cache or setup_cache()
-	print("Fixing Broken Packages...")
-	cache.fix_broken()
-
-	if nested_cache:
-		print(color(_("There are broken packages that need to be fixed!"), "YELLOW"))
-		print(
-			_("You can use {switch} if you'd like to try without fixing them.").format(
-				switch=color("--no-fix-broken", "YELLOW")
-			)
-		)
-	else:
-		check_state(cache, nala_pkgs)
-	get_changes(cache, nala_pkgs, "fix-broken")
-
-
-@nala.command(help=_("Show package details"))
+@nala.command(help=_("Show package details."))
 # pylint: disable=unused-argument
 def show(
 	pkg_names: list[str] = typer.Argument(
@@ -422,7 +422,7 @@ def show(
 		sys.exit(1)
 
 
-@nala.command(help=_("Search package names and descriptions"))
+@nala.command(help=_("Search package names and descriptions."))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def search(
 	regex: str = typer.Argument(
@@ -478,7 +478,7 @@ def search(
 	iter_search(found)
 
 
-@nala.command("list", help=_("List packages based on package names"))
+@nala.command("list", help=_("List packages based on package names."))
 # pylint: disable=unused-argument,too-many-arguments
 def list_pkgs(
 	pkg_names: Optional[list[str]] = typer.Argument(
@@ -525,7 +525,7 @@ def list_pkgs(
 		sys.exit(_("Nothing was found to list."))
 
 
-@nala.command(help=_("Clear out the local archive of downloaded package files"))
+@nala.command(help=_("Clear out the local archive of downloaded package files."))
 # pylint: disable=unused-argument
 def clean(
 	lists: bool = LISTS,
