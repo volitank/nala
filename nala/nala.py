@@ -47,6 +47,7 @@ from nala.constants import (
 	PARTIAL_DIR,
 	PKGCACHE,
 	SRCPKGCACHE,
+	WARNING_PREFIX,
 )
 from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
 from nala.history import get_history, get_list
@@ -141,8 +142,19 @@ def _remove(pkg_names: list[str]) -> None:
 		remove=True,
 	)
 
+	for pkg_name in not_found[:]:
+		# For some reason a virtual package $kernel exists and can't be accessed.
+		if cache.is_any_virtual(pkg_name) or pkg_name.startswith("$"):
+			eprint(
+				_("{warn} Virtual Packages like {package} can't be removed.").format(
+					warn=WARNING_PREFIX, package=color(pkg_name, "YELLOW")
+				)
+			)
+			not_found.remove(pkg_name)
+			pkg_names.remove(pkg_name)
+
 	if not_found or ver_failed:
-		pkg_error(not_found, cache, remove=True)
+		pkg_error(not_found, cache)
 
 	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
 	if not package_manager(pkg_names, cache, remove=True):
