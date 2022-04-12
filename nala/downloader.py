@@ -36,11 +36,11 @@ from functools import partial
 from pathlib import Path
 from signal import Signals  # pylint: disable=no-name-in-module #Codacy
 from signal import SIGINT, SIGTERM
-from typing import Union
+from typing import Union, cast
 
-import apt_pkg
 from anyio import open_file
 from apt.package import Package, Version
+from apt_pkg import Configuration, config
 from httpx import (
 	URL,
 	AsyncClient,
@@ -85,8 +85,7 @@ from nala.utils import (
 )
 
 MIRROR_PATTERN = re.compile(r"mirror://(.*?/.*?)/")
-DOMAIN_PATTERN = re.compile(r"(https?://.*?/.*?)/")
-
+URL_PATTERN = re.compile(r"(https?://.*?/.*?)/")
 
 STARTING_DOWNLOADS = color(_("Starting Downloads") + ELLIPSIS, "BLUE")
 
@@ -305,12 +304,44 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 
 	def _set_proxy(self) -> None:
 		"""Set proxy configuration."""
-		if http_proxy := apt_pkg.config.find("Acquire::http::Proxy"):
+		for proto in ("http", "https"):
+			try:
+				proxy_config = cast(
+					Configuration, config.subtree(f"Acquire::{proto}::Proxy")  # type: ignore[attr-defined]
+				)
+			except KeyError:
+				continue
+
+			for key in proxy_config.keys():
+				value: str | None = proxy_config.find(key)
+				if not value:
+					continue
+				if "socks5h" in value or "socks5" in value:
+					try:
+						import socksio  # pylint: disable=import-outside-toplevel, unused-import
+
+						value = value.replace("socks5h", "socks5")
+					except ImportError:
+						eprint(
+							_(
+								"{error} Using SOCKS proxy, but the 'socksio' package is not installed."
+							).format(error=ERROR_PREFIX)
+						)
+						sys.exit(
+							_(
+								"{error} Install using 'nala install python3-socksio'"
+							).format(error=ERROR_PREFIX)
+						)
+				if value == "DIRECT":
+					value = None
+					# self.proxy[f"{proto}://{key}"] = None
+					# continue
+				self.proxy[f"{proto}://{key}"] = value
+
+		if http_proxy := config.find("Acquire::http::Proxy"):
 			self.proxy["http://"] = http_proxy
-		if https_proxy := apt_pkg.config.find("Acquire::https::Proxy", http_proxy):
+		if https_proxy := config.find("Acquire::https::Proxy"):
 			self.proxy["https://"] = https_proxy
-		if ftp_proxy := apt_pkg.config.find("Acquire::ftp::Proxy"):
-			self.proxy["ftp://"] = ftp_proxy
 
 	def set_mirrors_txt(self, domain: str) -> None:
 		"""Check if user has mirrors:// and handle accordingly."""
@@ -346,7 +377,7 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 	async def _check_count(self, url: str) -> str:
 		"""Check the url count and return if Nala should continue."""
 		domain = ""
-		if regex := DOMAIN_PATTERN.search(url):
+		if regex := URL_PATTERN.search(url):
 			domain = regex.group(1)
 			if self.current[domain] > 2:
 				await sleep(0.1)
@@ -425,7 +456,7 @@ def untrusted_error(untrusted: list[str]) -> None:
 		)
 	)
 	eprint(f"  {', '.join(untrusted)}")
-	if not apt_pkg.config.find_b("APT::Get::AllowUnauthenticated", False):
+	if not config.find_b("APT::Get::AllowUnauthenticated", False):
 		sys.exit(
 			_("{error} Some packages were unable to be authenticated").format(
 				error=ERROR_PREFIX
@@ -656,6 +687,8 @@ def download(pkgs: list[Package]) -> None:
 		if downloader.exit:
 			sys.exit(downloader.exit)
 		raise error from error
+	except ValueError as error:
+		sys.exit(f"{ERROR_PREFIX} {error}")
 
 	if arguments.download_only and not downloader.failed:
 		print(_("Download complete and in download only mode."))
