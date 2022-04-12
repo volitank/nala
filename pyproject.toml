@@ -52,6 +52,7 @@ pexpect = "^4.8.0"
 anyio = "^3.5.0"
 jsbeautifier = "^1.14.0"
 typer = "^0.4.0"
+socksio = {version = "^1.0.0", optional = true}
 
 [tool.poetry.dev-dependencies]
 black = { git = "https://github.com/volitank/black.git", branch = "black-tabs" }
@@ -62,6 +63,9 @@ pre-commit = "^2.15.0"
 pyupgrade = "^2.31.1"
 pydocstyle = "^6.1.1"
 pylint = "^2.12.2"
+
+[tool.poetry.extras]
+socks = ["socksio"]
 
 [tool.isort]
 py_version = "auto"
