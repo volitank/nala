@@ -300,7 +300,7 @@ VERSION = typer.Option(
 	"--version",
 	callback=version,
 	is_eager=True,
-	help=_("Show program's version number and exit"),
+	help=_("Show program's version number and exit."),
 )
 
 LICENSE = typer.Option(
@@ -308,7 +308,7 @@ LICENSE = typer.Option(
 	"--license",
 	callback=print_license,
 	is_eager=True,
-	help=_("Reads the licenses of software compiled in and then reads the GPLv3"),
+	help=_("Reads the licenses of software compiled in and then reads the GPLv3."),
 )
 
 VERBOSE = typer.Option(
@@ -317,7 +317,7 @@ VERBOSE = typer.Option(
 	"--verbose",
 	callback=arguments.set_verbose,
 	is_eager=True,
-	help=_("Disable scrolling text and print extra information"),
+	help=_("Disable scrolling text and print extra information."),
 )
 
 DEBUG = typer.Option(
@@ -325,7 +325,7 @@ DEBUG = typer.Option(
 	"--debug",
 	callback=arguments.set_debug,
 	is_eager=True,
-	help=_("Logs extra information for debugging"),
+	help=_("Logs extra information for debugging."),
 )
 
 AUTO_REMOVE = typer.Option(
@@ -333,28 +333,28 @@ AUTO_REMOVE = typer.Option(
 	"--autoremove / --no-autoremove",
 	callback=arguments.set_auto_remove,
 	is_eager=True,
-	help=_("Toggle autoremoving packages"),
+	help=_("Toggle autoremoving packages."),
 )
 
 RECOMMENDS = typer.Option(
 	None,
 	callback=arguments.set_recommends,
 	is_eager=True,
-	help=_("Toggle installing recommended packages"),
+	help=_("Toggle installing recommended packages."),
 )
 
 SUGGESTS = typer.Option(
 	None,
 	callback=arguments.set_suggests,
 	is_eager=True,
-	help=_("Toggle installing suggested packages"),
+	help=_("Toggle installing suggested packages."),
 )
 
 UPDATE = typer.Option(
 	None,
 	callback=arguments.set_update,
 	is_eager=True,
-	help=_("Toggle updating the package list"),
+	help=_("Toggle updating the package list."),
 )
 
 PURGE = typer.Option(
@@ -362,7 +362,7 @@ PURGE = typer.Option(
 	"--purge",
 	callback=arguments.set_purge,
 	is_eager=True,
-	help=_("Purge any packages that would be removed"),
+	help=_("Purge any packages that would be removed."),
 )
 
 REMOVE_ESSENTIAL = typer.Option(
@@ -370,7 +370,7 @@ REMOVE_ESSENTIAL = typer.Option(
 	"--remove-essential",
 	callback=arguments.set_remove_essential,
 	is_eager=True,
-	help=_("Allow the removal of essential packages"),
+	help=_("Allow the removal of essential packages."),
 )
 
 DOWNLOAD_ONLY = typer.Option(
@@ -378,14 +378,14 @@ DOWNLOAD_ONLY = typer.Option(
 	"--download-only",
 	callback=arguments.set_download_only,
 	is_eager=True,
-	help=_("Packages are only retrieved, not unpacked or installed"),
+	help=_("Packages are only retrieved, not unpacked or installed."),
 )
 
 FIX_BROKEN = typer.Option(
 	True,
 	callback=arguments.set_fix_broken,
 	is_eager=True,
-	help=_("Attempt to fix broken packages"),
+	help=_("Attempt to fix broken packages."),
 )
 
 ASSUME_YES = typer.Option(
@@ -394,7 +394,7 @@ ASSUME_YES = typer.Option(
 	"--assume-yes / --assume-no",
 	callback=arguments.set_assume_prompt,
 	is_eager=True,
-	help=_("Assume 'yes' or 'no' to all prompts"),
+	help=_("Assume 'yes' or 'no' to all prompts."),
 )
 
 OPTION = typer.Option(
@@ -403,7 +403,7 @@ OPTION = typer.Option(
 	"--option",
 	callback=arguments.set_dpkg_option,
 	is_eager=True,
-	help=_('Set options like Dpkg::Options::="--force-confnew"'),
+	help=_('Set options like Dpkg::Options::="--force-confnew".'),
 )
 
 RAW_DPKG = typer.Option(
@@ -411,7 +411,7 @@ RAW_DPKG = typer.Option(
 	"--raw-dpkg",
 	callback=arguments.set_raw_dpkg,
 	is_eager=True,
-	help=_("Skips all formatting and you get raw dpkg output"),
+	help=_("Skips all formatting and you get raw dpkg output."),
 )
 
 ALL_VERSIONS = typer.Option(
@@ -420,7 +420,7 @@ ALL_VERSIONS = typer.Option(
 	"--all-versions",
 	callback=arguments.set_all_versions,
 	is_eager=True,
-	help=_("Show all versions of a package"),
+	help=_("Show all versions of a package."),
 )
 
 ALL_ARCHES = typer.Option(
@@ -429,7 +429,7 @@ ALL_ARCHES = typer.Option(
 	"--all-arches",
 	callback=arguments.set_all_arches,
 	is_eager=True,
-	help=_("Show all architectures of a package"),
+	help=_("Show all architectures of a package."),
 )
 
 DOWNLOAD_ONLY = typer.Option(
@@ -437,7 +437,7 @@ DOWNLOAD_ONLY = typer.Option(
 	"--download-only",
 	callback=arguments.set_download_only,
 	is_eager=True,
-	help=_("Packages are only retrieved, not unpacked or installed"),
+	help=_("Packages are only retrieved, not unpacked or installed."),
 )
 
 NAMES = typer.Option(

@@ -263,8 +263,8 @@ def upgrade(
 	full: bool = typer.Option(
 		True, help=_("Toggle runs a normal upgrade instead of full-upgrade")
 	),
-	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
+	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Update package list and upgrade the system."""
@@ -331,8 +331,8 @@ def install(
 	install_recommends: bool = RECOMMENDS,
 	install_suggests: bool = SUGGESTS,
 	fix_broken: bool = FIX_BROKEN,
-	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
+	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Install packages."""
@@ -357,8 +357,8 @@ def remove(
 	auto_remove: bool = AUTO_REMOVE,
 	fix_broken: bool = FIX_BROKEN,
 	update: bool = UPDATE,
-	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
+	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Remove or Purge packages."""
@@ -376,8 +376,8 @@ def _auto_remove(
 	remove_essential: bool = REMOVE_ESSENTIAL,
 	update: bool = UPDATE,
 	fix_broken: bool = FIX_BROKEN,
-	dpkg_option: list[str] = OPTION,
 	assume_yes: bool = ASSUME_YES,
+	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Command for autoremove."""
