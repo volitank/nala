@@ -32,7 +32,6 @@ from types import FrameType
 from typing import Any, Callable, Optional, Union
 
 import apt_pkg
-import jsbeautifier
 
 from nala import _, color
 
@@ -84,8 +83,6 @@ SOURCELIST = Path(apt_pkg.config.find_file("Dir::Etc::sourcelist"))
 SOURCEPARTS = Path(apt_pkg.config.find_dir("Dir::Etc::sourceparts"))
 """/etc/apt/sources.list.d"""
 
-
-JSON_OPTIONS = jsbeautifier.BeautifierOptions(options={"indent_with_tabs": True})
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
 
 ERROR_PREFIX = color(_("Error:"), "RED")

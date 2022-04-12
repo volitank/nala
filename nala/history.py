@@ -32,13 +32,12 @@ from os import environ, getuid
 from pwd import getpwnam
 from typing import Generator, Iterable, Union, cast
 
-import jsbeautifier
 import typer
 from apt.package import Package
 
 from nala import _, color
 from nala.cache import Cache
-from nala.constants import ERROR_PREFIX, JSON_OPTIONS, NALA_HISTORY, WARNING_PREFIX
+from nala.constants import ERROR_PREFIX, NALA_HISTORY, WARNING_PREFIX
 from nala.options import (
 	ASSUME_YES,
 	AUTO_REMOVE,
@@ -112,7 +111,7 @@ def write_history_file(data: HistoryFile) -> None:
 	"""Write history to file."""
 	with DelayedKeyboardInterrupt():
 		with open(NALA_HISTORY, "w", encoding="utf-8") as file:
-			file.write(jsbeautifier.beautify(json.dumps(data), JSON_OPTIONS))
+			file.write(json.dumps(data, separators=(",", ":")))
 
 
 def nala_installed(value: bool) -> None:

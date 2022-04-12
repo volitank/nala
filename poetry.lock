@@ -146,14 +146,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "editorconfig"
-version = "0.12.3"
-description = "EditorConfig File Locator and Interpreter for Python"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "filelock"
 version = "3.6.0"
 description = "A platform independent file lock."
@@ -244,18 +236,6 @@ pipfile_deprecated_finder = ["pipreqs", "requirementslib"]
 requirements_deprecated_finder = ["pipreqs", "pip-api"]
 colors = ["colorama (>=0.4.3,<0.5.0)"]
 plugins = ["setuptools"]
-
-[[package]]
-name = "jsbeautifier"
-version = "1.14.3"
-description = "JavaScript unobfuscator and beautifier."
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-editorconfig = ">=0.12.2"
-six = ">=1.13.0"
 
 [[package]]
 name = "lazy-object-proxy"
@@ -457,7 +437,7 @@ jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
@@ -566,7 +546,7 @@ socks = ["socksio"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "d3364da4a92059e5d967d4dd46a59570c07858c7467ab7e6f3180566b5ba61c0"
+content-hash = "54341dc0e22b716a6be46134bc59095a88592503c19811d6d2fc9f650f5bf24a"
 
 [metadata.files]
 anyio = [
@@ -614,10 +594,6 @@ distlib = [
     {file = "distlib-0.3.4-py2.py3-none-any.whl", hash = "sha256:6564fe0a8f51e734df6333d08b8b94d4ea8ee6b99b5ed50613f731fd4089f34b"},
     {file = "distlib-0.3.4.zip", hash = "sha256:e4b58818180336dc9c529bfb9a0b58728ffc09ad92027a3f30b7cd91e3458579"},
 ]
-editorconfig = [
-    {file = "EditorConfig-0.12.3-py3-none-any.whl", hash = "sha256:6b0851425aa875b08b16789ee0eeadbd4ab59666e9ebe728e526314c4a2e52c1"},
-    {file = "EditorConfig-0.12.3.tar.gz", hash = "sha256:57f8ce78afcba15c8b18d46b5170848c88d56fd38f05c2ec60dbbfcb8996e89e"},
-]
 filelock = [
     {file = "filelock-3.6.0-py3-none-any.whl", hash = "sha256:f8314284bfffbdcfa0ff3d7992b023d4c628ced6feb957351d4c48d059f56bc0"},
     {file = "filelock-3.6.0.tar.gz", hash = "sha256:9cd540a9352e432c7246a48fe4e8712b10acb1df2ad1f30e8c070b82ae1fed85"},
@@ -645,9 +621,6 @@ idna = [
 isort = [
     {file = "isort-5.10.1-py3-none-any.whl", hash = "sha256:6f62d78e2f89b4500b080fe3a81690850cd254227f27f75c3a0c491a1f351ba7"},
     {file = "isort-5.10.1.tar.gz", hash = "sha256:e8443a5e7a020e9d7f97f1d7d9cd17c88bcb3bc7e218bf9cf5095fe550be2951"},
-]
-jsbeautifier = [
-    {file = "jsbeautifier-1.14.3.tar.gz", hash = "sha256:d6d57627cf9ecd8cd901b9ec7ad4a88127a8dede910177fa4b219e76d02f9bd7"},
 ]
 lazy-object-proxy = [
     {file = "lazy-object-proxy-1.7.1.tar.gz", hash = "sha256:d609c75b986def706743cdebe5e47553f4a5a1da9c5ff66d76013ef396b5a8a4"},

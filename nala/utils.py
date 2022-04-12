@@ -25,7 +25,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 import signal
 import sys
@@ -38,17 +37,10 @@ from pathlib import Path
 from types import FrameType
 from typing import TYPE_CHECKING, Any, Iterable
 
-import jsbeautifier
 from apt.package import Package, Version
 
 from nala import _, color, console
-from nala.constants import (
-	ERROR_PREFIX,
-	HANDLER,
-	JSON_OPTIONS,
-	NALA_DEBUGLOG,
-	NALA_LOCK_FILE,
-)
+from nala.constants import ERROR_PREFIX, HANDLER, NALA_DEBUGLOG, NALA_LOCK_FILE
 from nala.options import arguments
 from nala.rich import from_ansi
 
@@ -103,14 +95,10 @@ class Terminal:
 
 	def __repr__(self) -> str:
 		"""Represent state of the user terminal as a string."""
-		representation = {
-			"object": "Terminal",
-			"columns": self.columns,
-			"lines": self.lines,
-			"mode": str(self.mode),
-			"term": self.console.is_terminal,
-		}
-		return str(jsbeautifier.beautify(json.dumps(representation), JSON_OPTIONS))
+		kwarg = "\n    ".join(
+			(f"{key} = {value},") for key, value in self.__dict__.items()
+		)
+		return f"Terminal = [\n    {kwarg}\n]"
 
 	def set_environment(self) -> None:
 		"""Check and set various environment variables."""
