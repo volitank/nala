@@ -45,9 +45,9 @@ try:
 	read_config_file(config, CONF_FILE)
 except Error as error:
 	print(
-		str(error)
-		.replace("E:", f"{ERROR_PREFIX} ")
-		.replace(CONF_FILE, color(CONF_FILE, "YELLOW")),
+		f"{error}".replace("E:", f"{ERROR_PREFIX} ").replace(
+			CONF_FILE, color(CONF_FILE, "YELLOW")
+		),
 		file=sys.stderr,
 	)
 	sys.exit(1)
@@ -250,7 +250,7 @@ class Arguments:
 
 	def state(self) -> str:
 		"""Return the state of the object as a string."""
-		return str(self)
+		return f"{self}"
 
 	def is_purge(self) -> bool:
 		"""Return if we are to be purging or not."""

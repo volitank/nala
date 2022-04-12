@@ -66,7 +66,7 @@ COLOR_CODES: dict[str, str | int] = {
 def color(text: object, text_color: str = "") -> str:
 	"""Return bold text in the color of your choice."""
 	if not console.is_terminal or console.is_dumb_terminal:
-		return str(text)
+		return f"{text}"
 	if not text_color:
 		# Just return bolded text
 		return f"\x1b[1m{text}{COLOR_CODES['RESET']}"

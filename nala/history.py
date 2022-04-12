@@ -209,7 +209,7 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 	nala_dict = pop_nala(history_dict)
 	user_installed = set(get_list(nala_dict, "User-Installed"))
 
-	hist_id = str(len(history_dict) + 1 if history_dict else 1)
+	hist_id = f"{len(history_dict) + 1 if history_dict else 1}"
 	altered = (
 		len(handler.delete_pkgs)
 		+ len(handler.autoremove_pkgs)
@@ -227,28 +227,28 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 		"Date": get_date(),
 		"Requested-By": f"{USER} ({UID})",
 		"Command": sys.argv[1:],
-		"Altered": str(altered),
+		"Altered": f"{altered}",
 		"Purged": arguments.is_purge(),
 		"Operation": operation,
 		"Explicit": [pkg.name for pkg in handler.user_explicit],
 		"Removed": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.delete_pkgs
+			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.delete_pkgs
 		],
 		"Auto-Removed": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.autoremove_pkgs
+			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.autoremove_pkgs
 		],
 		"Installed": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.install_pkgs
+			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.install_pkgs
 		],
 		"Reinstalled": [
-			[pkg.name, pkg.version, str(pkg.size)] for pkg in handler.reinstall_pkgs
+			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.reinstall_pkgs
 		],
 		"Upgraded": [
-			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
+			[pkg.name, pkg.version, f"{pkg.size}", f"{pkg.old_version}"]
 			for pkg in handler.upgrade_pkgs
 		],
 		"Downgraded": [
-			[pkg.name, pkg.version, str(pkg.size), str(pkg.old_version)]
+			[pkg.name, pkg.version, f"{pkg.size}", f"{pkg.old_version}"]
 			for pkg in handler.downgrade_pkgs
 		],
 	}
@@ -345,7 +345,7 @@ def history_info(
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Show information about a specific transaction."""
-	hist_id = str(_hist_id)
+	hist_id = f"{_hist_id}"
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")
 	arguments.purge = get_bool(hist_entry, "Purged")
@@ -399,7 +399,7 @@ def history_clear(
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Clear a transaction or the entire history."""
-	hist_id = str(_hist_id)
+	hist_id = f"{_hist_id}"
 	dprint(f"History clear {hist_id}")
 	if not NALA_HISTORY.exists():
 		eprint(_("No history exists to clear..."))
@@ -419,7 +419,7 @@ def history_clear(
 	for key, value in history_file.items():
 		if key != hist_id:
 			num += 1
-			history_edit[str(num)] = value
+			history_edit[f"{num}"] = value
 	history_edit["Nala"] = nala_dict
 	write_history_file(history_edit)
 	print(_("History has been altered..."))

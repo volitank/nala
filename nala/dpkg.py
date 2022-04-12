@@ -36,7 +36,7 @@ import termios
 from time import sleep
 from traceback import format_exception
 from types import FrameType
-from typing import Callable, Match, TextIO
+from typing import Callable, Iterable, Match, TextIO
 
 import apt_pkg
 from apt.progress import base, text
@@ -362,7 +362,7 @@ class InstallProgress(base.InstallProgress):
 			dpkg_progress.advance(self.task)
 			self.live.scroll_bar()
 
-	def run_install(self, apt: apt_pkg.PackageManager | list[str]) -> int:
+	def run_install(self, apt: apt_pkg.PackageManager | Iterable[str]) -> int:
 		"""Install using the `PackageManager` object `obj`.
 
 		returns the result of calling `obj.do_install()`
@@ -375,7 +375,7 @@ class InstallProgress(base.InstallProgress):
 				# CLOEXEC, but we need to be able to pass writefd to dpkg
 				# when we spawn it
 				os.set_inheritable(self.writefd, True)
-				if isinstance(apt, list):
+				if not isinstance(apt, apt_pkg.PackageManager):
 					# nosec because this isn't really a security issue. We're just running dpkg
 					os._exit(
 						os.spawnlp(  # nosec
@@ -383,7 +383,7 @@ class InstallProgress(base.InstallProgress):
 							"dpkg",
 							"dpkg",
 							"--status-fd",
-							str(self.write_stream.fileno()),
+							f"{self.write_stream.fileno()}",
 							"-i",
 							*apt,
 						)

@@ -304,8 +304,7 @@ def sudo_check(args: Iterable[str] | None = None) -> None:
 
 def get_date() -> str:
 	"""Return the formatted Date and Time."""
-	timezone = str(datetime.utcnow().astimezone().tzinfo)
-	return f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {timezone}"
+	return f"{datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}"
 
 
 def unit_str(val: int, just: int = 7) -> str:
@@ -438,11 +437,10 @@ def dedupe_list(original: Iterable[str]) -> list[str]:
 
 def vprint(msg: object) -> None:
 	"""Print message if verbose."""
-	msg = str(msg)
 	if arguments.verbose or arguments.debug:
 		print(msg)
 	if arguments.debug:
-		dprint(from_ansi(msg).plain, from_verbose=True)
+		dprint(from_ansi(f"{msg}").plain, from_verbose=True)
 	sys.__stdout__.flush()
 
 

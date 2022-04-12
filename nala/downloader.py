@@ -480,7 +480,7 @@ def print_error(error: DownloadErrorTypes) -> None:
 		return
 	if isinstance(error, ConnectError):
 		# ConnectError: [Errno -2] Name or service not known
-		errno_replace = re.sub(ERRNO_PATTERN, "", str(error)).strip() + ":"
+		errno_replace = re.sub(ERRNO_PATTERN, "", f"{error}").strip() + ":"
 		eprint(f"{ERROR_PREFIX} {errno_replace} {error.request.url}")
 		return
 	if isinstance(error, FileDownloadError):
@@ -496,7 +496,7 @@ def print_error(error: DownloadErrorTypes) -> None:
 			)
 		)
 		return
-	msg = str(error) or type(error).__name__
+	msg = f"{error}" or type(error).__name__
 	msg = msg.replace("\n", "\n  ")
 	eprint(f"{ERROR_PREFIX} {msg}")
 
@@ -602,8 +602,8 @@ def check_pkg(
 			raise FileDownloadError(
 				errno=FileDownloadError.ERRSIZE,
 				filename=path.name,
-				expected=str(candidate.size),
-				received=str(size),
+				expected=f"{candidate.size}",
+				received=f"{size}",
 			)
 		return False
 

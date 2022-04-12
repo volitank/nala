@@ -27,7 +27,7 @@ from __future__ import annotations
 import contextlib
 import fnmatch
 import sys
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Generator, Iterable
 
 import apt_pkg
 from apt.cache import Cache as _Cache
@@ -59,7 +59,7 @@ class Cache(_Cache):
 		"""Apply the marked changes to the cache."""
 		if local_debs:
 			res = install_archives(
-				[str(pkg.filename) for pkg in local_debs], install_progress
+				(pkg.filename for pkg in local_debs if pkg.filename), install_progress
 			)
 			install_progress.finish_update()
 			return res == 0
@@ -108,7 +108,7 @@ class Cache(_Cache):
 		except KeyError:
 			return False
 		else:
-			return bool(not pkg.has_versions)
+			return not pkg.has_versions
 
 	def glob_filter(self, pkg_names: list[str]) -> list[str]:
 		"""Filter provided packages and glob *.
@@ -117,7 +117,7 @@ class Cache(_Cache):
 
 		If there is nothing to glob it returns the original list.
 		"""
-		if "*" not in str(pkg_names):
+		if "*" not in f"{pkg_names}":
 			return pkg_names
 
 		new_packages: list[str] = []
@@ -245,7 +245,7 @@ class Cache(_Cache):
 
 
 def install_archives(
-	apt: apt_pkg.PackageManager | list[str], install_progress: InstallProgress
+	apt: apt_pkg.PackageManager | Iterable[str], install_progress: InstallProgress
 ) -> int:
 	"""Install the archives."""
 	install_progress.start_update()

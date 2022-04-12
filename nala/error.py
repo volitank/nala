@@ -102,7 +102,7 @@ class FileDownloadError(Exception):
 
 def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
 	"""Take an error message from python-apt and formats it."""
-	msg = str(apt_err)
+	msg = f"{apt_err}"
 	if not msg:
 		if update_error:
 			print()
@@ -209,7 +209,7 @@ def print_dpkg_errors() -> None:
 
 def local_deb_error(error: apt_pkg.Error, name: str) -> NoReturn:
 	"""Print what is wrong with the .deb and exit."""
-	msg = str(error)
+	msg = f"{error}"
 	if "Invalid archive signature" in msg:
 		eprint(
 			_("{error} {apt_error}\n  Unsupported File: {filename}").format(

@@ -136,7 +136,7 @@ class TimeRemaining(TimeRemainingColumn):  # type: ignore[misc]
 		if remaining is None:
 			return Text("-:--:--", style="bold default")
 		remaining_delta = timedelta(seconds=int(remaining))
-		return Text(str(remaining_delta), style="")
+		return Text(f"{remaining_delta}", style="")
 
 
 bar_back_style = Style(color="red")

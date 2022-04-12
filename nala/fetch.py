@@ -128,7 +128,7 @@ class MirrorTest:
 		try:
 			response = await self.client.get(f"{mirror}dists/{self.release}/Release")
 			response.raise_for_status()
-			res = str(int(response.elapsed.total_seconds() * 100))
+			res = f"{int(response.elapsed.total_seconds() * 100)}"
 			if self.sources:
 				source_response = await self.client.get(
 					f"{mirror}dists/{self.release}/main/source/Release"
@@ -469,7 +469,7 @@ def gen_table(str_list: list[str], no_index: bool = False) -> Table:
 		if no_index:
 			table.add_row(mirror, f"{latency.lstrip('0')} ms")
 			continue
-		table.add_row(str(num + 1), mirror, f"{latency.lstrip('0')} ms")
+		table.add_row(f"{num + 1}", mirror, f"{latency.lstrip('0')} ms")
 	return table
 
 

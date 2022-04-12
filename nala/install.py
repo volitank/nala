@@ -289,7 +289,7 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		# We write it to the dpkg_log so at least we'll know about it.
 		with open(DPKG_LOG, "a", encoding="utf-8") as file:
 			file.write("FetchedFailedException:\n")
-			file.write(str(error))
+			file.write(f"{error}")
 		eprint(_("{error} Fetching packages has failed!").format(error=ERROR_PREFIX))
 		sys.exit(1)
 	except KeyboardInterrupt:
@@ -495,9 +495,10 @@ def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) ->
 						pkg.mark_upgrade()
 						dprint(f"Marked upgrade: {pkg.name}")
 				except AptError as error:
-					if "broken packages" not in str(
-						error
-					) and "held packages" not in str(error):
+					if (
+						"broken packages" not in f"{error}"
+						and "held packages" not in f"{error}"
+					):
 						raise error from error
 					return False
 	return True
@@ -766,7 +767,7 @@ def sort_pkg_name(pkg: Package) -> str:
 
 	This is to be used as sorted(key=sort_pkg_name)
 	"""
-	return str(pkg.name)
+	return f"{pkg.name}"
 
 
 def check_term_ask() -> None:

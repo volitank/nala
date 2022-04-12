@@ -143,7 +143,7 @@ def show_format(pkg: Package, candidate: Version) -> str:
 	"""Format main section for show command."""
 	installed = _("yes") if pkg.is_installed else _("no")
 	essential = _("yes") if pkg.essential else _("no")
-	maintainer = format_maintainer(str(candidate.record.get("Maintainer")).split())
+	maintainer = format_maintainer(f"{candidate.record.get('Maintainer')}".split())
 
 	show = (
 		SHOW_INFO.format(header=color(_("Package:")), info=color(pkg.name, "GREEN"))
@@ -166,7 +166,7 @@ def show_format(pkg: Package, candidate: Version) -> str:
 	if original_maintainer := candidate.record.get("Original-Maintainer"):
 		show += SHOW_INFO.format(
 			header=color(_("Original-Maintainer:")),
-			info=format_maintainer(str(original_maintainer).split()),
+			info=format_maintainer(f"{original_maintainer}".split()),
 		)
 	if bugs := candidate.record.get("Bugs"):
 		show += SHOW_INFO.format(header=color(_("Bugs:")), info=bugs)
@@ -312,7 +312,7 @@ def additional_notice(additional_records: int) -> None:
 			"{notice} There are {num} additional records. Please use the {switch} switch to see them."
 		).format(
 			notice=NOTICE_PREFIX,
-			num=color(str(additional_records), "YELLOW"),
+			num=color(additional_records, "YELLOW"),
 			switch=color("'-a'", "YELLOW"),
 		)
 	)
