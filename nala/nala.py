@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 import sys
+from subprocess import run
 from typing import Generator, Optional
 
 import apt_pkg
@@ -191,12 +192,46 @@ def upgrade(
 	_upgrade(full, exclude)
 
 
+def remove_completion() -> Generator[str, None, None]:
+	"""Complete remove command arguments."""
+	yield from run(
+		[
+			"grep-status",
+			"-P",
+			"-e",
+			".*",
+			"-a",
+			"-FStatus",
+			"ok installed",
+			"-n",
+			"-s",
+			"Package",
+		],
+		capture_output=True,
+		check=True,
+		text=True,
+	).stdout.split()
+
+
+def package_completion(cur: str) -> Generator[str, None, None]:
+	"""Complete install command arguments."""
+	yield from run(
+		["apt-cache", "--no-generate", "pkgnames", cur],
+		capture_output=True,
+		check=True,
+		text=True,
+	).stdout.split()
+
+
 @nala.command(help=_("Install packages"))
 # pylint: disable=unused-argument,too-many-arguments
 def install(
 	ctx: typer.Context,
 	pkg_names: Optional[list[str]] = typer.Argument(
-		None, metavar="PKGS ...", help=_("Package(s) to install")
+		None,
+		metavar="PKGS ...",
+		help=_("Package(s) to install"),
+		autocompletion=package_completion,
 	),
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
@@ -259,7 +294,10 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 # pylint: disable=unused-argument,too-many-arguments
 def remove(
 	pkg_names: list[str] = typer.Argument(
-		..., metavar="PKGS ...", help=_("Package(s) to remove/purge")
+		...,
+		metavar="PKGS ...",
+		help=_("Package(s) to remove/purge"),
+		autocompletion=remove_completion,
 	),
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
@@ -353,7 +391,11 @@ def _fix_broken(nested_cache: Cache | None = None) -> None:
 @nala.command(help=_("Show package details"))
 # pylint: disable=unused-argument
 def show(
-	pkg_names: list[str] = typer.Argument(..., help=_("Package(s) to show")),
+	pkg_names: list[str] = typer.Argument(
+		...,
+		help=_("Package(s) to show"),
+		autocompletion=package_completion,
+	),
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
 	all_versions: bool = ALL_VERSIONS,
@@ -383,7 +425,11 @@ def show(
 @nala.command(help=_("Search package names and descriptions"))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def search(
-	regex: str = typer.Argument(..., help=_("Regex or word to search for")),
+	regex: str = typer.Argument(
+		...,
+		help=_("Regex or word to search for"),
+		autocompletion=package_completion,
+	),
 	debug: bool = DEBUG,
 	full: bool = FULL,
 	names: bool = NAMES,
@@ -436,7 +482,9 @@ def search(
 # pylint: disable=unused-argument,too-many-arguments
 def list_pkgs(
 	pkg_names: Optional[list[str]] = typer.Argument(
-		None, help=_("Package(s) to list.")
+		None,
+		help=_("Package(s) to list."),
+		autocompletion=package_completion,
 	),
 	debug: bool = DEBUG,
 	full: bool = FULL,

@@ -75,11 +75,11 @@ Alternatively for the ``clear`` command we accept ``all`` as an argument which w
 
 Install the Volian Scar repo and then install Nala.
 
-`Note: Currently only amd64, arm64 and armhf packages are supported`
+`Note: Currently only amd64, arm64, i386, and armhf packages are supported`
 
 .. code-block:: console
 
-	echo "deb [arch=amd64,arm64,armhf] http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+	echo "deb [arch=amd64,arm64,armhf,i386] http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
 	wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
 	sudo apt update && sudo apt install nala
 
@@ -122,18 +122,12 @@ Or
 
 There isn't a documentation site setup at the moment, but our man page explains things well enough for now.
 
-# Zsh completions
-==========================
+# Zsh/fish Completions
+======================
 
-Nala's bash-completion is compatible with Zsh.
+Nala's bash, Zsh and fish completions are now handled with ``typer``.
 
-To enable it make sure the following are in your ``.zshrc`` file
-
-.. code-block:: console
-
-	autoload bashcompinit
-	bashcompinit
-	source /usr/share/bash-completion/completions/nala
+There is nothing you need to do but install Nala and restart your shell for them to work
 
 # Additional Images
 ===================

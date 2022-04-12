@@ -30,7 +30,7 @@ from getpass import getuser
 from json.decoder import JSONDecodeError
 from os import environ, getuid
 from pwd import getpwnam
-from typing import Iterable, Union, cast
+from typing import Generator, Iterable, Union, cast
 
 import jsbeautifier
 import typer
@@ -125,6 +125,21 @@ def nala_installed(value: bool) -> None:
 	sys.exit()
 
 
+def hist_id_completion() -> Generator[tuple[str, str], None, None]:
+	"""Complete history ID arguments."""
+	history_file = load_history_file()
+	pop_nala(history_file)
+	for key, entry in history_file.items():
+		if (command := get_list(entry, "Command"))[0] in ("update", "upgrade"):
+			command.extend(pkg.name for pkg in get_nala_packages(entry, "Upgraded"))
+		yield key, " ".join(command)
+
+
+HIST_ID = typer.Argument(
+	..., metavar="ID", help=_("Transaction number"), autocompletion=hist_id_completion
+)
+
+
 @history_typer.callback(invoke_without_command=True, help=HISTORY_HELP)
 # pylint: disable=unused-argument
 def history_summary(
@@ -133,14 +148,16 @@ def history_summary(
 		False,
 		"--installed",
 		callback=nala_installed,
-		is_eager=True,
 		help=_("Show packages that were explicitly installed with Nala"),
 	),
+	debug: bool = DEBUG,
+	verbose: bool = VERBOSE,
 ) -> None:
 	"""Show transaction history.
 
 	Running `nala history` with no subcommands prints an overview of all translations.
 	"""
+	# Stop this function from running if we do `nala history info`
 	if ctx.invoked_subcommand:
 		return
 
@@ -152,21 +169,17 @@ def history_summary(
 	names: list[Iterable[str]] = []
 
 	for key, entry in history_file.items():
-		command = get_list(entry, "Command")
-		if command[0] in ("update", "upgrade"):
-			for pkg in get_nala_packages(entry, "Upgraded"):
-				command.append(pkg.name)
+		dprint(f"History ID {key}")
+		if (command := get_list(entry, "Command"))[0] in ("update", "upgrade"):
+			command.extend(pkg.name for pkg in get_nala_packages(entry, "Upgraded"))
 
 		names.append(
-			map(
-				str,
-				(
-					key,
-					" ".join(command),
-					entry.get("Date"),
-					entry.get("Altered"),
-					entry.get("Requested-By"),
-				),
+			(
+				key,
+				" ".join(command),
+				get_str(entry, "Date"),
+				get_str(entry, "Altered"),
+				get_str(entry, "Requested-By"),
 			)
 		)
 	if not names:
@@ -213,7 +226,9 @@ def get_packages(hist_entry: HistoryEntry, key: str) -> list[list[str]]:
 
 def get_list(hist_entry: HistoryEntry, key: str) -> list[str]:
 	"""Type cast history command is list of strings."""
-	return cast(list[str], hist_entry.get(key, []))
+	item = cast(list[str], hist_entry.get(key, []))
+	dprint(f"Getting List {key} {item}")
+	return item
 
 
 def get_bool(hist_entry: HistoryEntry, key: str) -> bool:
@@ -232,14 +247,15 @@ def pop_nala(hist_file: HistoryFile) -> HistoryEntry:
 
 
 @history_typer.command("info", help=_("Show information about a specific transaction."))
+@history_typer.command("show", hidden=True)
+# pylint: disable=unused-argument
 def history_info(
-	_hist_id: int = typer.Argument(
-		..., metavar="ID", help=_("Transaction number to show info about")
-	),
+	_hist_id: int = HIST_ID,
+	debug: bool = DEBUG,
+	verbose: bool = VERBOSE,
 ) -> None:
 	"""Show information about a specific transaction."""
 	hist_id = str(_hist_id)
-	dprint(f"History info {hist_id}")
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")
 	arguments.purge = get_bool(hist_entry, "Purged")
@@ -269,9 +285,9 @@ def history_sudo(
 
 def unlink_history(value: bool) -> None:
 	"""Remove the history file."""
-	history_sudo(clear=True)
 	if not value:
 		return
+	history_sudo(clear=True)
 	dprint("History clear all")
 
 	history_dict = {"Nala": get_history("Nala")}
@@ -283,13 +299,14 @@ def unlink_history(value: bool) -> None:
 
 
 @history_typer.command("clear", help=_("Clear a transaction or the entire history."))
+# pylint: disable=unused-argument
 def history_clear(
-	_hist_id: int = typer.Argument(
-		..., metavar="ID", help=_("Transaction number to clear")
-	),
+	_hist_id: int = HIST_ID,
 	_all: bool = typer.Option(  # pylint: disable=unused-argument
 		False, "--all", callback=unlink_history, help=_("Clear the entire history.")
 	),
+	debug: bool = DEBUG,
+	verbose: bool = VERBOSE,
 ) -> None:
 	"""Clear a transaction or the entire history."""
 	hist_id = str(_hist_id)
@@ -314,8 +331,8 @@ def history_clear(
 			num += 1
 			history_edit[str(num)] = value
 	history_edit["Nala"] = nala_dict
-	print(_("History has been altered..."))
 	write_history_file(history_edit)
+	print(_("History has been altered..."))
 
 
 @history_typer.command("undo", help=_("Undo a transaction."))
@@ -323,7 +340,7 @@ def history_clear(
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def history_undo(
 	ctx: typer.Context,
-	hist_id: str = typer.Argument(..., metavar="ID", help=_("Transaction number")),
+	_hist_id: int = HIST_ID,
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
 	raw_dpkg: bool = RAW_DPKG,
@@ -344,6 +361,7 @@ def history_undo(
 		_remove,
 	)
 
+	hist_id = str(_hist_id)
 	arguments.history = ctx.command.name
 	arguments.history_id = hist_id
 	redo = ctx.command.name == "redo"
@@ -476,7 +494,7 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 
 def get_history(hist_id: str) -> HistoryEntry:
 	"""Get the history from file."""
-	dprint(f"Getting history {hist_id}")
+	dprint(f"Getting History Entry: {hist_id}")
 	if not NALA_HISTORY.exists():
 		sys.exit(_("{error} No history exists.").format(error=ERROR_PREFIX))
 	if transaction := load_history_file().get(hist_id):

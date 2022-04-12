@@ -258,8 +258,8 @@ class Arguments:
 
 
 arguments = Arguments()
-nala = typer.Typer(add_completion=False, no_args_is_help=True)
-history_typer = typer.Typer(name="history", add_completion=False)
+nala = typer.Typer(add_completion=True, no_args_is_help=True)
+history_typer = typer.Typer(name="history")
 nala.add_typer(history_typer)
 
 
@@ -529,8 +529,6 @@ def global_options(
 	ctx: typer.Context,
 	_version: bool = VERSION,
 	_license: bool = LICENSE,
-	debug: bool = DEBUG,
-	verbose: bool = VERBOSE,
 ) -> None:
 	"""Each command has its own help page.
 
