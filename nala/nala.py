@@ -210,21 +210,22 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 	get_changes(cache, nala_pkgs, "install")
 
 
-def remove_completion() -> Generator[str, None, None]:
+def remove_completion(ctx: typer.Context) -> Generator[str, None, None]:
 	"""Complete remove command arguments."""
+	command = [
+		"grep-status",
+		"-P",
+		"-e",
+		".*",
+		"-a",
+		"-FStatus",
+		"ok installed",
+	]
+	if "purge" in ctx.command_path:
+		command.extend(["-o", "-FStatus", "ok config-files"])
+
 	yield from run(
-		[
-			"grep-status",
-			"-P",
-			"-e",
-			".*",
-			"-a",
-			"-FStatus",
-			"ok installed",
-			"-n",
-			"-s",
-			"Package",
-		],
+		command + ["-n", "-s", "Package"],
 		capture_output=True,
 		check=True,
 		text=True,
