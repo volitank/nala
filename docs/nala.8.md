@@ -42,6 +42,8 @@ Nala - A prettier front-end for libapt-pkg
 **autoremove**, **autopurge**
 : > **autoremove/autopurge** removes or purges packages that are no longer needed.
 
+	*\--config* Purge packages that are not installed and have configuration files on the system. Must be used with *\--purge* or **autopurge**
+
 **clean**
 : > **clean** is exactly like running *apt clean*.
 

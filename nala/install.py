@@ -74,10 +74,11 @@ from nala.utils import (
 	get_pkg_version,
 	pkg_installed,
 	term,
+	vprint,
 )
 
 
-def auto_remover(cache: Cache, nala_pkgs: PackageHandler) -> None:
+def auto_remover(cache: Cache, nala_pkgs: PackageHandler, config: bool = False) -> None:
 	"""Handle auto removal of packages."""
 	if not arguments.auto_remove and arguments.command not in (
 		"autoremove",
@@ -95,6 +96,16 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				# We don't have to autofix while autoremoving
 				pkg.mark_delete(auto_fix=False, purge=arguments.is_purge())
 				nala_pkgs.autoremoved.append(pkg.name)
+
+			elif config and not pkg.is_installed and pkg.has_config_files:
+				vprint(
+					_("Purging configuration files for {package}").format(
+						package=color(pkg.name, "RED")
+					)
+				)
+				pkg.mark_delete(auto_fix=False, purge=arguments.is_purge())
+				nala_pkgs.autoremoved.append(pkg.name)
+
 	dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
 

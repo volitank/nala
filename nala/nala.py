@@ -68,6 +68,7 @@ from nala.options import (
 	ALL_VERSIONS,
 	ASSUME_YES,
 	AUTO_REMOVE,
+	CONFIG,
 	DEBUG,
 	DOWNLOAD_ONLY,
 	FETCH,
@@ -383,6 +384,7 @@ def remove(
 def _auto_remove(
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
+	config: bool = CONFIG,
 	raw_dpkg: bool = RAW_DPKG,
 	download_only: bool = DOWNLOAD_ONLY,
 	remove_essential: bool = REMOVE_ESSENTIAL,
@@ -394,9 +396,20 @@ def _auto_remove(
 ) -> None:
 	"""Command for autoremove."""
 	sudo_check()
+	if config and not arguments.is_purge():
+		sys.exit(
+			_(
+				"{error} {config} must be used with either {autoremove} or {autopurge}."
+			).format(
+				error=ERROR_PREFIX,
+				config=color("--config", "YELLOW"),
+				autoremove=color("autoremove --purge", "YELLOW"),
+				autopurge=color("autopurge", "YELLOW"),
+			)
+		)
 	cache = setup_cache()
 	check_state(cache, nala_pkgs)
-	auto_remover(cache, nala_pkgs)
+	auto_remover(cache, nala_pkgs, config)
 	get_changes(cache, nala_pkgs, "remove")
 
 

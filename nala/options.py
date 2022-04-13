@@ -365,6 +365,12 @@ PURGE = typer.Option(
 	help=_("Purge any packages that would be removed."),
 )
 
+CONFIG = typer.Option(
+	False,
+	"--config",
+	help=_("Purge packages not installed that have config files."),
+)
+
 REMOVE_ESSENTIAL = typer.Option(
 	False,
 	"--remove-essential",
