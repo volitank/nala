@@ -47,9 +47,8 @@ from nala.constants import (
 	PARTIAL_DIR,
 	PKGCACHE,
 	SRCPKGCACHE,
-	WARNING_PREFIX,
 )
-from nala.error import broken_error, broken_pkg, pkg_error, unmarked_error
+from nala.error import BrokenError, pkg_error
 from nala.history import get_history, get_list
 from nala.install import (
 	auto_remover,
@@ -60,6 +59,7 @@ from nala.install import (
 	get_changes,
 	install_local,
 	package_manager,
+	pkgs_still_marked,
 	setup_cache,
 	split_local,
 )
@@ -103,7 +103,6 @@ from nala.utils import (
 	eprint,
 	get_version,
 	iter_remove,
-	pkg_installed,
 	sudo_check,
 	vprint,
 )
@@ -153,15 +152,8 @@ def _remove(pkg_names: list[str]) -> None:
 
 	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
 	if not package_manager(pkg_names, cache, remove=True):
-		broken_error(
-			broken,
-			cache,
-			tuple(
-				pkg
-				for pkg in cache
-				if pkg.is_installed and pkg_installed(pkg).dependencies
-			),
-		)
+		BrokenError(cache).broken_remove(broken)
+
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, "remove")
 
@@ -189,16 +181,11 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 		pkg_error(not_found, cache)
 
 	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
-	if (
-		not package_manager(pkg_names, cache)
-		# We also check to make sure that all the packages are still
-		# Marked upgrade or install after the package manager is run
-		or not all(
-			(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
-			for pkg in nala_pkgs.user_explicit
-		)
-	) and not broken_error(broken, cache):
-		unmarked_error(nala_pkgs.user_explicit)
+	if not package_manager(pkg_names, cache) or not pkgs_still_marked(
+		nala_pkgs.user_explicit
+	):
+		if not (error := BrokenError(cache, broken)).broken_install():
+			error.unmarked_error(nala_pkgs.user_explicit)
 
 	auto_remover(cache, nala_pkgs)
 	get_changes(cache, nala_pkgs, "install")
@@ -305,11 +292,11 @@ def upgrade(
 				)
 			raise error from error
 
-		if kept_back := [pkg for pkg in is_upgrade if not pkg.is_upgradable]:
+		if kept_back := tuple(pkg for pkg in is_upgrade if not pkg.is_upgradable):
 			cache.clear()
 			print(color(_("The following packages were kept back:"), "YELLOW"))
 			for pkg in kept_back:
-				broken_pkg(pkg, cache)
+				BrokenError(cache).broken_pkg(pkg)
 			check_term_ask()
 			cache.upgrade(dist_upgrade=arguments.full)
 

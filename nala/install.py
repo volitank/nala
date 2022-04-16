@@ -52,9 +52,9 @@ from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.downloader import check_pkg, download
 from nala.dpkg import DpkgLive, InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import (
+	BrokenError,
 	ExitCode,
 	apt_error,
-	broken_error,
 	essential_error,
 	local_deb_error,
 	print_dpkg_errors,
@@ -343,7 +343,7 @@ def install_local(nala_pkgs: PackageHandler, cache: Cache) -> None:
 			)
 		satisfy_notice(pkg)
 	if failed:
-		broken_error(failed, cache)
+		BrokenError(cache, failed).broken_install()
 
 
 def satisfy_notice(pkg: NalaDebPackage) -> None:
@@ -480,6 +480,14 @@ def split_local(
 			pkg_names.remove(name)
 			continue
 	return not_exist
+
+
+def pkgs_still_marked(packages: list[Package]) -> bool:
+	"""Return if the explicit packages are marked or not."""
+	return all(
+		(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
+		for pkg in packages
+	)
 
 
 def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) -> bool:
@@ -640,8 +648,7 @@ def check_broken(
 				continue
 
 			pkg = cache[pkg_name]
-			if not mark_pkg(pkg, depcache, remove=remove):
-				pkg_names.remove(pkg_name)
+			mark_pkg(pkg, depcache, remove=remove)
 			if depcache.broken_count > broken_count and arguments.fix_broken:
 				broken.append(pkg)
 				broken_count += 1

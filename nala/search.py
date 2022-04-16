@@ -35,6 +35,7 @@ from nala.utils import get_version, pkg_candidate, pkg_installed
 
 TOP_LINE = "├──" if is_utf8 else "+--"
 BOT_LINE = "└──" if is_utf8 else "`--"
+LINE = "│   " if is_utf8 else "|   "
 
 
 def search_name(

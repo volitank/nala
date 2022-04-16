@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Generator, NoReturn, Union, cast
+from typing import NoReturn, Union
 
 import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
@@ -37,9 +37,10 @@ from nala.cache import Cache
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, WARNING_PREFIX
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
 from nala.dpkg import dpkg_error, update_error
-from nala.rich import Columns, Text, Tree, from_ansi
-from nala.show import SHOW_INFO, format_dep, show_dep
-from nala.utils import dprint, eprint, get_installed_dep_names, print_rdeps, term
+from nala.rich import Columns, Text
+from nala.search import BOT_LINE, LINE, TOP_LINE
+from nala.show import format_dep
+from nala.utils import dprint, eprint, term
 
 DEPENDS = color(_("Depends:"))
 """'Depends:'"""
@@ -227,165 +228,264 @@ def local_deb_error(error: apt_pkg.Error, name: str) -> NoReturn:
 	sys.exit(1)
 
 
-def format_broken(
-	dep: BaseDependency | NalaBaseDep, cache: Cache, arch: str = ""
-) -> str:
-	"""Format broken dependencies into a Tree, if any."""
-	formatted_dep = format_dep(dep, 0).strip()
-	dep_name = dep.name
-	if arch and ":any" not in dep_name:
-		dep_name = f"{dep_name}:{arch}"
-		formatted_dep = formatted_dep.replace(dep.name, dep_name)
-	# We print nothing on a virtual package
-	if cache.is_virtual_package(dep_name):
-		return ""
-	if cache.is_secret_virtual(dep_name):
-		return SECRET_VIRTUAL.format(package=formatted_dep)
-	if dep_name not in cache:
-		return _("{package} but it isn't in the cache").format(package=formatted_dep)
-	if dep.version and not dep.target_versions and not dep.installed_target_versions:
-		dep_pkg = cache[dep.name]
-		if dep_pkg.candidate and not apt_pkg.check_dep(
-			dep_pkg.candidate.version, dep.relation_deb, dep.version
-		):
-			return _("{package} but the cache version is {version}").format(
-				package=formatted_dep, version=color_version(dep_pkg.candidate.version)
-			)
-		# If none of our conditions are met we just fall back to a general error
-		return _("{package} but it cannont be installed").format(package=formatted_dep)
-	return ""
+class BrokenError:
+	"""Calculate and print broken dependencies."""
 
+	def __init__(
+		self,
+		cache: Cache,
+		broken_list: list[Package] | list[NalaDebPackage] | None = None,
+	) -> None:
+		"""Calculate and print broken install dependencies."""
+		self.cache = cache
+		self.broken_list = broken_list
+		self.provides = (
+			{
+				ppkg
+				for pkg in broken_list
+				if isinstance(pkg, Package) and pkg.candidate
+				for ppkg in pkg.candidate.provides
+			}
+			if broken_list
+			else set()
+		)
 
-def format_broken_conflict(
-	breaks: list[Dependency] | list[NalaDep], tree_name: str, arch: str = ""
-) -> Tree:
-	"""Format broken conflict/breaks dependency into a Tree."""
-	break_tree = Tree(from_ansi(tree_name))
-	for dep in breaks:
-		if dep[0].installed_target_versions:
-			formatted_dep = format_dep(dep[0], 0).strip()
-			break_pkg = dep[0].installed_target_versions[0]
-			break_name = break_pkg.package.name
-			if arch:
-				formatted_dep = formatted_dep.replace(
-					dep[0].name, f"{dep[0].name}:{arch}"
-				)
-				break_name = f"{break_name}:{break_pkg.architecture}"
-			break_pkg = dep[0].installed_target_versions[0]
-			msg = BREAKS_MSG if tree_name == BREAKS else CONFLICTS_MSG
-			break_tree.add(
-				from_ansi(
-					msg.format(
-						dependency=formatted_dep,
-						package=color(break_name, "GREEN"),
-						version=color_version(break_pkg.version),
-					)
-				)
-			)
-	return break_tree
-
-
-def breaks_conflicts(
-	pkg_name: str, version: Version | NalaDebPackage, arch: str
-) -> Generator[Tree, None, None]:
-	"""Generate tree objects for breaks and conflict type deps."""
-	for dep_type in ("Breaks", "Conflicts"):
-		if deps := version.get_dependencies(dep_type):
-			dprint(f"{pkg_name} {dep_type}:\n{deps}")
-			if (formatted_dep := format_broken_conflict(deps, BREAKS, arch)).children:
-				yield formatted_dep
-
-
-def broken_pkg(  # pylint: disable=too-many-branches
-	pkg: Package | NalaDebPackage, cache: Cache
-) -> int:
-	"""Calculate and print broken Dependencies."""
-	ret_count = 0
-	version: NalaDebPackage | Version | None
-	if isinstance(pkg, NalaDebPackage):
-		version = pkg
-	elif not (version := pkg.candidate):
-		# We do this in case a broken package is locally installed.
-		if not pkg.installed:
+	def broken_install(self) -> int | NoReturn:
+		"""Handle printing of errors due to broken packages."""
+		# We have to clear the changes from the cache
+		# before we can calculate why the packages are broken.
+		if not self.broken_list:
+			return 0
+		self.cache.clear()
+		ret_count = sum(self.broken_pkg(pkg) for pkg in self.broken_list)
+		if not ret_count:
 			return ret_count
-		version = pkg.installed
+		self._print_held_error()
 
-	tree = Tree(from_ansi(color(pkg.name, "GREEN")))
-	dep_tree = Tree(from_ansi(DEPENDS))
-	arch = ""
-	if pkg.name.count(":") != 0 and ":all" not in pkg.name and ":any" not in pkg.name:
-		arch = pkg.name.split(":")[1]
-	dprint(
-		f"{pkg.name} Dependencies:\n"
-		+ "\n".join(dep.rawstr for dep in version.dependencies)
-	)
-	for dep in version.dependencies:
+	def broken_remove(self, broken_list: list[Package]) -> NoReturn:
+		"""Calculate and print broken remove dependencies."""
+		installed = tuple(
+			pkg for pkg in self.cache if pkg.installed and pkg.installed.dependencies
+		)
+		self.cache.clear()
+		for pkg in (
+			pkg.name
+			for pkg in broken_list
+			if pkg.name in self._installed_dep_names(installed)
+		):
+			self._print_rdeps(pkg, installed)
+		self._print_held_error()
+
+	def broken_pkg(self, pkg: Package | NalaDebPackage) -> int:
+		"""Calculate and print broken Dependencies."""
+		ret_count = 0
+		version: NalaDebPackage | Version | None
+		if isinstance(pkg, NalaDebPackage):
+			version = pkg
+		elif not (version := pkg.candidate):
+			# We do this in case a broken package is locally installed.
+			if not pkg.installed:
+				return ret_count
+			version = pkg.installed
+
+		tree: list[str] = []
+		dep_tree: list[str] = []
+		arch = self._arch(pkg.name)
+
+		indent = "    "
+		if formatted_break := self.breaks_conflicts(pkg.name, version, arch):
+			indent = LINE
+
+		for dep in version.dependencies:
+			dep_tree.extend(self._dep_tree(dep, arch, indent))
+
+		if dep_tree:
+			dep_tree.insert(0, f"{TOP_LINE if formatted_break else BOT_LINE} {DEPENDS}")
+			dep_tree.append(dep_tree.pop().replace(TOP_LINE, BOT_LINE))
+			tree.extend(dep_tree)
+
+		tree.extend(f"{TOP_LINE} {_break}" for _break in formatted_break)
+		if tree:
+			tree.append(tree.pop().replace(TOP_LINE, BOT_LINE))
+			tree.insert(0, color(pkg.name, "GREEN"))
+			print("\n".join(tree), end="\n\n")
+			ret_count += 1
+		return ret_count
+
+	def _dep_tree(
+		self,
+		dep: NalaDep | Dependency,
+		arch: str,
+		indent: str,
+	) -> list[str]:
+		dep_tree: list[str] = []
 		if len(dep) > 1:
 			count = 0
-			or_tree = Tree(from_ansi(OR_DEPENDS))
+			or_tree = []
 			for base_dep in dep:
-				if formatted := format_broken(base_dep, cache, arch):
+				if formatted := self.format_broken(base_dep, arch):
 					count += 1
-					or_tree.add(from_ansi(formatted))
+					or_tree.append(formatted)
 			if count == len(dep):
-				tree.add(or_tree)
-		elif formatted := format_broken(dep[0], cache, arch):
-			dep_tree.add(from_ansi(formatted))
+				start = f"{indent}{color(TOP_LINE, 'MAGENTA')}"
+				for num, msg in enumerate(or_tree):
+					if not num:
+						dep_tree.append(f"{start} {msg}")
+						continue
+					dep_tree.append(f"{start} or {msg}")
 
-	if dep_tree.children:
-		tree.add(dep_tree)
+		elif formatted := self.format_broken(dep[0], arch):
+			dep_tree.append(f"{indent}{TOP_LINE} {formatted}")
+		return dep_tree
 
-	for formatted_break in breaks_conflicts(pkg.name, version, arch):
-		tree.add(formatted_break)
-
-	if tree.children:
-		term.console.print(tree, soft_wrap=True)
-		ret_count += 1
-		print()
-	return ret_count
-
-
-def broken_error(
-	broken_list: list[Package] | list[NalaDebPackage],
-	cache: Cache,
-	installed_pkgs: bool | tuple[Package, ...] = False,
-) -> int | NoReturn:
-	"""Handle printing of errors due to broken packages."""
-	if isinstance(installed_pkgs, tuple):
-		total_deps = get_installed_dep_names(installed_pkgs)
-	# We have to clear the changes from the cache
-	# before we can calculate why the packages are broken.
-	cache.clear()
-	ret_count = 0
-	for pkg in broken_list:
-		# if installed_pkgs exist then we are removing.
-		if installed_pkgs and pkg.name in total_deps:
-			ret_count += 1
-			print_rdeps(pkg.name, cast(tuple[Package], installed_pkgs))
-			continue
-		ret_count += broken_pkg(pkg, cache)
-	if not ret_count:
-		return ret_count
-	eprint(
-		_("{notice} The information above may be able to help").format(
-			notice=NOTICE_PREFIX
-		)
-	)
-	sys.exit(_("{error} You have held broken packages").format(error=ERROR_PREFIX))
-
-
-def unmarked_error(pkgs: list[Package]) -> None:
-	"""Print error messages related to the fixer unmarking packages requested for install."""
-	terminate = False
-	for pkg in pkgs:
-		if not pkg.marked_upgrade or pkg.marked_install:
-			terminate = True
-			print(
-				_("{package} has been unmarked.").format(
-					package=color(pkg.name, "GREEN"),
-				)
+	def format_broken(self, dep: BaseDependency | NalaBaseDep, arch: str = "") -> str:
+		"""Format broken dependencies into a Tree, if any."""
+		formatted_dep = format_dep(dep, 0).strip()
+		dep_name = dep.name
+		if arch and ":any" not in dep_name:
+			dep_name = f"{dep_name}:{arch}"
+			formatted_dep = formatted_dep.replace(dep.name, dep_name)
+		# We print nothing on a virtual package
+		if self.cache.is_virtual_package(dep_name):
+			return ""
+		if self.cache.is_secret_virtual(dep_name):
+			return SECRET_VIRTUAL.format(package=formatted_dep)
+		if dep_name not in self.cache:
+			return _("{package} but it isn't in the cache").format(
+				package=formatted_dep
 			)
-	if terminate:
+		# This means that the dependency doesn't have the right version in the cache
+		if (
+			dep.version
+			and not dep.target_versions
+			and not dep.installed_target_versions
+		):
+			dep_pkg = self.cache[dep.name]
+			if (candidate := dep_pkg.candidate) and not apt_pkg.check_dep(
+				candidate.version, dep.relation_deb, dep.version
+			):
+				return _("{package} but the cache version is {version}").format(
+					package=formatted_dep,
+					version=color_version(candidate.version),
+				)
+			# If none of our conditions are met we just fall back to a general error
+			return _("{package} but it cannont be installed").format(
+				package=formatted_dep
+			)
+		return ""
+
+	def breaks_conflicts(
+		self,
+		pkg_name: str,
+		version: Version | NalaDebPackage,
+		arch: str,
+	) -> tuple[str, ...]:
+		"""Generate tree objects for breaks and conflict type deps."""
+		break_conflict: list[str] = []
+		for dep_type in ("Breaks", "Conflicts"):
+			if deps := version.get_dependencies(dep_type):
+				dprint(f"{pkg_name} {dep_type}:\n{deps}")
+				break_conflict.extend(
+					self.format_broken_conflict(
+						deps,
+						BREAKS_MSG if dep_type == "Breaks" else CONFLICTS_MSG,
+						arch,
+					)
+				)
+		return tuple(break_conflict)
+
+	def format_broken_conflict(
+		self,
+		breaks: list[Dependency] | list[NalaDep],
+		dep_string: str,
+		arch: str = "",
+	) -> list[str]:
+		"""Format broken conflict/breaks dependency into a Tree."""
+		break_tree: list[str] = []
+		for dep in breaks:
+			if not (target_versions := dep.target_versions):
+				continue
+			if installed_versions := tuple(
+				ver for ver in target_versions if ver.is_installed
+			):
+				break_tree.append(
+					dep_string.format(
+						dependency=self._dependency_name(dep, arch),
+						package=color(
+							self._break_pkg_name(installed_versions[0], arch), "GREEN"
+						),
+						version=color_version(installed_versions[0].version),
+					)
+				)
+
+			if not (target_provides := target_versions[0].provides):
+				continue
+
+			if conflict := self.format_conflict(dep, target_provides, dep_string):
+				break_tree.append(conflict)
+		return break_tree
+
+	def format_conflict(
+		self,
+		dep: Dependency | NalaDep,
+		target_provides: list[str],
+		dep_string: str,
+	) -> str | None:
+		"""Format a conflicting package that isn't installed."""
+		return (
+			next(
+				(
+					dep_string.format(
+						dependency=format_dep(dep[0]).strip(),
+						package=color(provide_name, "GREEN"),
+						version="",
+					)
+					for provide_name in target_provides
+					if dep[0].name != provide_name and provide_name in self.provides
+				),
+				None,
+			)
+			if self.provides
+			else None
+		)
+
+	@staticmethod
+	def _break_pkg_name(version: Version, arch: str) -> str:
+		"""Get the name of the package that is broken."""
+		return (
+			f"{version.package.name}:{version.architecture}"
+			if arch
+			else version.package.name
+		)
+
+	@staticmethod
+	def _dependency_name(dep: Dependency | NalaDep, arch: str) -> str:
+		"""Get the formatted dependency name."""
+		return (
+			format_dep(dep[0]).replace(dep[0].name, f"{dep[0].name}:{arch}")
+			if arch
+			else format_dep(dep[0])
+		).strip()
+
+	@staticmethod
+	def _arch(pkg_name: str) -> str:
+		return (
+			pkg_name.split(":")[1]
+			if ":" in pkg_name
+			and all(substring not in pkg_name for substring in (":all", ":any"))
+			else ""
+		)
+
+	@staticmethod
+	def unmarked_error(pkgs: list[Package]) -> None:
+		"""Print error messages related to the fixer unmarking packages requested for install."""
+		for pkg in pkgs:
+			if not pkg.marked_upgrade or pkg.marked_install:
+				print(
+					_("{package} has been unmarked.").format(
+						package=color(pkg.name, "GREEN"),
+					)
+				)
 		print(
 			_("Try {switch} if you're sure they can be installed.").format(
 				switch=color("--no-fix-broken", "YELLOW")
@@ -397,23 +497,52 @@ def unmarked_error(pkgs: list[Package]) -> None:
 			)
 		)
 
+	@staticmethod
+	def _installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
+		"""Iterate installed pkgs and return all of their deps in a tuple.
 
-def print_broken(pkg_name: str, candidate: Version) -> None:
-	"""Print broken packages information."""
-	print("=" * term.columns)
-	version = color("(") + color(candidate.version, "BLUE") + color(")")
-	print(f"{color('Package:', 'YELLOW')} {color(pkg_name, 'GREEN')} {version}")
-	msg = ""
-	if conflicts := candidate.get_dependencies("Conflicts"):
-		msg += SHOW_INFO.format(
-			header=color(_("Conflicts:"), "YELLOW"), info=show_dep(conflicts)
+		This is so we can reduce iterations when checking reverse depends.
+		"""
+		total_deps = set()
+		for pkg in installed_pkgs:
+			if not (pkg_installed := pkg.installed):
+				continue
+			for deps in pkg_installed.dependencies:
+				for dep in deps:
+					total_deps.add(dep.name)
+		return tuple(total_deps)
+
+	@staticmethod
+	def _print_rdeps(name: str, installed_pkgs: tuple[Package, ...]) -> int:
+		"""Print the installed reverse depends of a package."""
+		msg = color(
+			_("Installed packages that depend on {package}").format(
+				package=color(name, "GREEN")
+			)
+			+ "\n",
+			"YELLOW",
 		)
-	if breaks := candidate.get_dependencies("Breaks"):
-		msg += SHOW_INFO.format(
-			header=color(_("Breaks:"), "YELLOW"), info=show_dep(breaks)
+		for pkg in installed_pkgs:
+			if not (pkg_installed := pkg.installed):
+				continue
+			for dep in pkg_installed.dependencies:
+				if name in dep.rawstr:
+					dep_msg = f"  {color(pkg.name, 'GREEN')}"
+					if pkg.essential:
+						dep_msg = _("{package} is an Essential package!").format(
+							package=dep_msg
+						)
+					msg += f"{dep_msg}\n"
+					break
+		print(msg.strip())
+		return 1
+
+	@staticmethod
+	def _print_held_error() -> NoReturn:
+		"""Print the held broken error and exit."""
+		eprint(
+			_("{notice} The information above may be able to help").format(
+				notice=NOTICE_PREFIX
+			)
 		)
-	if candidate.dependencies:
-		msg += SHOW_INFO.format(
-			header=color(_("Depends:"), "YELLOW"), info=show_dep(candidate.dependencies)
-		)
-	print(msg)
+		sys.exit(_("{error} You have held broken packages").format(error=ERROR_PREFIX))

@@ -153,7 +153,7 @@ class NalaDep(List[NalaBaseDep]):
 
 	def __repr__(self) -> str:
 		"""Return a string representation of the instance."""
-		return f"<NalaDep: [{', '.join(repr(bd) for bd in self)}]>"
+		return f"<NalaDep: [{', '.join(repr(base_dep) for base_dep in self)}]>"
 
 	@property
 	def rawstr(self) -> str:
@@ -169,3 +169,17 @@ class NalaDep(List[NalaBaseDep]):
 
 		"""
 		return " | ".join(bd.rawstr for bd in self)
+
+	@property
+	def target_versions(self) -> list[Version]:
+		"""List all Version objects which satisfy this Or-group of deps."""
+		tvers: set[Version] = set()
+		for base_dep in self:
+			for tver in base_dep.target_versions:
+				tvers.add(tver)
+		return list(tvers)
+
+	@property
+	def installed_target_versions(self) -> list[Version]:
+		"""List all Version installed Version objects which satisfy this dep."""
+		return [ver for ver in self.target_versions if ver.is_installed]

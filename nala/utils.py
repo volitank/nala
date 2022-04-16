@@ -387,42 +387,6 @@ def pkg_installed(pkg: Package) -> Version:
 	return pkg.installed
 
 
-def get_installed_dep_names(installed_pkgs: tuple[Package, ...]) -> tuple[str, ...]:
-	"""Iterate installed pkgs and return all of their deps in a list.
-
-	This is so we can reduce iterations when checking reverse depends.
-	"""
-	total_deps = []
-	for pkg in installed_pkgs:
-		for deps in pkg_installed(pkg).dependencies:
-			for dep in deps:
-				if dep.name not in total_deps:
-					total_deps.append(dep.name)
-	return tuple(total_deps)
-
-
-def print_rdeps(name: str, installed_pkgs: tuple[Package]) -> None:
-	"""Print the installed reverse depends of a package."""
-	msg = color(
-		_("Installed packages that depend on {package}").format(
-			package=color(name, "GREEN")
-		)
-		+ "\n",
-		"YELLOW",
-	)
-	for pkg in installed_pkgs:
-		for dep in pkg_installed(pkg).dependencies:
-			if name in dep.rawstr:
-				dep_msg = f"  {color(pkg.name, 'GREEN')}"
-				if pkg.essential:
-					dep_msg = _("{package} is an Essential package!").format(
-						package=dep_msg
-					)
-				msg += f"{dep_msg}\n"
-				break
-	print(msg.strip())
-
-
 def dedupe_list(original: Iterable[str]) -> list[str]:
 	"""Deduplicate a list.
 
