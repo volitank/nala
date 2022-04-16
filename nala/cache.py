@@ -34,7 +34,7 @@ from apt.cache import Cache as _Cache
 from apt.package import Package
 
 from nala import _, color, color_version
-from nala.constants import ERROR_PREFIX, NOTICE_PREFIX
+from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, WARNING_PREFIX
 from nala.options import arguments
 from nala.rich import Columns, from_ansi
 from nala.utils import dprint, eprint, term
@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
 
 PACKAGES_CAN_BE_UPGRADED = "\n" + _("The following {total} packages can be upgraded:")
+NOT_CANDIDATE = color("[") + color(_("Not candidate version"), "YELLOW") + color("]")
 
 
 class Cache(_Cache):
@@ -110,7 +111,7 @@ class Cache(_Cache):
 		else:
 			return not pkg.has_versions
 
-	def glob_filter(self, pkg_names: list[str]) -> list[str]:
+	def glob_filter(self, pkg_names: list[str], show: bool = False) -> list[str]:
 		"""Filter provided packages and glob *.
 
 		Returns a new list of packages matching the glob.
@@ -125,7 +126,7 @@ class Cache(_Cache):
 		for pkg_name in pkg_names:
 			if "*" in pkg_name:
 				dprint(f"Globbing: {pkg_name}")
-				glob = fnmatch.filter(self.get_pkg_names(), pkg_name)
+				glob = fnmatch.filter(self.get_pkg_names(show), pkg_name)
 				if not glob:
 					glob_failed = True
 					eprint(
@@ -144,25 +145,30 @@ class Cache(_Cache):
 		dprint(f"List after globbing: {new_packages}")
 		return new_packages
 
-	def get_pkg_names(self) -> Generator[str, None, None]:
+	def get_pkg_names(self, show: bool = False) -> Generator[str, None, None]:
 		"""Generate all real packages, or packages that can provide something."""
 		for pkg in self._cache.packages:  # pylint: disable=not-an-iterable
+			pretty_name = pkg.get_fullname(pretty=True)
+			if not show and self.is_virtual_package(pretty_name):
+				provides = self.get_providing_packages(pretty_name)
+				if not provides or len(provides) > 1:
+					continue
+			# For some reason a virtual package $kernel exists and can't be accessed.
+			if pretty_name.startswith("$"):
+				continue
 			if pkg.has_versions or pkg.has_provides:
-				yield pkg.get_fullname(pretty=True)
+				yield pretty_name
 
-	def virtual_filter(self, pkg_names: list[str]) -> list[str]:
+	def virtual_filter(self, pkg_names: list[str], remove: bool = False) -> list[str]:
 		"""Filter package to check if they're virtual."""
 		new_names = set()
 		for pkg_name in pkg_names:
 			if pkg_name in self:
 				new_names.add(pkg_name)
 				continue
-			if vpkg := self.check_virtual(pkg_name):
-				# If it's virtual but too many things provide it.
-				if isinstance(vpkg, bool):
-					# We add it here so we can trigger a not found error.
-					new_names.add(pkg_name)
-					continue
+			if (vpkg := self.check_virtual(pkg_name, remove)) and isinstance(
+				vpkg, Package
+			):
 				new_names.add(vpkg.name)
 				continue
 			new_names.add(pkg_name)
@@ -179,15 +185,26 @@ class Cache(_Cache):
 					if pkg_name == target.name:
 						yield pkg.get_fullname(pretty=True)
 
-	def check_virtual(self, pkg_name: str) -> Package | bool:
+	def check_virtual(self, pkg_name: str, remove: bool = False) -> Package | bool:
 		"""Check if the package is virtual."""
-		if self.is_virtual_package(pkg_name):
-			if len(provides := self.get_providing_packages(pkg_name)) == 1:
-				print_selecting_pkg(provides[0].name, pkg_name)
-				return self[provides[0]]
-			print_virtual_pkg(pkg_name, provides)
+		if not self.is_virtual_package(pkg_name):
+			return False
+		if len(provides := self.get_providing_packages(pkg_name)) == 1:
+			print_selecting_pkg(provides[0].name, pkg_name)
+			return self[provides[0]]
+		if remove:
+			eprint(
+				_("{warn} Virtual Packages like {package} can't be removed.").format(
+					warn=WARNING_PREFIX, package=color(pkg_name, "YELLOW")
+				)
+			)
 			return True
-		return False
+		if not provides:
+			if provides := self.get_providing_packages(pkg_name, candidate_only=False):
+				print_virtual_pkg(pkg_name, provides, not_candidate=True)
+				return True
+		print_virtual_pkg(pkg_name, provides)
+		return True
 
 	def purge_removed(self) -> None:
 		"""Make sure everything marked as removed is getting purged."""
@@ -263,7 +280,9 @@ def install_archives(
 	return res
 
 
-def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
+def print_virtual_pkg(
+	pkg_name: str, provides: list[Package], not_candidate: bool = False
+) -> None:
 	"""Print the virtual package string."""
 	print(
 		_("{package} is a virtual package provided by:").format(
@@ -273,7 +292,8 @@ def print_virtual_pkg(pkg_name: str, provides: list[Package]) -> None:
 	print(
 		"".join(
 			[
-				f"\n  {color(pkg.name, 'GREEN')} {color_version(pkg.candidate.version)}"
+				f"\n  {color(pkg.name, 'GREEN')} {color_version(pkg.candidate.version)} "
+				f"{NOT_CANDIDATE if not_candidate else ''}"
 				for pkg in provides
 				if pkg.candidate
 			]

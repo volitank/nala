@@ -136,7 +136,7 @@ def _remove(pkg_names: list[str]) -> None:
 	check_state(cache, nala_pkgs)
 
 	pkg_names = cache.glob_filter(dedupe_list(pkg_names))
-	pkg_names = cache.virtual_filter(pkg_names)
+	pkg_names = cache.virtual_filter(pkg_names, remove=True)
 	broken, not_found, ver_failed = check_broken(
 		pkg_names,
 		cache,
@@ -144,13 +144,7 @@ def _remove(pkg_names: list[str]) -> None:
 	)
 
 	for pkg_name in not_found[:]:
-		# For some reason a virtual package $kernel exists and can't be accessed.
-		if cache.is_any_virtual(pkg_name) or pkg_name.startswith("$"):
-			eprint(
-				_("{warn} Virtual Packages like {package} can't be removed.").format(
-					warn=WARNING_PREFIX, package=color(pkg_name, "YELLOW")
-				)
-			)
+		if cache.is_any_virtual(pkg_name):
 			not_found.remove(pkg_name)
 			pkg_names.remove(pkg_name)
 
@@ -429,7 +423,7 @@ def show(
 	"""Show package details."""
 	cache = Cache()
 	not_found: list[str] = []
-	pkg_names = cache.glob_filter(pkg_names)
+	pkg_names = cache.glob_filter(pkg_names, show=True)
 	pkg_names = cache.virtual_filter(pkg_names)
 	additional_records = 0
 	for num, pkg_name in enumerate(pkg_names):
