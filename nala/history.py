@@ -55,7 +55,7 @@ from nala.options import (
 	arguments,
 	history_typer,
 )
-from nala.rich import OVERFLOW, Column, Table
+from nala.rich import ELLIPSIS, OVERFLOW, Column, Table
 from nala.summary import print_update_summary
 from nala.utils import (
 	DelayedKeyboardInterrupt,
@@ -399,7 +399,7 @@ def history_clear(
 	hist_id = f"{_hist_id}"
 	dprint(f"History clear {hist_id}")
 	if not NALA_HISTORY.exists():
-		eprint(_("No history exists to clear..."))
+		eprint(_("No history exists to clear") + ELLIPSIS)
 		return
 
 	if hist_id not in (history_file := load_history_file()).keys():
@@ -419,7 +419,7 @@ def history_clear(
 			history_edit[f"{num}"] = value
 	history_edit["Nala"] = nala_dict
 	write_history_file(history_edit)
-	print(_("History has been altered..."))
+	print(_("History has been altered") + ELLIPSIS)
 
 
 @history_typer.command("undo", help=_("Undo a transaction."))

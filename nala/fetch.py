@@ -337,7 +337,7 @@ def parse_mirror(
 	"""Parse the mirror."""
 	mirror_set = set()
 	if arguments.verbose:
-		print(_("Parsing mirror list..."))
+		print(_("Parsing mirror list") + ELLIPSIS)
 	# If no country is supplied then our list will be all countries
 	countries = country_list or get_countries(master_mirror)
 	for country, mirror in itertools.product(countries, master_mirror):
