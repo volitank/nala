@@ -1,3 +1,62 @@
+nala (0.8.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add `-n --names`, `-i --installed`, `-u --upgradable`, `-v --virtual`
+    to the `search` command
+  * Add `list` command which shares all switches with the `search` command
+    except for `-n, \--names` and `-A, --all-arches`
+  * Perf: Replace `fetch` ping subprocesses with httpx to grab Release file
+    this is a more meaningful metric than just pure latency
+  * Add default interactive menu for `fetch`. The old style can be accessed
+    by using `--auto`
+  * Add `--purge` switch to purge any package that would be removed
+  * Add `--lists` and `--fetch` to `clean` command. This will remove the
+    package lists from `update` and the sources from `fetch` respectively
+  * Replace `argparser` with `typer`
+  * Remove a lot of bloated `dpkg` switches and add `-o --option`
+  * Perf: Optimize the `search` command so it's a little faster. In my tests
+    search times took half as long
+  * Remove options to update the cache from `show`, `list` and `search`
+  * Raise max connections per mirror to 3. This helps when downloading
+    a lot of small files.
+  * Add lock file so you can't run two instances of `nala` where packages
+    will be manipulated
+  * Add `purged` section to the history file to keep track of when
+    a transaction is a purge vs remove
+  * Add `User-Installed` section to the history file to keep track of
+    packages explicitly installed with `nala`. This will not add their
+    dependencies into the list, only what was specified to be installed.
+    Packages installed with `apt` will not make it into this list, but
+    packages removed with `apt` will be removed the next time `nala` writes
+    the history file
+  * Add `history --installed` to view these packages. And `--nala-installed`
+    for the `list` and `search` commands
+  * Add `--assume-no` switch to complement `--assume-yes`
+  * Improve the column formatting during the install summary
+  * Use `typer` dynamic completion files. For `zsh` and `fish` users
+    this will greatly improve your experience
+  * Perf: remove `jsbeautifier` and use no whitespace `json` for history.
+    The performance improvements from this are rather large.
+  * Add `--config` switch to `autoremove` and `autopurge` which will
+    additionally `purge` any packages in the rc state. `autoremove` requires
+    the `--purge` switch for this to work
+  * Add initial translations for Bengali, Portuguese Brazil, Spanish,
+    Polish, Russian and Swedish. These are beta and could contain bugs
+    or are not yet complete
+
+  [ Bug Fixes ]
+  * Exception due to compatibility with older versions of `history.json`
+  * The number of connections to mirrors not actually being limited
+  * Sometimes not downloading a package properly. This was a rare bug
+  * Not being able to use SOCKS proxy with `nala`. This requires the
+    `python3-socksio` package, which is now a Recommends
+  * Not being able to `purge` packages that have been removed but have
+    config files that remain on the system. AKA rc state
+  * `dpkg` progress bar not always hitting 100% on completion
+  * Exception when piping input into `nala`
+
+ -- Blake Lee <blake@volian.org>  Fri, 22 Apr 2022 12:29:32 -0400
+
 nala (0.7.3) unstable; urgency=medium
 
   [ Bug Fixes ]
