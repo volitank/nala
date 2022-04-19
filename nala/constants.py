@@ -82,6 +82,8 @@ SOURCELIST = Path(apt_pkg.config.find_file("Dir::Etc::sourcelist"))
 """/etc/apt/sources.list"""
 SOURCEPARTS = Path(apt_pkg.config.find_dir("Dir::Etc::sourceparts"))
 """/etc/apt/sources.list.d"""
+DPKG_STATE = Path(apt_pkg.config.find_dir("Dir::State::status"))
+"""/var/lib/dpkg/status"""
 
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
 

@@ -40,6 +40,7 @@ from nala.cache import Cache
 from nala.constants import (
 	ARCHIVE_DIR,
 	CAT_ASCII,
+	DPKG_STATE,
 	ERROR_PREFIX,
 	LISTS_DIR,
 	LISTS_PARTIAL_DIR,
@@ -193,24 +194,24 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 
 def remove_completion(ctx: typer.Context) -> Generator[str, None, None]:
 	"""Complete remove command arguments."""
-	command = [
-		"grep-status",
-		"-P",
-		"-e",
-		".*",
-		"-a",
-		"-FStatus",
-		"ok installed",
-	]
+	if not DPKG_STATE.exists():
+		return
+	regex = r"ok installed|half-installed|unpacked|half-configured"
 	if "purge" in ctx.command_path:
-		command.extend(["-o", "-FStatus", "ok config-files"])
+		regex += r"|config-files"
 
-	yield from run(
-		command + ["-n", "-s", "Package"],
-		capture_output=True,
-		check=True,
-		text=True,
-	).stdout.split()
+	status = re.compile(regex)
+	for package in DPKG_STATE.read_text(encoding="utf-8").split("\n\n"):
+		pkg_name = pkg_status = None
+		for line in package.splitlines():
+			if len(feilds := line.split(": ")) == 1:
+				continue
+			if "Package" in feilds:
+				pkg_name = feilds[1]
+			if "Status" in feilds and status.findall(feilds[1]):
+				pkg_status = feilds[1]
+		if pkg_name and pkg_status:
+			yield pkg_name
 
 
 def package_completion(cur: str) -> Generator[str, None, None]:

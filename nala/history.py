@@ -259,6 +259,8 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 
 def hist_id_completion() -> Generator[tuple[str, str], None, None]:
 	"""Complete history ID arguments."""
+	if not NALA_HISTORY.exists():
+		return
 	history_file = load_history_file()
 	pop_nala(history_file)
 	for key, entry in history_file.items():
