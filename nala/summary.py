@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generator
+from typing import Generator, Iterable
 
 from nala import _, console
 from nala.cache import Cache
@@ -33,67 +33,107 @@ from nala.options import arguments
 from nala.rich import HORIZONTALS, OVERFLOW, Column, Group, Table, Tree
 from nala.utils import NalaPackage, PackageHandler, dprint, unit_str
 
-# NOTE: Everything in the `summary.py` module is for the transaction summary.
 # NOTE: The following are the headers for the transaction summary.
+# NOTE: Package:        Version:     Size:
+# NOTE: ansible-core    2.12.4-1    1.2 MB
 PACKAGE, VERSION, SIZE, OLD_VERSION, NEW_VERSION, EITHER = _(
-	"Package:/Version:/Size:/Old Version:/New Version:/Either:"
+	"Package/Version/Size/Old Version/New Version/Either"
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Auto-Purge 20 Packages" ]
+_AUTO_PURGE, _AUTO_PURGING, _AUTO_PURGED = _(
+	"Auto-Purge/Auto-Purging/Auto-Purged",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Auto-Remove 20 Packages" ]
+_AUTO_REMOVE, _AUTO_REMOVING, _AUTO_REMOVED = _(
+	"Auto-Remove/Auto-Removing/Auto-Removed",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Remove 20 Packages" ]
+_REMOVE, _REMOVING, _REMOVED = _(
+	"Remove/Removing/Removed",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Purge 20 Packages" ]
+_PURGE, _PURGING, _PURGED = _(
+	"Purge/Purging/Purged",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Install 20 Packages" ]
+_INSTALL, _INSTALLING, _INSTALLED = _(
+	"Install/Installing/Installed",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Reinstall 20 Packages" ]
+_REINSTALL, _REINSTALLING, _REINSTALLED = _(
+	"Reinstall/Reinstalling/Reinstalled",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Upgrade 20 Packages" ]
+_UPGRADE, _UPGRADING, _UPGRADED = _(
+	"Upgrade/Upgrading/Upgraded",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Downgrade 20 Packages" ]
+_DOWNGRADE, _DOWNGRADING, _DOWNGRADED = _(
+	"Downgrade/Downgrading/Downgraded",
+).split("/")
+# NOTE: Verb Tenses are [ "Present/Present Participle/Past" ]
+# NOTE: This ends up looking like [ "Configure 20 Packages" ]
+_CONFIGURE, _CONFIGURING, _CONFIGURED = _(
+	"Configure/Configuring/Configured",
 ).split("/")
 
-# NOTE: This is the summary layout for "Upgrade 20 Packages" messages.
-# NOTE: right_adjust should be placed where the package_total will be.
-# NOTE: All formatting strings MUST remain the same but can be reordered.
-# NOTE: This is used for strings like "Auto-Purged/{package_total}/Packages".
-# NOTE: `/` will convert to a space. For example, in Irish. it may be:
-# NOTE: "{package_total}/bpacáistí/a uasghrádú" -> "20 bpacáistí a uasghrádú"
-SUMMARY_LAYOUT = _("left_adjust right_adjust left_adjust").split()
-# NOTE: Upgrading Columns layout
-UPGRADE_LAYOUT = _("pkg_blue old_version new_version pkg_size").split()
-# NOTE: Downgrading Columns layout
-DOWNGRADE_LAYOUT = _("pkg_yellow old_version new_version pkg_size").split()
-# NOTE: The Default Columns layout
-DEFAULT_LAYOUT = _("pkg_green version pkg_size").split()
-# NOTE: Recommend and Suggests Columns layout
-EXTRA_LAYOUT = _("pkg_magenta version pkg_size").split()
-# NOTE: Removing Columns layout
-REMOVE_LAYOUT = _("pkg_red version pkg_size").split()
+SUMMARY_LAYOUT = ("left_adjust", "right_adjust", "left_adjust")
+UPGRADE_LAYOUT = ("pkg_blue", "old_version", "new_version", "pkg_size")
+DOWNGRADE_LAYOUT = ("pkg_yellow", "old_version", "new_version", "pkg_size")
+DEFAULT_LAYOUT = ("pkg_green", "version", "pkg_size")
+EXTRA_LAYOUT = ("pkg_magenta", "version", "pkg_size")
+REMOVE_LAYOUT = ("pkg_red", "version", "pkg_size")
 
 COLUMN_MAP: dict[str, dict[str, str | int]] = {
 	"left_adjust": {"overflow": OVERFLOW},
 	"right_adjust": {"justify": "right", "overflow": OVERFLOW},
 	"pkg_green": {
-		"header": PACKAGE,
+		"header": f"{PACKAGE}:",
 		"style": "bold green",
 		"overflow": OVERFLOW,
 		"ratio": 2,
 	},
 	"pkg_red": {
-		"header": PACKAGE,
+		"header": f"{PACKAGE}:",
 		"style": "bold red",
 		"overflow": OVERFLOW,
 		"ratio": 2,
 	},
 	"pkg_blue": {
-		"header": PACKAGE,
+		"header": f"{PACKAGE}:",
 		"style": "bold blue",
 		"overflow": OVERFLOW,
 		"ratio": 3,
 	},
 	"pkg_yellow": {
-		"header": PACKAGE,
+		"header": f"{PACKAGE}:",
 		"style": "bold orange_red1",
 		"overflow": OVERFLOW,
 		"ratio": 2,
 	},
 	"pkg_magenta": {
-		"header": PACKAGE,
+		"header": f"{PACKAGE}:",
 		"style": "bold magenta",
 		"overflow": OVERFLOW,
 		"ratio": 2,
 	},
-	"pkg_size": {"header": SIZE, "justify": "right", "overflow": OVERFLOW, "ratio": 2},
-	"version": {"header": VERSION, "overflow": "fold", "ratio": 2},
-	"old_version": {"header": OLD_VERSION, "overflow": "fold", "ratio": 2},
-	"new_version": {"header": NEW_VERSION, "overflow": "fold", "ratio": 2},
+	"pkg_size": {
+		"header": f"{SIZE}:",
+		"justify": "right",
+		"overflow": OVERFLOW,
+		"ratio": 2,
+	},
+	"version": {"header": f"{VERSION}:", "overflow": "fold", "ratio": 2},
+	"old_version": {"header": f"{OLD_VERSION}:", "overflow": "fold", "ratio": 2},
+	"new_version": {"header": f"{NEW_VERSION}:", "overflow": "fold", "ratio": 2},
 }
 ROW_MAP: dict[str, str] = {
 	"pkg_green": "name",
@@ -108,13 +148,13 @@ ROW_MAP: dict[str, str] = {
 }
 
 
-def get_columns(column_keys: list[str]) -> Generator[Column, None, None]:
+def get_columns(column_keys: Iterable[str]) -> Generator[Column, None, None]:
 	"""Get the columns from our column map."""
 	for key in column_keys:
 		yield Column(**COLUMN_MAP[key])  # type: ignore[arg-type]
 
 
-def get_rows(pkg: NalaPackage, layout: list[str]) -> Generator[str, None, None]:
+def get_rows(pkg: NalaPackage, layout: Iterable[str]) -> Generator[str, None, None]:
 	"""Get the rows from our row map."""
 	for key in layout:
 		yield getattr(pkg, ROW_MAP[key])
@@ -124,7 +164,7 @@ def get_rows(pkg: NalaPackage, layout: list[str]) -> Generator[str, None, None]:
 class PackageHeaders:
 	"""Tuple for package headers."""
 
-	layout: list[str]
+	layout: tuple[str, ...]
 	title: str
 	summary: str = ""
 
@@ -149,23 +189,23 @@ def auto_remove_header(history: bool) -> tuple[str, str]:
 	if history and arguments.is_purge():
 		# NOTE: `/` will convert to a space for example in Irish it may be:
 		# NOTE: "{package_total}/bpacáistí/a uasghrádú" -> "20 bpacáistí a uasghrádú"
-		return _("Auto-Purged"), _("Auto-Purged/{package_total}/Packages")
+		return _AUTO_PURGED, _AUTO_PURGED
 	if history:
-		return _("Auto-Removed"), _("Auto-Removed/{package_total}/Packages")
+		return _AUTO_REMOVED, _AUTO_REMOVED
 	if arguments.is_purge():
-		return _("Auto-Purging"), _("Auto-Purge/{package_total}/Packages")
-	return _("Auto-Removing"), _("Auto-Remove/{package_total}/Packages")
+		return _AUTO_PURGING, _AUTO_PURGE
+	return _AUTO_REMOVING, _AUTO_REMOVE
 
 
 def remove_header(history: bool) -> tuple[str, str]:
 	"""Get the remove header."""
 	if history and arguments.is_purge():
-		return _("Purged"), _("Purged/{package_total}/Packages")
+		return _PURGED, _PURGED
 	if history:
-		return _("Removed"), _("Removed/{package_total}/Packages")
+		return _REMOVED, _REMOVED
 	if arguments.is_purge():
-		return _("Purging"), _("Purge/{package_total}/Packages")
-	return _("Removing"), _("Remove/{package_total}/Packages")
+		return _PURGING, _PURGE
+	return _REMOVING, _REMOVE
 
 
 def get_headers() -> Headers:
@@ -173,21 +213,11 @@ def get_headers() -> Headers:
 	return Headers(
 		PackageHeaders(REMOVE_LAYOUT, *remove_header(history=False)),
 		PackageHeaders(REMOVE_LAYOUT, *auto_remove_header(history=False)),
-		PackageHeaders(
-			DEFAULT_LAYOUT, _("Installing"), _("Install/{package_total}/Packages")
-		),
-		PackageHeaders(
-			DEFAULT_LAYOUT, _("Reinstalling"), _("Reinstall/{package_total}/Packages")
-		),
-		PackageHeaders(
-			UPGRADE_LAYOUT, _("Upgrading"), _("Upgrade/{package_total}/Packages")
-		),
-		PackageHeaders(
-			DOWNGRADE_LAYOUT, _("Downgrading"), _("Downgrade/{package_total}/Packages")
-		),
-		PackageHeaders(
-			EXTRA_LAYOUT, _("Configuring"), _("Configure/{package_total}/Packages")
-		),
+		PackageHeaders(DEFAULT_LAYOUT, _INSTALLING, _INSTALL),
+		PackageHeaders(DEFAULT_LAYOUT, _REINSTALLING, _REINSTALL),
+		PackageHeaders(UPGRADE_LAYOUT, _UPGRADING, _UPGRADE),
+		PackageHeaders(DOWNGRADE_LAYOUT, _DOWNGRADING, _DOWNGRADE),
+		PackageHeaders(EXTRA_LAYOUT, _CONFIGURING, _CONFIGURE),
 		PackageHeaders(EXTRA_LAYOUT, _("Recommended, Will Not Be Installed")),
 		PackageHeaders(EXTRA_LAYOUT, _("Suggested, Will Not Be Installed")),
 	)
@@ -198,21 +228,11 @@ def get_history_headers() -> Headers:
 	return Headers(
 		PackageHeaders(REMOVE_LAYOUT, *remove_header(history=True)),
 		PackageHeaders(REMOVE_LAYOUT, *auto_remove_header(history=True)),
-		PackageHeaders(
-			DEFAULT_LAYOUT, _("Installed"), _("Installed/{package_total}/Packages")
-		),
-		PackageHeaders(
-			DEFAULT_LAYOUT, _("Reinstalled"), _("Reinstalled/{package_total}/Packages")
-		),
-		PackageHeaders(
-			UPGRADE_LAYOUT, ("Upgraded"), _("Upgraded/{package_total}/Packages")
-		),
-		PackageHeaders(
-			DOWNGRADE_LAYOUT, _("Downgraded"), _("Downgraded/{package_total}/Packages")
-		),
-		PackageHeaders(
-			EXTRA_LAYOUT, _("Configured"), _("Configured/{package_total}/Packages")
-		),
+		PackageHeaders(DEFAULT_LAYOUT, _INSTALLED, _INSTALLED),
+		PackageHeaders(DEFAULT_LAYOUT, _REINSTALLED, _REINSTALLED),
+		PackageHeaders(UPGRADE_LAYOUT, _UPGRADED, _UPGRADED),
+		PackageHeaders(DOWNGRADE_LAYOUT, _DOWNGRADED, _DOWNGRADED),
+		PackageHeaders(EXTRA_LAYOUT, _CONFIGURED, _CONFIGURED),
 		PackageHeaders(EXTRA_LAYOUT, _("Recommended, Will Not Be Installed")),
 		PackageHeaders(EXTRA_LAYOUT, _("Suggested, Will Not Be Installed")),
 	)
@@ -291,9 +311,8 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 		# We don't need empty rows from these in the summary
 		if pkg_set in (nala_pkgs.suggest_pkgs, nala_pkgs.recommend_pkgs):
 			continue
-		summary_table.add_row(
-			*header.summary.format(package_total=len(pkg_set)).split("/")
-		)
+		# NOTE: This ends up looking like [ "Configure 20 Packages" ]
+		summary_table.add_row(header.summary, f"{len(pkg_set)}", _("Packages"))
 
 	summary_header.add_row(summary_table)
 	main_table.add_row(summary_header)

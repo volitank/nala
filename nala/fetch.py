@@ -68,13 +68,9 @@ TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
 ErrorTypes = Union[HTTPStatusError, HTTPError, SSLCertVerificationError, ReadTimeout]
 
 FETCH_HELP = _(
-	"""
-Nala will fetch mirrors with the lowest latency.
-
-For Debian https://mirror-master.debian.org/status/Mirrors.masterlist
-
-For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss
-"""
+	"Nala will fetch mirrors with the lowest latency.\n\n"
+	"For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n\n"
+	"For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
 )
 
 

@@ -473,7 +473,7 @@ def print_error(error: DownloadErrorTypes) -> None:
 	"""Print the download error to console."""
 	if isinstance(error, ConnectTimeout):
 		eprint(
-			_("{error} {url} timed out:").format(
+			_("{error} {url} timed out").format(
 				error=ERROR_PREFIX, url=error.request.url
 			)
 		)

@@ -41,7 +41,7 @@ from nala.utils import term, unit_str
 
 # NOTE: This is for `nala show`
 # NOTE: header info looks like "Package: steam:i386"
-SHOW_INFO = _("{header} {info}\n")
+SHOW_INFO = _("{header} {info}") + "\n"
 URL_PATTERN = re.compile(r"(https?://.*?/.*?/)")
 
 

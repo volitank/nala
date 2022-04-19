@@ -84,11 +84,8 @@ NOT_SUPPORTED = _(
 )
 
 HISTORY_HELP = _(
-	"""
-Show transaction history.
-
-Running `nala history` with no subcommands prints an overview of all transactions.
-"""
+	"Show transaction history.\n\n"
+	"Running `nala history` with no subcommands prints an overview of all transactions."
 )
 
 

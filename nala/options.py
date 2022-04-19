@@ -389,9 +389,11 @@ DOWNLOAD_ONLY = typer.Option(
 
 FIX_BROKEN = typer.Option(
 	True,
+	"-f",
+	"--fix-broken / --no-fix-broken",
 	callback=arguments.set_fix_broken,
 	is_eager=True,
-	help=_("Attempt to fix broken packages."),
+	help=_("Toggle fix broken packages."),
 )
 
 ASSUME_YES = typer.Option(

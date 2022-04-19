@@ -58,6 +58,7 @@ from nala.constants import (
 )
 from nala.options import arguments
 from nala.rich import (
+	ELLIPSIS,
 	OVERFLOW,
 	Group,
 	Live,
@@ -126,12 +127,13 @@ PROCESSING_HEAD = color(_("Processing:"), "GREEN")
 SETTING_UP_MSG = _("{setting_up} {dpkg_msg}")
 PROCESSING_MSG = _("{processing} {dpkg_msg}")
 UNPACKING_MSG = _("{unpacking}  {dpkg_msg}")
+# NOTE: That's the end of alignment spacing
 REMOVING_MSG = _("{removing}   {dpkg_msg}")
 
-# NOTE: That's the end of alignment spacing
-ERROR_MSG = _("{error} {info}\n  {error_text}")
-
+# NOTE: This translation is separate from the one below
+# NOTE: Because we do a check specifically on this string
 FETCHED = _("Fetched")
+# NOTE: Fetched 81.0 MB in 6s (1448 kB/s)
 FETCHED_MSG = _("{fetched} {size}B in {elapsed} ({speed}B/s)")
 
 
@@ -263,13 +265,8 @@ class UpdateProgress(text.AcquireProgress):
 				)
 			)
 		else:
-			self._write(
-				ERROR_MSG.format(
-					error=ERROR_PREFIX,
-					info=item.description,
-					error_text=item.owner.error_text,
-				)
-			)
+			# This doesn't need to be translated. Just an error dump
+			self._write(f"{ERROR_PREFIX} {item.description}\n  {item.owner.error_text}")
 
 	def fetch(self, item: apt_pkg.AcquireItemDesc) -> None:
 		"""Call when some of the item's data is fetched."""
@@ -974,7 +971,7 @@ class AptExpect(fdspawn):  # type: ignore[misc]
 						warning=WARNING_PREFIX
 					)
 				)
-				eprint(color(_("Ctrl+C twice quickly will exit..."), "RED"))
+				eprint(color(_("Ctrl+C twice quickly will exit") + ELLIPSIS, "RED"))
 				sleep(0.5)
 
 	def _read(self, output_filter: Callable[[bytes], None]) -> bool:
