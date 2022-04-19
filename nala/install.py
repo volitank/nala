@@ -486,14 +486,6 @@ def split_local(
 	return not_exist
 
 
-def pkgs_still_marked(packages: list[Package]) -> bool:
-	"""Return if the explicit packages are marked or not."""
-	return all(
-		(pkg.marked_upgrade or pkg.marked_install or pkg.marked_downgrade)
-		for pkg in packages
-	)
-
-
 def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) -> bool:
 	"""Manage installation or removal of packages."""
 	with cache.actiongroup():  # type: ignore[attr-defined]

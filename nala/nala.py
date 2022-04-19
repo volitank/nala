@@ -60,7 +60,6 @@ from nala.install import (
 	get_changes,
 	install_local,
 	package_manager,
-	pkgs_still_marked,
 	setup_cache,
 	split_local,
 )
@@ -168,8 +167,7 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 		ctx.fail(_("{error} Missing packages to install").format(error=ERROR_PREFIX))
 
 	pkg_names = dedupe_list(pkg_names)  # type: ignore[arg-type]
-	cache = setup_cache()
-	check_state(cache, nala_pkgs)
+	check_state(cache := setup_cache(), nala_pkgs)
 	not_exist = split_local(pkg_names, cache, nala_pkgs.local_debs)
 	install_local(nala_pkgs, cache)
 
@@ -182,9 +180,7 @@ def _install(pkg_names: list[str] | None, ctx: typer.Context) -> None:
 		pkg_error(not_found, cache)
 
 	nala_pkgs.user_explicit = [cache[pkg_name] for pkg_name in pkg_names]
-	if not package_manager(pkg_names, cache) or not pkgs_still_marked(
-		nala_pkgs.user_explicit
-	):
+	if not package_manager(pkg_names, cache):
 		if not (error := BrokenError(cache, broken)).broken_install():
 			error.unmarked_error(nala_pkgs.user_explicit)
 
