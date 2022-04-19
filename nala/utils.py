@@ -192,7 +192,7 @@ class DelayedKeyboardInterrupt:
 class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	"""Class for storing package lists."""
 
-	autoremoved: list[str] = field(default_factory=list)
+	autoremoved: set[str] = field(default_factory=set)
 	user_explicit: list[Package] = field(default_factory=list)
 	local_debs: list[NalaDebPackage] = field(default_factory=list)
 	delete_pkgs: list[NalaPackage] = field(default_factory=list)

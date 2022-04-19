@@ -95,7 +95,7 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, config: bool = False) 
 					continue
 				# We don't have to autofix while autoremoving
 				pkg.mark_delete(auto_fix=False, purge=arguments.is_purge())
-				nala_pkgs.autoremoved.append(pkg.name)
+				nala_pkgs.autoremoved.add(pkg.name)
 
 			elif config and not pkg.is_installed and pkg.has_config_files:
 				vprint(
@@ -104,7 +104,7 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, config: bool = False) 
 					)
 				)
 				pkg.mark_delete(auto_fix=False, purge=arguments.is_purge())
-				nala_pkgs.autoremoved.append(pkg.name)
+				nala_pkgs.autoremoved.add(pkg.name)
 
 	dprint(f"Pkgs marked by autoremove: {nala_pkgs.autoremoved}")
 
