@@ -19,7 +19,9 @@ Nala - A prettier front-end for libapt-pkg
 
 : > **nala** downloads packages in parallel. Along with this **nala** can download packages from multiple mirrors concurrently to speed up package downloads further. We put in place a limit to 2 packages per mirror so we don't put too much pressure on them. This caps out at a maximum of 16.
 
-	**-f, \--fix-broken** attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala install --fix-broken**.
+	*-f, \--fix-broken* attempts to fix broken packages. By default Nala will attempt to fix them. This switch exists so if you install something with **dpkg** and it needs extra dependencies to work you can run **nala install --fix-broken**.
+
+	*\--no-fix-broken* will stop **nala** from doing some extra checks during an install. Using this can result in a broken install.
 
 **remove**
 : > **remove** works similar to the way it does in **apt**. Our noticeable differences here include improved output on what will be removed, no need for running an autoremove, **nala** will handle that for you.
@@ -35,7 +37,7 @@ Nala - A prettier front-end for libapt-pkg
 
 	By default **nala** will run the equivalent of **apt update && apt full-upgrade --auto-remove**. If you are just looking to update the package cache and not actually perform an upgrade you can use **nala** *\--update*.
 
-	*\--no-full* will run a regular upgrade which won't remove packages. By default **nala** uses a *full-upgrade*.
+	*\--full* / *\--no-full* Toggle full-upgrade. *\--no-full* will run a regular upgrade which won't remove or install packages. By default **nala** uses a *full-upgrade*.
 
 	*\--exclude* packages to exclude when updating. Glob enabled, for example. **nala update** *\--exclude* *linux-image**
 
@@ -116,7 +118,7 @@ Nala - A prettier front-end for libapt-pkg
 
 	Currently only **remove** and **install** commands are available for **undo** and **redo**
 
-	**history clear [id]** will remove the transaction from the history. Alternatively you can use "all" for the ID which will remove the entire history
+	**history clear [id]** will remove the transaction from the history. Alternatively you can use *\--all* which will remove the entire history
 
 	*\--installed* prints the names of packages explicitly installed with Nala.
 
