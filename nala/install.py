@@ -229,7 +229,11 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 				if arguments.raw_dpkg:
 					live.stop()
-				install = InstallProgress(dpkg_log, term_log, live, task)
+				config_purge = tuple(
+					pkg.name
+					for pkg in nala_pkgs.autoremove_config + nala_pkgs.delete_config
+				)
+				install = InstallProgress(dpkg_log, term_log, live, task, config_purge)
 				update = UpdateProgress(live)
 				cache.commit_pkgs(install, update)
 				if nala_pkgs.local_debs:
@@ -689,48 +693,39 @@ def sort_pkg_changes(pkgs: list[Package], nala_pkgs: PackageHandler) -> None:
 	"""Sort a list of packages and splits them based on the action to take."""
 	dprint("Sorting Package Changes")
 	for pkg in pkgs:
+		installed = get_pkg_version(pkg, inst_first=True)
 		if pkg.marked_delete:
-			installed = get_pkg_version(pkg, inst_first=True)
-			if pkg.name not in nala_pkgs.autoremoved:
-				nala_pkgs.delete_pkgs.append(
-					NalaPackage(pkg.name, installed.version, installed.installed_size),
-				)
-			else:
-				nala_pkgs.autoremove_pkgs.append(
-					NalaPackage(pkg.name, installed.version, installed.installed_size)
-				)
-			continue
+			delete, autoremove = (
+				(nala_pkgs.delete_pkgs, nala_pkgs.autoremove_pkgs)
+				if pkg.installed
+				else (nala_pkgs.delete_config, nala_pkgs.autoremove_config)
+			)
+			npkg = NalaPackage(pkg.name, installed.version, installed.installed_size)
+			if pkg.name in nala_pkgs.autoremoved:
+				autoremove.append(npkg)
+				continue
+			delete.append(npkg)
 
 		candidate = get_pkg_version(pkg, cand_first=True)
+		npkg = NalaPackage(pkg.name, candidate.version, candidate.size)
 		if pkg.marked_install:
-			nala_pkgs.install_pkgs.append(
-				NalaPackage(pkg.name, candidate.version, candidate.size)
-			)
+			nala_pkgs.install_pkgs.append(npkg)
+			continue
 
-		elif pkg.marked_downgrade:
-			installed = get_pkg_version(pkg, inst_first=True)
-			nala_pkgs.downgrade_pkgs.append(
-				NalaPackage(
-					pkg.name, candidate.version, candidate.size, installed.version
-				)
-			)
+		if pkg.marked_reinstall:
+			nala_pkgs.reinstall_pkgs.append(npkg)
+			continue
 
-		elif pkg.marked_reinstall:
-			installed = get_pkg_version(pkg, inst_first=True)
-			nala_pkgs.reinstall_pkgs.append(
-				NalaPackage(pkg.name, candidate.version, candidate.size)
-			)
+		npkg = NalaPackage(
+			pkg.name, candidate.version, candidate.size, installed.version
+		)
+		if pkg.marked_upgrade:
+			nala_pkgs.upgrade_pkgs.append(npkg)
+			continue
 
-		elif pkg.marked_upgrade:
-			installed = get_pkg_version(pkg, inst_first=True)
-			nala_pkgs.upgrade_pkgs.append(
-				NalaPackage(
-					pkg.name,
-					candidate.version,
-					candidate.size,
-					old_version=installed.version,
-				)
-			)
+		if pkg.marked_downgrade:
+			nala_pkgs.downgrade_pkgs.append(npkg)
+			continue
 
 
 def need_reboot() -> bool:

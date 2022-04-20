@@ -327,12 +327,17 @@ class UpdateProgress(text.AcquireProgress):
 		signal.signal(signal.SIGWINCH, self._signal)
 
 
-# pylint: disable=too-many-instance-attributes, too-many-public-methods
+# pylint: disable=too-many-instance-attributes, too-many-public-methods, too-many-arguments, too-many-lines
 class InstallProgress(base.InstallProgress):
 	"""Class for getting dpkg status and printing to terminal."""
 
 	def __init__(
-		self, dpkg_log: TextIO, term_log: TextIO, live: DpkgLive, task: TaskID
+		self,
+		dpkg_log: TextIO,
+		term_log: TextIO,
+		live: DpkgLive,
+		task: TaskID,
+		config_purge: tuple[str, ...],
 	) -> None:
 		"""Class for getting dpkg status and printing to terminal."""
 		dprint("Init InstallProgress")
@@ -341,6 +346,7 @@ class InstallProgress(base.InstallProgress):
 		self._dpkg_log = dpkg_log
 		self._term_log = term_log
 		self.live = live
+		self.config_purge = config_purge
 		self.raw = False
 		self.bug_list = False
 		self.last_line = b""
@@ -623,6 +629,13 @@ class InstallProgress(base.InstallProgress):
 		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
 		if line == "" or "% [" in line:
 			return
+
+		if (
+			self.config_purge
+			and "Purging configuration files" in line
+			and any(pkg in line for pkg in self.config_purge)
+		):
+			self.advance_progress()
 
 		self.term_log(rawline)
 

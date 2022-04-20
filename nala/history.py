@@ -208,8 +208,8 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 
 	hist_id = f"{len(history_dict) + 1 if history_dict else 1}"
 	altered = (
-		len(handler.delete_pkgs)
-		+ len(handler.autoremove_pkgs)
+		len(handler.delete_pkgs + handler.delete_config)
+		+ len(handler.autoremove_pkgs + handler.autoremove_config)
 		+ len(handler.install_pkgs)
 		+ len(handler.upgrade_pkgs)
 		+ len(handler.downgrade_pkgs)
@@ -229,10 +229,12 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 		"Operation": operation,
 		"Explicit": [pkg.name for pkg in handler.user_explicit],
 		"Removed": [
-			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.delete_pkgs
+			[pkg.name, pkg.version, f"{pkg.size}"]
+			for pkg in handler.delete_pkgs + handler.delete_config
 		],
 		"Auto-Removed": [
-			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.autoremove_pkgs
+			[pkg.name, pkg.version, f"{pkg.size}"]
+			for pkg in handler.autoremove_pkgs + handler.autoremove_config
 		],
 		"Installed": [
 			[pkg.name, pkg.version, f"{pkg.size}"] for pkg in handler.install_pkgs

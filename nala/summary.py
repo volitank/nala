@@ -243,8 +243,11 @@ def gen_printers(
 ) -> Generator[tuple[list[NalaPackage], PackageHeaders], None, None]:
 	"""Generate the printers."""
 	yield from (  # type: ignore[misc]
-		(nala_pkgs.delete_pkgs, headers.deleting),
-		(nala_pkgs.autoremove_pkgs, headers.auto_removing),
+		(nala_pkgs.delete_pkgs + nala_pkgs.delete_config, headers.deleting),
+		(
+			nala_pkgs.autoremove_pkgs + nala_pkgs.autoremove_config,
+			headers.auto_removing,
+		),
 		(nala_pkgs.install_pkgs, headers.installing),
 		(nala_pkgs.reinstall_pkgs, headers.reinstalling),
 		(nala_pkgs.upgrade_pkgs, headers.upgrading),

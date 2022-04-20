@@ -200,6 +200,8 @@ class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	reinstall_pkgs: list[NalaPackage] = field(default_factory=list)
 	upgrade_pkgs: list[NalaPackage] = field(default_factory=list)
 	autoremove_pkgs: list[NalaPackage] = field(default_factory=list)
+	autoremove_config: list[NalaPackage] = field(default_factory=list)
+	delete_config: list[NalaPackage] = field(default_factory=list)
 	recommend_pkgs: list[NalaPackage | list[NalaPackage]] = field(default_factory=list)
 	suggest_pkgs: list[NalaPackage | list[NalaPackage]] = field(default_factory=list)
 	configure_pkgs: list[NalaPackage] = field(default_factory=list)
@@ -208,18 +210,21 @@ class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	def dpkg_progress_total(self) -> int:
 		"""Calculate our total operations for the dpkg progress bar."""
 		return (
-			len(self.delete_pkgs) * 2
-			+ len(self.autoremove_pkgs) * 2
-			# We add an extra for each install due to Unpacking: and Setting up:
-			+ len(self.install_pkgs) * 2
-			+ len(self.reinstall_pkgs) * 2
-			+ len(self.downgrade_pkgs) * 2
-			+ len(self.upgrade_pkgs) * 2
+			len(
+				self.delete_pkgs
+				+ self.autoremove_pkgs
+				+ self.install_pkgs
+				+ self.reinstall_pkgs
+				+ self.downgrade_pkgs
+				+ self.upgrade_pkgs
+				+ self.configure_pkgs
+			)
+			* 2
 			# For local deb installs we add 1 more because of having to start
 			# and stop InstallProgress an extra time for each package
 			+ len(self.local_debs)
-			# Configure needs an extra because it isn't unpacked
-			+ len(self.configure_pkgs) * 2
+			# Purging configuration files only have 1 message
+			+ len(self.autoremove_config + self.delete_config)
 			# This last +1 for the ending of dpkg itself
 			+ 1
 		)
