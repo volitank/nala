@@ -40,7 +40,14 @@ from typing import TYPE_CHECKING, Any, Iterable
 from apt.package import Package, Version
 
 from nala import _, color, console
-from nala.constants import ERROR_PREFIX, HANDLER, NALA_DEBUGLOG, NALA_LOCK_FILE
+from nala.constants import (
+	ERROR_PREFIX,
+	HANDLER,
+	NALA_DEBUGLOG,
+	NALA_DIR,
+	NALA_LOCK_FILE,
+	NALA_LOGDIR,
+)
 from nala.options import arguments
 from nala.rich import from_ansi
 
@@ -285,6 +292,9 @@ def sudo_check(args: Iterable[str] | None = None) -> None:
 				error=ERROR_PREFIX, command=arguments.command
 			)
 		)
+	# Make sure our directories exist
+	NALA_DIR.mkdir(exist_ok=True)
+	NALA_LOGDIR.mkdir(exist_ok=True)
 
 	NALA_LOCK_FILE.touch(exist_ok=True)
 	global LOCK_FILE  # pylint: disable=global-statement
