@@ -188,7 +188,7 @@ Nala - A prettier front-end for libapt-pkg
 : >*\--version* prints the version of nala you have installed and exits.
 
 **\--license**
-: >*\--license* reads the licenses of software compiled in and then reads the GPLv3 which **nala** is licensed under.
+: >*\--license* reads the GPLv3 which **nala** is licensed under.
 
 **\--raw-dpkg**
 : >*\--raw-dpkg* forces **nala** not to mess with **dpkg** while running operations. This disables all formatting and it would look as if you were using **apt**. A more indepth explanation for what this switch does, **nala** will fork a tty instead of a pty for **dpkg**.

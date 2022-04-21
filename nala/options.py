@@ -32,12 +32,7 @@ import typer
 from apt_pkg import Error, config, read_config_file
 
 from nala import _, __version__, color
-from nala.constants import (
-	ERROR_PREFIX,
-	GPL3_LICENSE,
-	NOTICE_PREFIX,
-	THIRD_PARTY_LICENSES,
-)
+from nala.constants import ERROR_PREFIX, GPL3_LICENSE, NOTICE_PREFIX
 
 CONF_FILE = "/etc/nala/nala.conf"
 
@@ -267,7 +262,6 @@ def print_license(value: bool) -> None:
 	"""Print the GPLv3 with `--license`."""
 	if not value:
 		return
-	pager(THIRD_PARTY_LICENSES)
 	if GPL3_LICENSE.exists():
 		with open(GPL3_LICENSE, encoding="utf-8") as file:
 			pager(file.read())
@@ -308,7 +302,7 @@ LICENSE = typer.Option(
 	"--license",
 	callback=print_license,
 	is_eager=True,
-	help=_("Reads the licenses of software compiled in and then reads the GPLv3."),
+	help=_("Reads the GPLv3 which Nala is licensed under."),
 )
 
 VERBOSE = typer.Option(
