@@ -10,3 +10,6 @@ execute_before_dh_installman:
 	--standalone \
 	--from markdown \
 	--to man > docs/nala.8
+
+execute_before_dh_auto_install:
+	python3 nala_build.py babel --compile
