@@ -10,6 +10,3 @@ execute_before_dh_installman:
 	--standalone \
 	--from markdown \
 	--to man > docs/nala.8
-
-override_dh_auto_install:
-	python3 setup.py install --root=$(CURDIR)/debian/nala/ --install-layout=deb
