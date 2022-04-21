@@ -26,7 +26,7 @@ Vcs-Git: https://gitlab.com/volian/nala.git
 Vcs-Browser: https://gitlab.com/volian/nala
 
 Package: nala
-Architecture: any
+Architecture: all
 Depends:
   ${python3:Depends},
   ${misc:Depends},
