@@ -196,11 +196,7 @@ class UpdateProgress(text.AcquireProgress):
 
 	def _write(self, msg: str, newline: bool = True, maximize: bool = False) -> None:
 		"""Write the message on the terminal, fill remaining space."""
-		if (
-			arguments.raw_dpkg
-			or not term.console.is_terminal
-			or term.console.is_dumb_terminal
-		):
+		if arguments.raw_dpkg or not term.can_format():
 			self.apt_write(msg, newline, maximize)
 			return
 

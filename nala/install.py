@@ -277,7 +277,7 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None
 		]
 
 	# Enable verbose and raw_dpkg if we're piped.
-	if not term.console.is_terminal:
+	if not term.can_format():
 		arguments.verbose = True
 		arguments.raw_dpkg = True
 	# If we're in Raw_Dpkg we can restore the locale as Nala doesn't handle the output

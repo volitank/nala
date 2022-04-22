@@ -24,7 +24,6 @@
 """Where Utilities who don't have a special home come together."""
 from __future__ import annotations
 
-import contextlib
 import os
 import signal
 import sys
@@ -96,7 +95,7 @@ class Terminal:
 		"""Represent the user terminal."""
 		self.console = console
 		self.mode: list[int | list[bytes | int]] = []
-		self.term_type: str = os.environ.get("TERM", "")
+		self.term_type: str = os.environ.get("TERM", "").lower()
 		self.locale: str = ""
 		self.set_environment()
 
@@ -111,8 +110,9 @@ class Terminal:
 		"""Check and set various environment variables."""
 		# Termios can't run if we aren't in a terminal
 		# Just catch the exception and continue.
-		with contextlib.suppress(termios.error):
+		if self.can_format():
 			self.mode = termios.tcgetattr(self.STDIN)
+
 		if self.lines < 13 or self.columns < 31:
 			print(
 				_("Terminal can't support dialog, falling back to readline"),
@@ -137,11 +137,17 @@ class Terminal:
 		"""Return terminal height."""
 		return self.console.height
 
+	def can_format(self) -> bool:
+		"""Return if we're allowed to do anything fancy."""
+		return (
+			os.isatty(self.STDOUT)
+			and os.isatty(self.STDIN)
+			and self.term_type not in ("dumb", "unknown")
+		)
+
 	def restore_mode(self) -> None:
 		"""Restore the mode the Terminal was initialized with."""
-		if not self.console.is_terminal:
-			return
-		with contextlib.suppress(termios.error):
+		if self.can_format():
 			termios.tcsetattr(self.STDIN, termios.TCSAFLUSH, self.mode)
 
 	def restore_locale(self) -> None:
@@ -150,7 +156,7 @@ class Terminal:
 
 	def set_raw(self) -> None:
 		"""Set terminal raw."""
-		with contextlib.suppress(termios.error):
+		if self.can_format():
 			tty.setraw(self.STDIN)
 
 	def write(self, data: bytes) -> None:
