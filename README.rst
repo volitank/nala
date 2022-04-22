@@ -28,10 +28,11 @@ show specifically what will happen with a package during install, removal, or an
 
 Outside of pretty formatting, the number 1 reason to use Nala over ``apt`` is parallel downloads.
 
-``apt`` downloads 1 package at a time, where as we download multiple.
-By default we will download 2 packages per unique mirror in your ``sources.list`` file, up to a maximum of 16.
-Theoretically Nala can download 16x faster than ``apt``.
-We have the 2 thread per mirror limit to minimize how hard we are hitting mirrors.
+By default we will download 3 packages per unique mirror in your ``sources.list`` file.
+
+Opening multiple connections to the same mirror is great for speeding up downloading many small packages.
+We have the 3 connections per mirror limit to minimize how hard we are hitting mirrors.
+
 Additionally we alternate downloads between the available mirrors to improve download speeds even further.
 If a mirror fails for whatever reason, we just try the next until all defined mirrors are exhausted.
 
@@ -46,7 +47,7 @@ This command works similar to how most people use ``netselect`` and ``netselect-
 ``nala fetch`` will check if your distro is either Debian or Ubuntu.
 Nala will then go get all the mirrors from the respective master list.
 Once done we test the latency and score each mirror.
-Nala then will choose the fastest 3 mirrors (configurable) and write them to a file.
+Nala will choose the fastest 3 mirrors (configurable) and write them to a file.
 
 `At the moment fetch will only work on Debian, Ubuntu and derivatives still tied to the main repos. Such as Pop!_OS`
 
@@ -59,10 +60,12 @@ Our last big feature is the ``nala history`` command.
 
 If you're familiar with ``dnf`` this works much in the same way.
 Each Install, Remove or Upgrade we store in /var/lib/nala/history.json with a unique ``<ID>`` number.
+
 At any time you can call ``nala history`` to print a summary of every transaction ever made.
 You can then further manipulate this with commands such as ``nala history undo <ID>`` or ``nala history redo <ID>``.
+
 If there is something in the history file that you don't want you can use the ``nala history clear <ID>`` It will remove that entry.
-Alternatively for the ``clear`` command we accept ``all`` as an argument which will remove the entire history.
+Alternatively for the ``clear`` command we accept ``--all`` which will remove the entire history.
 
 .. image:: /imgs/nala-history-info.png
 .. image:: /imgs/nala-history-undo-1.png
@@ -73,21 +76,30 @@ Alternatively for the ``clear`` command we accept ``all`` as an argument which w
 
 **Volian Scar Repo**
 
-Install the Volian Scar repo and then install Nala.
-
-`Note: Currently only amd64, arm64, i386, and armhf packages are supported`
+Install the Volian Scar repo.
 
 .. code-block:: console
 
-	echo "deb [arch=amd64,arm64,armhf,i386] http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+	echo "deb http://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
 	wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
-	sudo apt update && sudo apt install nala
 
 If you want to add the source repo.
 
 .. code-block:: console
 
 	echo "deb-src http://deb.volian.org/volian/ scar main" | sudo tee -a /etc/apt/sources.list.d/volian-archive-scar-unstable.list
+
+For Ubuntu 22.04 / Debian Sid and newer.
+
+.. code-block:: console
+
+	sudo apt update && sudo apt install nala
+
+For older distributions like Ubuntu 21.04 / Debian Stable and older.
+
+.. code-block:: console
+
+	sudo apt update && sudo apt install nala-legacy
 
 **Pacstall**
 
