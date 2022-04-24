@@ -363,7 +363,7 @@ def satisfy_notice(pkg: NalaDebPackage) -> None:
 	if fixer:
 		print(
 			_("{notice} The following will be installed to satisfy {package}:").format(
-				notice=NOTICE_PREFIX, pkg_name=color(pkg.name, "GREEN")
+				notice=NOTICE_PREFIX, package=color(pkg.name, "GREEN")
 			)
 		)
 		print(f"  {', '.join(fixer)}")

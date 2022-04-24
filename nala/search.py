@@ -121,17 +121,13 @@ def set_search_installed(line: str, pkg: Package, version: Version) -> str:
 		# NOTE: ├── is upgradable from 2:8.2.3995-1+b2
 		# NOTE: └── Vi IMproved - enhanced vi editor
 		return f"{line}\n{TOP_LINE} " + _("is upgradable from {version}").format(
-			pkg_name=line,
-			tree_start=TOP_LINE,
-			version=color(pkg_installed(pkg).version, "BLUE"),
+			version=color(pkg_installed(pkg).version, "BLUE")
 		)
 	if version.is_installed:
 		# NOTE: vim 2:8.2.3995-1+b2 [Debian/sid main]
 		# NOTE: ├── is installed
 		# NOTE: └── Vi IMproved - enhanced vi editor
-		return f"{line}\n{TOP_LINE} " + _("is installed").format(
-			package=line, tree_start=TOP_LINE
-		)
+		return f"{line}\n{TOP_LINE} " + _("is installed")
 	return line
 
 
