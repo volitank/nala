@@ -39,7 +39,7 @@ from nala import _, color
 from nala.cache import Cache
 from nala.constants import (
 	ARCHIVE_DIR,
-	CAT_ASCII,
+	CAT,
 	DPKG_STATE,
 	ERROR_PREFIX,
 	LISTS_DIR,
@@ -99,7 +99,6 @@ from nala.utils import (
 	PackageHandler,
 	ask,
 	dedupe_list,
-	dprint,
 	eprint,
 	get_version,
 	iter_remove,
@@ -564,20 +563,10 @@ def clean(
 # pylint: disable=unused-argument
 def moo(
 	moos: Optional[list[str]] = typer.Argument(None, hidden=True),
-	debug: bool = typer.Option(
-		False, "--debug", callback=arguments.set_debug, is_eager=True, hidden=True
-	),
 	update: bool = typer.Option(None, hidden=True),
 ) -> None:
 	"""I beg, pls moo."""
-	moo_count = moos.count("moo") if moos else 0
-	dprint(f"moo number is {moos}")
-	if moo_count == 1:
-		print(CAT_ASCII["2"])
-	elif moo_count == 2:
-		print(CAT_ASCII["3"])
-	else:
-		print(CAT_ASCII["1"])
+	print(CAT)
 	can_no_moo = _("I can't moo for I'm a cat")
 	print(f'{ELLIPSIS}"{can_no_moo}"{ELLIPSIS}')
 	if update:

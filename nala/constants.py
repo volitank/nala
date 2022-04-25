@@ -181,36 +181,7 @@ DPKG_ERRORS = (
 	b"Errors were encountered while processing",
 	b"Processing was halted because there were too many errors",
 )
-# ASCII Art
-LION_1 = r"""
-         |\_
-       -' | \
-      /7     \
-     /        `-_
-     \-'_        `-.____________
-      -- \                 /    `.
-         /                 \      \
- _______/    /_       ______\      |__________-
-(,__________/  `-.___(,_____________----------_)
-"""
-# I couldn't find an artist for these. If anyone knows let me know.
-# I love to give credit when I can
-LION_2 = r"""
-    |\_
-  -' | `.
- /7      `-._
-/            `-.____________
-\-'_                        `-._
- -- `-._                    |` -`.
-       |\               \   |   `\\
-       | \  \______...---\_  \    \\
-       |  \  \           | \  |    ``-.__--.
-       |  |\  \         / / | |       ``---'
-     _/  /_/  /      __/ / _| |
-    (,__/(,__/      (,__/ (,__/
-"""
-
-CAT_1 = r"""
+CAT = r"""
    |\---/|
    | ,_, |
     \_`_/-..----.
@@ -218,6 +189,3 @@ CAT_1 = r"""
 (__...'   __\    |`.___.';
   (_,...'(_,.`__)/'.....+
 """
-
-# dicts to minimize imports
-CAT_ASCII = {"1": CAT_1, "2": LION_1, "3": LION_2}
