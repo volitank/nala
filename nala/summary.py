@@ -182,6 +182,7 @@ class Headers:  # pylint: disable=too-many-instance-attributes
 	configuring: PackageHeaders
 	recommending: PackageHeaders
 	suggesting: PackageHeaders
+	not_needed: PackageHeaders | None = None
 
 
 def auto_remove_header(history: bool) -> tuple[str, str]:
@@ -220,6 +221,7 @@ def get_headers() -> Headers:
 		PackageHeaders(EXTRA_LAYOUT, _CONFIGURING, _CONFIGURE),
 		PackageHeaders(EXTRA_LAYOUT, _("Recommended, Will Not Be Installed")),
 		PackageHeaders(EXTRA_LAYOUT, _("Suggested, Will Not Be Installed")),
+		PackageHeaders(REMOVE_LAYOUT, _("Auto-Removable, Will Not Be Removed")),
 	)
 
 
@@ -243,6 +245,7 @@ def gen_printers(
 ) -> Generator[tuple[list[NalaPackage], PackageHeaders], None, None]:
 	"""Generate the printers."""
 	yield from (  # type: ignore[misc]
+		(nala_pkgs.not_needed, headers.not_needed),
 		(nala_pkgs.delete_pkgs + nala_pkgs.delete_config, headers.deleting),
 		(
 			nala_pkgs.autoremove_pkgs + nala_pkgs.autoremove_config,
@@ -312,7 +315,7 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 		package_table.add_row(gen_package_table(pkg_set, header))
 		main_table.add_row(package_table)
 		# We don't need empty rows from these in the summary
-		if pkg_set in (nala_pkgs.suggest_pkgs, nala_pkgs.recommend_pkgs):
+		if nala_pkgs.no_summary(pkg_set):
 			continue
 		# NOTE: This ends up looking like [ "Configure 20 Packages" ]
 		summary_table.add_row(header.summary, f"{len(pkg_set)}", _("Packages"))
