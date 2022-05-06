@@ -179,7 +179,7 @@ def get_dep_type(
 	return dpkg.dependencies
 
 
-def fix_excluded(protected: list[Package], is_upgrade: list[Package]) -> list[str]:
+def fix_excluded(protected: list[Package], is_upgrade: Iterable[Package]) -> list[str]:
 	"""Find and optionally fix packages that need protecting."""
 	eprint(
 		_("{notice} Selected packages cannot be excluded from upgrade safely.").format(

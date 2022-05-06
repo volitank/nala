@@ -241,9 +241,9 @@ class Cache(_Cache):
 					protected.append(pkg)
 		return protected
 
-	def upgradable_pkgs(self) -> list[Package]:
-		"""Return a list of upgradable packages."""
-		return [pkg for pkg in self if pkg.is_upgradable]
+	def upgradable_pkgs(self) -> Generator[Package, None, None]:
+		"""Generate upgradable packages."""
+		return (pkg for pkg in self if pkg.is_upgradable)
 
 	def print_upgradable(self) -> None:
 		"""Print packages that are upgradable."""

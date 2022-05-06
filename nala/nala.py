@@ -268,11 +268,11 @@ def upgrade(
 		cache = nested_cache or setup_cache()
 		check_state(cache, nala_pkgs)
 
-		is_upgrade = cache.upgradable_pkgs()
+		is_upgrade = tuple(cache.upgradable_pkgs())
 		protected = cache.protect_upgrade_pkgs(exclude)
 		try:
 			cache.upgrade(dist_upgrade=full)
-		except apt_pkg.Error as error:
+		except apt_pkg.Error:
 			if exclude:
 				exclude = fix_excluded(protected, is_upgrade)
 				if ask(_("Would you like us to protect these and try again?")):
@@ -284,9 +284,14 @@ def upgrade(
 						error=ERROR_PREFIX
 					)
 				)
-			raise error from error
 
-		if kept_back := tuple(pkg for pkg in is_upgrade if not pkg.is_upgradable):
+			BrokenError(
+				cache, tuple(pkg for pkg in cache if pkg.is_inst_broken)
+			).broken_install()
+
+		if kept_back := tuple(
+			pkg for pkg in is_upgrade if not (pkg.marked_upgrade or pkg.marked_delete)
+		):
 			BrokenError(cache, kept_back).held_pkgs()
 			check_term_ask()
 			cache.upgrade(dist_upgrade=full)
