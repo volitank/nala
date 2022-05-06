@@ -98,6 +98,7 @@ from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
 	PackageHandler,
 	ask,
+	command_help,
 	dedupe_list,
 	eprint,
 	get_version,
@@ -332,6 +333,7 @@ def install(
 
 @nala.command(help=_("Remove packages."))
 @nala.command("purge", help=_("Purge packages."))
+@nala.command("uninstall", hidden=True)
 # pylint: disable=unused-argument,too-many-arguments
 def remove(
 	pkg_names: list[str] = typer.Argument(
@@ -353,6 +355,7 @@ def remove(
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Remove or Purge packages."""
+	command_help("uninstall", "remove", update)
 	_remove(pkg_names)
 
 
@@ -392,6 +395,7 @@ def _auto_remove(
 
 
 @nala.command(help=_("Show package details."))
+@nala.command("info", hidden=True)
 # pylint: disable=unused-argument
 def show(
 	pkg_names: list[str] = typer.Argument(
@@ -404,6 +408,7 @@ def show(
 	all_versions: bool = ALL_VERSIONS,
 ) -> None:
 	"""Show package details."""
+	command_help("info", "show", None)
 	cache = Cache()
 	not_found: list[str] = []
 	pkg_names = cache.glob_filter(pkg_names, show=True)

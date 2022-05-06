@@ -62,6 +62,7 @@ from nala.utils import (
 	NalaPackage,
 	PackageHandler,
 	ask,
+	command_help,
 	dprint,
 	eprint,
 	get_date,
@@ -340,11 +341,15 @@ def history_summary(
 @history_typer.command("show", hidden=True)
 # pylint: disable=unused-argument
 def history_info(
+	ctx: typer.Context,
 	_hist_id: int = HIST_ID,
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""Show information about a specific transaction."""
+	arguments.history = ctx.command.name
+	command_help("show", "history info", None)
+
 	hist_id = f"{_hist_id}"
 	hist_entry = get_history(hist_id)
 	dprint(f"History Entry: {hist_entry}")

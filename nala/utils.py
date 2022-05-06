@@ -24,6 +24,7 @@
 """Where Utilities who don't have a special home come together."""
 from __future__ import annotations
 
+import contextlib
 import os
 import signal
 import sys
@@ -268,6 +269,29 @@ class NalaPackage:
 term = Terminal()
 
 
+def command_help(wrong: str, correct: str, update: bool | None) -> None:
+	"""Check if the user typed a common mistake of a command."""
+	command_ask = False
+	if arguments.command == "history" and arguments.history == wrong:
+		arguments.command = correct
+		wrong = f"history {wrong}"
+		command_ask = True
+
+	elif arguments.command == wrong:
+		arguments.command = correct
+		command_ask = True
+
+	if command_ask:
+		arguments.set_update(update)
+		if not ask(
+			_("{command} is not a command\nDid you mean {correction}?").format(
+				command=color(wrong, "YELLOW"),
+				correction=color(f"nala {correct}", "YELLOW"),
+			)
+		):
+			sys.exit(1)
+
+
 def ask(question: str, default_no: bool = False) -> bool:
 	"""Ask the user {question}.
 
@@ -276,10 +300,11 @@ def ask(question: str, default_no: bool = False) -> bool:
 	Y returns True
 	N returns False
 	"""
-	if arguments.assume_yes:
-		return True
-	if arguments.assume_no:
-		return False
+	with contextlib.suppress(AttributeError):
+		if arguments.assume_yes:
+			return True
+		if arguments.assume_no:
+			return False
 	while True:
 		resp = input(f"{question} [{YES[0]}/{NO[1]}] ")
 		if resp in YES:
