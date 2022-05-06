@@ -191,13 +191,12 @@ def set_user_installed(
 			if pkg.marked_delete:
 				user_installed.discard(pkg.name)
 
-	for pkg_name in user_installed:
-		if pkg_name not in cache:
-			user_installed.discard(pkg_name)
-		pkg = cache[pkg_name]
-		if pkg.installed or pkg.marked_install:
-			continue
-		user_installed.discard(pkg.name)
+	user_installed = {
+		pkg_name
+		for pkg_name in user_installed
+		if pkg_name in cache
+		and (cache[pkg_name].installed or cache[pkg_name].marked_install)
+	}
 
 
 def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None:
