@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import NoReturn, Union
+from typing import Iterable, NoReturn, Union
 
 import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
@@ -234,7 +234,7 @@ class BrokenError:
 	def __init__(
 		self,
 		cache: Cache,
-		broken_list: list[Package] | list[NalaDebPackage] | None = None,
+		broken_list: Iterable[Package] | list[NalaDebPackage] | None = None,
 	) -> None:
 		"""Calculate and print broken install dependencies."""
 		self.cache = cache
@@ -275,6 +275,20 @@ class BrokenError:
 		):
 			self._print_rdeps(pkg, installed)
 		self._print_held_error()
+
+	def held_pkgs(self) -> None:
+		"""Print packages that have been held back."""
+		self.cache.clear()
+		if not self.broken_list:
+			# There is really not a chance of this happening
+			return
+		print(color(_("The following packages were kept back:"), "YELLOW"))
+		undetermined = [pkg for pkg in self.broken_list if not self.broken_pkg(pkg)]
+		if not undetermined:
+			print(
+				color(_("Nala was unable to determine why these were held:"), "YELLOW")
+			)
+			print(f"  {', '.join(color(pkg.name, 'YELLOW') for pkg in undetermined)}")
 
 	def broken_pkg(self, pkg: Package | NalaDebPackage) -> int:
 		"""Calculate and print broken Dependencies."""

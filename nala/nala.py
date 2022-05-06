@@ -287,12 +287,9 @@ def upgrade(
 			raise error from error
 
 		if kept_back := tuple(pkg for pkg in is_upgrade if not pkg.is_upgradable):
-			cache.clear()
-			print(color(_("The following packages were kept back:"), "YELLOW"))
-			for pkg in kept_back:
-				BrokenError(cache).broken_pkg(pkg)
+			BrokenError(cache, kept_back).held_pkgs()
 			check_term_ask()
-			cache.upgrade(dist_upgrade=arguments.full)
+			cache.upgrade(dist_upgrade=full)
 
 		auto_remover(cache, nala_pkgs)
 		get_changes(cache, nala_pkgs, "upgrade")
