@@ -5,7 +5,6 @@
 #  |___|  (____  /____(____  /
 #       \/     \/          \/
 #
-# Copyright (C) 2010 Tatsuhiro Tsujikawa
 # Copyright (C) 2021, 2022 Blake Lee
 #
 # This file is part of nala

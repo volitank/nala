@@ -11,6 +11,13 @@ Files: debian/*
 Copyright: 2021 - 2022 Blake Lee <blake@volian.org>
 License: GPL-3+
 
+Files: nala/install.py
+       nala/utils.py
+       nala/downloader.py
+Copyright: 2021 - 2022 Blake Lee <blake@volian.org>
+           2010 - 2021 Tatsuhiro Tsujikawa
+License: GPL-3+
+
 License: GPL-3+
  Copyright (C) 2021 - 2022 Blake Lee <blake@volian.org>
  .

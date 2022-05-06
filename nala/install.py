@@ -5,9 +5,11 @@
 #  |___|  (____  /____(____  /
 #       \/     \/          \/
 #
+# Copyright (C) 2010 - 2021 Tatsuhiro Tsujikawa
 # Copyright (C) 2021, 2022 Blake Lee
 #
 # This file is part of nala
+# nala is based upon apt-metalink https://github.com/tatsuhiro-t/apt-metalink
 #
 # nala is program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
