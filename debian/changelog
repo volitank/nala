@@ -1,3 +1,17 @@
+nala (0.8.2) unstable; urgency=medium
+
+  [ Changes ]
+  * Add helper for common incorrect commands
+  * Correctly attribute original author of `apt-metalink` in
+    the Debian copyright file
+
+  [ Bug Fixes ]
+  * Exception when filtering user installed package list
+  * Unable to continue upgrade if packages have been kept back
+  * Not handling broken install during upgrade
+
+ -- Blake Lee <blake@volian.org>  Fri, 06 May 2022 12:43:00 -0400
+
 nala (0.8.1) unstable; urgency=medium
 
   [ Bug Fixes ]
