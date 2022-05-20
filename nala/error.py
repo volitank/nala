@@ -283,8 +283,9 @@ class BrokenError:
 			# There is really not a chance of this happening
 			return
 		print(color(_("The following packages were kept back:"), "YELLOW"))
-		undetermined = [pkg for pkg in self.broken_list if not self.broken_pkg(pkg)]
-		if not undetermined:
+		if undetermined := [
+			pkg for pkg in self.broken_list if not self.broken_pkg(pkg)
+		]:
 			print(
 				color(_("Nala was unable to determine why these were held:"), "YELLOW")
 			)
