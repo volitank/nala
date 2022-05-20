@@ -56,7 +56,7 @@ from nala.constants import (
 from nala.downloader import print_error
 from nala.options import ASSUME_YES, DEBUG, VERBOSE, arguments, nala
 from nala.rich import ELLIPSIS, Live, Panel, Table, fetch_progress
-from nala.utils import NO, YES, ask, dprint, eprint, sudo_check, term
+from nala.utils import ask, dprint, eprint, sudo_check, term
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
@@ -196,23 +196,6 @@ class FetchLive:
 			term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
 		self.errors = 0
 
-	def ask(self, question: str) -> bool:
-		"""Ask the user {question}.
-
-		resp = input(f'{question}? [Y/n]
-
-		Y returns True
-		N returns False
-		"""
-		while True:
-			resp = input(f"{question} [{YES[0]}/{NO[1]}] ")
-			if resp in YES:
-				return True
-			if resp in NO:
-				return False
-			self.errors += 1
-			print(_("Not a valid choice kiddo"))
-
 	def choose_mirrors(self) -> None:
 		"""Allow user to choose their mirrors."""
 		while True:
@@ -244,7 +227,7 @@ class FetchLive:
 			refresh=True,
 		)
 		self.live.stop()
-		return self.ask(_("Are these mirrors okay?"))
+		return ask(_("Are these mirrors okay?"), self)
 
 	def set_user_list(self) -> None:
 		"""Set the user selected list of mirrors."""

@@ -55,6 +55,7 @@ from nala.rich import from_ansi
 
 if TYPE_CHECKING:
 	from nala.debfile import NalaDebPackage
+	from nala.fetch import FetchLive
 
 LOCK_FILE = None
 
@@ -294,7 +295,7 @@ def command_help(wrong: str, correct: str, update: bool | None) -> None:
 			sys.exit(1)
 
 
-def ask(question: str, default_no: bool = False) -> bool:
+def ask(question: str, fetch: FetchLive | None = None) -> bool:
 	"""Ask the user {question}.
 
 	resp = input(f'{question}? [Y/n]
@@ -309,12 +310,12 @@ def ask(question: str, default_no: bool = False) -> bool:
 			return False
 	while True:
 		resp = input(f"{question} [{YES[0]}/{NO[1]}] ")
-		if resp in YES:
+		if resp in (YES[0], YES[1], ""):
 			return True
 		if resp in NO:
 			return False
-		if resp == "":
-			return not default_no
+		if fetch:
+			fetch.errors += 1
 		print(_("Not a valid choice kiddo"))
 
 
