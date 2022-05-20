@@ -25,12 +25,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import zip_longest
 from typing import Generator, Iterable
 
-from nala import _, console
+from nala import _, color, console
 from nala.cache import Cache
 from nala.options import arguments
-from nala.rich import HORIZONTALS, OVERFLOW, Column, Group, Table, Tree
+from nala.rich import HORIZONTALS, OVERFLOW, Column, Group, Table, Text, Tree, from_ansi
 from nala.utils import NalaPackage, PackageHandler, dprint, unit_str
 
 # NOTE: The following are the headers for the transaction summary.
@@ -154,10 +155,22 @@ def get_columns(column_keys: Iterable[str]) -> Generator[Column, None, None]:
 		yield Column(**COLUMN_MAP[key])  # type: ignore[arg-type]
 
 
-def get_rows(pkg: NalaPackage, layout: Iterable[str]) -> Generator[str, None, None]:
+def get_rows(pkg: NalaPackage, layout: Iterable[str]) -> Generator[Text, None, None]:
 	"""Get the rows from our row map."""
 	for key in layout:
-		yield getattr(pkg, ROW_MAP[key])
+		if key == "new_version":
+			yield from_ansi(version_diff(pkg))
+			continue
+		yield from_ansi(getattr(pkg, ROW_MAP[key]))
+
+
+def version_diff(pkg: NalaPackage) -> str:
+	"""Return a colored diff of the new version."""
+	if pkg.old_version:
+		for i, char in enumerate(zip_longest(pkg.old_version, pkg.version)):
+			if char[0] != char[1]:
+				return f"{pkg.version[:i]}{color(pkg.version[i:], 'YELLOW')}"
+	return pkg.version
 
 
 @dataclass
