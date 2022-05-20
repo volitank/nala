@@ -53,18 +53,6 @@ except SystemError:
 		)
 	)
 
-no_update = (
-	"remove",
-	"show",
-	"search",
-	"list",
-	"history",
-	"install",
-	"purge",
-	"autoremove",
-	"autopurge",
-)
-
 
 class Arguments:
 	"""Arguments class."""
@@ -213,7 +201,6 @@ class Arguments:
 	def set_update(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
-			self.update = self.command not in no_update
 			return
 		self.update = value
 
@@ -242,6 +229,14 @@ class Arguments:
 		"""Initialize Nala Configs."""
 		self.scroll = config.find_b("Nala::ScrollingText", True)
 		self.auto_remove = config.find_b("Nala::AutoRemove", True)
+		try:
+			self.update = (
+				config.find_b("Nala::AutoUpdate", True)
+				if sys.argv[1] == "upgrade"
+				else False
+			)
+		except IndexError:
+			self.update = config.find_b("Nala::AutoUpdate", True)
 
 	def state(self) -> str:
 		"""Return the state of the object as a string."""
