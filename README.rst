@@ -157,3 +157,10 @@ The official repository is https://gitlab.com/volian/nala
 We ask that you please go here to report a bug or request a feature.
 
 The other repositories are official, but just mirrors of what is on GitLab.
+
+# Donations
+===========
+
+If you would like to support the project you can donate at the link below.
+
+https://liberapay.com/Volian-Linux
