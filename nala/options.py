@@ -26,32 +26,91 @@ from __future__ import annotations
 
 import sys
 from pydoc import pager
-from typing import Optional
+from typing import NoReturn, Optional
 
+import tomli
 import typer
-from apt_pkg import Error, config, read_config_file
+from apt_pkg import config as apt_config
 
 from nala import _, __version__, color
 from nala.constants import ERROR_PREFIX, GPL3_LICENSE, NOTICE_PREFIX
 
-CONF_FILE = "/etc/nala/nala.conf"
 
-try:
-	read_config_file(config, CONF_FILE)
-except Error as error:
-	print(
-		f"{error}".replace("E:", f"{ERROR_PREFIX} ").replace(
-			CONF_FILE, color(CONF_FILE, "YELLOW")
-		),
-		file=sys.stderr,
-	)
-	sys.exit(1)
-except SystemError:
-	print(
-		_("{notice} Unable to read config file: {filename}. Using defaults").format(
-			notice=NOTICE_PREFIX, filename=color(CONF_FILE, "YELLOW"), file=sys.stderr
+class Config:
+	"""Class for managing configurations."""
+
+	def __init__(self) -> None:
+		"""Class for managing configurations."""
+		self.conf = "/etc/nala/nala.conf"
+		self.data: dict[str, dict[str, str | bool]] = {"Nala": {}}
+		self.apt = apt_config
+
+	def read_config(self) -> None:
+		"""Read the configuration file."""
+		try:
+			with open(self.conf, "rb") as file:
+				self.data = tomli.load(file)
+		except (tomli.TOMLDecodeError, FileNotFoundError) as error:
+			print(f"{ERROR_PREFIX} {error}")
+			print(
+				_(
+					"{notice} Unable to read config file: {filename}. Using defaults"
+				).format(
+					notice=NOTICE_PREFIX,
+					filename=color(self.conf, "YELLOW"),
+					file=sys.stderr,
+				)
+			)
+
+	@staticmethod
+	def key_error(key: object, value: object) -> NoReturn:
+		"""Exit with key error."""
+		sys.exit(
+			_("{error} Config key '{key}' should be a bool not {value}").format(
+				error=ERROR_PREFIX, key=key, value=value
+			)
 		)
-	)
+
+	def get_bool(self, key: str, default: bool = False) -> bool:
+		"""Get Boolean from config."""
+		value = self.data["Nala"].get(key, default)
+		if isinstance(value, bool):
+			return value
+		self.key_error(key, value)
+
+	def get_str(self, key: str, default: str = "") -> str:
+		"""Get String from config."""
+		value = self.data["Nala"].get(key, default)
+		if isinstance(value, str):
+			return value
+		self.key_error(key, value)
+
+	def set(self, key: str, value: str | bool) -> None:
+		"""Set value in the Nala Config."""
+		self.data["Nala"][key] = value
+
+	# # This will likely need a lot of testing to be able to do something like this
+	# # For now it shall remain disabled indefinitely
+	# #
+	# def recurse_config(self, key: str, conf: dict):
+	# 	"""Recurse nala config and pass through apt options.
+
+	# 	Example of toml apt option::
+
+	# 	        APT.Get.AllowUnauthenticated = true
+	# 	"""
+	# 	for new_key, value in conf.items():
+	# 		final_key = new_key
+	# 		if key:
+	# 			final_key = f"{key}::{new_key}"
+	# 		if isinstance(value, dict):
+	# 			self.recurse_config(final_key, value)
+	# 			continue
+	# 		if value == False:
+	# 			value = "false"
+	# 		elif value == True:
+	# 			value = "true"
+	# 		self.apt.set(final_key, value)
 
 
 class Arguments:
@@ -61,6 +120,8 @@ class Arguments:
 	def __init__(self) -> None:
 		"""Arguments class."""
 		self.command: str = ""
+		self.config = Config()
+		self.config.read_config()
 		# True Global
 		self.verbose: bool
 		self.debug: bool
@@ -179,24 +240,28 @@ class Arguments:
 	def set_recommends(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
-			self.install_recommends = config.find_b("APT::Install-Recommends", True)
+			self.install_recommends = self.config.apt.find_b(
+				"APT::Install-Recommends", True
+			)
 			return
 		self.install_recommends = value
 		if value:
-			config.set("APT::Install-Recommends", "1")
+			self.config.apt.set("APT::Install-Recommends", "1")
 		if not value:
-			config.set("APT::Install-Recommends", "0")
+			self.config.apt.set("APT::Install-Recommends", "0")
 
 	def set_suggests(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
-			self.install_suggests = config.find_b("APT::Install-Suggests", False)
+			self.install_suggests = self.config.apt.find_b(
+				"APT::Install-Suggests", False
+			)
 			return
 		self.install_suggests = value
 		if value:
-			config.set("APT::Install-Suggests", "1")
+			self.config.apt.set("APT::Install-Suggests", "1")
 		else:
-			config.set("APT::Install-Suggests", "0")
+			self.config.apt.set("APT::Install-Suggests", "0")
 
 	def set_update(self, value: Optional[bool]) -> None:
 		"""Set option."""
@@ -208,6 +273,16 @@ class Arguments:
 		"""Set option."""
 		self.debug = value
 
+	def set_nala_option(self, key: str, value: str) -> None:
+		"""Set Nala option."""
+		if value == "false":
+			option: str | bool = False
+		elif value == "true":
+			option = True
+		else:
+			option = value
+		self.config.set(key.split("::", 1)[1], option)
+
 	def set_dpkg_option(self, value: tuple[str, ...]) -> None:
 		"""Set option."""
 		if not value:
@@ -215,7 +290,10 @@ class Arguments:
 		try:
 			for opt in value:
 				dpkg, option = opt.split("=")
-				config.set(dpkg, option.strip('"'))
+				if dpkg.startswith("Nala::"):
+					self.set_nala_option(dpkg, option.strip('"'))
+					continue
+				self.config.apt.set(dpkg, option.strip('"'))
 			# Reinitialize Nala configs in case a Nala option was given
 			self.init_config()
 		except ValueError:
@@ -227,16 +305,16 @@ class Arguments:
 
 	def init_config(self) -> None:
 		"""Initialize Nala Configs."""
-		self.scroll = config.find_b("Nala::ScrollingText", True)
-		self.auto_remove = config.find_b("Nala::AutoRemove", True)
+		self.scroll = self.config.get_bool("scrolling_text", True)
+		self.auto_remove = self.config.get_bool("auto_remove", True)
 		try:
 			self.update = (
-				config.find_b("Nala::AutoUpdate", True)
+				self.config.get_bool("auto_update", True)
 				if sys.argv[1] == "upgrade"
 				else False
 			)
 		except IndexError:
-			self.update = config.find_b("Nala::AutoUpdate", True)
+			self.update = self.config.get_bool("auto_update", True)
 
 	def state(self) -> str:
 		"""Return the state of the object as a string."""

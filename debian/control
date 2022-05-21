@@ -16,6 +16,7 @@ Build-Depends:
   python3-rich,
   python3-socksio,
   python3-typer,
+  python3-tomli,
   pandoc,
   bash-completion,
   dh-sequence-bash-completion,
