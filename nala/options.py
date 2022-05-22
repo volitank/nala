@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import sys
 from pydoc import pager
-from typing import NoReturn, Optional
+from typing import NoReturn, Optional, cast
 
 import tomli
 import typer
@@ -84,6 +84,10 @@ class Config:
 		if isinstance(value, str):
 			return value
 		self.key_error(key, value)
+
+	def get_hook(self, key: str) -> dict[str, str]:
+		"""Get Install Hooks from config."""
+		return cast(dict[str, str], self.data.get(key, {}))
 
 	def set(self, key: str, value: str | bool) -> None:
 		"""Set value in the Nala Config."""

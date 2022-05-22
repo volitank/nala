@@ -37,7 +37,7 @@ from datetime import datetime
 from fcntl import LOCK_EX, LOCK_NB, lockf
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Any, Generator, Iterable
 
 from apt.package import Package, Version
 
@@ -230,6 +230,21 @@ class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	) -> bool:
 		"""Return True if we shouldn't print a summary for the package set."""
 		return pkg_set in (self.suggest_pkgs, self.recommend_pkgs, self.not_needed)
+
+	def all_pkgs(self) -> Generator[NalaPackage | NalaDebPackage, None, None]:
+		"""Return a list of all the packages to be altered."""
+		yield from (
+			self.delete_pkgs
+			+ self.autoremove_pkgs
+			+ self.install_pkgs
+			+ self.reinstall_pkgs
+			+ self.downgrade_pkgs
+			+ self.upgrade_pkgs
+			+ self.configure_pkgs
+			+ self.autoremove_config
+			+ self.delete_config
+		)
+		yield from self.local_debs
 
 	def dpkg_progress_total(self) -> int:
 		"""Calculate our total operations for the dpkg progress bar."""

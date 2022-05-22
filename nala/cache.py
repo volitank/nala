@@ -27,7 +27,7 @@ from __future__ import annotations
 import contextlib
 import fnmatch
 import sys
-from typing import TYPE_CHECKING, Generator, Iterable
+from typing import TYPE_CHECKING, Generator
 
 import apt_pkg
 from apt.cache import Cache as _Cache
@@ -60,7 +60,7 @@ class Cache(_Cache):
 		"""Apply the marked changes to the cache."""
 		if local_debs:
 			res = install_archives(
-				(pkg.filename for pkg in local_debs if pkg.filename), install_progress
+				[pkg.filename for pkg in local_debs if pkg.filename], install_progress
 			)
 			install_progress.finish_update()
 			return res == 0
@@ -262,7 +262,7 @@ class Cache(_Cache):
 
 
 def install_archives(
-	apt: apt_pkg.PackageManager | Iterable[str], install_progress: InstallProgress
+	apt: apt_pkg.PackageManager | list[str], install_progress: InstallProgress
 ) -> int:
 	"""Install the archives."""
 	install_progress.start_update()

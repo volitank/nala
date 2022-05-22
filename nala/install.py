@@ -26,8 +26,10 @@
 """Functions for the Nala Install command."""
 from __future__ import annotations
 
+import fnmatch
 import sys
 from pathlib import Path
+from shutil import which
 from typing import Iterable, cast
 
 import apt_pkg
@@ -222,10 +224,57 @@ def fix_excluded(protected: list[Package], is_upgrade: Iterable[Package]) -> lis
 	return sorted(new_pkg | old_pkg)
 
 
+def hook_exists(key: str, pkg_names: set[str]) -> bool:
+	"""Return True if the hook file exists on the system."""
+	# cast because mypy thinks it's returning a list
+	return cast(
+		bool,
+		(
+			key == "hook"
+			or key in pkg_names
+			or ("*" in key and fnmatch.filter(pkg_names, key))
+		),
+	)
+
+
+def run_hooks(pkg_names: set[str], hook_type: str, install: InstallProgress) -> None:
+	"""Run the install hooks."""
+	for key, hook in arguments.config.get_hook(hook_type).items():
+		if hook_exists(key, pkg_names):
+			install.run_install(hook.split(), hook=True)
+
+
+def check_hooks(pkg_names: set[str]) -> None:
+	"""Check that the hook paths exist before trying to run anything."""
+	hooks: dict[str, list[str]] = {
+		"PreInstall": [],
+		"PostInstall": [],
+	}
+	for hook_type, hook_list in hooks.items():
+		for key, hook in arguments.config.get_hook(hook_type).items():
+			if hook_exists(key, pkg_names) and not which(cmd := hook.split()[0]):
+				hook_list.append(color(cmd, "YELLOW"))
+
+	if not hooks["PreInstall"] + hooks["PostInstall"]:
+		return
+
+	for hook_type, hook_list in hooks.items():
+		if hook_list:
+			eprint(
+				_("{error} The following {hook_type} commands cannot be found.").format(
+					error=ERROR_PREFIX, hook_type=hook_type
+				)
+			)
+			eprint(f"  {', '.join(hook_list)}")
+	sys.exit(1)
+
+
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")
 	task = dpkg_progress.add_task("", total=nala_pkgs.dpkg_progress_total())
+	check_hooks(pkg_names := {pkg.name for pkg in nala_pkgs.all_pkgs()})
+
 	with DpkgLive(install=True) as live:
 		with open(DPKG_LOG, "w", encoding="utf-8") as dpkg_log:
 			with open(NALA_TERM_LOG, "a", encoding="utf-8") as term_log:
@@ -240,9 +289,11 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 				install = InstallProgress(dpkg_log, term_log, live, task, config_purge)
 				update = UpdateProgress(live)
+				run_hooks(pkg_names, "PreInstall", install)
 				cache.commit_pkgs(install, update)
 				if nala_pkgs.local_debs:
 					cache.commit_pkgs(install, update, nala_pkgs.local_debs)
+				run_hooks(pkg_names, "PostInstall", install)
 				term_log.write(
 					_("Log Ended: [{date}]").format(date=get_date()) + "\n\n"
 				)

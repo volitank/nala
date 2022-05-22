@@ -36,7 +36,7 @@ import termios
 from time import sleep
 from traceback import format_exception
 from types import FrameType
-from typing import Callable, Iterable, Match, TextIO
+from typing import Callable, Match, TextIO
 
 import apt_pkg
 from apt.progress import base, text
@@ -361,7 +361,9 @@ class InstallProgress(base.InstallProgress):
 			dpkg_progress.advance(self.task)
 			self.live.scroll_bar()
 
-	def run_install(self, apt: apt_pkg.PackageManager | Iterable[str]) -> int:
+	def run_install(
+		self, apt: apt_pkg.PackageManager | list[str], hook: bool = False
+	) -> int:
 		"""Install using the `PackageManager` object `obj`.
 
 		returns the result of calling `obj.do_install()`
@@ -375,6 +377,8 @@ class InstallProgress(base.InstallProgress):
 				# when we spawn it
 				os.set_inheritable(self.writefd, True)
 				if not isinstance(apt, apt_pkg.PackageManager):
+					if hook:
+						os._exit(os.spawnlp(os.P_WAIT, apt[0], *apt))
 					# nosec because this isn't really a security issue. We're just running dpkg
 					os._exit(
 						os.spawnlp(  # nosec
