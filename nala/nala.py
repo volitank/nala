@@ -212,7 +212,9 @@ def remove_completion(ctx: typer.Context) -> Generator[str, None, None]:
 def package_completion(cur: str) -> Generator[str, None, None]:
 	"""Complete install command arguments."""
 	yield from run(
-		["apt-cache", "--no-generate", "pkgnames", cur],
+		["apt-cache", "--no-generate", "pkgnames", cur]
+		if PKGCACHE.exists()
+		else ["apt-cache", "pkgnames", cur],
 		capture_output=True,
 		check=True,
 		text=True,
