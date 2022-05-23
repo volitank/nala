@@ -1,0 +1,7 @@
+nala (0.9.0) unstable; urgency=medium
+  The configuration file for Nala at `/etc/nala/nala.conf`
+  has been changed to toml. This change is BREAKING as the older config
+  file will no longer work. Nala will still run with the old config,
+  but there will be a syntax error and it will use the program defaults.
+
+ -- Blake Lee <blake@volian.org>  Mon, 23 May 2022 15:53:49 -0400
