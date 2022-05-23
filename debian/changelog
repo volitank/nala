@@ -1,3 +1,22 @@
+nala (0.9.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add a version `diff` in the new version column to increase readability
+  * Change config file to `toml`. This is a breaking change, the older config
+    file will not work
+  * Add configuration option to disable auto updating the package cache when
+    running the `upgrade` command (Closes: #1010913)
+  * Add configuration option for pre and post install hooks
+
+  [ Bug Fixes ]
+  * Nala stating that it was unable to determine why packages were
+    held even if it was able too
+  * `fetch` ask prompt not defaulting to yes
+  * Exception when using tab completion if the `pkgcache.bin` file
+    has not been generated.
+
+ -- Blake Lee <blake@volian.org>  Mon, 23 May 2022 15:53:49 -0400
+
 nala (0.8.2) unstable; urgency=medium
 
   [ Changes ]
