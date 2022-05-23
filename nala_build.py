@@ -55,6 +55,7 @@ def run_nuitka(
 		"sniffio",
 		"certifi",
 		"idna",
+		"tomli",
 	)
 	nuitka = [
 		"nuitka3",
