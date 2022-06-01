@@ -84,7 +84,12 @@ from nala.utils import (
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, config: bool = False) -> None:
 	"""Handle auto removal of packages."""
-	if not arguments.auto_remove or arguments.command in ("autoremove", "autopurge"):
+	dprint("Starting Auto Remover")
+	if not arguments.auto_remove and arguments.command not in (
+		"autoremove",
+		"autopurge",
+	):
+		dprint("Packages will not be autoremoved")
 		nala_pkgs.not_needed = [
 			NalaPackage(pkg.name, pkg.installed.version, pkg.installed.installed_size)
 			for pkg in cache
@@ -92,6 +97,7 @@ def auto_remover(cache: Cache, nala_pkgs: PackageHandler, config: bool = False) 
 		]
 		return
 
+	dprint("Auto-Removing")
 	with cache.actiongroup():  # type: ignore[attr-defined]
 		# Recurse 10 levels if we're installing .debs to make sure that all depends are safe
 		deps = recurse_deps(nala_pkgs.local_debs, levels=10, installed=False)
