@@ -24,6 +24,7 @@
 """Nala dpkg module."""
 from __future__ import annotations
 
+import contextlib
 import errno
 import fcntl
 import os
@@ -33,6 +34,7 @@ import signal
 import struct
 import sys
 import termios
+from subprocess import run
 from time import sleep
 from traceback import format_exception
 from types import FrameType
@@ -368,7 +370,7 @@ class InstallProgress(base.InstallProgress):
 
 		returns the result of calling `obj.do_install()`
 		"""
-		dprint("Starting InstallProgress.run")
+		dprint("Forking")
 		pid, self.child_fd = fork()
 		if pid == 0:
 			try:
@@ -377,21 +379,27 @@ class InstallProgress(base.InstallProgress):
 				# when we spawn it
 				os.set_inheritable(self.writefd, True)
 				if not isinstance(apt, apt_pkg.PackageManager):
+					# pylint: disable=subprocess-run-check
 					if hook:
-						os._exit(os.spawnlp(os.P_WAIT, apt[0], *apt))
-					# nosec because this isn't really a security issue. We're just running dpkg
+						self.dpkg_log("Hook Execution:\n")
+						self.dpkg_log(f"Hook = {apt}\n\n")
+						os._exit(run(apt).returncode)
+
+					self.dpkg_log("Command Execution:\n")
+					self.dpkg_log(f"Command = {apt}\n\n")
 					os._exit(
-						os.spawnlp(  # nosec
-							os.P_WAIT,
-							"dpkg",
-							"dpkg",
-							"--status-fd",
-							f"{self.write_stream.fileno()}",
-							"-i",
-							*apt,
-						)
+						run(
+							[
+								"dpkg",
+								"--status-fd",
+								f"{self.write_stream.fileno()}",
+								"-i",
+							]
+							+ apt
+						).returncode
 					)
 				# We ignore this with mypy because the attr is there
+				self.dpkg_log("Apt Do Install\n\n")
 				os._exit(apt.do_install(self.write_stream.fileno()))  # type: ignore[attr-defined]
 			# We need to catch every exception here.
 			# If we don't the code continues in the child,
@@ -422,7 +430,8 @@ class InstallProgress(base.InstallProgress):
 			"hhhh", fcntl.ioctl(term.STDIN, termios.TIOCGWINSZ, buffer)
 		)
 		if self.child.isalive():
-			_setwinsize(self.child_fd, term_size[0], term_size[1])
+			with contextlib.suppress(ValueError):
+				_setwinsize(self.child_fd, term_size[0], term_size[1])
 
 	def conf_check(self, rawline: bytes) -> None:
 		"""Check if we get a conf prompt."""

@@ -107,7 +107,7 @@ class NalaDownload(DownloadColumn):  # type: ignore[misc]
 	def render(self, task: Task) -> Text:
 		"""Calculate common unit for completed and total."""
 		completed = int(task.completed)
-		total = int(task.total)
+		total = int(cast(float, task.total))
 		if self.binary_units:
 			unit, suffix = filesize.pick_unit_and_suffix(
 				total,

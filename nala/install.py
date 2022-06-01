@@ -239,7 +239,9 @@ def hook_exists(key: str, pkg_names: set[str]) -> bool:
 
 def run_hooks(pkg_names: set[str], hook_type: str, install: InstallProgress) -> None:
 	"""Run the install hooks."""
-	for key, hook in arguments.config.get_hook(hook_type).items():
+	dprint(f"{hook_type} {(hooks := arguments.config.get_hook(hook_type).items())}\n")
+	for key, hook in hooks:
+		dprint(f"Key: {key}, Hook: {hook}\n")
 		if hook_exists(key, pkg_names):
 			install.run_install(hook.split(), hook=True)
 
