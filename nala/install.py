@@ -230,43 +230,99 @@ def fix_excluded(protected: list[Package], is_upgrade: Iterable[Package]) -> lis
 	return sorted(new_pkg | old_pkg)
 
 
-def hook_exists(key: str, pkg_names: set[str]) -> bool:
+def hook_exists(key: str, pkg_names: set[str]) -> str:
 	"""Return True if the hook file exists on the system."""
-	# cast because mypy thinks it's returning a list
-	return cast(
-		bool,
-		(
-			key == "hook"
-			or key in pkg_names
-			or ("*" in key and fnmatch.filter(pkg_names, key))
-		),
-	)
+	if "*" in key and (globbed := fnmatch.filter(pkg_names, key)):
+		return globbed[0]
+	if key == "hook" or key in pkg_names:
+		return key
+	return ""
 
 
-def run_hooks(pkg_names: set[str], hook_type: str, install: InstallProgress) -> None:
-	"""Run the install hooks."""
-	dprint(f"{hook_type} {(hooks := arguments.config.get_hook(hook_type).items())}\n")
-	for key, hook in hooks:
-		dprint(f"Key: {key}, Hook: {hook}\n")
-		if hook_exists(key, pkg_names):
-			install.run_install(hook.split(), hook=True)
+def parse_hook_args(
+	pkg: str, hook: dict[str, str | list[str]], cache: Cache
+) -> list[str]:
+	"""Parse the arguments for the advanced hook."""
+	invalid: list[str] = []
+	cmd = cast(str, hook.get("hook", "")).split()
+	if args := cast(list[str], hook.get("args", [])):
+		arg_pkg = cache[pkg]
+		for arg in args:
+			# See if they are valid base package attributes
+			if arg in ("name", "fullname"):
+				cmd.append(getattr(arg_pkg, arg))
+				continue
+
+			# Convert simple args to candidate args
+			if arg in ("version", "architecture"):
+				arg = f"candidate.{arg}"
+
+			# Otherwise they could be a specific version argument
+			# arg = "candidate.arch"
+			if (
+				arg.startswith(("candidate.", "installed."))
+				and len(arg_split := arg.split(".")) > 1
+				and arg_split[1] in ("version", "architecture")
+			):
+				version = (
+					arg_pkg.candidate
+					if arg_split[0] == "candidate"
+					else arg_pkg.installed
+				)
+				cmd.append(getattr(version, arg_split[1]) if version else "None")
+				continue
+
+			# If none of these matched then the requested argument is invalid.
+			invalid.append(color(arg, "YELLOW"))
+
+	if invalid:
+		sys.exit(
+			_("{error} The following hook arguments are invalid: {args}").format(
+				error=ERROR_PREFIX, args=", ".join(invalid)
+			)
+		)
+	return cmd
 
 
-def check_hooks(pkg_names: set[str]) -> None:
+def check_hooks(pkg_names: set[str], cache: Cache) -> None:
 	"""Check that the hook paths exist before trying to run anything."""
-	hooks: dict[str, list[str]] = {
+	bad_hooks: dict[str, list[str]] = {
 		"PreInstall": [],
 		"PostInstall": [],
 	}
-	for hook_type, hook_list in hooks.items():
+	for hook_type, hook_list in bad_hooks.items():
 		for key, hook in arguments.config.get_hook(hook_type).items():
-			if hook_exists(key, pkg_names) and not which(cmd := hook.split()[0]):
-				hook_list.append(color(cmd, "YELLOW"))
+			if pkg := hook_exists(key, pkg_names):
+				if isinstance(hook, dict):
+					# Print a pretty debug message for the hooks
+					pretty = [(f"{key} = {value},\n") for key, value in hook.items()]
+					dprint(
+						f"{hook_type} {{\n"
+						f"{(indent := '    ')}Key: {key}, Hook: {{\n"
+						f"{indent*2}{f'{indent*2}'.join(pretty)}{indent}}}\n}}"
+					)
+					cmd = parse_hook_args(pkg, hook, cache)
+				else:
+					dprint(f"{hook_type} {{ Key: {key}, Hook: {hook} }}")
+					cmd = hook.split()
 
-	if not hooks["PreInstall"] + hooks["PostInstall"]:
+				# Check to make sure we can even run the hook
+				if not which(cmd[0]):
+					hook_list.append(color(cmd, "YELLOW"))
+					continue
+
+				dprint(f"Hook Command: {' '.join(cmd)}")
+				if hook_type == "PreInstall":
+					arguments.config.apt.set("DPkg::Pre-Invoke::", " ".join(cmd))
+				elif hook_type == "PostInstall":
+					arguments.config.apt.set("DPkg::Post-Invoke::", " ".join(cmd))
+
+	# If there are no bad hooks we can continue with the installation
+	if not bad_hooks["PreInstall"] + bad_hooks["PostInstall"]:
 		return
 
-	for hook_type, hook_list in hooks.items():
+	# There are bad hooks, so we should exit as to not mess anything up
+	for hook_type, hook_list in bad_hooks.items():
 		if hook_list:
 			eprint(
 				_("{error} The following {hook_type} commands cannot be found.").format(
@@ -281,7 +337,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")
 	task = dpkg_progress.add_task("", total=nala_pkgs.dpkg_progress_total())
-	check_hooks(pkg_names := {pkg.name for pkg in nala_pkgs.all_pkgs()})
+	check_hooks({pkg.name for pkg in nala_pkgs.all_pkgs()}, cache)
 
 	with DpkgLive(install=True) as live:
 		with open(DPKG_LOG, "w", encoding="utf-8") as dpkg_log:
@@ -297,11 +353,9 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 				)
 				install = InstallProgress(dpkg_log, term_log, live, task, config_purge)
 				update = UpdateProgress(live)
-				run_hooks(pkg_names, "PreInstall", install)
 				cache.commit_pkgs(install, update)
 				if nala_pkgs.local_debs:
 					cache.commit_pkgs(install, update, nala_pkgs.local_debs)
-				run_hooks(pkg_names, "PostInstall", install)
 				term_log.write(
 					_("Log Ended: [{date}]").format(date=get_date()) + "\n\n"
 				)

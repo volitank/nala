@@ -363,9 +363,7 @@ class InstallProgress(base.InstallProgress):
 			dpkg_progress.advance(self.task)
 			self.live.scroll_bar()
 
-	def run_install(
-		self, apt: apt_pkg.PackageManager | list[str], hook: bool = False
-	) -> int:
+	def run_install(self, apt: apt_pkg.PackageManager | list[str]) -> int:
 		"""Install using the `PackageManager` object `obj`.
 
 		returns the result of calling `obj.do_install()`
@@ -380,11 +378,6 @@ class InstallProgress(base.InstallProgress):
 				os.set_inheritable(self.writefd, True)
 				if not isinstance(apt, apt_pkg.PackageManager):
 					# pylint: disable=subprocess-run-check
-					if hook:
-						self.dpkg_log("Hook Execution:\n")
-						self.dpkg_log(f"Hook = {apt}\n\n")
-						os._exit(run(apt).returncode)
-
 					self.dpkg_log("Command Execution:\n")
 					self.dpkg_log(f"Command = {apt}\n\n")
 					os._exit(
