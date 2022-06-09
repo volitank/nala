@@ -1,3 +1,12 @@
+nala (0.9.1) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * `upgrade` fails sometimes when using install hooks
+  * `autoremove` and `autopurge` commands not working
+  * Unable to `upgrade` if there is an issue with any repository
+
+ -- Blake Lee <blake@volian.org>  Thu, 09 Jun 2022 10:47:49 -0400
+
 nala (0.9.0) unstable; urgency=medium
 
   [ Changes ]
