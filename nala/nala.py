@@ -10,12 +10,12 @@
 # This file is part of nala
 # nala is based upon apt-metalink https://github.com/tatsuhiro-t/apt-metalink
 #
-# nala is program is free software: you can redistribute it and/or modify
+# nala is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# nala is program is distributed in the hope that it will be useful,
+# nala is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
