@@ -101,7 +101,9 @@ class FileDownloadError(Exception):
 		self.received = received
 
 
-def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
+# Should probably refactor this in the future. For now just disable the warning.
+# pylint: disable=too-many-branches
+def apt_error(apt_err: AptErrorTypes, update: bool = False) -> NoReturn | None:
 	"""Take an error message from python-apt and formats it."""
 	msg = f"{apt_err}"
 	if not msg:
@@ -118,14 +120,16 @@ def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
 						"They have been ignored, or old ones used instead."
 					).format(notice=NOTICE_PREFIX)
 				)
-				return None
-			sys.exit(1)
+
+			if update:
+				sys.exit(1)
 		# Sometimes python apt gives us literally nothing to work with.
 		# Probably an issue with sources.list. Needs further testing.
-		sys.exit(NO_PROPER_ERR.format(error=ERROR_PREFIX, apt_err=repr(apt_err)))
+		if update:
+			sys.exit(NO_PROPER_ERR.format(error=ERROR_PREFIX, apt_err=repr(apt_err)))
+		return None
 
 	if "installArchives() failed" in msg:
-
 		eprint(_("{error} Installation has failed.").format(error=ERROR_PREFIX))
 		eprint(
 			"If you'd like to file a bug report please include '/var/log/nala/dpkg-debug.log'"
@@ -141,11 +145,16 @@ def apt_error(apt_err: AptErrorTypes) -> NoReturn | None:
 			if "W:" in err:
 				eprint(f"{WARNING_PREFIX} {err.replace('W:', '').strip()}")
 				continue
-		sys.exit(1)
+		if update:
+			sys.exit(1)
+		return None
+
 	eprint(f"{ERROR_PREFIX} {msg.replace('E:', '').strip()}")
 	if not term.is_su():
 		sys.exit(_("Are you root?"))
-	sys.exit(1)
+	if update:
+		sys.exit(1)
+	return None
 
 
 def essential_error(pkg_list: list[Text]) -> NoReturn:

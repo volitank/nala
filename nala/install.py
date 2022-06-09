@@ -822,7 +822,7 @@ def setup_cache() -> Cache:
 				with DpkgLive(install=False) as live:
 					Cache().update(UpdateProgress(live))
 	except (LockFailedException, FetchFailedException, apt_pkg.Error) as err:
-		apt_error(err)
+		apt_error(err, arguments.command == "update")
 	except KeyboardInterrupt:
 		eprint(_("Exiting due to SIGINT"))
 		sys.exit(ExitCode.SIGINT)
