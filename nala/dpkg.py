@@ -34,7 +34,6 @@ import signal
 import struct
 import sys
 import termios
-from subprocess import run
 from time import sleep
 from traceback import format_exception
 from types import FrameType
@@ -381,15 +380,15 @@ class InstallProgress(base.InstallProgress):
 					self.dpkg_log("Command Execution:\n")
 					self.dpkg_log(f"Command = {apt}\n\n")
 					os._exit(
-						run(
-							[
-								"dpkg",
-								"--status-fd",
-								f"{self.write_stream.fileno()}",
-								"-i",
-							]
-							+ apt
-						).returncode
+						os.spawnlp(  # nosec
+							os.P_WAIT,
+							"dpkg",
+							"dpkg",
+							"--status-fd",
+							f"{self.write_stream.fileno()}",
+							"-i",
+							*apt,
+						)
 					)
 				# We ignore this with mypy because the attr is there
 				self.dpkg_log("Apt Do Install\n\n")
