@@ -75,6 +75,7 @@ from nala.options import (
 	FULL,
 	INSTALLED,
 	LISTS,
+	MAN_HELP,
 	NALA_INSTALLED,
 	NAMES,
 	OPTION,
@@ -228,6 +229,7 @@ def _update(
 	raw_dpkg: bool = RAW_DPKG,
 	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Update package list."""
 	sudo_check()
@@ -257,6 +259,7 @@ def upgrade(
 	assume_yes: bool = ASSUME_YES,
 	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Update package list and upgrade the system."""
 	sudo_check()
@@ -305,7 +308,7 @@ def upgrade(
 
 
 @nala.command(help=_("Install packages."))
-# pylint: disable=unused-argument,too-many-arguments
+# pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def install(
 	ctx: typer.Context,
 	pkg_names: Optional[list[str]] = typer.Argument(
@@ -327,6 +330,7 @@ def install(
 	assume_yes: bool = ASSUME_YES,
 	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Install packages."""
 	_install(pkg_names, ctx)
@@ -354,6 +358,7 @@ def remove(
 	assume_yes: bool = ASSUME_YES,
 	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Remove or Purge packages."""
 	command_help("uninstall", "remove", update)
@@ -375,6 +380,7 @@ def _auto_remove(
 	assume_yes: bool = ASSUME_YES,
 	dpkg_option: list[str] = OPTION,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Command for autoremove."""
 	sudo_check()
@@ -407,6 +413,7 @@ def show(
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
 	all_versions: bool = ALL_VERSIONS,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Show package details."""
 	command_help("info", "show", None)
@@ -450,6 +457,7 @@ def search(
 	all_arches: bool = ALL_ARCHES,
 	virtual: bool = VIRTUAL,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Search package names and descriptions."""
 	cache = Cache()
@@ -504,6 +512,7 @@ def list_pkgs(
 	all_versions: bool = ALL_VERSIONS,
 	virtual: bool = VIRTUAL,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""List packages based on package names."""
 	cache = Cache()
@@ -541,6 +550,7 @@ def clean(
 	fetch: bool = FETCH,
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Clear out the local archive of downloaded package files."""
 	sudo_check()

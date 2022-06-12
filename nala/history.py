@@ -44,6 +44,7 @@ from nala.options import (
 	DEBUG,
 	DOWNLOAD_ONLY,
 	FIX_BROKEN,
+	MAN_HELP,
 	OPTION,
 	PURGE,
 	RAW_DPKG,
@@ -288,6 +289,7 @@ def history_summary(
 	),
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Show transaction history.
 

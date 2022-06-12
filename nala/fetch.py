@@ -54,7 +54,7 @@ from nala.constants import (
 	SOURCEPARTS,
 )
 from nala.downloader import print_error
-from nala.options import ASSUME_YES, DEBUG, VERBOSE, arguments, nala
+from nala.options import ASSUME_YES, DEBUG, MAN_HELP, VERBOSE, arguments, nala
 from nala.rich import ELLIPSIS, Live, Panel, Table, fetch_progress
 from nala.utils import ask, dprint, eprint, sudo_check, term
 
@@ -622,6 +622,7 @@ def fetch(
 		help=_("Choose only mirrors of a specific ISO country code."),
 	),
 	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
 ) -> None:
 	"""Nala will fetch mirrors with the lowest latency.
 

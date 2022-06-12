@@ -10,6 +10,7 @@ from nala import __version__ as version
 
 PO_FILES = tuple(Path("po").glob("*.po"))
 SOURCE_FILES = tuple(Path("nala").glob("*.py"))
+DOCS_DIR = Path("docs")
 
 # pylint: disable=too-few-public-methods
 class BuildEnvironment:
@@ -23,6 +24,17 @@ class BuildEnvironment:
 
 
 nala_app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+
+@nala_app.command(name="man")
+def convert_man() -> None:
+	"""Convert .rst files into man pages."""
+	for file in DOCS_DIR.iterdir():
+		if not file.name.endswith(".rst"):
+			return
+
+		man_page = f"{file}".replace(".rst", "")
+		run(["rst2man", file, man_page], check=True)
 
 
 @nala_app.command(name="nuitka")

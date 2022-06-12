@@ -1,1 +1,12 @@
 docs/nala.8
+docs/nala-autoremove.8
+docs/nala-fetch.8
+docs/nala-install.8
+docs/nala-remove.8
+docs/nala-show.8
+docs/nala-upgrade.8
+docs/nala-clean.8
+docs/nala-history.8
+docs/nala-list.8
+docs/nala-search.8
+docs/nala-update.8

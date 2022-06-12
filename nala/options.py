@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import sys
 from pydoc import pager
+from subprocess import run
 from typing import NoReturn, Optional, Union, cast
 
 import tomli
@@ -364,9 +365,14 @@ def version(value: bool) -> None:
 	sys.exit()
 
 
-@nala.command("help", hidden=True)
-def _help() -> None:
-	...
+def help_callback(value: bool) -> None:
+	"""Show man page instead of normal help."""
+	if value:
+		sys.exit(
+			run(  # pylint: disable=subprocess-run-check
+				["man", f"nala-{arguments.command.replace('purge', 'remove')}"]
+			).returncode
+		)
 
 
 VERSION = typer.Option(
@@ -598,11 +604,21 @@ AUTO = typer.Option(
 	False, help=_("Run fetch uninteractively. Will still prompt for overwrite")
 )
 
+MAN_HELP = typer.Option(
+	False,
+	"-h",
+	"--help",
+	callback=help_callback,
+	is_eager=True,
+	help=_("Show this message and exit."),
+)
+
 CONTEXT_SETTINGS = {
 	"help_option_names": ["-h", "--help"],
 }
 
 
+@nala.command("help", hidden=True)
 @nala.callback(
 	context_settings=CONTEXT_SETTINGS, no_args_is_help=True, invoke_without_command=True
 )
