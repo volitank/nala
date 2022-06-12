@@ -28,7 +28,7 @@ import itertools
 import re
 import sys
 from asyncio import Semaphore, gather, get_event_loop, run as aiorun
-from ssl import SSLCertVerificationError
+from ssl import SSLCertVerificationError, SSLError
 from subprocess import run
 from typing import Iterable, Optional, Union
 
@@ -65,7 +65,7 @@ UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
 UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
 LIMITS = Limits(max_connections=50)
 TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
-ErrorTypes = Union[HTTPStatusError, HTTPError, SSLCertVerificationError, ReadTimeout]
+ErrorTypes = Union[HTTPStatusError, HTTPError, SSLError, ReadTimeout]
 
 FETCH_HELP = _(
 	"Nala will fetch mirrors with the lowest latency.\n\n"
@@ -133,7 +133,7 @@ class MirrorTest:
 			# We convert the float to integer in order to get rid of the decimal
 			# From there we convert it to a string so we can prefix zeros for sorting
 
-		except (HTTPError, SSLCertVerificationError) as error:
+		except (HTTPError, SSLError) as error:
 			mirror_error(error, debugger)
 			dprint(debugger)
 			return False
@@ -249,6 +249,8 @@ def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
 	if arguments.verbose:
 		if isinstance(error, SSLCertVerificationError):
 			eprint(f"{ERROR_PREFIX} {error.reason} {error.verify_message}")
+		elif isinstance(error, SSLError):
+			eprint(f"{ERROR_PREFIX} {error.reason}")
 		else:
 			print_error(error)
 
