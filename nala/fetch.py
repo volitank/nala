@@ -440,18 +440,26 @@ def parse_sources() -> list[str]:
 
 def gen_table(str_list: list[str], no_index: bool = False) -> Table:
 	"""Generate table for the live display."""
+	master_table = Table(padding=(0, 0), box=None)
 	table = Table(padding=(0, 2), box=None)
 	if not no_index:
 		table.add_column("Index", justify="right", style="bold blue")
 	table.add_column("Mirror")
-	table.add_column("Latency", style="bold blue")
+	table.add_column("Score", style="bold blue")
 	for num, line in enumerate(str_list):
 		latency, mirror = line.split()
 		if no_index:
 			table.add_row(mirror, f"{latency.lstrip('0')} ms")
 			continue
 		table.add_row(f"{num + 1}", mirror, f"{latency.lstrip('0')} ms")
-	return table
+	master_table.add_row(table)
+	master_table.add_row(
+		# Add in a new line and indentation to line up the text
+		"\n  "
+		+ _("Score is how many milliseconds it takes to download the Release file"),
+		style="italic",
+	)
+	return master_table
 
 
 def ask_index(count: int) -> tuple[int, ...]:
