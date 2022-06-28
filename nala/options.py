@@ -159,7 +159,7 @@ class Arguments:
 		self.virtual: bool
 		self.full: bool
 
-		self.history: str
+		self.history: str | None
 		self.history_id: str
 
 		self.scroll: bool
