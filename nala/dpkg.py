@@ -796,7 +796,7 @@ class DpkgLive(Live):
 
 	def __init__(self, install: bool = True) -> None:
 		"""Subclass for dpkg live display."""
-		super().__init__(refresh_per_second=10)
+		super().__init__(refresh_per_second=4)
 		self.install = install
 		self.scroll_list: list[str] = []
 		self.scroll_config = (False, False, True)
