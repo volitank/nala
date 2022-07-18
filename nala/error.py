@@ -285,9 +285,8 @@ class BrokenError:
 			self._print_rdeps(pkg, installed)
 		self._print_held_error()
 
-	def held_pkgs(self) -> None:
+	def held_pkgs(self, protected: set[Package]) -> None:
 		"""Print packages that have been held back."""
-		self.cache.clear()
 		if not self.broken_list:
 			# There is really not a chance of this happening
 			return
@@ -296,7 +295,11 @@ class BrokenError:
 			pkg for pkg in self.broken_list if not self.broken_pkg(pkg)
 		]:
 			print(
-				color(_("Nala was unable to determine why these were held:"), "YELLOW")
+				color(
+					_("The following were held due to exclusions:")
+					if protected
+					else _("Nala was unable to determine why these were held:")
+				)
 			)
 			print(f"  {', '.join(color(pkg.name, 'YELLOW') for pkg in undetermined)}")
 

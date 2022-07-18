@@ -213,9 +213,9 @@ class Cache(_Cache):
 			if pkg.marked_delete:
 				pkg.mark_delete(purge=True)
 
-	def protect_upgrade_pkgs(self, exclude: list[str] | None) -> list[Package]:
+	def protect_upgrade_pkgs(self, exclude: list[str] | None) -> set[Package]:
 		"""Mark excluded packages as protected."""
-		protected: list[Package] = []
+		protected: set[Package] = set()
 		if not exclude:
 			return protected
 		resolver = apt_pkg.ProblemResolver(self._depcache)
@@ -229,7 +229,7 @@ class Cache(_Cache):
 						)
 					)
 					resolver.protect(self._cache[pkg_name])
-					protected.append(pkg)
+					protected.add(pkg)
 				elif pkg.is_auto_removable:
 					print(
 						_("Protecting {package} from auto-removal").format(
@@ -237,7 +237,7 @@ class Cache(_Cache):
 						)
 					)
 					resolver.protect(self._cache[pkg_name])
-					protected.append(pkg)
+					protected.add(pkg)
 		return protected
 
 	def upgradable_pkgs(self) -> Generator[Package, None, None]:

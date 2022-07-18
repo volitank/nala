@@ -295,11 +295,12 @@ def upgrade(
 			).broken_install()
 
 		if kept_back := tuple(
-			pkg for pkg in is_upgrade if not (pkg.marked_upgrade or pkg.marked_delete)
+			pkg
+			for pkg in is_upgrade
+			if not (pkg.marked_upgrade or pkg.marked_delete or pkg in protected)
 		):
-			BrokenError(cache, kept_back).held_pkgs()
+			BrokenError(cache, kept_back).held_pkgs(protected)
 			check_term_ask()
-			cache.upgrade(dist_upgrade=full)
 
 		auto_remover(cache, nala_pkgs)
 		get_changes(cache, nala_pkgs, "upgrade")

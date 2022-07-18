@@ -34,6 +34,10 @@ OPTIONS
 	`--exclude` only takes one package as an argument, but can be specified multiple times:
 		``nala upgrade`` `--exclude` ``apt`` `--exclude` ``dpkg``
 
+	NOTE: Due to the way that excusions are handled,
+	you may want to additionally supply `--no-full`
+	to ensure ``Nala`` doesn't remove packages you plan to keep.
+
 --full, --no-full
 	`--full`
 		This will run the equivalent of ``apt full-upgrade``
