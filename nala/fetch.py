@@ -65,7 +65,7 @@ UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
 UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
 LIMITS = Limits(max_connections=50)
 TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
-ErrorTypes = Union[HTTPStatusError, HTTPError, SSLError, ReadTimeout]
+ErrorTypes = Union[HTTPStatusError, HTTPError, SSLError, ReadTimeout, OSError]
 
 FETCH_HELP = _(
 	"Nala will fetch mirrors with the lowest latency.\n\n"
@@ -133,7 +133,7 @@ class MirrorTest:
 			# We convert the float to integer in order to get rid of the decimal
 			# From there we convert it to a string so we can prefix zeros for sorting
 
-		except (HTTPError, SSLError) as error:
+		except (HTTPError, OSError) as error:
 			mirror_error(error, debugger)
 			dprint(debugger)
 			return False
@@ -251,6 +251,8 @@ def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
 			eprint(f"{ERROR_PREFIX} {error.reason} {error.verify_message}")
 		elif isinstance(error, SSLError):
 			eprint(f"{ERROR_PREFIX} {error.reason}")
+		elif isinstance(error, OSError):
+			eprint(f"{ERROR_PREFIX} {error}")
 		else:
 			print_error(error)
 
