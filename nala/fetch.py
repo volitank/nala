@@ -114,7 +114,7 @@ class MirrorTest:
 				dprint(debugger)
 				return
 
-			domain = regex.group(1)
+			domain = regex[1]
 			debugger.append(f"Release Fetched: {domain}")
 			await self.netping(mirror, debugger)
 			self.progress.advance(self.task)
@@ -353,7 +353,7 @@ def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
 			elif "<mirror:countrycode>" in line:
 				# <mirror:countrycode>US</mirror:countrycode>
 				if result := re.search(UBUNTU_COUNTRY, line):
-					country_list.add(result.group(1))
+					country_list.add(result[1])
 	return tuple(country_list)
 
 
@@ -380,9 +380,7 @@ def ubuntu_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
 	for line in mirror.splitlines():
 		# <link>http://mirror.steadfastnet.com/ubuntu/</link>
 		if result := re.search(UBUNTU_MIRROR, line):
-			if only_ports and "ubuntu-ports" not in result.group(1):
-				return None
-			return result.group(1)
+			return None if only_ports and "ubuntu-ports" not in result[1] else result[1]
 	return None
 
 
