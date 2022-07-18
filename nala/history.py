@@ -207,6 +207,12 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 	nala_dict = pop_nala(history_dict)
 	user_installed = set(get_list(nala_dict, "User-Installed"))
 
+	# Make sure the numbers of the history entries are concurrent.
+	# Otherwise a history entry will forever be overwritten each transaction.
+	history_dict = {
+		f"{num + 1}": value for num, value in enumerate(history_dict.values())
+	}
+
 	hist_id = f"{len(history_dict) + 1 if history_dict else 1}"
 	altered = (
 		len(handler.delete_pkgs + handler.delete_config)
