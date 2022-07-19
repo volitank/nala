@@ -31,7 +31,7 @@ import fnmatch
 import sys
 from pathlib import Path
 from shutil import which
-from typing import Iterable, cast
+from typing import Iterable, Sequence, cast
 
 import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
@@ -375,9 +375,13 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None
 
 	if operation not in ("upgrade", "remove"):
 		if not arguments.install_recommends:
-			get_extra_pkgs("Recommends", pkgs, nala_pkgs.recommend_pkgs)
+			get_extra_pkgs(
+				"Recommends", pkgs + nala_pkgs.local_debs, nala_pkgs.recommend_pkgs  # type: ignore[operator]
+			)
 		if not arguments.install_suggests:
-			get_extra_pkgs("Suggests", pkgs, nala_pkgs.suggest_pkgs)
+			get_extra_pkgs(
+				"Suggests", pkgs + nala_pkgs.local_debs, nala_pkgs.suggest_pkgs  # type: ignore[operator]
+			)
 
 	check_work(pkgs, nala_pkgs, operation)
 
@@ -467,21 +471,41 @@ def install_local(nala_pkgs: PackageHandler, cache: Cache) -> None:
 					size,
 				)
 			)
-		satisfy_notice(pkg)
+
+		depends = pkg.dependencies
+		extra_pkgs = (
+			(arguments.install_recommends, pkg.get_dependencies("Recommends")),
+			(arguments.install_suggests, pkg.get_dependencies("Suggests")),
+		)
+
+		# Check to see if we need to install any recommends or suggests.
+		for check, extra_deps in extra_pkgs:
+			if not check:
+				continue
+
+			for dep in extra_deps:
+				if dep[0].name in cache:
+					cache[dep[0].name].mark_install(auto_fix=arguments.fix_broken)
+					depends.append(dep)
+
+		satisfy_notice(pkg, depends)
+
 	if failed:
 		BrokenError(cache, failed).broken_install()
 
 
-def satisfy_notice(pkg: NalaDebPackage) -> None:
+def satisfy_notice(pkg: NalaDebPackage, depends: list[NalaDep]) -> None:
 	"""Print a notice of how to satisfy the packages dependencies."""
 	fixer: list[str] = []
-	for dep in pkg.dependencies:
+
+	for dep in depends:
 		fixer.extend(
 			color(ppkg.name, "GREEN")
 			for base_dep in dep
 			if (target := list(base_dep.target_versions))
 			and (ppkg := target[0].package).marked_install
 		)
+
 	if fixer:
 		print(
 			_("{notice} The following will be installed to satisfy {package}:").format(
@@ -704,17 +728,23 @@ def check_state(cache: Cache, nala_pkgs: PackageHandler) -> None:
 
 def get_extra_pkgs(  # pylint: disable=too-many-branches
 	extra_type: str,
-	pkgs: list[Package],
+	pkgs: Sequence[Package | NalaDebPackage],
 	npkg_list: list[NalaPackage | list[NalaPackage]],
 ) -> None:
 	"""Get Recommended or Suggested Packages."""
 	dprint(f"Getting `{extra_type}` Packages")
 	or_name = []
 	for pkg in pkgs:
-		if not pkg.marked_install or not pkg.candidate:
+		if isinstance(pkg, Package):
+			recommends: list[Dependency] | list[NalaDep]
+			if not pkg.marked_install or not pkg.candidate:
+				continue
+			if not (recommends := pkg.candidate.get_dependencies(extra_type)):
+				continue
+		# Then The package must be a NalaDebPackage
+		elif not (recommends := pkg.get_dependencies(extra_type)):
 			continue
-		if not (recommends := pkg.candidate.get_dependencies(extra_type)):
-			continue
+
 		for dep in recommends:
 			# We don't need to show this if the extra is satisfied
 			if dep.installed_target_versions:
