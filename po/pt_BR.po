@@ -146,7 +146,7 @@ msgstr "Você é root?"
 
 #: nala/error.py:164
 msgid "{error} Please use {switch} if you are sure you want to."
-msgstr "{error} Por favor use um {switch} se você tiver certeza de que deseja."
+msgstr "{error} Por favor use {switch} se você temr certeza de que está fazendo."
 
 #: nala/error.py:559
 msgid "{notice} The information above may be able to help"
@@ -166,7 +166,7 @@ msgstr "{package} foi desmarcado."
 
 #: nala/error.py:505
 msgid "Try {switch} if you're sure they can be installed."
-msgstr "Tente {switch} se têm certeza que podem ser instalados"
+msgstr "Tente {switch} se tem certeza que podem ser instalados"
 
 #: nala/error.py:510
 msgid "{error} Some packages were unable to be installed."
@@ -174,7 +174,7 @@ msgstr "{error} Não foi possível instalar alguns pacotes"
 
 #: nala/fetch.py:307
 msgid "{error} unable to connect to {mirror}"
-msgstr "{error} incapaz de conectar com {mirror}"
+msgstr "{error} não foi possível de conectar com {mirror}"
 
 #: nala/fetch.py:575
 msgid "{file} already exists.\n"
@@ -188,7 +188,7 @@ msgstr "Abortando."
 
 #: nala/history.py:102
 msgid "{error} History file seems corrupt. You should try removing {file}"
-msgstr "{error} O arquivo do histérico parece corrompido. Você deve tentar remover {file}"
+msgstr "{error} O arquivo do histórico parece corrompido. Você deve tentar remover {file}"
 
 #: nala/history.py:392
 msgid "History has been cleared"
@@ -196,7 +196,7 @@ msgstr "O histórico foi limpo"
 
 #: nala/history.py:123
 msgid "{error} Transaction {num} doesn't exist."
-msgstr "{error} A transação {num} não existe."
+msgstr "{error} A operação {num} não existe."
 
 #: nala/install.py:367 nala/install.py:819
 msgid "Exiting due to SIGINT"
@@ -282,7 +282,7 @@ msgstr "Removendo {cache}\n"
 
 #: nala/nala.py:567
 msgid "Cache has been cleaned"
-msgstr "O cache foi limpo"
+msgstr "O cache foi apagado"
 
 #: nala/nala.py:578
 msgid "I can't moo for I'm a cat"
@@ -337,7 +337,7 @@ msgstr "Descrição:"
 
 #: nala/show.py:95
 msgid "Provides:"
-msgstr "Provê:"
+msgstr "Fornece:"
 
 #: nala/show.py:101
 msgid "Enhances:"
@@ -417,7 +417,7 @@ msgstr "Bugs:"
 
 #: nala/show.py:175
 msgid "Installed-Size:"
-msgstr "Tamanho instalado:"
+msgstr "Tamanho após instalação:"
 
 #: nala/show.py:269
 msgid "local install"
@@ -449,7 +449,7 @@ msgstr "Falha ao checar hash"
 
 #: nala/cache.py:133
 msgid "{error} unable to find any packages by globbing {pkg}"
-msgstr ""
+msgstr "{error} não foi possível encontrar nenhum pacotes utilizando globbing em {pkg}"
 
 #: nala/dpkg.py:111
 msgid "Removing:"
@@ -475,11 +475,13 @@ msgstr "{error} Hash Sum não coincide: {filename}\n"
 msgid "{error} File has unexpected size: {filename}\n"
 "  Expected Size: {expected}\n"
 "  Received Size: {received}"
-msgstr ""
+msgstr "{error} Arquivo com tamanho inesperado: {filename}\n"
+"  Tamanho Esperado: {expected}\n"
+"  Tamanho Recebido: {recieved}"
 
 #: nala/downloader.py:542
 msgid "{error} No more mirrors available for {filename}"
-msgstr ""
+msgstr "{error} Nenhum outro espelho disponível para {filename}"
 
 #: nala/downloader.py:701
 msgid "{error} Download failure. The following downloads failed:"
@@ -616,7 +618,7 @@ msgstr "{last_completed} {package}"
 
 #: nala/downloader.py:113
 msgid "{notice} Nala has removed {filename} but will try another mirror"
-msgstr ""
+msgstr "{notice} Nala removeu {filename}, mas irá tentar outro espelho"
 
 #: nala/downloader.py:117
 msgid "{error} {filename} does not exist!"
@@ -707,7 +709,7 @@ msgstr ""
 
 #: nala/error.py:53
 msgid "{package} is only referenced by name, no packages provides it"
-msgstr ""
+msgstr "{package} só é referenciado por nome, nenhum pacode o fornece"
 
 #: nala/error.py:55
 msgid "{dependency} will break {package} {version}"
@@ -769,7 +771,7 @@ msgstr ""
 
 #: nala/fetch.py:230
 msgid "Are these mirrors okay?"
-msgstr ""
+msgstr "Estes espelhos estão ok?"
 
 #: nala/fetch.py:261
 msgid "Fetching Ubuntu mirrors"
@@ -833,11 +835,11 @@ msgstr ""
 
 #: nala/fetch.py:605
 msgid "Add the source repos for the mirrors if it exists."
-msgstr "Adiciona os repositórios fonte para os espelhoe se existem."
+msgstr "Adiciona os repositórios fonte para os espelhos, se existem."
 
 #: nala/fetch.py:608
 msgid "Omits contrib and non-free repos."
-msgstr ""
+msgstr "Omite os repositórios contrib e non-free."
 
 #: nala/fetch.py:613
 msgid "Run fetch uninteractively. Will still prompt for overwrite."
@@ -853,7 +855,7 @@ msgstr "{error} Não existe histórico."
 
 #: nala/history.py:275
 msgid "Transaction number"
-msgstr ""
+msgstr "Número da operação"
 
 #: nala/history.py:287
 msgid "Show packages that were explicitly installed with Nala"
@@ -861,11 +863,11 @@ msgstr ""
 
 #: nala/history.py:340
 msgid "Show information about a specific transaction."
-msgstr ""
+msgstr "Mostra informações de uma operação específica."
 
 #: nala/history.py:396
 msgid "Clear a transaction or the entire history."
-msgstr ""
+msgstr "Limpa uma operação ou o histórico completo."
 
 #: nala/history.py:401
 msgid "Clear the entire history."
@@ -873,11 +875,11 @@ msgstr "Limpa todo o histórico."
 
 #: nala/history.py:433
 msgid "Undo a transaction."
-msgstr ""
+msgstr "Desfazer uma operação."
 
 #: nala/history.py:434
 msgid "Redo a transaction."
-msgstr ""
+msgstr "Refazer uma operação."
 
 #: nala/history.py:473
 msgid "{warning} This history entry was a purge."
@@ -950,7 +952,7 @@ msgstr ""
 
 #: nala/nala.py:307
 msgid "Install packages."
-msgstr "Intala pacotes."
+msgstr "Instala pacotes."
 
 #: nala/nala.py:314
 msgid "Package(s) to install"
@@ -962,11 +964,11 @@ msgstr "Remove pacotes."
 
 #: nala/nala.py:336
 msgid "Purge packages."
-msgstr ""
+msgstr "Purga pacotes."
 
 #: nala/nala.py:343
 msgid "Package(s) to remove/purge"
-msgstr ""
+msgstr "Pacote(s) a serem removido(s)/purgado(s)"
 
 #: nala/nala.py:363
 msgid "Autoremove packages that are no longer needed."
@@ -978,7 +980,7 @@ msgstr ""
 
 #: nala/nala.py:383
 msgid "{error} {config} must be used with either {autoremove} or {autopurge}."
-msgstr ""
+msgstr "{error} {config} deve ser utilizado apenas com {autoremove} ou {autopurge}"
 
 #: nala/nala.py:398
 msgid "Show package details."
@@ -994,7 +996,7 @@ msgstr ""
 
 #: nala/nala.py:439
 msgid "Regex or word to search for"
-msgstr ""
+msgstr "Regex ou paravra a ser buscada"
 
 #: nala/nala.py:490
 msgid "List packages based on package names."
@@ -1014,11 +1016,11 @@ msgstr ""
 
 #: nala/nala.py:550
 msgid "Package lists have been cleaned"
-msgstr ""
+msgstr "As listas de pacotes foram apagadas"
 
 #: nala/nala.py:554
 msgid "Nala sources.list has been cleaned"
-msgstr "sources.list do Nala foram limpos"
+msgstr "sources.list do Nala foi apagada"
 
 #: nala/nala.py:570
 msgid "I beg, pls moo"
@@ -1210,7 +1212,7 @@ msgstr ""
 #. ansible-core    2.12.4-1    1.2 MB
 #: nala/summary.py:40
 msgid "Package/Version/Size/Old Version/New Version/Either"
-msgstr ""
+msgstr "Pacote/Versão/Tamanho/Versão Antiga/Versão Nova/Qualquer"
 
 #. Verb Tenses are [ "Present/Present Participle/Past" ]
 #. This ends up looking like [ "Auto-Purge 20 Packages" ]
@@ -1301,7 +1303,9 @@ msgstr ""
 msgid "Show transaction history.\n"
 "\n"
 "Running `nala history` with no subcommands prints an overview of all transactions."
-msgstr ""
+msgstr "Mostrar históroco de operações.\n"
+"\n"
+"Rodar `nala history` sem subcomandos imprime uma visão geral de todas as operações."
 
 #: nala/dpkg.py:987
 msgid "Ctrl+C twice quickly will exit"
