@@ -1,21 +1,14 @@
-===========
-nala-search
-===========
+:title: nala-search
 
--------------------------------------
-Search package names and descriptions
--------------------------------------
+NAME
+====
 
-:Date: 23 May 2022
-:Copyright: Copyright (C) 2021, 2022 Blake Lee
-:Version: 0.9.1
-:Manual section: 8
-:Manual group: NALA
+nala-search - Search package names and descriptions
 
 SYNOPSIS
 ========
 
-``nala search`` [`--options`] REGEX
+**nala search** [*--options*] REGEX
 
 DESCRIPTION
 ===========
@@ -25,39 +18,44 @@ Search package names and descriptions using a word or REGEX
 OPTIONS
 =======
 
---full
+**--full**
 	Print the full description of each package.
 
--n, --names
+**-n**, **--names**
 	Search only package names.
 
 	This is faster than searching names and descriptions.
 
--i, --installed
+**-i**, **--installed**
 	List only packages that are installed.
 
--N, --nala-installed
-	List only packages explicitly installed with ``nala``.
+**-N**, **--nala-installed**
+	List only packages explicitly installed with **nala**.
 
--u, --upgradable
+**-u**, **--upgradable**
 	List only packages that are upgradable.
 
--a, --all-versions
+**-a**, **--all-versions**
 	Show all versions of a package.
 
--A, --all-arches
+**-A**, **--all-arches**
 	Show all architectures of a package.
 
--V, --virtual
+**-V**, **--virtual**
 	List only virtual packages.
 
---debug
+**--debug**
 	Print helpful information for solving issues.
-	If you're submitting a bug report try running the command again with `--debug`
+	If you're submitting a bug report try running the command again with *--debug*
 	and providing the output to the devs, it may be helpful.
 
--v, --verbose
+**-v**, **--verbose**
 	Disable scrolling text and print extra information
 
--h, --help
+**-h**, **--help**
 	Shows this man page.
+
+COPYRIGHT
+=========
+
+Copyright (C) 2021, 2022 Blake Lee

@@ -1,16 +1,9 @@
-====
-nala
+:title: Nala
+
+NAME
 ====
 
-------------------------
-front-end for libapt-pkg
-------------------------
-
-:Date: 23 May 2022
-:Copyright: Copyright (C) 2021, 2022 Blake Lee
-:Version: 0.9.1
-:Manual section: 8
-:Manual group: NALA
+Nala - Front-end for libapt-pkg
 
 SYNOPSIS
 ========
@@ -158,3 +151,8 @@ AUTHORS
 Blake Lee <`https://gitlab.com/volitank`> <`blake@volian.org`>
 
 volian-team <`https://gitlab.com/volian`> <`volian-devel@volian.org`>
+
+COPYRIGHT
+=========
+
+Copyright (C) 2021, 2022 Blake Lee

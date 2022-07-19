@@ -17,7 +17,7 @@ Build-Depends:
   python3-socksio,
   python3-typer,
   python3-tomli,
-  python3-docutils,
+  pandoc,
   bash-completion,
   dh-sequence-bash-completion,
 Rules-Requires-Root: no
