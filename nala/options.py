@@ -206,10 +206,15 @@ class Arguments:
 	def set_assume_prompt(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
-			self.assume_yes = self.assume_no = False
+			self.assume_yes = self.config.get_bool("assume_yes")
+			self.assume_no = False
 		else:
 			self.assume_yes = value
 			self.assume_no = not value
+			# If the configuration is set to true
+			# -y, --assume_yes becomes a toggle to the default behavior
+			if self.config.get_bool("assume_yes"):
+				self.assume_yes = False
 
 	def set_raw_dpkg(self, value: bool) -> None:
 		"""Set option."""

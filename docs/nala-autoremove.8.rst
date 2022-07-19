@@ -70,6 +70,9 @@ OPTIONS
 
 		Automatically select `yes` for any prompts which may need your input.
 
+		If the configuration option `assume_yes` is true, this switch will
+		set it back to default behavior
+
 	`-n`, `--assume-no`
 
 		Automatically select `no` for any prompts which may need your input.
