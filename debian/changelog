@@ -1,3 +1,22 @@
+nala (0.10.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add config option to pass arguments to install hooks
+  * Use man pages for `--help` menu
+  * Add `assume_yes` configuration option
+
+  [ Bug Fixes ]
+  * `upgrade` fails sometimes when using install hooks
+  * Local .debs cannot be installed
+  * `fetch` sometimes crashing on a bad mirror
+  * Lowered referesh rate to minimize flicker
+  * .debs without a reported size are uninstallable
+  * `history` sometimes overwritting entries
+  * `upgrade --exclude` not working at all
+  * Local .debs not installing recommended pkgs
+
+ -- Blake Lee <blake@volian.org>  Tue, 19 Jul 2022 00:03:28 -0400
+
 nala (0.9.1) unstable; urgency=medium
 
   [ Bug Fixes ]
