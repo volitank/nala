@@ -302,7 +302,7 @@ class Arguments:
 			return
 		try:
 			for opt in value:
-				dpkg, option = opt.split("=")
+				dpkg, option = opt.split("=", 1)
 				if dpkg.startswith("Nala::"):
 					self.set_nala_option(dpkg, option.strip('"'))
 					continue
