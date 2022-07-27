@@ -95,7 +95,7 @@ class MirrorTest:
 				follow_redirects=True, limits=LIMITS, timeout=TIMEOUT
 			) as self.client:
 				loop = get_event_loop()
-				semp = Semaphore(50)
+				semp = Semaphore(25)
 				tasks = [
 					loop.create_task(self.net_select(mirror, semp))
 					for mirror in self.netselect
