@@ -573,8 +573,12 @@ class InstallProgress(base.InstallProgress):
 		):
 			os.write(self.child_fd, term.CRLF)
 
-		# Save Term for debconf and Bracked Paste for the start of the shell
-		if term.SAVE_TERM in data or term.ENABLE_BRACKETED_PASTE in data:
+		# Save Term and Alt Screen for debconf and Bracked Paste for the start of the shell
+		if (
+			term.SAVE_TERM in data
+			or term.ENABLE_BRACKETED_PASTE in data
+			or term.ENABLE_ALT_SCREEN in data
+		):
 			self.raw_init()
 
 		self.dpkg_log(f"Raw = {self.raw}: [{repr(data)}]\n")
@@ -660,7 +664,11 @@ class InstallProgress(base.InstallProgress):
 		"""Handle text operations for rawline."""
 		term.write(rawline)
 		# Once we write we can check if we need to pop out of raw mode
-		if term.RESTORE_TERM in rawline or self.conf_end(rawline):
+		if (
+			term.RESTORE_TERM in rawline
+			or term.DISABLE_ALT_SCREEN in rawline
+			or self.conf_end(rawline)
+		):
 			self.raw = False
 			self.bug_list = False
 			term.restore_mode()
