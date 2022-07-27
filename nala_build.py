@@ -29,7 +29,9 @@ nala_app = typer.Typer(add_completion=False, no_args_is_help=True)
 @nala_app.command(name="man")
 def convert_man() -> None:
 	"""Convert .rst files into man pages."""
-	date = run(["date", "+%d %b %Y"], check=True, capture_output=True, text=True).stdout.strip()
+	date = run(
+		["date", "+%d %b %Y"], check=True, capture_output=True, text=True
+	).stdout.strip()
 	for file in DOCS_DIR.iterdir():
 		if not file.name.endswith(".rst"):
 			continue
@@ -37,15 +39,17 @@ def convert_man() -> None:
 		man_page = f"{file}".replace(".rst", "")
 		pandoc = [
 			"pandoc",
-			file,
+			f"{file}",
 			f"--output={man_page}",
 			"--standalone",
 			"--variable=header:'Nala User Manual'",
 			f"--variable=footer:{version}",
 			f"--variable=date:{date}",
 			"--variable=section:1",
-			"--from", "rst",
-			"--to", "man",
+			"--from",
+			"rst",
+			"--to",
+			"man",
 		]
 		run(pandoc, check=True)
 

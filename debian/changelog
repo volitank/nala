@@ -11,7 +11,7 @@ nala (0.10.0) unstable; urgency=medium
   * `fetch` sometimes crashing on a bad mirror
   * Lowered referesh rate to minimize flicker
   * .debs without a reported size are uninstallable
-  * `history` sometimes overwritting entries
+  * `history` sometimes overwriting entries
   * `upgrade --exclude` not working at all
   * Local .debs not installing recommended pkgs
 
