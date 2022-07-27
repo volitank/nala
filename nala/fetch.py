@@ -458,6 +458,15 @@ def _lsb_release() -> tuple[str | None, str | None]:
 			lsb_id = line[index:]
 		if "Codename" in line:
 			lsb_codename = line[index:]
+		# if "Description:" in line:
+		# 	lsb_description = line[index:]
+
+	# Hold off on LinuxMint for Now until we understand if we need to
+	# Parse their list or use Ubuntu/Debian. Also need to setup an LMDE VM
+	# To test that case
+	# if lsb_id and lsb_id.lower() == "linuxmint":
+	# 	lsb_id = DEBIAN if "Debian" in lsb_description else UBUNTU
+
 	return lsb_id, lsb_codename
 
 
@@ -608,7 +617,7 @@ def check_supported(
 	if distro in (DEBIAN, DEVUAN) and release != "n/a":
 		component = "main contrib non-free" if non_free else "main"
 		return get_and_parse_mirror(distro, country_list), component
-	if distro in (UBUNTU, "Pop"):
+	if distro in (UBUNTU, "Pop", "Zorin"):
 		# It's ubuntu, you probably don't care about foss
 		return (
 			get_and_parse_mirror(distro, country_list),
