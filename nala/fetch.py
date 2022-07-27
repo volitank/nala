@@ -424,21 +424,13 @@ def detect_release(debian: str, ubuntu: str) -> tuple[str | None, str | None]:
 def parse_sources() -> list[str]:
 	"""Read sources files on disk."""
 	sources: list[str] = []
-	for file in SOURCEPARTS.iterdir():
-		if file != NALA_SOURCES:
-			sources.extend(
-				line
-				for line in file.read_text(
-					encoding="utf-8", errors="replace"
-				).splitlines()
-				if not line.startswith("#") and line
-			)
-	if SOURCELIST.exists():
+	for file in [*SOURCEPARTS.iterdir(), SOURCELIST]:
+		if file == NALA_SOURCES or file.is_dir():
+			continue
+
 		sources.extend(
 			line
-			for line in SOURCELIST.read_text(
-				encoding="utf-8", errors="replace"
-			).splitlines()
+			for line in file.read_text(encoding="utf-8", errors="replace").splitlines()
 			if not line.startswith("#") and line
 		)
 	return sources
