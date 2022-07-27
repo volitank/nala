@@ -659,6 +659,13 @@ def fetch(
 	dprint(netselect)
 	dprint(f"Distro: {distro}, Release: {release}, Component: {component}")
 
+	if not netselect:
+		sys.exit(
+			_("{error} Nala was unable to find any mirrors.").format(
+				error = ERROR_PREFIX
+			)
+		)
+
 	mirror_test = MirrorTest(netselect, release, sources)
 	aiorun(mirror_test.run_test())
 
