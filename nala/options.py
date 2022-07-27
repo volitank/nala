@@ -296,10 +296,10 @@ class Arguments:
 			option = value
 		self.config.set(key.split("::", 1)[1], option)
 
-	def set_dpkg_option(self, value: tuple[str, ...]) -> None:
+	def set_dpkg_option(self, value: list[str]) -> list[str]:
 		"""Set option."""
 		if not value:
-			return
+			return value
 		try:
 			for opt in value:
 				dpkg, option = opt.split("=", 1)
@@ -315,6 +315,7 @@ class Arguments:
 					error=ERROR_PREFIX, option=opt
 				)
 			)
+		return value
 
 	def init_config(self) -> None:
 		"""Initialize Nala Configs."""
