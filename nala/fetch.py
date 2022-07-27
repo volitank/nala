@@ -328,12 +328,18 @@ def parse_mirror(
 	# If no country is supplied then our list will be all countries
 	countries = country_list or get_countries(master_mirror)
 	for country, mirror in itertools.product(countries, master_mirror):
-		if country not in mirror:
-			continue
-		if distro == DEBIAN and (url := debian_parser(mirror, arches)):
+		if (
+			distro == DEBIAN
+			and f"Country: {country.upper()}" in mirror
+			and (url := debian_parser(mirror, arches))
+		):
 			mirror_set.add(url)
 			continue
-		if distro == UBUNTU and (url := ubuntu_parser(mirror, arches)):
+		if (
+			distro == UBUNTU
+			and f"<mirror:countrycode>{country}</mirror:countrycode>" in mirror
+			and (url := ubuntu_parser(mirror, arches))
+		):
 			mirror_set.add(url)
 			continue
 	return tuple(mirror_set)
