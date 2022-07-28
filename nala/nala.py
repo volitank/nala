@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import re
 import sys
+from fnmatch import fnmatch
 from subprocess import run
 from typing import Generator, Optional
 
@@ -99,6 +100,7 @@ from nala.utils import (
 	PackageHandler,
 	ask,
 	command_help,
+	compile_regex,
 	dedupe_list,
 	eprint,
 	get_version,
@@ -466,17 +468,10 @@ def search(
 	user_installed = (
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
-	if regex == "*":
-		regex = ".*"
-	try:
-		search_pattern = re.compile(regex, re.IGNORECASE)
-	except re.error as error:
-		sys.exit(
-			_(
-				"{error} failed regex compilation '{error_msg} at position {position}"
-			).format(error=ERROR_PREFIX, error_msg=error.msg, position=error.pos)
-		)
+
+	search_pattern = compile_regex(regex)
 	arches = apt_pkg.get_architectures()
+
 	for pkg in cache:
 		if nala_installed and pkg.name not in user_installed:
 			continue
@@ -520,6 +515,7 @@ def list_pkgs(
 	user_installed = (
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
+	patterns = [compile_regex(name) for name in pkg_names] if pkg_names else []
 
 	def _list_gen() -> Generator[
 		tuple[Package, Version | tuple[Version, ...]], None, None
@@ -535,8 +531,19 @@ def list_pkgs(
 			if arguments.virtual and not cache.is_virtual_package(pkg.name):
 				continue
 			if pkg_names:
-				if pkg.shortname in pkg_names:
+				# Try Globbing first
+				for name in pkg_names:
+					if fnmatch(pkg.shortname, name):
+						yield (pkg, get_version(pkg, inst_first=True))
+						continue
+
+				# Try Regex next
+				for pattern in patterns:
+					if not pattern.fullmatch(pkg.shortname):
+						continue
 					yield (pkg, get_version(pkg, inst_first=True))
+					continue
+
 				continue
 			yield (pkg, get_version(pkg, inst_first=True))
 

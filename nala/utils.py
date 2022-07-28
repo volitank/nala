@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import signal
 import sys
 import termios
@@ -37,7 +38,7 @@ from datetime import datetime
 from fcntl import LOCK_EX, LOCK_NB, lockf
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Generator, Iterable
+from typing import TYPE_CHECKING, Any, Generator, Iterable, Pattern
 
 from apt.package import Package, Version
 
@@ -332,6 +333,20 @@ def ask(question: str, fetch: FetchLive | None = None) -> bool:
 		if fetch:
 			fetch.errors += 1
 		print(_("Not a valid choice kiddo"))
+
+
+def compile_regex(regex: str) -> Pattern[str]:
+	"""Compile regex and exit on failure."""
+	if regex == "*":
+		regex = ".*"
+	try:
+		return re.compile(regex, re.IGNORECASE)
+	except re.error as error:
+		sys.exit(
+			_(
+				"{error} failed regex compilation '{error_msg} at position {position}"
+			).format(error=ERROR_PREFIX, error_msg=error.msg, position=error.pos)
+		)
 
 
 def sudo_check(args: Iterable[str] | None = None) -> None:

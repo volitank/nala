@@ -15,6 +15,8 @@ DESCRIPTION
 
 List all packages or only packages based on the provided name
 
+The package name can be a regex or glob
+
 This command is very similar to **apt list**
 
 OPTIONS
