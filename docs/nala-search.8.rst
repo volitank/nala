@@ -13,7 +13,7 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-Search package names and descriptions using a word or REGEX
+Search package names and descriptions using a word, REGEX or glob
 
 OPTIONS
 =======

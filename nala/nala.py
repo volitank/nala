@@ -444,7 +444,7 @@ def show(
 @nala.command(help=_("Search package names and descriptions."))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def search(
-	regex: str = typer.Argument(
+	word: str = typer.Argument(
 		...,
 		help=_("Regex or word to search for"),
 		autocompletion=package_completion,
@@ -469,7 +469,7 @@ def search(
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
 
-	search_pattern = compile_regex(regex)
+	search_pattern = compile_regex(word)
 	arches = apt_pkg.get_architectures()
 
 	for pkg in cache:
@@ -482,12 +482,10 @@ def search(
 		if arguments.virtual and not cache.is_virtual_package(pkg.name):
 			continue
 		if arguments.all_arches or pkg.architecture() in arches:
-			search_name(pkg, search_pattern, found)
+			search_name(pkg, word, search_pattern, found)
 
 	if not found:
-		sys.exit(
-			_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=regex)
-		)
+		sys.exit(_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=word))
 	iter_search(found)
 
 

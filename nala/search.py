@@ -24,6 +24,7 @@
 """Functions for the Nala Search command."""
 from __future__ import annotations
 
+from fnmatch import fnmatch
 from typing import Iterable, Pattern, cast
 
 from apt.package import Package, Version
@@ -40,17 +41,20 @@ LINE = "│   " if is_utf8 else "|   "
 
 def search_name(
 	pkg: Package,
+	word: str,
 	search_pattern: Pattern[str],
 	found: list[tuple[Package, Version]],
 ) -> None:
 	"""Search the package name and description."""
-	searches = pkg.name
+	searches = [pkg.name]
 	if not arguments.names:
 		records = pkg._pcache._records
 		records.lookup(pkg._pkg.version_list[0].file_list[0])
-		searches += f"{records.long_desc} {records.source_pkg}"
+		searches.extend([records.long_desc, records.source_pkg])
 
-	if search_pattern.findall(searches):
+	for string in searches:
+		if not (fnmatch(string, word) or search_pattern.search(string)):
+			continue
 		version = get_version(pkg, inst_first=True)
 		if isinstance(version, tuple):
 			found.extend((pkg, ver) for ver in version)
