@@ -60,8 +60,8 @@ OPTIONS
 
 	By default **nala** will not include the source repos.
 
-**--foss**
-	Omits contrib and non-free components of the Debian mirrors.
+**--non-free**
+	Add contrib and non-free components of the Debian mirrors.
 
 	This switch does nothing on Ubuntu systems.
 

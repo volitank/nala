@@ -596,7 +596,7 @@ def check_supported(
 	distro: str | None,
 	release: str | None,
 	country_list: Iterable[str] | None,
-	foss: bool,
+	non_free: bool,
 	ctx: typer.Context,
 ) -> tuple[tuple[str, ...], str]:
 	"""Check if the distro is supported or not.
@@ -606,7 +606,7 @@ def check_supported(
 	Error if the distro is not supported.
 	"""
 	if distro in (DEBIAN, DEVUAN) and release != "n/a":
-		component = "main" if foss else "main contrib non-free"
+		component = "main contrib non-free" if non_free else "main"
 		return get_and_parse_mirror(distro, country_list), component
 	if distro in (UBUNTU, "Pop"):
 		# It's ubuntu, you probably don't care about foss
@@ -672,8 +672,8 @@ def fetch(
 	sources: bool = typer.Option(
 		False, "--sources", help=_("Add the source repos for the mirrors if it exists.")
 	),
-	foss: bool = typer.Option(
-		False, "--foss", help=_("Omits contrib and non-free repos.")
+	non_free: bool = typer.Option(
+		False, "--non-free", help=_("Add contrib and non-free repos.")
 	),
 	auto: bool = typer.Option(
 		False,
@@ -705,7 +705,7 @@ def fetch(
 		fetches = 3 if auto else 16
 
 	distro, release = detect_release(debian, ubuntu, devuan)
-	netselect, component = check_supported(distro, release, country_list, foss, ctx)
+	netselect, component = check_supported(distro, release, country_list, non_free, ctx)
 	assert distro and release
 
 	dprint(netselect)
