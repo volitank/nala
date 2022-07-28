@@ -32,7 +32,7 @@ import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package, Version
 
-from nala import _, color, color_version
+from nala import ROOT, _, color, color_version
 from nala.cache import Cache
 from nala.constants import ERROR_PREFIX, NOTICE_PREFIX, WARNING_PREFIX
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
@@ -132,7 +132,9 @@ def apt_error(apt_err: AptErrorTypes, update: bool = False) -> NoReturn | None:
 	if "installArchives() failed" in msg:
 		eprint(_("{error} Installation has failed.").format(error=ERROR_PREFIX))
 		eprint(
-			"If you'd like to file a bug report please include '/var/log/nala/dpkg-debug.log'"
+			_(
+				"If you'd like to file a bug report please include '{debug_file}'"
+			).format(debug_file=f"{ROOT}/var/log/nala/dpkg-debug.log")
 		)
 		sys.exit(1)
 

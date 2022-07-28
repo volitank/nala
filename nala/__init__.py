@@ -26,10 +26,18 @@ from __future__ import annotations
 
 import sys
 
+# Set Path as below for termux environment
+# ROOT = "@TERMUX_PREFIX@"
+# USR = "@TERMUX_PREFIX@"
+# TERMUX = True
+ROOT = ""
+USR = "/usr"
+TERMUX = False
+
 # Before we import anything else we need to make sure that this is in our path
 # Else apt_pkg will give an import error. Conda is an example of this breaking
 # pylint: disable=wrong-import-position
-PY_PATH = "/usr/lib/python3/dist-packages"
+PY_PATH = f"{USR}/lib/python3/dist-packages"
 if PY_PATH not in sys.path:
 	sys.path.append(PY_PATH)
 import gettext

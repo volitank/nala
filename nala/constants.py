@@ -33,16 +33,16 @@ from typing import Any, Callable, Optional, Union
 
 import apt_pkg
 
-from nala import _, color
+from nala import ROOT, USR, _, color
 
 # File Constants
-GPL3_LICENSE = Path("/usr/share/common-licenses/GPL-3")
+GPL3_LICENSE = Path(f"{USR}/share/common-licenses/GPL-3")
 """/usr/share/common-licenses/GPL-3"""
-NALA_SOURCES = Path("/etc/apt/sources.list.d/nala-sources.list")
+NALA_SOURCES = Path(f"{ROOT}/etc/apt/sources.list.d/nala-sources.list")
 """/etc/apt/sources.list.d/nala-sources.list"""
-NALA_DIR = Path("/var/lib/nala")
+NALA_DIR = Path(f"{ROOT}/var/lib/nala")
 """/var/lib/nala"""
-NALA_LOGDIR = Path("/var/log/nala")
+NALA_LOGDIR = Path(f"{ROOT}/var/log/nala")
 """/var/log/nala"""
 NALA_DEBUGLOG = NALA_LOGDIR / "nala-debug.log"
 """/var/log/nala/nala.debug.log"""
@@ -50,19 +50,19 @@ DPKG_LOG = NALA_LOGDIR / "dpkg-debug.log"
 """/var/log/nala/dpkg-debug.log"""
 DPKG_STATUS_LOG = NALA_LOGDIR / "dpkg-status.log"
 """/var/log/nala/dpkg-status.log"""
-NALA_TERM_LOG = Path("/var/log/nala/term.log")
+NALA_TERM_LOG = Path(f"{ROOT}/var/log/nala/term.log")
 """/var/log/nala/term.log"""
-NALA_HISTORY = Path("/var/lib/nala/history.json")
+NALA_HISTORY = Path(f"{ROOT}/var/lib/nala/history.json")
 """/var/lib/nala/history.json"""
-PACSTALL_METADATA = Path("/var/log/pacstall/metadata")
+PACSTALL_METADATA = Path(f"{ROOT}/var/log/pacstall/metadata")
 """/var/log/pacstall/metadata"""
-REBOOT_REQUIRED = Path("/var/run/reboot-required")
+REBOOT_REQUIRED = Path(f"{ROOT}/var/run/reboot-required")
 """/var/run/reboot-required"""
-REBOOT_PKGS = Path("/var/run/reboot-required.pkgs")
+REBOOT_PKGS = Path(f"{ROOT}/var/run/reboot-required.pkgs")
 """'/var/run/reboot-required.pkgs'"""
-NEED_RESTART = Path("/var/run/needrestart")
+NEED_RESTART = Path(f"{ROOT}/var/run/needrestart")
 """/var/run/needrestart"""
-NALA_LOCK_FILE = Path("/var/lock/nala.lock")
+NALA_LOCK_FILE = Path(f"{ROOT}/var/lock/nala.lock")
 """/var/lock/nala.lock"""
 
 # Apt Directories

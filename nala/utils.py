@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Any, Generator, Iterable
 
 from apt.package import Package, Version
 
-from nala import _, color, console
+from nala import TERMUX, _, color, console
 from nala.constants import (
 	ERROR_PREFIX,
 	HANDLER,
@@ -174,7 +174,7 @@ class Terminal:
 	@staticmethod
 	def is_su() -> bool:
 		"""Return True if we're super user and False if we're not."""
-		return os.geteuid() == 0
+		return TERMUX or os.geteuid() == 0
 
 
 class DelayedKeyboardInterrupt:

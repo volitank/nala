@@ -33,7 +33,7 @@ import tomli
 import typer
 from apt_pkg import config as apt_config
 
-from nala import _, __version__, color
+from nala import ROOT, _, __version__, color
 from nala.constants import ERROR_PREFIX, GPL3_LICENSE, NOTICE_PREFIX
 
 
@@ -42,7 +42,7 @@ class Config:
 
 	def __init__(self) -> None:
 		"""Class for managing configurations."""
-		self.conf = "/etc/nala/nala.conf"
+		self.conf = f"{ROOT}/etc/nala/nala.conf"
 		self.data: dict[str, dict[str, str | bool]] = {"Nala": {}}
 		self.apt = apt_config
 
