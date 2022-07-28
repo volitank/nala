@@ -21,6 +21,8 @@ DESCRIPTION
 
 	For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss
 
+	For Devuan https://pkgmaster.devuan.org/mirror_list.txt
+
 The resulting file of mirrors will be located at */etc/apt/sources.list.d/nala-sources.list*
 
 OPTIONS
@@ -35,6 +37,11 @@ OPTIONS
 	Much like *--debian* but for Ubuntu
 
 	**nala fetch** *--ubuntu jammy*
+
+**--devuan**
+	Much like *--debian* but for Devuan
+
+	**nala fetch** *--devuan unstable*
 
 **--auto**
 	Run fetch uninteractively. Will still prompt for overwriting the sources file if it exists.
@@ -62,6 +69,15 @@ OPTIONS
 	Print helpful information for solving issues.
 	If you're submitting a bug report try running the command again with *--debug*
 	and providing the output to the devs, it may be helpful.
+
+**-c**, **--country**
+	Specify your country to limit the mirror search using the 2 letter ISO country code.
+
+	This option can be specified multiple times to increase the pool.
+
+	Example:
+
+		**nala fetch** *-c US -c CA*
 
 **-v**, **--verbose**
 	Disable scrolling text and print extra information

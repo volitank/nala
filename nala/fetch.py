@@ -60,6 +60,8 @@ from nala.utils import ask, dprint, eprint, sudo_check, term
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
+DEVUAN = "Devaun"
+
 DOMAIN_PATTERN = re.compile(r"https?://([A-Za-z_0-9.-]+).*")
 UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
 UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
@@ -260,44 +262,63 @@ def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
 		debugger.append("Mirror too slow")
 
 
-def ubuntu_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
-	"""Get and parse the Ubuntu mirror list."""
-	print(_("Fetching Ubuntu mirrors") + ELLIPSIS)
-	ubuntu = fetch_mirrors("https://launchpad.net/ubuntu/+archivemirrors-rss", "<item>")
-	# This is what one of our "Mirrors might look like after split"
-	#      <title>Steadfast Networks</title>
-	#      <link>http://mirror.steadfastnet.com/ubuntu/</link>
-	#      <description>
-	#      </description>
-	#      <mirror:bandwidth>80</mirror:bandwidth>
-	#      <mirror:location>
-	#        <mirror:continent>North America</mirror:continent>
-	#        <mirror:country>United States</mirror:country>
-	#        <mirror:countrycode>US</mirror:countrycode>
-	#      </mirror:location>
-	#      <pubDate>Fri, 24 Dec 2021 05:26:30 -0000</pubDate>
-	#      <guid>http://mirror.steadfastnet.com/ubuntu/</guid>
-	#    </item>
-	return parse_mirror(UBUNTU, ubuntu, country_list, tuple(get_architectures()))
-
-
-def debian_mirror(country_list: Iterable[str] | None) -> tuple[str, ...]:
-	"""Get and parse the Debian mirror list."""
-	print(_("Fetching Debian mirrors") + ELLIPSIS)
-	debian = fetch_mirrors(
-		"https://mirror-master.debian.org/status/Mirrors.masterlist", "\n\n"
-	)
-	# This is what one of our "Mirrors might look like after split"
-	# Site: mirrors.edge.kernel.org
-	# Country: NL Netherlands
-	# Country: US United States
-	# Location: Amsterdam
-	# Location: Parsippany, NJ
-	# Location: San-Jose, CA
-	# Archive-architecture: amd64 arm64 armel armhf i386 mips mips64el mipsel powerpc ppc64el s390x
-	# Archive-http: /debian/
-	# Sponsor: packet.net https://packet.net/
-	return parse_mirror(DEBIAN, debian, country_list, tuple(get_architectures()))
+def get_and_parse_mirror(
+	distro: str, country_list: Iterable[str] | None
+) -> tuple[str, ...]:
+	"""Get and parse the mirror list."""
+	print(_("Fetching {distro} mirrors").format(distro=distro) + ELLIPSIS)
+	if distro == DEBIAN:
+		mirror = fetch_mirrors(
+			"https://mirror-master.debian.org/status/Mirrors.masterlist", "\n\n"
+		)
+		# This is what one of our "Mirrors might look like after split"
+		# Site: mirrors.edge.kernel.org
+		# Country: NL Netherlands
+		# Country: US United States
+		# Location: Amsterdam
+		# Location: Parsippany, NJ
+		# Location: San-Jose, CA
+		# Archive-architecture: amd64 arm64 armel armhf i386
+		# Archive-http: /debian/
+		# Sponsor: packet.net https://packet.net/
+	elif distro == UBUNTU:
+		mirror = fetch_mirrors(
+			"https://launchpad.net/ubuntu/+archivemirrors-rss", "<item>"
+		)
+		# This is what one of our "Mirrors might look like after split"
+		#      <title>Steadfast Networks</title>
+		#      <link>http://mirror.steadfastnet.com/ubuntu/</link>
+		#      <description>
+		#      </description>
+		#      <mirror:bandwidth>80</mirror:bandwidth>
+		#      <mirror:location>
+		#        <mirror:continent>North America</mirror:continent>
+		#        <mirror:country>United States</mirror:country>
+		#        <mirror:countrycode>US</mirror:countrycode>
+		#      </mirror:location>
+		#      <pubDate>Fri, 24 Dec 2021 05:26:30 -0000</pubDate>
+		#      <guid>http://mirror.steadfastnet.com/ubuntu/</guid>
+		#    </item>
+	elif distro == DEVUAN:
+		mirror = fetch_mirrors("https://pkgmaster.devuan.org/mirror_list.txt", "\n\n")
+		# FQDN:  sledjhamr.org
+		# BaseURL:  sledjhamr.org/devuan
+		# Bandwidth:  1Gb/s
+		# Rate:  30min
+		# Country:  Netherlands
+		# CountryCode:  NL | BE | CH | CZ | DE | DK | FR | GB | GG | IE | IM | JE | LU
+		# Protocols:  HTTP | HTTPS | FTP | RSYNC
+		# Active:  yes
+		# DNSRR:  yes
+		# DNSRRCC:  yes
+	else:
+		# We should never really hit this.
+		sys.exit(
+			_("{error} Internal Error. Distro detection must be broken").format(
+				error=ERROR_PREFIX
+			)
+		)
+	return parse_mirror(distro, mirror, country_list, tuple(get_architectures()))
 
 
 def fetch_mirrors(url: str, splitter: str) -> tuple[str, ...]:
@@ -335,6 +356,7 @@ def parse_mirror(
 		):
 			mirror_set.add(url)
 			continue
+
 		if (
 			distro == UBUNTU
 			and f"<mirror:countrycode>{country}</mirror:countrycode>" in mirror
@@ -342,6 +364,14 @@ def parse_mirror(
 		):
 			mirror_set.add(url)
 			continue
+
+		if distro == DEVUAN:
+			for line in mirror.splitlines():
+				if line.startswith("CountryCode:") and country in line:
+					if url := devuan_parser(mirror):
+						mirror_set.add(url)
+						continue
+
 	return tuple(mirror_set)
 
 
@@ -351,8 +381,15 @@ def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
 	# The way we split the information we get nice and pretty mirror selections
 	for mirror in master_mirror:
 		for line in mirror.splitlines():
+			# Devuan Countries
+			if "CountryCode:" in line:
+				# CountryCode:  BG | GR | RO | MK | RS | TR
+				for country in line.split()[1:]:
+					if line == "|":
+						continue
+					country_list.add(country)
 			# Debian Countries
-			if "Country:" in line:
+			elif "Country:" in line:
 				# Country: SE Sweden
 				country_list.add(line.split()[1])
 			# Ubuntu Countries
@@ -361,6 +398,19 @@ def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
 				if result := re.search(UBUNTU_COUNTRY, line):
 					country_list.add(result[1])
 	return tuple(country_list)
+
+
+def devuan_parser(mirror: str) -> str | None:
+	"""Parse the Debuan mirror."""
+	url = "http://"
+	if "HTTP" not in mirror:
+		return None
+	for line in mirror.splitlines():
+		if line.startswith("BaseURL:"):
+			url += line.split()[1]
+	if url == "http://":
+		return None
+	return f"{url}/devuan/"
 
 
 def debian_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
@@ -411,13 +461,17 @@ def _lsb_release() -> tuple[str | None, str | None]:
 	return lsb_id, lsb_codename
 
 
-def detect_release(debian: str, ubuntu: str) -> tuple[str | None, str | None]:
+def detect_release(
+	debian: str, ubuntu: str, devuan: str
+) -> tuple[str | None, str | None]:
 	"""Detect the distro and release."""
-	if not debian and not ubuntu:
+	if not debian and not ubuntu and not devuan:
 		return _lsb_release()
 
 	if debian:
 		return DEBIAN, debian
+	if devuan:
+		return DEVUAN, devuan
 	return UBUNTU, ubuntu
 
 
@@ -551,12 +605,15 @@ def check_supported(
 
 	Error if the distro is not supported.
 	"""
-	if distro == DEBIAN and release != "n/a":
+	if distro in (DEBIAN, DEVUAN) and release != "n/a":
 		component = "main" if foss else "main contrib non-free"
-		return debian_mirror(country_list), component
+		return get_and_parse_mirror(distro, country_list), component
 	if distro in (UBUNTU, "Pop"):
 		# It's ubuntu, you probably don't care about foss
-		return ubuntu_mirror(country_list), "main restricted universe multiverse"
+		return (
+			get_and_parse_mirror(distro, country_list),
+			"main restricted universe multiverse",
+		)
 	if distro is None or release is None:
 		eprint(
 			_("{error} There was an issue detecting release.").format(
@@ -604,6 +661,9 @@ def fetch(
 	ubuntu: str = typer.Option(
 		"", metavar="jammy", help=_("Choose the Ubuntu release.")
 	),
+	devuan: str = typer.Option(
+		"", metavar="stable", help=_("Choose the Devuan release.")
+	),
 	fetches: int = typer.Option(
 		0,
 		help=_("Number of mirrors to fetch. [defaults: 16, --auto(3)]"),
@@ -644,7 +704,7 @@ def fetch(
 	if fetches == 0:
 		fetches = 3 if auto else 16
 
-	distro, release = detect_release(debian, ubuntu)
+	distro, release = detect_release(debian, ubuntu, devuan)
 	netselect, component = check_supported(distro, release, country_list, foss, ctx)
 	assert distro and release
 
