@@ -15,6 +15,11 @@ DESCRIPTION
 
 Search package names and descriptions using a word, REGEX or glob
 
+If the string starts with `r/` only regex will be tried.
+If the string starts with `g/` only glob will be tried.
+
+Otherwise **search** will try to glob and then regex in that order.
+
 OPTIONS
 =======
 

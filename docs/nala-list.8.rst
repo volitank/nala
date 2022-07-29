@@ -17,6 +17,11 @@ List all packages or only packages based on the provided name
 
 The package name can be a regex or glob
 
+If the string starts with `r/` only regex will be tried.
+If the string starts with `g/` only glob will be tried.
+
+Otherwise **list** will try to glob and then regex in that order.
+
 This command is very similar to **apt list**
 
 OPTIONS

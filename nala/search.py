@@ -41,8 +41,7 @@ LINE = "│   " if is_utf8 else "|   "
 
 def search_name(
 	pkg: Package,
-	word: str,
-	search_pattern: Pattern[str],
+	pattern: tuple[str, Pattern[str]],
 	found: list[tuple[Package, Version]],
 ) -> None:
 	"""Search the package name and description."""
@@ -53,10 +52,22 @@ def search_name(
 		searches.extend([records.long_desc, records.source_pkg])
 
 	for string in searches:
-		if not (fnmatch(string, word) or search_pattern.search(string)):
+		word, regex = pattern
+
+		# Name starts with g/ Only attempt Glob
+		if word.startswith("g/") and not fnmatch(string, word[2:]):
 			continue
-		version = get_version(pkg, inst_first=True)
-		if isinstance(version, tuple):
+
+		# Name starts with r/ only attempt Regex
+		if word.startswith("r/") and not regex.search(string):
+			continue
+
+		# Nothing was specified so Glob then Regex
+		if not (fnmatch(string, word) or regex.search(string)):
+			continue
+
+		# Must have found a match, Hurray!
+		if isinstance(version := get_version(pkg, inst_first=True), tuple):
 			found.extend((pkg, ver) for ver in version)
 			return
 		found.append((pkg, version))

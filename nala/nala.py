@@ -29,7 +29,7 @@ import re
 import sys
 from fnmatch import fnmatch
 from subprocess import run
-from typing import Generator, Optional
+from typing import Generator, Optional, Pattern
 
 import apt_pkg
 import typer
@@ -469,7 +469,11 @@ def search(
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
 
-	search_pattern = compile_regex(word)
+	if word.startswith(("g/", "r/")):
+		search_pattern = (word, compile_regex(word[2:]))
+	else:
+		search_pattern = (word, compile_regex(word))
+
 	arches = apt_pkg.get_architectures()
 
 	for pkg in cache:
@@ -482,7 +486,7 @@ def search(
 		if arguments.virtual and not cache.is_virtual_package(pkg.name):
 			continue
 		if arguments.all_arches or pkg.architecture() in arches:
-			search_name(pkg, word, search_pattern, found)
+			search_name(pkg, search_pattern, found)
 
 	if not found:
 		sys.exit(_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=word))
@@ -490,7 +494,7 @@ def search(
 
 
 @nala.command("list", help=_("List packages based on package names."))
-# pylint: disable=unused-argument,too-many-arguments
+# pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def list_pkgs(
 	pkg_names: Optional[list[str]] = typer.Argument(
 		None,
@@ -513,7 +517,16 @@ def list_pkgs(
 	user_installed = (
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
-	patterns = [compile_regex(name) for name in pkg_names] if pkg_names else []
+
+	patterns: dict[str, Pattern[str]] = {}
+	if pkg_names:
+		for name in pkg_names:
+			if name.startswith(("g/", "r/")):
+				# Take out the prefix when we compile the regex
+				patterns[name] = compile_regex(name[2:])
+				continue
+			# Otherwise we can just compile it
+			patterns[name] = compile_regex(name)
 
 	def _list_gen() -> Generator[
 		tuple[Package, Version | tuple[Version, ...]], None, None
@@ -529,20 +542,27 @@ def list_pkgs(
 			if arguments.virtual and not cache.is_virtual_package(pkg.name):
 				continue
 			if pkg_names:
-				# Try Globbing first
-				for name in pkg_names:
-					if fnmatch(pkg.shortname, name):
+				for name, regex in patterns.items():
+					if name.startswith("g/"):
+						# Name starts with g/ so we only attempt a glob
+						if fnmatch(pkg.shortname, name[2:]):
+							yield (pkg, get_version(pkg, inst_first=True))
+						continue
+
+					if name.startswith("r/"):
+						# Name starts with r/ so we only attempt a regex
+						if regex.search(pkg.shortname):
+							yield (pkg, get_version(pkg, inst_first=True))
+						continue
+
+					# Otherwise we will try to glob first then regex
+					if fnmatch(pkg.shortname, name) or regex.search(pkg.shortname):
 						yield (pkg, get_version(pkg, inst_first=True))
-						continue
 
-				# Try Regex next
-				for pattern in patterns:
-					if not pattern.fullmatch(pkg.shortname):
-						continue
-					yield (pkg, get_version(pkg, inst_first=True))
-					continue
-
+				# If names were supplied we don't want to grab everything
 				continue
+
+			# In this case no names were supplied so we list everything
 			yield (pkg, get_version(pkg, inst_first=True))
 
 	if not iter_search(_list_gen()):
