@@ -342,11 +342,11 @@ def print_update_summary(nala_pkgs: PackageHandler, cache: Cache | None = None) 
 			*get_columns(SUMMARY_LAYOUT), box=None, show_footer=True, show_header=False
 		)
 		if (download := cache.required_download) > 0:
-			footer_table.add_row(_("Total download size"), unit_str(download, 1))
+			footer_table.add_row(_("Total download size"), unit_str(download))
 		if (space := cache.required_space) < 0:
-			footer_table.add_row(_("Disk space to free"), unit_str(-space, 1))
+			footer_table.add_row(_("Disk space to free"), unit_str(-space))
 		if space > 0:
-			footer_table.add_row(_("Disk space required"), unit_str(space, 1))
+			footer_table.add_row(_("Disk space required"), unit_str(space))
 		console.print(footer_table)
 
 	if cache and arguments.download_only:

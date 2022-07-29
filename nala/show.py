@@ -74,7 +74,7 @@ def show_pkg(candidate: Version) -> None:
 		msg += SHOW_INFO.format(header=color(_("Homepage:")), info=candidate.homepage)
 	if candidate.size:
 		msg += SHOW_INFO.format(
-			header=color(_("Download-Size:")), info=unit_str(candidate.size, 1)
+			header=color(_("Download-Size:")), info=unit_str(candidate.size)
 		)
 	msg += SHOW_INFO.format(
 		header=color(_("APT-Sources:")), info=format_sources(candidate, pkg)
@@ -172,7 +172,7 @@ def show_format(pkg: Package, candidate: Version) -> str:
 		show += SHOW_INFO.format(header=color(_("Bugs:")), info=bugs)
 	if installed_size := candidate.installed_size:
 		show += SHOW_INFO.format(
-			header=color(_("Installed-Size:")), info=unit_str(installed_size, 1)
+			header=color(_("Installed-Size:")), info=unit_str(installed_size)
 		)
 	return show.strip()
 

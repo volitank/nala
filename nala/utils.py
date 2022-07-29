@@ -281,7 +281,7 @@ class NalaPackage:
 
 	@property
 	def unit_size(self) -> str:
-		"""Return the size as a readable unit. Example 12MB."""
+		"""Return the size as a readable unit. Example 12 MB."""
 		return unit_str(self.size)
 
 
@@ -393,8 +393,13 @@ def get_date() -> str:
 	return f"{datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}"
 
 
-def unit_str(val: int, just: int = 7) -> str:
-	"""Check integer and figure out what format it should be."""
+def unit_str(val: int) -> str:
+	"""Check integer and figure out what format it should be.
+
+	`unit_str` will return a string with a leading space like " 12 MB".
+
+	You need to strip `unit_str` if you do not want the space.
+	"""
 	if arguments.config.get_bool("filesize_binary", False):
 		base = 1024
 		size = ("Bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")
@@ -403,12 +408,12 @@ def unit_str(val: int, just: int = 7) -> str:
 		size = ("Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
 
 	if val > base**3:
-		return f"{val/base**3 :.1f}".rjust(just) + f" {size[3]}"
+		return f"{val/base**3 :.1f} {size[3]}"
 	if val > base**2:
-		return f"{val/base**2 :.1f}".rjust(just) + f" {size[2]}"
+		return f"{val/base**2 :.1f} {size[2]}"
 	if val > base:
-		return f"{round(val/1000) :.0f}".rjust(just) + f" {size[1]}"
-	return f"{val :.0f}".rjust(just) + f" {size[0]}"
+		return f"{round(val/1000) :.0f} {size[1]}"
+	return f"{val :.0f} {size[0]}"
 
 
 def iter_remove(path: Path) -> None:

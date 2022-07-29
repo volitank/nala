@@ -208,7 +208,7 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 			STARTING_DOWNLOAD_STATUS.format(
 				starting_download=STARTING_DOWNLOAD,
 				url=url,
-				size=unit_str(candidate.size, 1),
+				size=unit_str(candidate.size).strip(),
 			)
 		)
 		second_attempt = False
