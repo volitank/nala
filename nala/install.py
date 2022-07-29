@@ -436,8 +436,8 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	finally:
 		term.restore_mode()
 		# If dpkg quits for any reason we lose the cursor
-		if term.console.is_terminal:
-			term.write(term.SHOW_CURSOR + term.CLEAR_LINE)
+		if term.can_format():
+			term.write(term.SHOW_CURSOR)
 
 		print_dpkg_errors()
 		print_notices(notice)
