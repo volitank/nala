@@ -389,7 +389,7 @@ def parse_mirror(
 
 		if (
 			distro == UBUNTU
-			and f"<mirror:countrycode>{country}</mirror:countrycode>" in mirror
+			and f"<mirror:countrycode>{country.upper()}</mirror:countrycode>" in mirror
 			and (url := ubuntu_parser(mirror, arches))
 		):
 			mirror_set.add(url)
@@ -398,7 +398,7 @@ def parse_mirror(
 		if distro == DEVUAN:
 			for line in mirror.splitlines():
 				# CountryCode:  NL | BE | CH
-				if line.startswith("CountryCode:") and country in line:
+				if line.startswith("CountryCode:") and country.upper() in line:
 					if url := devuan_parser(mirror):
 						mirror_set.add(url)
 						continue
