@@ -55,6 +55,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from nala import _, console
+from nala.options import arguments
 
 __all__ = (
 	"Spinner",
@@ -88,17 +89,43 @@ class Thread(_RefreshThread):
 					self.live.scroll_bar(rerender=True)  # type: ignore[attr-defined]
 
 
+def to_str(
+	size: int,
+	base: int,
+) -> str:
+	"""Format transfer speed to a string."""
+	if arguments.config.get_bool("transfer_speed_bits", False):
+		single = "bits"
+		suffixes = ("Kbit", "Mbit", "Gbit", "Tbit", "Pbit", "Ebit", "Zbit", "Ybit")
+		multiplier = 8
+	else:
+		single = "bytes"
+		suffixes = ("KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+		multiplier = 1
+
+	if size == 1:
+		return f"1 {single}"
+	if size < base:
+		return f"{size:,} {single}"
+
+	for i, suffix in enumerate(suffixes, 2):
+		unit = base**i
+		if size < unit:
+			break
+
+	display = (base * size / unit) * multiplier
+	return f"{display:,.1f} {suffix}"
+
+
 # pylint: disable=too-few-public-methods
 class NalaTransferSpeed(TransferSpeedColumn):  # type: ignore[misc]
 	"""Subclass of TransferSpeedColumn."""
 
 	def render(self, task: Task) -> Text:
 		"""Show data transfer speed."""
-		speed = task.speed
-		if speed is None:
+		if (speed := task.speed) is None:
 			return Text("?", style="progress.data.speed")
-		data_speed = filesize.decimal(int(speed))
-		return Text(f"{data_speed}/s", style="bold blue")
+		return Text(f"{to_str(int(speed), 1000)}/s", style="bold blue")
 
 
 class NalaDownload(DownloadColumn):  # type: ignore[misc]
@@ -108,7 +135,8 @@ class NalaDownload(DownloadColumn):  # type: ignore[misc]
 		"""Calculate common unit for completed and total."""
 		completed = int(task.completed)
 		total = int(cast(float, task.total))
-		if self.binary_units:
+
+		if arguments.config.get_bool("filesize_binary", False):
 			unit, suffix = filesize.pick_unit_and_suffix(
 				total,
 				["bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"],
@@ -116,8 +144,11 @@ class NalaDownload(DownloadColumn):  # type: ignore[misc]
 			)
 		else:
 			unit, suffix = filesize.pick_unit_and_suffix(
-				total, ["bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"], 1000
+				total,
+				["bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
+				1000,
 			)
+
 		completed_ratio = completed / unit
 		total_ratio = total / unit
 		precision = 0 if unit == 1 else 1

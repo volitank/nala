@@ -34,7 +34,7 @@ import signal
 import struct
 import sys
 import termios
-from time import sleep
+from time import sleep, time
 from traceback import format_exception
 from types import FrameType
 from typing import Callable, Match, TextIO
@@ -73,7 +73,7 @@ from nala.rich import (
 	from_ansi,
 	spinner,
 )
-from nala.utils import dprint, eprint, term
+from nala.utils import dprint, eprint, term, unit_str
 
 VERSION_PATTERN = re.compile(r"\(.*?\)")
 PARENTHESIS_PATTERN = re.compile(r"[()]")
@@ -104,10 +104,10 @@ NO_CHANGE = _("No Change:")
 # NOTE: Ignored:   http://deb.volian.org/volian scar InRelease
 # NOTE: Updated:   http://deb.volian.org/volian scar InRelease
 NO_CHANGE_MSG = _("{no_change} {info}")
-NO_CHANGE_SIZE_MSG = _("{no_change} {info} [{size}B]")
+NO_CHANGE_SIZE_MSG = _("{no_change} {info} [{size}]")
 IGNORED_MSG = _("{ignored}   {info}")
 UPDATE_MSG = _("{updated}   {info}")
-UPDATE_SIZE_MSG = _("{updated}   {info} [{size}B]")
+UPDATE_SIZE_MSG = _("{updated}   {info} [{size}]")
 
 REMOVING_HEAD = color(_("Removing:"), "RED")
 UNPACKING_HEAD = color(_("Unpacking:"), "GREEN")
@@ -135,7 +135,7 @@ REMOVING_MSG = _("{removing}   {dpkg_msg}")
 # NOTE: Because we do a check specifically on this string
 FETCHED = _("Fetched")
 # NOTE: Fetched 81.0 MB in 6s (1448 kB/s)
-FETCHED_MSG = _("{fetched} {size}B in {elapsed} ({speed}B/s)")
+FETCHED_MSG = _("{fetched} {size} in {elapsed} ({speed}/s)")
 
 
 class OpProgress(text.OpProgress):
@@ -177,6 +177,7 @@ class UpdateProgress(text.AcquireProgress):
 		self._id = 1
 		self._width = 80
 		self.live = live
+		self.elapsed = 0.0
 
 		self.live.scroll_list.clear()
 
@@ -206,11 +207,6 @@ class UpdateProgress(text.AcquireProgress):
 				self.table_print(msg, update_spinner=True)
 				break
 		else:
-			# For the pulse messages we need to do some formatting
-			# End of the line will look like '51.8 mB/s 2s'
-			if msg.endswith("s"):
-				msg = fill_pulse(msg.split())
-
 			if FETCHED in msg:
 				self.table_print(msg, fetched=True)
 				return
@@ -246,9 +242,10 @@ class UpdateProgress(text.AcquireProgress):
 			no_change=color(NO_CHANGE, "GREEN"), info=item.description
 		)
 		if item.owner.filesize:
-			size = apt_pkg.size_to_str(item.owner.filesize)
 			line = NO_CHANGE_SIZE_MSG.format(
-				no_change=color(NO_CHANGE, "GREEN"), info=item.description, size=size
+				no_change=color(NO_CHANGE, "GREEN"),
+				info=item.description,
+				size=unit_str(item.owner.filesize).strip(),
 			)
 		self._write(line)
 
@@ -276,11 +273,10 @@ class UpdateProgress(text.AcquireProgress):
 			info=item.description,
 		)
 		if item.owner.filesize:
-			size = apt_pkg.size_to_str(item.owner.filesize)
 			line = UPDATE_SIZE_MSG.format(
 				updated=color(DOWNLOADED if self.live.install else UPDATED, "BLUE"),
 				info=item.description,
-				size=size,
+				size=unit_str(item.owner.filesize).strip(),
 			)
 		self._write(line)
 
@@ -298,6 +294,7 @@ class UpdateProgress(text.AcquireProgress):
 		window resize signals. And it also sets id to 1.
 		"""
 		base.AcquireProgress.start(self)
+		self.elapsed = time()
 		self._signal = signal.signal(signal.SIGWINCH, self._winch)
 		# Get the window size.
 		self._winch()
@@ -308,9 +305,9 @@ class UpdateProgress(text.AcquireProgress):
 		return color(
 			FETCHED_MSG.format(
 				fetched=FETCHED,
-				size=apt_pkg.size_to_str(self.fetched_bytes),
-				elapsed=apt_pkg.time_to_str(self.elapsed_time),
-				speed=apt_pkg.size_to_str(self.current_cps),
+				size=unit_str(int(self.fetched_bytes)).strip(),
+				elapsed=apt_pkg.time_to_str(int(time() - self.elapsed)),
+				speed=unit_str(int(self.current_cps)).strip(),
 			)
 		)
 
@@ -322,6 +319,73 @@ class UpdateProgress(text.AcquireProgress):
 			self._write(self.final_msg())
 		# Delete the signal again.
 		signal.signal(signal.SIGWINCH, self._signal)
+
+	def pulse(  # pylint: disable=too-many-branches
+		self, owner: apt_pkg.Acquire
+	) -> bool:
+		"""Periodically invoked while the Acquire process is underway."""
+		base.AcquireProgress.pulse(self, owner)
+		# only show progress on a tty to not clutter log files etc
+		if hasattr(self._file, "fileno") and not os.isatty(self._file.fileno()):
+			return True
+
+		# calculate progress
+		percent = ((self.current_bytes + self.current_items) * 100.0) / (
+			self.total_bytes + self.total_items
+		)
+
+		shown = False
+		tval = f"{percent:.0f}%"
+		end = ""
+		if self.current_cps:
+			eta = int((self.total_bytes - self.current_bytes) / self.current_cps)
+			end = f" {unit_str(int(self.current_cps)).strip()}/s {apt_pkg.time_to_str(eta)}"
+
+		for worker in owner.workers:
+			val = ""
+			if not worker.current_item:
+				if worker.status:
+					val = f" [{worker.status}]"
+					if len(tval) + len(val) + len(end) >= self._width - 5:
+						break
+					tval += val
+					shown = True
+				continue
+			shown = True
+
+			if worker.current_item.owner.id:
+				val += (
+					f" [{worker.current_item.owner.id} {worker.current_item.shortdesc}"
+				)
+			else:
+				val += f" [{worker.current_item.description}"
+			if worker.current_item.owner.active_subprocess:
+				val += f" {worker.current_item.owner.active_subprocess}"
+
+			val += f" {unit_str(worker.current_size).strip()}"
+
+			# Add the total size and percent
+			if worker.total_size and not worker.current_item.owner.complete:
+				val += (
+					f"/{unit_str(worker.total_size).strip()}"
+					f" {(worker.current_size * 100.0) / worker.total_size:.0f}%"
+				)
+
+			val += "]"
+
+			if len(tval) + len(val) + len(end) >= self._width - 5:
+				# Display as many items as screen width
+				break
+			tval += val
+
+		if not shown:
+			tval += _(" [Working]")
+
+		if self.current_cps:
+			tval += (self._width - len(end) - len(tval) - 5) * " " + end
+
+		self._write(tval, False)
+		return True
 
 
 # pylint: disable=too-many-instance-attributes, too-many-public-methods, too-many-arguments, too-many-lines

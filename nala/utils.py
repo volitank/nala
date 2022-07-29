@@ -395,11 +395,20 @@ def get_date() -> str:
 
 def unit_str(val: int, just: int = 7) -> str:
 	"""Check integer and figure out what format it should be."""
-	if val > 1000**2:
-		return f"{val/1000/1000 :.1f}".rjust(just) + " MB"
-	if val > 1000:
-		return f"{round(val/1000) :.0f}".rjust(just) + " kB"
-	return f"{val :.0f}".rjust(just) + " B"
+	if arguments.config.get_bool("filesize_binary", False):
+		base = 1024
+		size = ("Bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")
+	else:
+		base = 1000
+		size = ("Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+
+	if val > base**3:
+		return f"{val/base**3 :.1f}".rjust(just) + f" {size[3]}"
+	if val > base**2:
+		return f"{val/base**2 :.1f}".rjust(just) + f" {size[2]}"
+	if val > base:
+		return f"{round(val/1000) :.0f}".rjust(just) + f" {size[1]}"
+	return f"{val :.0f}".rjust(just) + f" {size[0]}"
 
 
 def iter_remove(path: Path) -> None:
