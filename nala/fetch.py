@@ -36,6 +36,8 @@ import typer
 from apt_pkg import get_architectures
 from httpx import (
 	AsyncClient,
+	ConnectError,
+	ConnectTimeout,
 	HTTPError,
 	HTTPStatusError,
 	Limits,
@@ -75,16 +77,23 @@ FETCH_HELP = _(
 	"For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
 )
 
-
+# pylint: disable=too-many-instance-attributes
 class MirrorTest:
 	"""Class to test mirrors."""
 
-	def __init__(self, netselect: tuple[str, ...], release: str, check_sources: bool):
+	def __init__(
+		self,
+		netselect: tuple[str, ...],
+		release: str,
+		check_sources: bool,
+		https_only: bool,
+	):
 		"""Class to test mirrors."""
 		self.netselect = netselect
 		self.netselect_scored: list[str] = []
 		self.release = release
 		self.sources = check_sources
+		self.https_only = https_only
 		self.client: AsyncClient
 		self.progress: Progress
 		self.task: TaskID
@@ -117,25 +126,46 @@ class MirrorTest:
 				return
 
 			domain = regex[1]
-			debugger.append(f"Release Fetched: {domain}")
+			debugger.append(f"Regex Match: {domain}")
 			await self.netping(mirror, debugger)
 			self.progress.advance(self.task)
 
 	async def netping(self, mirror: str, debugger: list[str]) -> bool:
 		"""Fetch release file and score mirror."""
+		secure = False
 		try:
-			response = await self.client.get(f"{mirror}dists/{self.release}/Release")
-			response.raise_for_status()
-			res = f"{int(response.elapsed.total_seconds() * 100)}"
+			# Try to do https first
+			https = mirror.replace("http://", "https://")
+			try:
+				response = await self.client.get(f"{https}dists/{self.release}/Release")
+				response.raise_for_status()
+				secure = True
+				mirror = https
+			# We catch all Exceptions because we will fall back to http
+			except Exception as error:  # pylint: disable=broad-except
+				debugger.append(f"https attempt failed: {error}")
+				if self.https_only:
+					mirror_error(error, debugger)
+					dprint(debugger)
+					return False
+
+			# We can fall back to http if it's necessary
+			if not secure:
+				response = await self.client.get(
+					f"{mirror}dists/{self.release}/Release"
+				)
+				response.raise_for_status()
+
+			# Get rid of the decimal so we can prefix zeros for sorting.
+			res = f"{response.elapsed.total_seconds() * 100:.0f}"
 			if self.sources:
 				source_response = await self.client.get(
 					f"{mirror}dists/{self.release}/main/source/Release"
 				)
 				source_response.raise_for_status()
-			# We convert the float to integer in order to get rid of the decimal
-			# From there we convert it to a string so we can prefix zeros for sorting
 
-		except (HTTPError, OSError) as error:
+		# We catch all exceptions here because it really doesn't matter
+		except Exception as error:  # pylint: disable=broad-except
 			mirror_error(error, debugger)
 			dprint(debugger)
 			return False
@@ -240,7 +270,7 @@ class FetchLive:
 		]
 
 
-def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
+def mirror_error(error: Exception, debugger: list[str]) -> None:
 	"""Handle errors when mirror testing."""
 	if isinstance(error, HTTPStatusError):
 		if arguments.verbose:
@@ -253,10 +283,10 @@ def mirror_error(error: ErrorTypes, debugger: list[str]) -> None:
 			eprint(f"{ERROR_PREFIX} {error.reason} {error.verify_message}")
 		elif isinstance(error, SSLError):
 			eprint(f"{ERROR_PREFIX} {error.reason}")
-		elif isinstance(error, OSError):
-			eprint(f"{ERROR_PREFIX} {error}")
-		else:
+		elif isinstance(error, (ConnectError, ConnectTimeout)):
 			print_error(error)
+		else:
+			eprint(f"{ERROR_PREFIX} {error}")
 
 	if isinstance(error, ReadTimeout):
 		debugger.append("Mirror too slow")
@@ -367,6 +397,7 @@ def parse_mirror(
 
 		if distro == DEVUAN:
 			for line in mirror.splitlines():
+				# CountryCode:  NL | BE | CH
 				if line.startswith("CountryCode:") and country in line:
 					if url := devuan_parser(mirror):
 						mirror_set.add(url)
@@ -402,15 +433,17 @@ def get_countries(master_mirror: tuple[str, ...]) -> tuple[str, ...]:
 
 def devuan_parser(mirror: str) -> str | None:
 	"""Parse the Debuan mirror."""
-	url = "http://"
 	if "HTTP" not in mirror:
 		return None
+	url = None
 	for line in mirror.splitlines():
+		# BaseURL:  sledjhamr.org/devuan
 		if line.startswith("BaseURL:"):
-			url += line.split()[1]
-	if url == "http://":
+			url = line.split()[1]
+
+	if not url:
 		return None
-	return f"{url}/devuan/"
+	return f"http://{url}/devuan/"
 
 
 def debian_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
@@ -678,6 +711,9 @@ def fetch(
 		help=_("Number of mirrors to fetch. [defaults: 16, --auto(3)]"),
 		show_default=False,
 	),
+	https_only: bool = typer.Option(
+		False, "--https-only", help="Only get https mirrors."
+	),
 	sources: bool = typer.Option(
 		False, "--sources", help=_("Add the source repos for the mirrors if it exists.")
 	),
@@ -720,7 +756,7 @@ def fetch(
 	dprint(netselect)
 	dprint(f"Distro: {distro}, Release: {release}, Component: {component}")
 
-	mirror_test = MirrorTest(netselect, release, sources)
+	mirror_test = MirrorTest(netselect, release, sources, https_only)
 	aiorun(mirror_test.run_test())
 
 	if not (netselect_scored := mirror_test.get_scored()):

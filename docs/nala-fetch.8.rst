@@ -43,8 +43,11 @@ OPTIONS
 
 	**nala fetch** *--devuan unstable*
 
+**--https-only**
+	**fetch** will only provide https mirrors.
+
 **--auto**
-	Run fetch uninteractively. Will still prompt for overwriting the sources file if it exists.
+	Run **fetch** uninteractively. Will still prompt for overwriting the sources file if it exists.
 
 **--fetches**
 	This controls the number of mirrors to fetch.
