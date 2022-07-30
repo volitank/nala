@@ -20,8 +20,10 @@ Especially for newer users it can be hard to understand what ``apt`` is trying t
 We aim to solve this by not showing some redundant messages, formatting the packages better, and using color to
 show specifically what will happen with a package during install, removal, or an upgrade.
 
-.. image:: /imgs/nala-install-1.png
-.. image:: /imgs/nala-install-2.png
+# Installation
+==============
+
+For installation instructions see our `wiki page <https://gitlab.com/volian/nala/-/wikis/Installation>`_.
 
 # Parallel Downloads
 ====================
@@ -51,8 +53,6 @@ Nala will choose the fastest 3 mirrors (configurable) and write them to a file.
 
 `At the moment fetch will only work on Debian, Ubuntu and derivatives still tied to the main repos. Such as Pop!_OS`
 
-.. image:: /imgs/nala-fetch.png
-
 # History
 =========
 
@@ -67,85 +67,12 @@ You can then further manipulate this with commands such as ``nala history undo <
 If there is something in the history file that you don't want you can use the ``nala history clear <ID>`` It will remove that entry.
 Alternatively for the ``clear`` command we accept ``--all`` which will remove the entire history.
 
-.. image:: /imgs/nala-history-info.png
-.. image:: /imgs/nala-history-undo-1.png
-.. image:: /imgs/nala-history-undo-2.png
-
-# Installation
-==============
-
-**Volian Scar Repo**
-
-Install the Volian Scar repo.
-
-.. code-block:: console
-
-	echo "deb https://deb.volian.org/volian/ scar main" | sudo tee /etc/apt/sources.list.d/volian-archive-scar-unstable.list
-	wget -qO - https://deb.volian.org/volian/scar.key | sudo tee /etc/apt/trusted.gpg.d/volian-archive-scar-unstable.gpg > /dev/null
-
-If you want to add the source repo.
-
-.. code-block:: console
-
-	echo "deb-src https://deb.volian.org/volian/ scar main" | sudo tee -a /etc/apt/sources.list.d/volian-archive-scar-unstable.list
-
-For Ubuntu 22.04 / Debian Sid and newer.
-
-.. code-block:: console
-
-	sudo apt update && sudo apt install nala
-
-For older distributions like Ubuntu 21.04 / Debian Stable and older.
-
-.. code-block:: console
-
-	sudo apt update && sudo apt install nala-legacy
-
-**Pacstall**
-
-Alternatively, we maintain a pacscript for ``Pacstall``.
-
-If you don't already, install `Pacstall <https://github.com/pacstall/pacstall>`_.
-
-Once that is complete all you have to do is run the following command.
-
-.. code-block:: console
-
-	pacstall -I nala-deb
-
-**Debian Package**
-
-You can also choose to download our ``.deb`` and install it locally through `apt` or `dpkg`.
-
-To download the package you can head over to our `Releases <https://gitlab.com/volian/nala/-/releases>`_ page.
-
-From there you can use one of the two commands below to install ``nala``.
-
-.. code-block:: console
-
-	sudo apt install /path/to/nala_version_arch.deb
-
-Or
-
-.. code-block:: console
-
-	sudo dpkg -i /path/to/nala_version_arch.deb
-	sudo apt install -f
-
-There isn't a documentation site setup at the moment, but our man page explains things well enough for now.
-
 # Zsh/fish Completions
 ======================
 
 Nala's bash, Zsh and fish completions are now handled with ``typer``.
 
 There is nothing you need to do but install Nala and restart your shell for them to work
-
-# Additional Images
-===================
-
-.. image:: /imgs/nala-update.png
-.. image:: /imgs/nala-show-apt.png
 
 # Bug Reports or Feature Requests
 =================================
@@ -164,3 +91,18 @@ The other repositories are official, but just mirrors of what is on GitLab.
 If you would like to support the project you can donate at the link below.
 
 https://liberapay.com/Volian-Linux
+
+# Images
+========
+
+.. image:: /imgs/nala-install-1.png
+.. image:: /imgs/nala-install-2.png
+
+.. image:: /imgs/nala-fetch.png
+
+.. image:: /imgs/nala-history-info.png
+.. image:: /imgs/nala-history-undo-1.png
+.. image:: /imgs/nala-history-undo-2.png
+
+.. image:: /imgs/nala-update.png
+.. image:: /imgs/nala-show-apt.png
