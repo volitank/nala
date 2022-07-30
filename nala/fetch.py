@@ -28,11 +28,13 @@ import itertools
 import re
 import sys
 from asyncio import Semaphore, gather, get_event_loop, run as aiorun
+from pathlib import Path
 from ssl import SSLCertVerificationError, SSLError
 from subprocess import run
 from typing import Iterable, Optional, Union
 
 import typer
+from apt import Cache
 from apt_pkg import get_architectures
 from httpx import (
 	AsyncClient,
@@ -507,14 +509,56 @@ def detect_release(
 	debian: str, ubuntu: str, devuan: str
 ) -> tuple[str | None, str | None]:
 	"""Detect the distro and release."""
-	if not debian and not ubuntu and not devuan:
-		return _lsb_release()
+	# Check if the release was specified.
+	for dist, switch in (
+		(DEBIAN, debian),
+		(DEVUAN, devuan),
+		(UBUNTU, ubuntu),
+	):
+		if switch:
+			return dist, switch
 
-	if debian:
-		return DEBIAN, debian
-	if devuan:
-		return DEVUAN, devuan
-	return UBUNTU, ubuntu
+	# If no release is specified try to detect it by keyrings.
+	cache = Cache()
+	for keyring in (
+		"devuan-keyring",
+		"debian-archive-keyring",
+		"ubuntu-keyring",
+		"apt",
+	):
+		if (
+			keyring not in cache
+			or not (cand := cache[keyring].candidate)
+			or not (origin := cand.origins)
+		):
+			continue
+		return origin[0].origin, origin[0].codename
+
+	# Something is very wrong if apt has no origin.
+	# So we parse os-release to see if we can detect anything
+	release_file = Path("/etc/os-release")
+	if not release_file.is_file():
+		# This will throw an error at the next step
+		# ERROR: There was an issue detecting release.
+		return None, None
+
+	os_release: dict[str, str] = {}
+	for line in release_file.read_text(encoding="utf-8", errors="replace").splitlines():
+		entry = line.split("=")
+		os_release[entry[0]] = entry[1].strip('"')
+
+	# If there is no name we'll just have it throw an error
+	if not (name := os_release.get("NAME")):
+		return None, None
+
+	# This block is for Debian Testing/Sid. As they don't have a codename key.
+	release = os_release.get("DEBIAN_CODENAME") or os_release.get("UBUNTU_CODENAME")
+	if not release and "Debian" in name:
+		try:
+			release = os_release["PRETTY_NAME"].split().pop()
+		except IndexError:
+			return name, "Unknown"
+	return name, release
 
 
 def parse_sources() -> list[str]:
@@ -647,15 +691,17 @@ def check_supported(
 
 	Error if the distro is not supported.
 	"""
-	if distro in (DEBIAN, DEVUAN) and release != "n/a":
-		component = "main contrib non-free" if non_free else "main"
-		return get_and_parse_mirror(distro, country_list), component
-	if distro in (UBUNTU, "Pop", "Zorin"):
-		# It's ubuntu, you probably don't care about foss
-		return (
-			get_and_parse_mirror(distro, country_list),
-			"main restricted universe multiverse",
-		)
+	if distro and release:
+		if distro in (DEBIAN, DEVUAN) and release != "n/a":
+			component = "main contrib non-free" if non_free else "main"
+			return get_and_parse_mirror(distro, country_list), component
+		if distro == UBUNTU:
+			# It's ubuntu, you probably don't care about foss
+			return (
+				get_and_parse_mirror(distro, country_list),
+				"main restricted universe multiverse",
+			)
+
 	if distro is None or release is None:
 		eprint(
 			_("{error} There was an issue detecting release.").format(
