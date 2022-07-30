@@ -337,14 +337,12 @@ def ask(question: str, fetch: FetchLive | None = None) -> bool:
 
 def compile_regex(regex: str) -> Pattern[str]:
 	"""Compile regex and exit on failure."""
-	if regex == "*":
-		regex = ".*"
 	try:
 		return re.compile(regex, re.IGNORECASE)
 	except re.error as error:
 		sys.exit(
 			_(
-				"{error} failed regex compilation '{error_msg} at position {position}"
+				"{error} failed regex compilation '{error_msg} at position {position}'"
 			).format(error=ERROR_PREFIX, error_msg=error.msg, position=error.pos)
 		)
 

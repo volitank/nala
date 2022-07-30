@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import re
 import sys
-from fnmatch import fnmatch
 from subprocess import run
 from typing import Generator, Optional, Pattern
 
@@ -94,7 +93,7 @@ from nala.options import (
 	nala,
 )
 from nala.rich import ELLIPSIS
-from nala.search import iter_search, search_name
+from nala.search import iter_search, list_match, search_name
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
 	PackageHandler,
@@ -469,7 +468,10 @@ def search(
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
 
-	if word.startswith(("g/", "r/")):
+	search_pattern: tuple[str, Pattern[str] | None]
+	if word.startswith("g/"):
+		search_pattern = (word, None)
+	elif word.startswith("r/"):
 		search_pattern = (word, compile_regex(word[2:]))
 	else:
 		search_pattern = (word, compile_regex(word))
@@ -486,7 +488,7 @@ def search(
 		if arguments.virtual and not cache.is_virtual_package(pkg.name):
 			continue
 		if arguments.all_arches or pkg.architecture() in arches:
-			search_name(pkg, search_pattern, found)
+			found.extend(search_name(pkg, search_pattern))
 
 	if not found:
 		sys.exit(_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=word))
@@ -518,12 +520,16 @@ def list_pkgs(
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
 
-	patterns: dict[str, Pattern[str]] = {}
+	patterns: dict[str, Pattern[str] | None] = {}
 	if pkg_names:
 		for name in pkg_names:
-			if name.startswith(("g/", "r/")):
+			if name.startswith("r/"):
 				# Take out the prefix when we compile the regex
 				patterns[name] = compile_regex(name[2:])
+				continue
+			if name.startswith("g/"):
+				# We won't be using regex here.
+				patterns[name] = None
 				continue
 			# Otherwise we can just compile it
 			patterns[name] = compile_regex(name)
@@ -543,23 +549,11 @@ def list_pkgs(
 				continue
 			if pkg_names:
 				for name, regex in patterns.items():
-					if name.startswith("g/"):
-						# Name starts with g/ so we only attempt a glob
-						if fnmatch(pkg.shortname, name[2:]):
-							yield (pkg, get_version(pkg, inst_first=True))
-						continue
-
-					if name.startswith("r/"):
-						# Name starts with r/ so we only attempt a regex
-						if regex.search(pkg.shortname):
-							yield (pkg, get_version(pkg, inst_first=True))
-						continue
-
-					# Otherwise we will try to glob first then regex
-					if fnmatch(pkg.shortname, name) or regex.search(pkg.shortname):
+					if list_match(pkg.fullname, name, regex):
 						yield (pkg, get_version(pkg, inst_first=True))
-
-				# If names were supplied we don't want to grab everything
+						continue
+				# If names were supplied and no matches
+				# we don't want to grab everything
 				continue
 
 			# In this case no names were supplied so we list everything

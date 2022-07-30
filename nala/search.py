@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 from fnmatch import fnmatch
-from typing import Iterable, Pattern, cast
+from typing import Generator, Iterable, Pattern, cast
 
 from apt.package import Package, Version
 
@@ -41,11 +41,10 @@ LINE = "│   " if is_utf8 else "|   "
 
 def search_name(
 	pkg: Package,
-	pattern: tuple[str, Pattern[str]],
-	found: list[tuple[Package, Version]],
-) -> None:
+	pattern: tuple[str, Pattern[str] | None],
+) -> Generator[tuple[Package, Version], None, None]:
 	"""Search the package name and description."""
-	searches = [pkg.name]
+	searches = [pkg.fullname]
 	if not arguments.names:
 		records = pkg._pcache._records
 		records.lookup(pkg._pkg.version_list[0].file_list[0])
@@ -53,24 +52,32 @@ def search_name(
 
 	for string in searches:
 		word, regex = pattern
-
-		# Name starts with g/ Only attempt Glob
-		if word.startswith("g/") and not fnmatch(string, word[2:]):
-			continue
-
-		# Name starts with r/ only attempt Regex
-		if word.startswith("r/") and not regex.search(string):
-			continue
-
-		# Nothing was specified so Glob then Regex
-		if not (fnmatch(string, word) or regex.search(string)):
+		if not list_match(string, word, regex):
 			continue
 
 		# Must have found a match, Hurray!
 		if isinstance(version := get_version(pkg, inst_first=True), tuple):
-			found.extend((pkg, ver) for ver in version)
+			yield from ((pkg, ver) for ver in version)
 			return
-		found.append((pkg, version))
+		yield (pkg, version)
+
+
+def list_match(search: str, name: str, regex: Pattern[str] | None) -> bool:
+	"""Glob or Regex match the given name to the package name."""
+	# Name starts with g/ only attempt a glob
+	if name.startswith("g/") and fnmatch(search, name[2:]):
+		return True
+
+	# If we don't have a regex return None
+	if not regex:
+		return False
+
+	if name.startswith("r/"):
+		# Name starts with r/ only attempt a regex
+		return bool(regex.search(search))
+
+	# Otherwise try to glob first then regex and return the result
+	return bool(fnmatch(search, name) or regex.search(search))
 
 
 def iter_search(found: Iterable[tuple[Package, Version | tuple[Version, ...]]]) -> bool:
