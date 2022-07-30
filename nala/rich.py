@@ -28,6 +28,7 @@ import sys
 from datetime import timedelta
 from typing import Literal, cast
 
+from rich import filesize
 from rich.ansi import AnsiDecoder
 from rich.box import Box
 from rich.columns import Columns
@@ -46,7 +47,6 @@ from rich.progress import (
 	TextColumn,
 	TimeRemainingColumn,
 	TransferSpeedColumn,
-	filesize,
 )
 from rich.spinner import Spinner
 from rich.style import Style

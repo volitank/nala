@@ -1,0 +1,24 @@
+stages:
+  - test
+variables:
+  DEBIAN_FRONTEND: noninteractive
+  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+test:
+  stage: test
+  image: debian:sid
+  environment:
+  script:
+    - apt-get update
+    - apt-get install -y eatmydata
+    - eatmydata apt install -y
+      git
+      curl
+      devscripts
+      apt-utils
+      python3-cachecontrol
+    - eatmydata mk-build-deps
+      --tool 'apt-get --yes'
+      --install debian/control
+    - poetry install
+    - poetry run pre-commit run --all-files
