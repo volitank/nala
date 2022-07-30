@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 """Management tools related to building Nala."""
+import os
 import sys
 from pathlib import Path
 from subprocess import run
 
 import typer
 
-from nala import __version__ as version
+from nala import USR, __version__ as version
 
 PO_FILES = tuple(Path("po").glob("*.po"))
 SOURCE_FILES = tuple(Path("nala").glob("*.py"))
@@ -19,24 +20,46 @@ class BuildEnvironment:
 	def __init__(self, build_dir: str) -> None:
 		"""Hold environment variables."""
 		self.build_dir = build_dir
-		self.bin_dir = f"{build_dir}/usr/bin"
-		self.locale_dir = f"{build_dir}/usr/share/locale"
+		self.bin_dir = f"{build_dir}{USR}/bin"
+		self.locale_dir = f"{build_dir}{USR}/share/locale"
 
 
 nala_app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 
+def check_root(operation: str) -> None:
+	"""Check for root and exit if not."""
+	if os.getuid() != 0:
+		sys.exit(f"Error: You need root to install the {operation}.")
+
+
 @nala_app.command(name="man")
-def convert_man() -> None:
+def convert_man(
+	install: bool = typer.Option(
+		False, "--install", help="Additionally install the man pages"
+	)
+) -> None:
 	"""Convert .rst files into man pages."""
+	if install:
+		check_root("man pages")
+
 	date = run(
 		["date", "+%d %b %Y"], check=True, capture_output=True, text=True
 	).stdout.strip()
+	# Convert man page and install if requested
 	for file in DOCS_DIR.iterdir():
 		if not file.name.endswith(".rst"):
 			continue
 
-		man_page = f"{file}".replace(".rst", "")
+		# If the install switch is set then we install it to the man directory.
+		man_page = Path(
+			f"{USR}/share/man/man8/{file.name.replace('.rst', '')}"
+			if install
+			else f"{file}".replace(".rst", "")
+		)
+
+		print(f"Installing {file} -> {man_page}")
+
 		pandoc = [
 			"pandoc",
 			f"{file}",
@@ -45,7 +68,7 @@ def convert_man() -> None:
 			"--variable=header:'Nala User Manual'",
 			f"--variable=footer:{version}",
 			f"--variable=date:{date}",
-			"--variable=section:1",
+			"--variable=section:8",
 			"--from",
 			"rst",
 			"--to",
@@ -109,6 +132,7 @@ def compile_translations(env: BuildEnvironment) -> None:
 		Path(f"{env.locale_dir}/{locale}/LC_MESSAGES/").mkdir(
 			parents=True, exist_ok=True
 		)
+
 		compile_mo = pybable + [f"--input-file=po/{locale}.po", f"--locale={locale}"]
 		run(compile_mo, check=True)
 
@@ -140,12 +164,22 @@ def babel(
 		False, "--extract", help="Extract translations to nala.pot"
 	),
 	_compile: bool = typer.Option(False, "--compile", help="Compile .po files to .mo"),
+	install: bool = typer.Option(
+		False, "--install", help="Additionally install the translation files."
+	),
 ) -> None:
 	"""Manage translation files."""
 	if _extract:
 		extract_translations()
 	elif _compile:
-		compile_translations(BuildEnvironment(build_dir="debian/nala"))
+		if install:
+			check_root("translation files")
+
+		compile_translations(
+			BuildEnvironment(build_dir="")
+			if install
+			else BuildEnvironment(build_dir="debian/nala"),
+		)
 	else:
 		sys.exit("Error: You need to specify either '--compile' or '--extract'")
 
