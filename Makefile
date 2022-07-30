@@ -22,6 +22,14 @@ legacy:
 	make completions
 	make config
 
+legacy-update:
+	sudo python3.10 -m pip install .
+	make link-libs
+	make man
+	make translations
+	make completions
+	make config
+
 python:
 	# Install Python build-deps
 	sudo apt-get install -y \
