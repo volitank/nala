@@ -5,7 +5,6 @@ enter:
 	echo "The Nala MakeFile"
 
 install:
-	sudo apt-get install -y python3-apt
 	sudo python3 -m pip install .
 	make man
 	make translations
@@ -13,7 +12,6 @@ install:
 	make config
 
 legacy:
-	sudo apt-get install -y python3-apt
 	make python
 	sudo python3.10 -m pip install .
 	make link-libs
@@ -31,20 +29,6 @@ legacy-update:
 	make config
 
 python:
-	# Install Python build-deps
-	sudo apt-get install -y \
-		wget \
-		build-essential \
-		zlib1g-dev \
-		libncurses5-dev \
-		libgdbm-dev \
-		libnss3-dev \
-		libssl-dev \
-		libreadline-dev \
-		libffi-dev \
-		libsqlite3-dev \
-		libbz2-dev
-
 	# Download Python
 	wget https://www.python.org/ftp/python/${PYTHON_VER}/Python-${PYTHON_VER}.tar.xz
 
@@ -67,7 +51,6 @@ link-libs:
 
 man:
 	# Install man pages
-	sudo apt-get install -y pandoc
 	sudo python3.10 nala_build.py man --install
 
 translations:
