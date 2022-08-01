@@ -182,6 +182,15 @@ def pop_nala(hist_file: HistoryFile) -> HistoryEntry:
 	return hist_file.pop("Nala", {})
 
 
+def get_last(hist_file: HistoryFile) -> HistoryEntry:
+	"""Return the last entry in the history file."""
+	internal = hist_file.copy()
+	# Pop the Nala system information as to not count it.
+	pop_nala(internal)
+	# Return the last entry in the history file.
+	return hist_file.get(f"{len(internal)}", {})
+
+
 def set_user_installed(
 	cache: Cache, user_explicit: list[Package], user_installed: set[str]
 ) -> None:
@@ -350,7 +359,7 @@ def history_summary(
 # pylint: disable=unused-argument
 def history_info(
 	ctx: typer.Context,
-	_hist_id: int = HIST_ID,
+	hist_id: str = HIST_ID,
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
 ) -> None:
@@ -358,8 +367,12 @@ def history_info(
 	arguments.history = ctx.command.name
 	command_help("show", "history info", None)
 
-	hist_id = f"{_hist_id}"
-	hist_entry = get_history(hist_id)
+	hist_entry = (
+		get_last(load_history_file())
+		if hist_id.lower() == "last"
+		else get_history(hist_id)
+	)
+
 	dprint(f"History Entry: {hist_entry}")
 	arguments.purge = get_bool(hist_entry, "Purged")
 	nala_pkgs = PackageHandler()
@@ -443,7 +456,7 @@ def history_clear(
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def history_undo(
 	ctx: typer.Context,
-	_hist_id: int = HIST_ID,
+	hist_id: str = HIST_ID,
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
 	raw_dpkg: bool = RAW_DPKG,
@@ -464,7 +477,6 @@ def history_undo(
 		_remove,
 	)
 
-	hist_id = str(_hist_id)
 	arguments.history = ctx.command.name
 	arguments.history_id = hist_id
 	redo = ctx.command.name == "redo"
@@ -472,9 +484,13 @@ def history_undo(
 
 	dprint(f"History: {ctx.command.name} {hist_id}")
 
-	transaction = get_history(hist_id)
-	dprint(f"Transaction: {transaction}")
+	transaction = (
+		get_last(load_history_file())
+		if hist_id.lower() == "last"
+		else get_history(hist_id)
+	)
 
+	dprint(f"Transaction: {transaction}")
 	if not arguments.purge:
 		if purge := get_bool(transaction, "Purged"):
 			eprint(

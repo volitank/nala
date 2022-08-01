@@ -17,13 +17,19 @@ DESCRIPTION
 
 **nala history** with no subcommands will show a summary of all transactions made.
 
-**nala history info** [*ID*] whows information about a specific transaction
+**nala history info** [*ID*] shows information about a specific transaction
+
+	*last* can be used as the *ID* to get the last transaction
 
 **nala history redo** [*ID*] redo the specified transaction
+
+	*last* can be used as the *ID* to redo the last transaction
 
 	This subcommand accepts the same switches as **install** or **remove**
 
 **nala history undo** [*ID*] undo the specified transaction
+
+	*last* can be used as the *ID* to undo the last transaction
 
 	This subcommand accepts the same switches as **install** or **remove**
 

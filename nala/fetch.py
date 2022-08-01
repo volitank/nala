@@ -24,6 +24,7 @@
 """Nala fetch Module."""
 from __future__ import annotations
 
+import contextlib
 import itertools
 import re
 import sys
@@ -129,7 +130,8 @@ class MirrorTest:
 
 			domain = regex[1]
 			debugger.append(f"Regex Match: {domain}")
-			await self.netping(mirror, debugger)
+			with contextlib.suppress(RuntimeError):
+				await self.netping(mirror, debugger)
 			self.progress.advance(self.task)
 
 	async def netping(self, mirror: str, debugger: list[str]) -> bool:
