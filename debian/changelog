@@ -1,3 +1,33 @@
+nala (0.11.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Lower `fetch` concurrent tests from 50 to 25 improving consistency
+  * Config option to list upgradable packages after `update`
+  * Support for Devuan mirrors into `fetch`
+  * Default to foss repos instead of non-free for Debian
+  * Support Termux environment
+  * Add glob and regex support to `list`/`search`
+  * Config option to change between decimal and binary for downloads
+  * Config option to change download speed from bytes to bits
+  * Add `g/` and `r/` prefixes to specify glob and regex
+    respectively with `list` and `search`
+  * Default to HTTPS mirrors for `fetch`
+  * Add `--https-only` switch to `fetch` to only get HTTPS mirrors
+  * Determine distro and release by using the Debian/Ubuntu keyring package.
+    This change should allow all children distros to be supported so long as
+    they remain tied to their parent repositories
+
+  [ Bug Fixes ]
+  * Not able to pass options containing `=` to `apt` with `--option`
+  * Exception with `typer` on commands that use `--option`
+  * `--country` switch for `fetch` is case sensitive
+  * No error when unable to find suitable mirrors
+  * `debconf` prompts not showing and hanging on some systems
+  * `fetch` crashing if there is a directory in `sources.list.d/`
+  * New line not printing at the end of a transaction on some terminals
+
+ -- Blake Lee <blake@volian.org>  Mon, 01 Aug 2022 19:17:19 -0400
+
 nala (0.10.0) unstable; urgency=medium
 
   [ Changes ]

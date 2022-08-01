@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nala"
-version = "0.10.0"
+version = "0.11.0"
 description = "Commandline frontend for the apt package manager"
 authors = [
 	"Blake Lee <blake@volian.org>",
@@ -30,7 +30,6 @@ classifiers = [
 	'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
 	'Operating System :: POSIX :: Linux',
 	'Programming Language :: Python :: 3',
-	'Programming Language :: Python :: 3.8',
 	'Programming Language :: Python :: 3.9',
 	"Programming Language :: Python :: 3.10",
 	"Programming Language :: Python :: 3.11",
