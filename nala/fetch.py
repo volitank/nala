@@ -445,9 +445,7 @@ def devuan_parser(mirror: str) -> str | None:
 		if line.startswith("BaseURL:"):
 			url = line.split()[1]
 
-	if not url:
-		return None
-	return f"http://{url}/devuan/"
+	return f"http://{url}/devuan/" if url else None
 
 
 def debian_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
@@ -459,9 +457,8 @@ def debian_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
 				# ['Site:', 'mirror.steadfastnet.com']
 				# ['Archive-http:', '/debian/']
 				url += line.split()[1]
-	if url == "http://":
-		return None
-	return url
+
+	return None if url == "http://" else url
 
 
 def ubuntu_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
