@@ -124,10 +124,19 @@ def run_nuitka(
 	run(f"chrpath -d {env.bin_dir}/nala".split(), check=True)
 
 
+def update_translations() -> None:
+	"""Update the .po files from the pot file."""
+	update = "pybabel update --no-wrap -i po/nala.pot".split()
+	for path in PO_FILES:
+		# Strip off `.po`
+		run(update + ["-o", f"po/{path.name}", "-l", path.name[:-3]], check=True)
+
+
 def compile_translations(env: BuildEnvironment) -> None:
 	"""Compile .po files to .mo."""
 	pybable = f"pybabel compile --directory={env.locale_dir} --domain=nala --use-fuzzy".split()
 	for path in PO_FILES:
+		# Strip off `.po`
 		locale = path.name[:-3]
 		Path(f"{env.locale_dir}/{locale}/LC_MESSAGES/").mkdir(
 			parents=True, exist_ok=True
@@ -160,8 +169,10 @@ def extract_translations() -> None:
 
 @nala_app.command()
 def babel(
-	_extract: bool = typer.Option(
-		False, "--extract", help="Extract translations to nala.pot"
+	extract: bool = typer.Option(
+		False,
+		"--extract",
+		help="Extract translations to nala.pot and update the po files.",
 	),
 	_compile: bool = typer.Option(False, "--compile", help="Compile .po files to .mo"),
 	install: bool = typer.Option(
@@ -169,8 +180,9 @@ def babel(
 	),
 ) -> None:
 	"""Manage translation files."""
-	if _extract:
+	if extract:
 		extract_translations()
+		update_translations()
 	elif _compile:
 		if install:
 			check_root("translation files")
