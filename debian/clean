@@ -4,5 +4,4 @@
 __pycache__/
 nala/__pycache__/
 nala.egg-info/
-docs/nala.8.gz
-docs/nala.8
+docs/nala*.8
