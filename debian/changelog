@@ -1,3 +1,10 @@
+nala (0.11.1) unstable; urgency=medium
+
+  [ Changes ]
+  * Use source epoch for man page date
+
+ -- Blake Lee <blake@volian.org>  Tue, 02 Aug 2022 22:37:07 -0400
+
 nala (0.11.0) unstable; urgency=medium
 
   [ Changes ]
