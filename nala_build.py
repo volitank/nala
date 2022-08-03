@@ -2,6 +2,7 @@
 """Management tools related to building Nala."""
 import os
 import sys
+import time
 from pathlib import Path
 from subprocess import run
 
@@ -43,9 +44,11 @@ def convert_man(
 	if install:
 		check_root("man pages")
 
-	date = run(
-		["date", "+%d %b %Y"], check=True, capture_output=True, text=True
-	).stdout.strip()
+	date = time.strftime(
+		"%d %b %Y",
+		time.gmtime(int(os.environ.get("SOURCE_DATE_EPOCH", time.time()))),
+	)
+
 	# Convert man page and install if requested
 	for file in DOCS_DIR.iterdir():
 		if not file.name.endswith(".rst"):
