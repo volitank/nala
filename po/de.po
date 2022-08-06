@@ -1,4 +1,3 @@
-
 msgid ""
 msgstr ""
 "Project-Id-Version:  Nala\n"
@@ -19,12 +18,10 @@ msgid "{error} '{command}' for operations other than install or remove are not c
 msgstr "{error} '{command}' für andere Vorgänge als Installieren oder Entfernen werden derzeit nicht unterstützt"
 
 #: nala/history.py:88
-msgid ""
-"Show transaction history.\n"
+msgid "Show transaction history.\n"
 "\n"
 "Running `nala history` with no subcommands prints an overview of all transactions."
-msgstr ""
-"Transaktionsverlauf anzeigen.\n"
+msgstr "Transaktionsverlauf anzeigen.\n"
 "\n"
 "Das Ausführen von `nala history` ohne Unterbefehle druckt eine Übersicht aller Transaktionen."
 
@@ -175,7 +172,7 @@ msgstr "Vorgeschlagen, wird nicht installiert"
 
 #: nala/summary.py:237
 msgid "Auto-Removable, Will Not Be Removed"
-msgstr ""
+msgstr "Automatisch-entfernbar, wird nicht entfernt"
 
 #: nala/summary.py:321
 msgid "Summary"
@@ -244,7 +241,7 @@ msgstr "{error} Die Installation ist fehlgeschlagen."
 
 #: nala/error.py:135
 msgid "If you'd like to file a bug report please include '{debug_file}'"
-msgstr ""
+msgstr "Wenn Sie einen Fehler melden wollen, geben Sie bitte die Datei '{debug_file}' mit an"
 
 #: nala/error.py:156
 msgid "Are you root?"
@@ -271,19 +268,15 @@ msgid "{error} {package} not found"
 msgstr "{error} {package} nicht gefunden"
 
 #: nala/error.py:227
-msgid ""
-"{error} {apt_error}\n"
+msgid "{error} {apt_error}\n"
 "  Unsupported File: {filename}"
-msgstr ""
-"{error} {apt_error}\n"
+msgstr "{error} {apt_error}\n"
 "  Nicht unterstützte Datei: {filename}"
 
 #: nala/error.py:235
-msgid ""
-"{error} {apt_error}\n"
+msgid "{error} {apt_error}\n"
 "  Could not read meta data from {filename}"
-msgstr ""
-"{error} {apt_error}\n"
+msgstr "{error} {apt_error}\n"
 "  Metadaten von {filename} konnten nicht gelesen werden"
 
 #: nala/error.py:295
@@ -292,11 +285,11 @@ msgstr "Folgende Pakete wurden zurückgehalten:"
 
 #: nala/error.py:301
 msgid "The following were held due to exclusions:"
-msgstr ""
+msgstr "Die Folgenden wurden wegen Ausschlüssen zurückgehalten:"
 
 #: nala/error.py:303
 msgid "Nala was unable to determine why these were held:"
-msgstr ""
+msgstr "Nala konnte nicht feststellen, warum diese zurückgehalten wurden:"
 
 #: nala/error.py:383
 msgid "{package} but it isn't in the cache"
@@ -447,11 +440,9 @@ msgid "Nala sources.list has been cleaned"
 msgstr "Nala sources.list wurde bereinigt"
 
 #: nala/nala.py:590
-msgid ""
-"Removing {cache}\n"
+msgid "Removing {cache}\n"
 "Removing {src_cache}"
-msgstr ""
-"{cache} wird entfernt\n"
+msgstr "{cache} wird entfernt\n"
 "{src_cache} entfernen"
 
 #: nala/nala.py:597
@@ -487,14 +478,12 @@ msgid "Notice:"
 msgstr "Notiz:"
 
 #: nala/fetch.py:77
-msgid ""
-"Nala will fetch mirrors with the lowest latency.\n"
+msgid "Nala will fetch mirrors with the lowest latency.\n"
 "\n"
 "For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
 "\n"
 "For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
-msgstr ""
-"Nala ruft Mirrors mit der niedrigsten Latenz ab.\n"
+msgstr "Nala ruft Mirrors mit der niedrigsten Latenz ab.\n"
 "\n"
 "Für Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
 "\n"
@@ -506,11 +495,11 @@ msgstr "Sind diese Spiegel in Ordnung?"
 
 #: nala/fetch.py:303
 msgid "Fetching {distro} mirrors"
-msgstr ""
+msgstr "Abruf von {distro}-Quellen"
 
 #: nala/fetch.py:351
 msgid "{error} Internal Error. Distro detection must be broken"
-msgstr ""
+msgstr "{error} Interner Fehler. Distributions-Erkennung muss defekt sein"
 
 #: nala/fetch.py:366
 msgid "{error} unable to connect to {mirror}"
@@ -522,7 +511,7 @@ msgstr "Parsen der Spiegelserver-Liste"
 
 #: nala/fetch.py:599
 msgid "Score is how many milliseconds it takes to download the Release file"
-msgstr ""
+msgstr "Punktzahl gibt an, wie viele Millisekunden das Herunterladen der Release-Datei dauert"
 
 #: nala/fetch.py:610
 msgid "Mirrors you want to keep separated by spaces {selection}:"
@@ -557,11 +546,9 @@ msgid "You can specify Ubuntu or Debian manually."
 msgstr "Sie können Ubuntu oder Debian manuell angeben."
 
 #: nala/fetch.py:730
-msgid ""
-"{file} already exists.\n"
+msgid "{file} already exists.\n"
 "Continue and overwrite it?"
-msgstr ""
-"{file} existiert bereits.\n"
+msgstr "{file} existiert bereits.\n"
 "Fortfahren und überschreiben?"
 
 #: nala/fetch.py:734 nala/fetch.py:741 nala/install.py:953
@@ -586,7 +573,7 @@ msgstr "Wählen Sie die Ubuntu-Version."
 
 #: nala/fetch.py:755
 msgid "Choose the Devuan release."
-msgstr ""
+msgstr "Wählen Sie das Devuan Release."
 
 #: nala/fetch.py:759
 msgid "Number of mirrors to fetch. [defaults: 16, --auto(3)]"
@@ -598,7 +585,7 @@ msgstr "Fügen Sie die Quell-Repositorys für die Spiegel hinzu, falls vorhanden
 
 #: nala/fetch.py:769
 msgid "Add contrib and non-free repos."
-msgstr ""
+msgstr "Füge contrib und non-free Repositories hinzu."
 
 #: nala/fetch.py:774
 msgid "Run fetch uninteractively. Will still prompt for overwrite."
@@ -610,7 +597,7 @@ msgstr "Wählen Sie nur Mirrors eines bestimmten ISO-Ländercodes."
 
 #: nala/fetch.py:812
 msgid "{error} Nala was unable to find any mirrors."
-msgstr ""
+msgstr "{error} Nala konnte keine Quellen finden."
 
 #: nala/downloader.py:92
 msgid "Starting Downloads"
@@ -620,8 +607,8 @@ msgstr "Herunterladen starten"
 msgid "Starting Download:"
 msgstr "Download wird gestartet:"
 
-#. "Starting Download: http://deb.debian.org/debian 3MB"
-#. "Starting Download:" will be colored blue
+#. Starting Download: http://deb.debian.org/debian 3MB
+#. Starting Download:" will be colored blu
 #: nala/downloader.py:97
 msgid "{starting_download} {url} {size}"
 msgstr "{starting_download} {url} {size}"
@@ -630,8 +617,8 @@ msgstr "{starting_download} {url} {size}"
 msgid "Download Complete:"
 msgstr "Download abgeschlossen:"
 
-#. "Download Complete: http://deb.debian.org/debian"
-#. "Download Complete:" will be colored green
+#. Download Complete: http://deb.debian.org/debian
+#. Download Complete:" will be colored gree
 #: nala/downloader.py:102
 msgid "{download_complete} {url}"
 msgstr "{download_complete} {url}"
@@ -640,8 +627,8 @@ msgstr "{download_complete} {url}"
 msgid "Total Packages:"
 msgstr "Pakete insgesamt:"
 
-#. "Total Packages: 30/100"
-#. "Starting Download:" will be colored green
+#. Total Packages: 30/100
+#. Starting Download:" will be colored gree
 #: nala/downloader.py:107
 msgid "{total_packages} {current}/{total}"
 msgstr "{total_packages} {current}/{total}"
@@ -667,22 +654,18 @@ msgid "{error} {filename} does not exist!"
 msgstr "{error} {filename} Existiert nicht!"
 
 #: nala/downloader.py:118
-msgid ""
-"{error} Hash Sum does not match: {filename}\n"
+msgid "{error} Hash Sum does not match: {filename}\n"
 "  Expected Hash: {expected}\n"
 "  Received Hash: {received}"
-msgstr ""
-"{error} Hash-Summe stimmt nicht überein: {filename}\n"
+msgstr "{error} Hash-Summe stimmt nicht überein: {filename}\n"
 "  Erwarteter Hash: {expected}\n"
 "  Empfangener Hash: {received}"
 
 #: nala/downloader.py:123
-msgid ""
-"{error} File has unexpected size: {filename}\n"
+msgid "{error} File has unexpected size: {filename}\n"
 "  Expected Size: {expected}\n"
 "  Received Size: {received}"
-msgstr ""
-"{error} Datei hat unerwartete Größe: {filename}\n"
+msgstr "{error} Datei hat unerwartete Größe: {filename}\n"
 "  Erwartete Größe: {expected}\n"
 "  Erhaltene Größe: {received}"
 
@@ -800,7 +783,7 @@ msgstr "{no_change} {info}"
 
 #: nala/dpkg.py:107
 msgid "{no_change} {info} [{size}]"
-msgstr ""
+msgstr "{no_change} {info} [{size}]"
 
 #: nala/dpkg.py:108
 msgid "{ignored}   {info}"
@@ -812,7 +795,7 @@ msgstr "{updated}   {info}"
 
 #: nala/dpkg.py:110
 msgid "{updated}   {info} [{size}]"
-msgstr ""
+msgstr "{updated}   {info} [{size}]"
 
 #: nala/dpkg.py:112
 msgid "Removing:"
@@ -866,16 +849,15 @@ msgstr "Holte"
 #. Fetched 81.0 MB in 6s (1448 kB/s)
 #: nala/dpkg.py:138
 msgid "{fetched} {size} in {elapsed} ({speed}/s)"
-msgstr ""
+msgstr "{fetched} {size} in {elapsed} ({speed}/s)"
 
 #: nala/dpkg.py:164
-#, python-format
 msgid "%c%s... Done"
 msgstr "%c%s... Fertig"
 
 #: nala/dpkg.py:382
 msgid " [Working]"
-msgstr ""
+msgstr " [Wird verarbeitet]"
 
 #: nala/dpkg.py:941
 msgid "Purging Packages"
@@ -939,11 +921,11 @@ msgstr "{notice} Die folgenden Pakete müssen ebenfalls geschützt werden:"
 
 #: nala/install.py:281
 msgid "{error} The following hook arguments are invalid: {args}"
-msgstr ""
+msgstr "{error} Die folgenden Hook-Argumente sind ungültig: {args}"
 
 #: nala/install.py:329
 msgid "{error} The following {hook_type} commands cannot be found."
-msgstr ""
+msgstr "{error} Die folgenden {hook_type} Befehle konnten nicht gefunden werden."
 
 #: nala/install.py:347
 msgid "Log Started: [{date}]"
@@ -974,11 +956,9 @@ msgid "{notice} The following will be installed to satisfy {package}:"
 msgstr "{notice} Folgendes wird installiert, um {package} zu erfüllen:"
 
 #: nala/install.py:554
-msgid ""
-"{notice} Newer version {package} {version} exists in the cache.\n"
+msgid "{notice} Newer version {package} {version} exists in the cache.\n"
 "You should consider using `{command}`"
-msgstr ""
-"{notice} Neuere Version {package} {version} ist im Cache vorhanden.\n"
+msgstr "{notice} Neuere Version {package} {version} ist im Cache vorhanden.\n"
 "Sie sollten die Verwendung von `{command}` in Betracht ziehen"
 
 #: nala/install.py:597
@@ -1047,10 +1027,10 @@ msgid "Terminal can't support dialog, falling back to readline"
 msgstr "Terminal kann Dialoge nicht unterstützen und greift auf readline zurück"
 
 #: nala/utils.py:306
-msgid ""
-"{command} is not a command\n"
+msgid "{command} is not a command\n"
 "Did you mean {correction}?"
-msgstr ""
+msgstr "{command} ist kein Befehl\n"
+"Meinten Sie {correction}?"
 
 #: nala/utils.py:335
 msgid "Not a valid choice kiddo"
@@ -1058,7 +1038,7 @@ msgstr "Keine gültige Wahl, Kiddo"
 
 #: nala/utils.py:344
 msgid "{error} failed regex compilation '{error_msg} at position {position}'"
-msgstr ""
+msgstr "{error} RegEx Kompilierung fehlgeschlagen '{error_msg}' bei Position {position}'"
 
 #: nala/utils.py:355
 msgid "{error} Nala needs root to fix broken packages"
@@ -1123,19 +1103,17 @@ msgstr "{notice} Konnte Konfigurationsdatei nicht lesen: {filename}. Standardwer
 
 #: nala/options.py:70
 msgid "{error} Config key '{key}' should be a bool not {value}"
-msgstr ""
+msgstr "{error} Konfigurationsschlüssel '{key}' muss ein boolescher Wert sein, nicht {value}"
 
 #: nala/options.py:314
 msgid "{error} Option {option}: Configuration item must have a '='"
 msgstr "{error} Option {option}: Konfigurationselement muss ein '=' haben"
 
 #: nala/options.py:357
-msgid ""
-"It seems the system has no license file\n"
+msgid "It seems the system has no license file\n"
 "The full GPLv3 can be found at:\n"
 "https://www.gnu.org/licenses/gpl-3.0.txt"
-msgstr ""
-"Es scheint, dass das System keine Lizenzdatei hat\n"
+msgstr "Es scheint, dass das System keine Lizenzdatei hat\n"
 "Die vollständige GPLv3 finden Sie unter:\n"
 "https://www.gnu.org/licenses/gpl-3.0.txt"
 
@@ -1249,7 +1227,7 @@ msgstr "Führen Sie fetch nicht interaktiv aus. Wird immer noch zum Überschreib
 
 #: nala/options.py:619
 msgid "Show this message and exit."
-msgstr ""
+msgstr "Diese Meldung anzeigen und beenden."
 
 #: nala/cache.py:47
 msgid "The following {total} packages can be upgraded:"
@@ -1277,7 +1255,7 @@ msgstr "Schutz von {package} vor automatischer Entfernung"
 
 #: nala/cache.py:266
 msgid "{total} packages can be upgraded. Run '{command}' to see them."
-msgstr ""
+msgstr "{total} Pakete können aktualisiert werden. Führen Sie '{command}' aus, um sie zu sehen."
 
 #: nala/cache.py:302
 msgid "{package} is a virtual package provided by:"
@@ -1288,11 +1266,9 @@ msgid "You should select just one."
 msgstr "Sie sollten nur eine auswählen."
 
 #: nala/cache.py:322
-msgid ""
-"{notice} Selecting {provider}\n"
+msgid "{notice} Selecting {provider}\n"
 "  Instead of virtual package {package}"
-msgstr ""
-"{notice} Auswahl von {provider}\n"
+msgstr "{notice} Auswahl von {provider}\n"
 "  Anstelle des virtuellen Pakets {package}"
 
 #: nala/__main__.py:43
@@ -1445,4 +1421,3 @@ msgstr "{error} {package} hat keine Version zum Anzeigen"
 
 #~ msgid "Omits contrib and non-free repos."
 #~ msgstr "Lässt Contrib- und Non-Free-Repos aus."
-
