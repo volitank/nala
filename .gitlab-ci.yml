@@ -2,27 +2,22 @@ stages:
   - test
 variables:
   DEBIAN_FRONTEND: noninteractive
-  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
 
 test:
   stage: test
-  image: debian:bookworm
+  image: debian:sid
   environment:
   script:
     - apt-get update
     - apt-get install -y eatmydata
     - eatmydata apt install -y
-      git
+      build-essential
       curl
-      devscripts
-      apt-utils
-      python3-cachecontrol
-      python3-pip
-    - eatmydata mk-build-deps
-      --tool 'apt-get --yes -o Debug::pkgProblemResolver=yes --no-install-recommends'
-      --install debian/control
-
-    - curl -sSL https://install.python-poetry.org | python3 -
-    - export PATH="/root/.local/bin:$PATH"
-    - poetry install
-    - poetry run pre-commit run --all-files
+      sudo
+      libapt-pkg-dev
+      codespell
+    - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
+    - cargo install just
+    - just setup-dev
+    - just check

@@ -1,0 +1,15 @@
+hard_tabs = true
+wrap_comments = true
+format_strings = true
+fn_single_line = true
+empty_item_single_line = true
+single_line_if_else_max_width = 80
+normalize_doc_attributes = true
+normalize_comments = true
+reorder_impl_items = true
+use_field_init_shorthand = true
+group_imports = "StdExternalCrate"
+imports_granularity = "Module"
+condense_wildcard_suffixes = true
+match_block_trailing_comma = true
+format_code_in_doc_comments = false
