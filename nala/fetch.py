@@ -63,6 +63,8 @@ from nala.options import ASSUME_YES, DEBUG, MAN_HELP, VERBOSE, arguments, nala
 from nala.rich import ELLIPSIS, Live, Panel, Table, fetch_progress
 from nala.utils import ask, dprint, eprint, sudo_check, term
 
+from debian.deb822 import Deb822  # isort:skip
+
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
 DEVUAN = "Devaun"
@@ -73,6 +75,7 @@ UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
 LIMITS = Limits(max_connections=50)
 TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
 ErrorTypes = Union[HTTPStatusError, HTTPError, SSLError, ReadTimeout, OSError]
+INVALID_FILENAME_CHARS = re.compile("[^a-zA-Z0-9_.-]", re.ASCII)
 
 FETCH_HELP = _(
 	"Nala will fetch mirrors with the lowest latency.\n\n"
@@ -219,7 +222,7 @@ class FetchLive:
 	) -> None:
 		"""Generate the mirror list for display."""
 		for line in netselect_scored:
-			url = line[line.index("h") :]
+			url = line[line.index(":") :].rstrip("/")
 			if any(url in mirror and release in mirror for mirror in sources):
 				continue
 			self.mirror_list.append(line)
@@ -564,14 +567,35 @@ def parse_sources() -> list[str]:
 	"""Read sources files on disk."""
 	sources: list[str] = []
 	for file in [*SOURCEPARTS.iterdir(), SOURCELIST]:
-		if file == NALA_SOURCES or file.is_dir():
+		if (
+			file == NALA_SOURCES
+			or not file.is_file()
+			or INVALID_FILENAME_CHARS.search(file.name)
+		):
 			continue
-
-		sources.extend(
-			line
-			for line in file.read_text(encoding="utf-8", errors="replace").splitlines()
-			if not line.startswith("#") and line
-		)
+		if file.parent == SOURCEPARTS and file.suffix not in [".list", ".sources"]:
+			continue
+		if file.suffix in ".sources":
+			sources.extend(
+				f"{deb} {uri} {suite}"
+				for deb822 in Deb822.iter_paragraphs(
+					file.read_text(encoding="utf-8", errors="replace")
+				)
+				for deb in deb822.get("Types", "").split()
+				for uri in deb822.get("URIs", "").split()
+				for suite in deb822.get("Suites", "").split()
+				for enabled in [deb822.get("Enabled", "yes").lower()]
+				if enabled not in ["no", "false"]
+				and not all(digit in "0" for digit in enabled)
+			)
+		else:
+			sources.extend(
+				line
+				for line in file.read_text(
+					encoding="utf-8", errors="replace"
+				).splitlines()
+				if not line.lstrip().startswith("#") and line
+			)
 	return sources
 
 
@@ -652,7 +676,7 @@ def build_sources(  # pylint: disable=too-many-arguments
 		# This splits off the score '030 http://mirror.steadfast.net/debian/'
 		line = line[line.index("h") :]
 		# This protects us from writing mirrors that we already have in the sources
-		if any(line in mirror and release in mirror for mirror in sources):
+		if any(line.rstrip("/") in mirror and release in mirror for mirror in sources):
 			continue
 		source += f"deb {line} {release} {component}\n"
 		if check_sources:
