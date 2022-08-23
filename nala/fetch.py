@@ -266,7 +266,7 @@ class FetchLive:
 			refresh=True,
 		)
 		self.live.stop()
-		return ask(_("Are these mirrors okay?"), self)
+		return ask(_("Are these mirrors okay?"))
 
 	def set_user_list(self) -> None:
 		"""Set the user selected list of mirrors."""
@@ -861,7 +861,7 @@ def fetch(
 			fetch_live.set_user_list()
 			if fetch_live.final_mirrors():
 				break
-			fetch_live.clear(3)
+			fetch_live.clear(2)
 			fetch_live.live.start()
 		source = build_sources(
 			release,
