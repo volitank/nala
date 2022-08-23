@@ -302,12 +302,17 @@ class UpdateProgress(text.AcquireProgress):
 
 	def final_msg(self) -> str:
 		"""Print closing fetched message."""
+		elapsed_time = int(time() - self.elapsed)
+		if elapsed_time == 0:
+			fetched_speed = self.current_cps
+		else:
+			fetched_speed = int(self.fetched_bytes) / elapsed_time
 		return color(
 			FETCHED_MSG.format(
 				fetched=FETCHED,
 				size=unit_str(int(self.fetched_bytes)).strip(),
-				elapsed=apt_pkg.time_to_str(int(time() - self.elapsed)),
-				speed=unit_str(int(self.current_cps)).strip(),
+				elapsed=apt_pkg.time_to_str(elapsed_time),
+				speed=unit_str(int(fetched_speed)).strip(),
 			)
 		)
 
