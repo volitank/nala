@@ -9,7 +9,7 @@ mod list;
 mod util;
 use crate::colors::Color;
 use crate::config::Config;
-use crate::list::list;
+use crate::list::{list, search};
 
 fn main() -> ExitCode {
 	let mut color = Color::default();
@@ -34,13 +34,14 @@ fn main_nala(color: &mut Color) -> Result<()> {
 		return Ok(());
 	}
 
-	match args.subcommand() {
-		Some(("list", cmd)) => {
-			config.load_args(cmd);
-			list(&config, color)?;
-		},
-		// Match other subcommands here...
-		_ => return Err(anyhow!("Unknown error in the argument parser")),
+	if let Some((name, cmd)) = args.subcommand() {
+		config.load_args(cmd);
+		match name {
+			"list" => list(&config, color)?,
+			"search" => search(&config, color)?,
+			// Match other subcommands here...
+			_ => return Err(anyhow!("Unknown error in the argument parser")),
+		}
 	}
 	Ok(())
 }

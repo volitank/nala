@@ -57,5 +57,5 @@ fmt +ARGS="":
 
 # Spellcheck the codebase
 spellcheck +ARGS="--skip target*":
-	@codespell --skip="./.git" --builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
+	@codespell --skip="./po"--builtin clear,rare,informal,code --ignore-words-list mut,crate {{ARGS}}
 	@echo Spellings look good!

@@ -16,6 +16,17 @@ pub struct Config {
 	pub color_map: Result<Map<String, Value>>,
 }
 
+impl Default for Config {
+	/// The default configuration for Nala.
+	fn default() -> Config {
+		Config {
+			nala_map: Map::new(),
+			pkg_names: None,
+			color_map: Err(anyhow!("Default is assumed")),
+		}
+	}
+}
+
 impl Config {
 	pub fn error(err: anyhow::Error) -> Self {
 		Config {
@@ -102,10 +113,9 @@ impl Config {
 		];
 
 		for opt in bool_opts {
-			if *args.get_one(opt).unwrap_or(&false) {
-				self.nala_map.insert(opt.to_string(), Value::Boolean(true));
-			} else {
-				self.nala_map.insert(opt.to_string(), Value::Boolean(false));
+			match *args.get_one(opt).unwrap_or(&false) {
+				true => self.set_bool(opt, true),
+				false => self.set_bool(opt, false),
 			}
 		}
 
@@ -126,6 +136,11 @@ impl Config {
 			Some(Value::Boolean(ret)) => *ret,
 			_ => default,
 		}
+	}
+
+	/// Set a bool in the configuration
+	pub fn set_bool(&mut self, key: &str, value: bool) {
+		self.nala_map.insert(key.to_string(), Value::Boolean(value));
 	}
 
 	/// Get the package names that were passed as arguments

@@ -356,7 +356,7 @@ impl Color {
 		let open = self.bold("(");
 		let close = self.bold(")");
 		let version = self.color(self.color_map.get("version").unwrap(), string);
-		return Cow::Owned(format!("{open}{version}{close}"));
+		Cow::Owned(format!("{open}{version}{close}"))
 	}
 
 	/// Print a warning to stderr
