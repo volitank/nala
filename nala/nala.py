@@ -28,7 +28,7 @@ from __future__ import annotations
 import re
 import sys
 from subprocess import run
-from typing import Generator, Optional, Pattern
+from typing import Generator, List, Optional, Pattern
 
 import apt_pkg
 import typer
@@ -228,7 +228,7 @@ def package_completion(cur: str) -> Generator[str, None, None]:
 def _update(
 	debug: bool = DEBUG,
 	raw_dpkg: bool = RAW_DPKG,
-	dpkg_option: list[str] = OPTION,
+	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
 ) -> None:
@@ -241,7 +241,7 @@ def _update(
 @nala.command(help=_("Update package list and upgrade the system."))
 # pylint: disable=unused-argument,too-many-arguments, too-many-locals
 def upgrade(
-	exclude: Optional[list[str]] = typer.Option(
+	exclude: Optional[List[str]] = typer.Option(
 		None,
 		metavar="PKG",
 		help=_("Specify packages to exclude during upgrade. Accepts glob*"),
@@ -258,7 +258,7 @@ def upgrade(
 	install_suggests: bool = SUGGESTS,
 	fix_broken: bool = FIX_BROKEN,
 	assume_yes: bool = ASSUME_YES,
-	dpkg_option: list[str] = OPTION,
+	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
 ) -> None:
@@ -313,7 +313,7 @@ def upgrade(
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def install(
 	ctx: typer.Context,
-	pkg_names: Optional[list[str]] = typer.Argument(
+	pkg_names: Optional[List[str]] = typer.Argument(
 		None,
 		metavar="PKGS ...",
 		help=_("Package(s) to install"),
@@ -330,7 +330,7 @@ def install(
 	install_suggests: bool = SUGGESTS,
 	fix_broken: bool = FIX_BROKEN,
 	assume_yes: bool = ASSUME_YES,
-	dpkg_option: list[str] = OPTION,
+	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
 ) -> None:
@@ -343,7 +343,7 @@ def install(
 @nala.command("uninstall", hidden=True)
 # pylint: disable=unused-argument,too-many-arguments
 def remove(
-	pkg_names: list[str] = typer.Argument(
+	pkg_names: List[str] = typer.Argument(
 		...,
 		metavar="PKGS ...",
 		help=_("Package(s) to remove/purge"),
@@ -358,7 +358,7 @@ def remove(
 	auto_remove: bool = AUTO_REMOVE,
 	fix_broken: bool = FIX_BROKEN,
 	assume_yes: bool = ASSUME_YES,
-	dpkg_option: list[str] = OPTION,
+	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
 ) -> None:
@@ -380,7 +380,7 @@ def _auto_remove(
 	update: bool = UPDATE,
 	fix_broken: bool = FIX_BROKEN,
 	assume_yes: bool = ASSUME_YES,
-	dpkg_option: list[str] = OPTION,
+	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
 ) -> None:
@@ -407,7 +407,7 @@ def _auto_remove(
 @nala.command("info", hidden=True)
 # pylint: disable=unused-argument
 def show(
-	pkg_names: list[str] = typer.Argument(
+	pkg_names: List[str] = typer.Argument(
 		...,
 		help=_("Package(s) to show"),
 		autocompletion=package_completion,
@@ -498,7 +498,7 @@ def search(
 @nala.command("list", help=_("List packages based on package names."))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def list_pkgs(
-	pkg_names: Optional[list[str]] = typer.Argument(
+	pkg_names: Optional[List[str]] = typer.Argument(
 		None,
 		help=_("Package(s) to list."),
 		autocompletion=package_completion,
@@ -600,7 +600,7 @@ def clean(
 @nala.command(hidden=True, help=_("I beg, pls moo"))
 # pylint: disable=unused-argument
 def moo(
-	moos: Optional[list[str]] = typer.Argument(None, hidden=True),
+	moos: Optional[List[str]] = typer.Argument(None, hidden=True),
 	update: bool = typer.Option(None, hidden=True),
 ) -> None:
 	"""I beg, pls moo."""

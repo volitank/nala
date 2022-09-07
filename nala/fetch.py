@@ -32,7 +32,7 @@ from asyncio import Semaphore, gather, get_event_loop, run as aiorun
 from pathlib import Path
 from ssl import SSLCertVerificationError, SSLError
 from subprocess import run
-from typing import Iterable, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 import typer
 from apt import Cache
@@ -796,7 +796,7 @@ def fetch(
 	),
 	debug: bool = DEBUG,
 	assume_yes: bool = ASSUME_YES,
-	country_list: Optional[list[str]] = typer.Option(
+	country_list: Optional[List[str]] = typer.Option(
 		None,
 		"-c",
 		"--country",

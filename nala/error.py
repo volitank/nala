@@ -398,7 +398,7 @@ class BrokenError:
 					version=color_version(candidate.version),
 				)
 			# If none of our conditions are met we just fall back to a general error
-			return _("{package} but it cannont be installed").format(
+			return _("{package} but it cannot be installed").format(
 				package=formatted_dep
 			)
 		return ""

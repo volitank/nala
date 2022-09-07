@@ -31,7 +31,7 @@ import fnmatch
 import sys
 from pathlib import Path
 from shutil import which
-from typing import Iterable, Sequence, cast
+from typing import Iterable, List, Sequence, cast
 
 import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
@@ -185,7 +185,7 @@ def get_dep_type(
 			return dpkg.installed.dependencies
 		if not installed and dpkg.candidate:
 			return dpkg.candidate.dependencies
-		return cast(list[Dependency], [])
+		return cast(List[Dependency], [])
 	return dpkg.dependencies
 
 
@@ -245,7 +245,7 @@ def parse_hook_args(
 	"""Parse the arguments for the advanced hook."""
 	invalid: list[str] = []
 	cmd = cast(str, hook.get("hook", "")).split()
-	if args := cast(list[str], hook.get("args", [])):
+	if args := cast(List[str], hook.get("args", [])):
 		arg_pkg = cache[pkg]
 		for arg in args:
 			# See if they are valid base package attributes

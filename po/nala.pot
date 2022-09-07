@@ -303,7 +303,7 @@ msgid "{package} but the cache version is {version}"
 msgstr ""
 
 #: nala/error.py:401
-msgid "{package} but it cannont be installed"
+msgid "{package} but it cannot be installed"
 msgstr ""
 
 #: nala/error.py:514

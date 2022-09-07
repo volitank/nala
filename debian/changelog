@@ -271,7 +271,7 @@ nala (0.5.1) unstable; urgency=medium
 
   [ Bug Fixes ]
   * Can't install packages that have virtual packages in suggests
-  * No error handling for `search` regex compliation errors
+  * No error handling for `search` regex compilation errors
   * Exception throw in `search` on packages without a description
   * No argument checking for `search`
   * Bash-completion not showing `search` switches

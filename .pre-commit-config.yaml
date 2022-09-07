@@ -35,7 +35,7 @@ repos:
           code
         ]
         language: system
-        entry: poetry run codespell
+        entry: poetry run codespell --exclude-file ./.codespell-ignore-lines
         types: [text]
       - id: black
         name: format python code

@@ -30,7 +30,7 @@ from getpass import getuser
 from json.decoder import JSONDecodeError
 from os import environ, getuid
 from pwd import getpwnam
-from typing import Generator, Iterable, Union, cast
+from typing import Dict, Generator, Iterable, List, Tuple, Union, cast
 
 import typer
 from apt.package import Package
@@ -78,8 +78,8 @@ else:
 	USER = environ.get("SUDO_USER", getuser())
 	UID = int(environ.get("SUDO_UID", getuid()))
 
-HistoryFile = dict[str, dict[str, Union[str, bool, list[str], list[list[str]]]]]
-HistoryEntry = dict[str, Union[str, bool, list[str], list[list[str]]]]
+HistoryFile = Dict[str, Dict[str, Union[str, bool, List[str], List[List[str]]]]]
+HistoryEntry = Dict[str, Union[str, bool, List[str], List[List[str]]]]
 
 NOT_SUPPORTED = _(
 	"{error} '{command}' for operations other than install or remove are not currently supported"
@@ -157,12 +157,12 @@ def get_nala_packages(hist_entry: HistoryEntry, key: str) -> list[NalaPackage]:
 
 def get_packages(hist_entry: HistoryEntry, key: str) -> list[list[str]]:
 	"""Type cast history packages is list of strings."""
-	return cast(list[list[str]], hist_entry.get(key, [[]]))
+	return cast(List[List[str]], hist_entry.get(key, [[]]))
 
 
 def get_list(hist_entry: HistoryEntry, key: str) -> list[str]:
 	"""Type cast history command is list of strings."""
-	item = cast(list[str], hist_entry.get(key, []))
+	item = cast(List[str], hist_entry.get(key, []))
 	dprint(f"Getting List {key} {item}")
 	return item
 
@@ -275,7 +275,7 @@ def write_history(cache: Cache, handler: PackageHandler, operation: str) -> None
 	write_history_file(history_dict)
 
 
-def hist_id_completion() -> Generator[tuple[str, str], None, None]:
+def hist_id_completion() -> Generator[Tuple[str, str], None, None]:
 	"""Complete history ID arguments."""
 	if not NALA_HISTORY.exists():
 		return
@@ -468,7 +468,7 @@ def history_undo(
 	install_suggests: bool = SUGGESTS,
 	fix_broken: bool = FIX_BROKEN,
 	assume_yes: bool = ASSUME_YES,
-	dpkg_option: list[str] = OPTION,
+	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
 	"""History undo/redo commands."""
