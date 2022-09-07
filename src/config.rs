@@ -110,6 +110,7 @@ impl Config {
 			"nala_installed",
 			"upgradable",
 			"virtual",
+			"names",
 		];
 
 		for opt in bool_opts {
@@ -127,7 +128,12 @@ impl Config {
 		}
 
 		// If Debug is there we can print the whole thing.
-		dprint!(self, "Config Map = {:#?}", self.nala_map);
+		if self.debug() {
+			let map_string = format!("Config Map = {:#?}", self.nala_map);
+			for line in map_string.lines() {
+				eprintln!("DEBUG: {line}")
+			}
+		}
 	}
 
 	/// Get a bool from the configuration by &str

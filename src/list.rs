@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{bail, Result};
 use glob::Pattern;
 use regex::{Regex, RegexBuilder};
@@ -6,71 +8,140 @@ use rust_apt::package::{Package, Version};
 
 use crate::colors::Color;
 use crate::config::Config;
+use crate::dprint;
 
-/// Turn an iterator of strings into glob patters.
-pub fn get_regexes<T: AsRef<str>>(strings: &[T]) -> Result<Vec<Regex>> {
-	let mut regex = Vec::new();
-	for s in strings {
-		regex.push(
-			RegexBuilder::new(s.as_ref())
-				.case_insensitive(true)
-				.build()?,
-		);
-	}
-	Ok(regex)
+struct Matcher {
+	globs: Vec<Pattern>,
+	regexs: Vec<Regex>,
 }
 
-/// Turn an iterator of strings into glob patters.
-pub fn get_globs<T: AsRef<str>>(strings: &[T]) -> Result<Vec<Pattern>> {
-	let mut globs = Vec::new();
-	for string in strings {
-		globs.push(Pattern::new(string.as_ref())?);
+impl Matcher {
+	/// Simple wrapper to easy create globs only
+	pub fn new_glob(globs: Vec<Pattern>) -> Matcher {
+		Matcher {
+			globs,
+			regexs: Vec::new(),
+		}
 	}
-	Ok(globs)
+
+	/// Simple wrapper to easy create regex only
+	pub fn new_regex(regexs: Vec<Regex>) -> Matcher {
+		Matcher {
+			globs: Vec::new(),
+			regexs,
+		}
+	}
+
+	/// Turn an iterator of strings into glob patters.
+	pub fn from_globs<T: AsRef<str>>(strings: &[T]) -> Result<Matcher> {
+		let mut globs = Vec::new();
+		for string in strings {
+			globs.push(Pattern::new(string.as_ref())?);
+		}
+		Ok(Matcher::new_glob(globs))
+	}
+
+	/// Turn an iterator of strings into regex patterns.
+	pub fn from_regexs<T: AsRef<str>>(strings: &[T]) -> Result<Matcher> {
+		let mut regex = Vec::new();
+		for string in strings {
+			regex.push(
+				RegexBuilder::new(string.as_ref())
+					.case_insensitive(true)
+					.build()?,
+			);
+		}
+		Ok(Matcher::new_regex(regex))
+	}
+
+	/// Matches only package names.
+	/// Return found Packages, and not found regex &str.
+	///
+	/// names_only = true will match only against pkg names.
+	pub fn regex_pkgs<'a, Container: IntoIterator<Item = Package<'a>>>(
+		&self,
+		packages: Container,
+		names_only: bool,
+	) -> (Vec<Package<'a>>, HashSet<String>) {
+		let mut found_pkgs = Vec::new();
+		let mut not_found =
+			HashSet::from_iter(self.regexs.iter().map(|regex| regex.as_str().to_string()));
+
+		'outer: for pkg in packages {
+			// Check for pkg name matches first.
+			for regex in &self.regexs {
+				if regex.is_match(&pkg.name()) {
+					found_pkgs.push(pkg);
+					not_found.remove(regex.as_str());
+					// Continue with packages as we don't want to hit versions if we can help it.
+					continue 'outer;
+				}
+			}
+
+			// If we only want names we can skip the descriptions
+			if names_only {
+				continue;
+			}
+
+			// Get either the candidate or the first version
+			// Maybe only do the candidate or first version in the list like apt?
+			for ver in pkg.versions().collect::<Vec<Version>>() {
+				if let Some(desc) = ver.description() {
+					for regex in &self.regexs {
+						if regex.is_match(&desc) {
+							found_pkgs.push(pkg);
+							not_found.remove(regex.as_str());
+							continue 'outer;
+						}
+					}
+				}
+			}
+		}
+		(found_pkgs, not_found)
+	}
+
+	/// Matches only package names.
+	/// Return found Packages, and not found regex &str.
+	/// Item, Container: IntoIterator<Item=Item>
+	pub fn glob_pkgs<'a, Container: IntoIterator<Item = Package<'a>>>(
+		&self,
+		packages: Container,
+	) -> (Vec<Package<'a>>, HashSet<String>) {
+		let mut found = Vec::new();
+		let mut not_found =
+			HashSet::from_iter(self.globs.iter().map(|glob| glob.as_str().to_string()));
+
+		for pkg in packages {
+			// Glob and split up what is found and not found
+			for glob in &self.globs {
+				if glob.matches(&pkg.name()) {
+					found.push(pkg);
+					// Remove the glob from not_found
+					not_found.remove(glob.as_str());
+					break;
+				}
+			}
+		}
+		// Finally return found Packages, and not found glob String
+		(found, not_found)
+	}
 }
 
 /// The search command
 pub fn search(config: &Config, color: &Color) -> Result<()> {
-	let stdout = std::io::stdout();
-	let mut out = stdout.lock();
-
+	let mut out = std::io::stdout().lock();
 	let cache = Cache::new();
-	let sort = get_sorter(config);
 
-	// Eventually maybe allow more than one option to search with
-	let patterns = match config.pkg_names() {
-		Some(vec) => get_regexes(vec)?,
+	// Set up the matcher with the regexes
+	let matcher = match config.pkg_names() {
+		Some(pkg_names) => Matcher::from_regexs(pkg_names)?,
 		None => bail!("You must give at least one search Pattern"),
 	};
-	let all_pkgs = cache.packages(&sort).collect::<Vec<Package>>();
-	let mut packages: Vec<&Package> = Vec::new();
-	let mut not_found: Vec<String> = Vec::new();
-	for regex in &patterns {
-		let mut found = false;
-		// Match the packages based on the regex
-		for pkg in &all_pkgs {
-			// If the name matches we can stop here
-			if regex.is_match(&pkg.name()) {
-				found = true;
-				packages.push(pkg);
-				continue;
-			}
-			// Check all of the versions source name and description for a match
-			// Getting a description has a performance penalty due to a records lookup
-			// Because of this it is last in the chain
-			for ver in pkg.versions() {
-				if regex.is_match(&ver.source_name()) || regex.is_match(&ver.description()) {
-					found = true;
-					packages.push(pkg);
-					continue;
-				}
-			}
-		}
-		// Keep track of names that were not found
-		if !found {
-			not_found.push(regex.as_str().to_owned())
-		}
-	}
+
+	// Filter the packages by names if they were provided
+	let sort = get_sorter(config);
+	let (packages, not_found) =
+		matcher.regex_pkgs(cache.packages(&sort), config.get_bool("names", false));
 
 	// List the packages that were found
 	list_packages(packages, &cache, config, color, &mut out)?;
@@ -85,38 +156,21 @@ pub fn search(config: &Config, color: &Color) -> Result<()> {
 
 /// The list command
 pub fn list(config: &Config, color: &Color) -> Result<()> {
-	let stdout = std::io::stdout();
-	let mut out = stdout.lock();
-
+	let mut out = std::io::stdout().lock();
 	let cache = Cache::new();
-	let sort = get_sorter(config);
 
 	// Filter the packages by names if they were provided
-	let mut packages: Vec<&Package> = Vec::new();
-	let mut not_found: Vec<String> = Vec::new();
-	let all_pkgs = cache.packages(&sort).collect::<Vec<Package>>();
-	match config.pkg_names() {
+	let sort = get_sorter(config);
+	let (packages, not_found) = match config.pkg_names() {
 		Some(pkg_names) => {
-			// Get our package matches from the specified glob
-			for glob in &get_globs(pkg_names)? {
-				let mut found = false;
-				for pkg in &all_pkgs {
-					if glob.matches(&pkg.name()) {
-						found = true;
-						packages.push(pkg);
-					}
-				}
-				// Keep track of names that were not found
-				if !found {
-					not_found.push(glob.as_str().to_owned())
-				}
-			}
+			let matcher = Matcher::from_globs(pkg_names)?;
+			matcher.glob_pkgs(cache.packages(&sort))
 		},
-		None => {
-			// No package were specified by the user so get them all
-			packages = all_pkgs.iter().collect();
-		},
-	}
+		None => (
+			cache.packages(&sort).collect::<Vec<Package>>(),
+			HashSet::new(),
+		),
+	};
 
 	// List the packages that were found
 	list_packages(packages, &cache, config, color, &mut out)?;
@@ -133,7 +187,7 @@ pub fn list(config: &Config, color: &Color) -> Result<()> {
 ///
 /// Shared function between list and search
 fn list_packages(
-	packages: Vec<&Package>,
+	packages: Vec<Package>,
 	cache: &Cache,
 	config: &Config,
 	color: &Color,
@@ -149,7 +203,7 @@ fn list_packages(
 		if config.get_bool("all_versions", false) && pkg.has_versions() {
 			for version in pkg.versions() {
 				write!(out, "{} ", color.package(&pkg.fullname(true)))?;
-				list_version(out, color, pkg, &version)?;
+				list_version(out, config, color, &pkg, &version)?;
 				list_description(out, config, &version)?;
 			}
 			// The new line is a little weird if we print descriptions
@@ -166,13 +220,13 @@ fn list_packages(
 		// The first version in the list should be the latest
 		if let Some(version) = pkg.versions().next() {
 			// There is a version! Let's format it
-			list_version(out, color, pkg, &version)?;
+			list_version(out, config, color, &pkg, &version)?;
 			list_description(out, config, &version)?;
 			continue;
 		}
 
 		// There are no versions so it must be a virtual package
-		list_virtual(out, color, cache, pkg)?;
+		list_virtual(out, color, cache, &pkg)?;
 	}
 
 	Ok(())
@@ -181,14 +235,24 @@ fn list_packages(
 /// List a single version of a package
 fn list_version(
 	out: &mut impl std::io::Write,
+	config: &Config,
 	color: &Color,
 	pkg: &Package,
 	version: &Version,
 ) -> std::io::Result<()> {
 	// Add the version to the string
+	dprint!(
+		config,
+		"list_version for {} {}",
+		pkg.name(),
+		version.version()
+	);
+
 	write!(out, "{}", color.version(&version.version()))?;
 
 	if let Some(pkg_file) = version.package_files().next() {
+		dprint!(config, "Package file found, building origin");
+
 		let archive = pkg_file
 			.archive()
 			.unwrap_or_else(|| String::from("Unknown"));
@@ -206,6 +270,10 @@ fn list_version(
 
 	// There is both an installed and candidate version
 	if let (Some(installed), Some(candidate)) = (pkg.installed(), pkg.candidate()) {
+		dprint!(
+			config,
+			"Installed and Candidate exist, checking if upgradable"
+		);
 		// Version is installed, check if it's upgradable
 		if version == &installed && version < &candidate {
 			return writeln!(
@@ -226,6 +294,8 @@ fn list_version(
 
 	// The version will not have an upgradable string, but is installed
 	if version.is_installed() {
+		dprint!(config, "Version is installed and not upgradable.");
+
 		// Version isn't downloadable, consider it locally installed
 		if !version.downloadable() {
 			return writeln!(out, " [Installed, Local]");
@@ -244,6 +314,7 @@ fn list_version(
 	}
 
 	// Conditions aren't met, return the package name and version
+	dprint!(config, "Version meets no conditions. Will only be listed.");
 	out.write_all(b"\n")
 }
 
@@ -254,10 +325,22 @@ fn list_description(
 	version: &Version,
 ) -> Result<()> {
 	if config.get_bool("description", false) {
-		writeln!(out, " {}\n", version.description())?;
+		writeln!(
+			out,
+			" {}\n",
+			version
+				.description()
+				.unwrap_or_else(|| "No Description".to_string())
+		)?;
 	}
 	if config.get_bool("summary", false) {
-		writeln!(out, " {}\n", version.summary())?;
+		writeln!(
+			out,
+			" {}\n",
+			version
+				.summary()
+				.unwrap_or_else(|| "No Summary".to_string())
+		)?;
 	}
 	Ok(())
 }
@@ -419,10 +502,11 @@ mod test {
 		let mut out = Vec::new();
 		let cache = Cache::new();
 		let color = Color::default();
+		let config = Config::default();
 
 		let pkg = cache.get("dpkg").unwrap();
 
-		list_version(&mut out, &color, &pkg, &pkg.candidate().unwrap()).unwrap();
+		list_version(&mut out, &config, &color, &pkg, &pkg.candidate().unwrap()).unwrap();
 
 		// Convert the vector of bytes to a string
 		let output = std::str::from_utf8(&out).unwrap();
@@ -441,19 +525,11 @@ mod test {
 	fn glob() {
 		let cache = Cache::new();
 		let sort = PackageSort::default().names();
-		let all_pkgs = cache.packages(&sort).collect::<Vec<Package>>();
-		let mut packages = std::collections::HashSet::new();
 
 		// Results are based on Debian Sid
 		// These results could change and require updating
-		for glob in &get_globs(&["apt?y", "aptly*"]).unwrap() {
-			for pkg in &all_pkgs {
-				let pkg_name = pkg.name();
-				if glob.matches(&pkg_name) {
-					packages.insert(pkg_name);
-				}
-			}
-		}
+		let matcher = Matcher::from_globs(&["apt?y", "aptly*"]).unwrap();
+		let (packages, _not_found) = matcher.glob_pkgs(cache.packages(&sort));
 
 		// print just for easy debugging later
 		for pkg_name in &packages {
@@ -467,20 +543,11 @@ mod test {
 	fn regex() {
 		let cache = Cache::new();
 		let sort = PackageSort::default().names();
-		let all_pkgs = cache.packages(&sort).collect::<Vec<Package>>();
-		let mut packages = std::collections::HashSet::new();
 
 		// This regex should pull in only dpkg and apt
-		for regex in &get_regexes(&[r"^dpk.$", r"^apt$"]).unwrap() {
-			// Match the packages based on the regex
-			for pkg in &all_pkgs {
-				let pkg_name = pkg.name();
-				// Add matches to our set
-				if regex.is_match(&pkg_name) {
-					packages.insert(pkg_name);
-				}
-			}
-		}
+		let matcher = Matcher::from_regexs(&[r"^dpk.$", r"^apt$"]).unwrap();
+
+		let (packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort), true);
 
 		// print just for easy debugging later
 		for pkg_name in &packages {

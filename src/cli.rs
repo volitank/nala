@@ -112,6 +112,12 @@ pub fn build() -> Command<'static> {
 						.required(false),
 				)
 				.arg(
+					Arg::new("names")
+						.long("names")
+						.help("Search only Package names")
+						.action(ArgAction::SetTrue),
+				)
+				.arg(
 					Arg::new("description")
 						.long("description")
 						.help("Print the full description of each package")

@@ -263,8 +263,10 @@ impl Color {
 	pub fn update_from_config(&mut self, config: &Config) -> Result<()> {
 		let config_map = match config.color_map.as_ref() {
 			Ok(map) => map,
-			Err(err) => {
-				self.warn(&format!("{err:?}"));
+			Err(_err) => {
+				// Disable the warning when theme section is missing.
+				// It is not important enough to warrant a warning.
+				// self.warn(&format!("{err:?}"));
 				return Ok(());
 			},
 		};
