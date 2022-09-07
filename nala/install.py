@@ -46,7 +46,6 @@ from nala.constants import (
 	ERROR_PREFIX,
 	NALA_DIR,
 	NALA_TERM_LOG,
-	NEED_RESTART,
 	NOTICE_PREFIX,
 	REBOOT_PKGS,
 	REBOOT_REQUIRED,
@@ -884,8 +883,6 @@ def need_reboot() -> bool:
 			for pkg in REBOOT_PKGS.read_text(encoding="utf-8").splitlines():
 				print(f"  {color(pkg, 'GREEN')}")
 			return False
-		return True
-	if NEED_RESTART.exists():
 		return True
 	return False
 

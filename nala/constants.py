@@ -60,8 +60,6 @@ REBOOT_REQUIRED = Path(f"{ROOT}/var/run/reboot-required")
 """/var/run/reboot-required"""
 REBOOT_PKGS = Path(f"{ROOT}/var/run/reboot-required.pkgs")
 """'/var/run/reboot-required.pkgs'"""
-NEED_RESTART = Path(f"{ROOT}/var/run/needrestart")
-"""/var/run/needrestart"""
 NALA_LOCK_FILE = Path(f"{ROOT}/var/lock/nala.lock")
 """/var/lock/nala.lock"""
 

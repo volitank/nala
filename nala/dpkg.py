@@ -638,7 +638,7 @@ class InstallProgress(base.InstallProgress):
 		# https://github.com/liske/needrestart/issues/129
 		if (
 			os.environ.get("DEBIAN_FRONTEND") == "noninteractive"
-			and b"so you should consider rebooting. [Return]" in data
+			and b"[Return]" in data
 		):
 			os.write(self.child_fd, term.CRLF)
 
