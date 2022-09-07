@@ -72,11 +72,11 @@ def color(text: object, text_color: str = "") -> str:
 	"""Return bold text in the color of your choice."""
 	if not console.is_terminal or console.is_dumb_terminal:
 		return f"{text}"
-	if not text_color:
-		# Just return bolded text
-		return f"\x1b[1m{text}{COLOR_CODES['RESET']}"
-	# Return bolded choice of color
-	return f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
+	return (
+		f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
+		if text_color
+		else f"\x1b[1m{text}{COLOR_CODES['RESET']}"
+	)
 
 
 def color_version(version: str) -> str:

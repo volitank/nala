@@ -91,9 +91,7 @@ def iter_search(found: Iterable[tuple[Package, Version | tuple[Version, ...]]]) 
 		else:
 			print_search(pkg, version, pkg_list_check)
 
-	if not pkg_list_check:
-		return False
-	return True
+	return bool(pkg_list_check)
 
 
 def print_search(pkg: Package, version: Version, pkg_list_check: list[Package]) -> None:

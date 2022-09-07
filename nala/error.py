@@ -268,10 +268,10 @@ class BrokenError:
 		if not self.broken_list:
 			return 0
 		self.cache.clear()
-		ret_count = sum(self.broken_pkg(pkg) for pkg in self.broken_list)
-		if not ret_count:
+		if ret_count := sum(self.broken_pkg(pkg) for pkg in self.broken_list):
+			self._print_held_error()
+		else:
 			return ret_count
-		self._print_held_error()
 
 	def broken_remove(self, broken_list: list[Package]) -> NoReturn:
 		"""Calculate and print broken remove dependencies."""

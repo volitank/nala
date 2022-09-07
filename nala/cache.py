@@ -93,9 +93,7 @@ class Cache(_Cache):
 		"""
 		try:
 			pkg = self._cache[pkg_name]
-			if not pkg.has_provides and not pkg.has_versions:
-				return True
-			return False
+			return not pkg.has_provides and not pkg.has_versions
 		except KeyError:
 			return False
 

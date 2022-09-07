@@ -234,9 +234,7 @@ def hook_exists(key: str, pkg_names: set[str]) -> str:
 	"""Return True if the hook file exists on the system."""
 	if "*" in key and (globbed := fnmatch.filter(pkg_names, key)):
 		return globbed[0]
-	if key == "hook" or key in pkg_names:
-		return key
-	return ""
+	return key if key == "hook" or key in pkg_names else ""
 
 
 def parse_hook_args(
@@ -880,6 +878,7 @@ def need_reboot() -> bool:
 					notice=NOTICE_PREFIX
 				)
 			)
+
 			for pkg in REBOOT_PKGS.read_text(encoding="utf-8").splitlines():
 				print(f"  {color(pkg, 'GREEN')}")
 			return False

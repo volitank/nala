@@ -217,9 +217,7 @@ def remove_header(history: bool) -> tuple[str, str]:
 		return _PURGED, _PURGED
 	if history:
 		return _REMOVED, _REMOVED
-	if arguments.is_purge():
-		return _PURGING, _PURGE
-	return _REMOVING, _REMOVE
+	return (_PURGING, _PURGE) if arguments.is_purge() else (_REMOVING, _REMOVE)
 
 
 def get_headers() -> Headers:

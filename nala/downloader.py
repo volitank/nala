@@ -632,10 +632,10 @@ def check_hash(path: Path, hash_type: str, expected: str) -> bool:
 	hash_fun = hashlib.new(hash_type)
 	with path.open("rb") as file:
 		while True:
-			data = file.read(4096)
-			if not data:
+			if data := file.read(4096):
+				hash_fun.update(data)
+			else:
 				break
-			hash_fun.update(data)
 	received = hash_fun.hexdigest()
 	dprint(
 		HASH_STATUS.format(

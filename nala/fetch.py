@@ -586,8 +586,9 @@ def parse_sources() -> list[str]:
 				for suite in deb822.get("Suites", "").split()
 				for enabled in [deb822.get("Enabled", "yes").lower()]
 				if enabled not in ["no", "false"]
-				and not all(digit in "0" for digit in enabled)
+				and any(digit not in "0" for digit in enabled)
 			)
+
 		else:
 			sources.extend(
 				line

@@ -218,9 +218,7 @@ def show_dep(dependency: list[Dependency] | list[str]) -> str:
 			continue
 		msg += f"{dep_print}\n"
 
-	if same_line:
-		return ", ".join(join_list)
-	return msg.rstrip()
+	return ", ".join(join_list) if same_line else msg.rstrip()
 
 
 def format_dep(dep: BaseDependency | NalaBaseDep, iteration: int = 0) -> str:
