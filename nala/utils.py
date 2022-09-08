@@ -501,7 +501,12 @@ def vprint(msg: object) -> None:
 
 
 def dprint(msg: object, from_verbose: bool = False) -> None:
-	"""Print message if debugging, write to log if root."""
+	"""Print message if debugging, write to log if root.
+
+	from_verbose as true will stop this from printing.
+
+	vprint sends it's messages here to be put in the log.
+	"""
 	if not arguments.debug:
 		return
 	if not from_verbose:

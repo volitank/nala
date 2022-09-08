@@ -686,7 +686,9 @@ def set_candidate_versions(
 				pkg_names.remove(name)
 				pkg_names.append(pkg_name)
 				found = True
-				continue
+				# Break because the same version could exist multiple times
+				# Example, nala is in both Sid and Volian repository
+				break
 
 		if found:
 			continue
