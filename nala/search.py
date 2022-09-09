@@ -24,7 +24,6 @@
 """Functions for the Nala Search command."""
 from __future__ import annotations
 
-from fnmatch import fnmatch
 from typing import Generator, Iterable, Pattern, cast
 
 from apt.package import Package, Version
@@ -41,7 +40,7 @@ LINE = "│   " if is_utf8 else "|   "
 
 def search_name(
 	pkg: Package,
-	pattern: tuple[str, Pattern[str] | None],
+	pattern: Pattern[str],
 ) -> Generator[tuple[Package, Version], None, None]:
 	"""Search the package name and description."""
 	searches = [pkg.shortname]
@@ -51,8 +50,7 @@ def search_name(
 		searches.extend([records.long_desc, records.source_pkg])
 
 	for string in searches:
-		word, regex = pattern
-		if not list_match(string, word, regex):
+		if not pattern.search(string):
 			continue
 
 		# Must have found a match, Hurray!
@@ -60,24 +58,6 @@ def search_name(
 			yield from ((pkg, ver) for ver in version)
 			return
 		yield (pkg, version)
-
-
-def list_match(search: str, name: str, regex: Pattern[str] | None) -> bool:
-	"""Glob or Regex match the given name to the package name."""
-	# Name starts with g/ only attempt a glob
-	if name.startswith("g/") and fnmatch(search, name[2:]):
-		return True
-
-	# If we don't have a regex return None
-	if not regex:
-		return False
-
-	if name.startswith("r/"):
-		# Name starts with r/ only attempt a regex
-		return bool(regex.search(search))
-
-	# Otherwise try to glob first then regex and return the result
-	return bool(fnmatch(search, name) or regex.search(search))
 
 
 def iter_search(found: Iterable[tuple[Package, Version | tuple[Version, ...]]]) -> bool:

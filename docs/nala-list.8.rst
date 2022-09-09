@@ -13,16 +13,33 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-List all packages or only packages based on the provided name
+List all packages or only packages based on the provided name, glob or regex.
 
-The package name can be a regex or glob
+By default **list** will only glob.
 
-If the string starts with `r/` only regex will be tried.
-If the string starts with `g/` only glob will be tried.
+If you start your query with *r/*, **list** will only regex.
 
-Otherwise **list** will try to glob and then regex in that order.
+*Note: You may need to quote the pattern so the shell doesn't glob first*
 
-This command is very similar to **apt list**
+Examples:
+
+	Glob that will match **nala** and anything text after it:
+
+		**sudo nala list** *"g/nala\*"*
+
+	A question mark in a glob will match any single character:
+
+		**sudo nala list** *"g/na?a"*
+
+		This would match **nala** or even **nada**
+
+Regex works similar to globbing but is much more powerful.
+
+For more information on Glob and Regex pattern matching:
+
+	**man** *glob.7*
+
+	**man** *regex.7*
 
 OPTIONS
 =======
