@@ -464,7 +464,7 @@ def search(
 ) -> None:
 	"""Search package names and descriptions."""
 	cache = Cache()
-	found: list[tuple[Package, Version]] = []
+	found: set[tuple[Package, Version]] = set()
 	user_installed = (
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
@@ -487,7 +487,8 @@ def search(
 		if arguments.virtual and not cache.is_virtual_package(pkg.name):
 			continue
 		if arguments.all_arches or pkg.architecture() in arches:
-			found.extend(search_name(pkg, pattern))
+			for item in search_name(pkg, pattern):
+				found.add(item)
 
 	if not found:
 		sys.exit(_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=word))
