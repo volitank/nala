@@ -76,6 +76,9 @@ class Terminal:
 
 	# Control Codes
 	CURSER_UP = b"\x1b[1A"
+	CURSER_DOWN = b"\x1b[1B"
+	CURSER_FORWARD = b"\x1b[1C"
+	CURSER_BACK = b"\x1b[1D"
 	CLEAR_LINE = b"\x1b[2k"
 	CLEAR = b"\x1b[2J"
 	CLEAR_FROM_CURRENT_TO_END = b"\x1b[K"

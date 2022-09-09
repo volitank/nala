@@ -101,6 +101,10 @@ class FileDownloadError(Exception):
 		self.received = received
 
 
+class ParserError(Exception):
+	"""Exception class for errors with parsing."""
+
+
 # Should probably refactor this in the future. For now just disable the warning.
 # pylint: disable=too-many-branches
 def apt_error(apt_err: AptErrorTypes, update: bool = False) -> NoReturn | None:

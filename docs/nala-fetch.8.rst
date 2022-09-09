@@ -25,6 +25,24 @@ DESCRIPTION
 
 The resulting file of mirrors will be located at */etc/apt/sources.list.d/nala-sources.list*
 
+When selecting mirrors in the interactive display, you can pass a comma or space separated list.
+
+Examples:
+
+	Specific List:
+
+		*1,2,3,4* Selects mirrors 1, 2, 3 and 4
+
+		Comma and spaces may be mixed in the input. **nala** will parse it all the same.
+
+		*1,3 , 4 5* will select mirrors 1, 3, 4 and 5
+
+	Range: *1..5* will select mirrors 1 through 5
+
+	Even Range: *0..1..5* selects 2 and 4
+
+	Odd Range: *1..1..5* selects 1, 3 and 5
+
 OPTIONS
 =======
 

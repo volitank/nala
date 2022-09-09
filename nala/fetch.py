@@ -59,6 +59,7 @@ from nala.constants import (
 	SOURCEPARTS,
 )
 from nala.downloader import print_error
+from nala.error import ParserError
 from nala.options import ASSUME_YES, DEBUG, MAN_HELP, VERBOSE, arguments, nala
 from nala.rich import ELLIPSIS, Live, Panel, Table, fetch_progress
 from nala.utils import ask, dprint, eprint, sudo_check, term
@@ -72,6 +73,7 @@ DEVUAN = "Devaun"
 DOMAIN_PATTERN = re.compile(r"https?://([A-Za-z_0-9.-]+).*")
 UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
 UBUNTU_MIRROR = re.compile(r"<link>(.*)</link>")
+FETCH_RANGE = re.compile(r"[0-9]+\.\.[0-9]+")
 LIMITS = Limits(max_connections=50)
 TIMEOUT = Timeout(timeout=5.0, read=1.0, pool=20.0)
 ErrorTypes = Union[HTTPStatusError, HTTPError, SSLError, ReadTimeout, OSError]
@@ -212,20 +214,24 @@ class FetchLive:
 		self.live = live
 		self.errors = 0
 		self.count = count
-		self.mirror_list: list[str] = []
-		self.user_list: list[str] = []
-		self.index_list: tuple[int, ...]
+		self.mirror_list: dict[int, str] = {}
+		self.user_list: dict[int, str] = {}
+		self.index_list: set[int]
 		self._gen_mirror_list(release, sources, netselect_scored)
 
 	def _gen_mirror_list(
 		self, release: str, sources: Iterable[str], netselect_scored: Iterable[str]
 	) -> None:
 		"""Generate the mirror list for display."""
+		index = 0
 		for line in netselect_scored:
 			url = line[line.index(":") :].rstrip("/")
 			if any(url in mirror and release in mirror for mirror in sources):
 				continue
-			self.mirror_list.append(line)
+
+			self.mirror_list[index] = line
+			index += 1
+
 			if len(self.mirror_list) == self.count:
 				break
 
@@ -234,6 +240,22 @@ class FetchLive:
 		for _ in range(lines + self.errors):
 			term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
 		self.errors = 0
+
+	def debug(self, msg: object) -> None:
+		"""Display debugging information with the live display."""
+		if arguments.debug:
+			term.write(term.CURSER_UP * 24 + f"\r{' ' * term.columns}\r".encode())
+			term.write(term.CURSER_UP + f"\r{' ' * term.columns}\r".encode())
+			term.write(term.CURSER_UP + f"\r{' ' * term.columns}\r".encode())
+			term.write(term.CURSER_UP + f"\r{' ' * term.columns}\r".encode())
+			term.write(f"{msg}".encode())
+			term.write(term.CURSER_DOWN * 26 + f"\r{' ' * term.columns}\r".encode())
+
+	def error(self, msg: object) -> None:
+		"""Print an error out and keep track of how many."""
+		self.errors += 1
+		term.write(term.CURSER_UP + f"\r{' ' * term.columns}\r".encode())
+		eprint(msg)
 
 	def choose_mirrors(self) -> None:
 		"""Allow user to choose their mirrors."""
@@ -248,17 +270,16 @@ class FetchLive:
 				refresh=True,
 			)
 			self.live.stop()
-			self.index_list = ask_index(self.count)
+			self.index_list = self.ask_index(self.count)
 			if self.index_list:
 				break
-			self.errors += 1
 
 	def final_mirrors(self) -> bool:
 		"""Confirm that the final mirrors are okay."""
 		self.live.start()
 		self.live.update(
 			Panel.fit(
-				gen_table(self.user_list, no_index=True),
+				gen_table(self.user_list),
 				title="[bold white] Selected Mirrors",
 				title_align="left",
 				border_style="bold green",
@@ -270,11 +291,61 @@ class FetchLive:
 
 	def set_user_list(self) -> None:
 		"""Set the user selected list of mirrors."""
-		self.user_list = [
-			mirror
-			for num, mirror in enumerate(self.mirror_list)
+		self.user_list = {
+			num: mirror
+			for num, mirror in self.mirror_list.items()
 			if num in self.index_list
-		]
+		}
+
+	def ask_index(self, count: int) -> set[int]:
+		"""Ask user about the mirrors they would like to use."""
+		index_list: set[int] = set()
+		response: str = input(
+			_(
+				"Mirrors you want to keep, separated by space or comma {selection}:"
+			).format(selection=f"({color('1')}..{color(str(count))})")
+			+ " "
+		)
+
+		# Small single use wrapper to just clean up the code a bit
+		# Debug has to be done at the return or everything will get messed up
+		def _debug(passthrough: set[int]) -> set[int]:
+			self.debug(
+				f"Response: {response or 'Default'}\n"
+				f"Range: {range(1, count + 1)}\n"
+				f"User Range: {passthrough}"
+			)
+			return passthrough
+
+		try:
+			for index in range_from_str(response, count):
+				# Plus one is for taking care of the user seeing
+				# numbers starting at 1 instead of 0
+				if index not in range(1, count + 1):
+					self.error(
+						_("{error} Index {index} doesn't exist.").format(
+							error=ERROR_PREFIX, index=color(index, "YELLOW")
+						)
+					)
+					# Returning an empty set will restart the self.choose_mirrors loop
+					return _debug(set())
+				index_list.add(index - 1)
+
+		except ValueError as error:
+			self.error(
+				_("{error} {value_error}").format(
+					error=ERROR_PREFIX,
+					value_error=color(f"{error}".capitalize(), "YELLOW"),
+				)
+			)
+			# Returning an empty set will restart the self.choose_mirrors loop
+			return _debug(set())
+
+		except ParserError as error:
+			self.error(
+				_("{error} Parser: {parser}").format(error=ERROR_PREFIX, parser=error)
+			)
+		return _debug(index_list)
 
 
 def mirror_error(error: Exception, debugger: list[str]) -> None:
@@ -600,20 +671,19 @@ def parse_sources() -> list[str]:
 	return sources
 
 
-def gen_table(str_list: list[str], no_index: bool = False) -> Table:
+def gen_table(str_list: dict[int, str]) -> Table:
 	"""Generate table for the live display."""
 	master_table = Table(padding=(0, 0), box=None)
 	table = Table(padding=(0, 2), box=None)
-	if not no_index:
-		table.add_column("Index", justify="right", style="bold blue")
+
+	table.add_column("Index", justify="right", style="bold blue")
 	table.add_column("Mirror")
 	table.add_column("Score", style="bold blue")
-	for num, line in enumerate(str_list):
+
+	for num, line in str_list.items():
 		latency, mirror = line.split()
-		if no_index:
-			table.add_row(mirror, f"{latency.lstrip('0')} ms")
-			continue
 		table.add_row(f"{num + 1}", mirror, f"{latency.lstrip('0')} ms")
+
 	master_table.add_row(table)
 	master_table.add_row(
 		# Add in a new line and indentation to line up the text
@@ -624,48 +694,51 @@ def gen_table(str_list: list[str], no_index: bool = False) -> Table:
 	return master_table
 
 
-def ask_index(count: int) -> tuple[int, ...]:
-	"""Ask user about the mirrors they would like to use."""
-	index_list: set[int] = set()
-	response: list[str] | list[int]
-	response = input(
-		_("Mirrors you want to keep separated by spaces {selection}:").format(
-			selection=f"({color('1')}..{color(str(count))})"
-		)
-		+ " "
-	).split()
+def range_from_str(string: str, count: int) -> Iterable[int]:
+	"""Get a range of integers from a string.
 
-	if not response:
-		response = list(range(count))
+	See live.ask_index()
+	"""
+	# If it's empty the default is assumed
+	if not string:
+		# We return plus 1 for everything to match the numbers
+		# That the user sees
+		return list(range(1, count + 1))
 
-	for index in response:
-		try:
-			intdex = int(index) - 1
-			if intdex not in range(count):
-				term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
-				eprint(
-					_("{error} Index {index} doesn't exist.").format(
-						error=ERROR_PREFIX, index=color(index, "YELLOW")
-					)
-				)
-				return ()
-			index_list.add(intdex)
-		except ValueError:
-			term.write(term.CURSER_UP + f"\r{' '*term.columns}\r".encode())
-			eprint(
-				_("{error} Index {index} needs to be an integer.").format(
-					error=ERROR_PREFIX, index=color(index, "YELLOW")
-				)
-			)
-			return ()
-	return tuple(index_list)
+	if match := FETCH_RANGE.search(string):
+		resp = match.string.split("..")
+		# This will mean someone is trying to get a range
+		# 0..10 = 0, 1, 2, 3, and so forth
+		if len(resp) == 2:
+			start = int(resp[0])
+			stop = int(resp[1]) + 1
+			# Convert the strings from input into integers and create the range
+			return range(start, stop)
+
+		# They must be trying to get a range of even or odd
+		# 0..0..10 = 0 2 4 6 8 10
+		if (step := int(resp[0])) not in {0, 1}:
+			raise ParserError("0 for even and 1 for odd")
+
+		start = int(resp[1])
+		stop = int(resp[2]) + 1
+
+		is_odds = step == 1
+		return {
+			num
+			for num in range(start, stop)
+			if (is_odds and num % 2) or (not is_odds and not num % 2)
+		}
+
+	# Use a set as we don't want to have duplicate numbers
+	return {int(num) for num in re.split(r",|\s", string) if num}
 
 
 def build_sources(  # pylint: disable=too-many-arguments
 	release: str,
 	component: str,
 	sources: list[str],
-	netselect_scored: tuple[str, ...],
+	netselect_scored: Iterable[str],
 	fetches: int = 3,
 	live: bool = False,
 	check_sources: bool = False,
@@ -858,7 +931,7 @@ def fetch(
 		fetch_live = FetchLive(live, release, sources_list, fetches, netselect_scored)
 		while True:
 			fetch_live.choose_mirrors()
-			fetch_live.clear(3)
+			fetch_live.clear(2)
 			fetch_live.set_user_list()
 			if fetch_live.final_mirrors():
 				break
@@ -868,7 +941,7 @@ def fetch(
 			release,
 			component,
 			sources_list,
-			tuple(fetch_live.user_list),
+			fetch_live.user_list.values(),
 			live=True,
 			check_sources=sources,
 		)
