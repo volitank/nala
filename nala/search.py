@@ -44,7 +44,7 @@ def search_name(
 	pattern: tuple[str, Pattern[str] | None],
 ) -> Generator[tuple[Package, Version], None, None]:
 	"""Search the package name and description."""
-	searches = [pkg.fullname]
+	searches = [pkg.shortname]
 	if not arguments.names:
 		records = pkg._pcache._records
 		records.lookup(pkg._pkg.version_list[0].file_list[0])
