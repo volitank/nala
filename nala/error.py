@@ -158,7 +158,7 @@ def apt_error(apt_err: AptErrorTypes, update: bool = False) -> NoReturn | None:
 	eprint(f"{ERROR_PREFIX} {msg.replace('E:', '').strip()}")
 	if not term.is_su():
 		sys.exit(_("Are you root?"))
-	if update:
+	if update or "Failed to lock directory" in msg:
 		sys.exit(1)
 	return None
 
