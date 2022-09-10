@@ -40,7 +40,6 @@ from apt_pkg import DepCache, Error as AptError, get_architectures
 from nala import _, color, color_version
 from nala.cache import Cache
 from nala.constants import (
-	ARCHIVE_DIR,
 	DPKG_LOG,
 	ERROR_PREFIX,
 	NALA_DIR,
@@ -52,7 +51,7 @@ from nala.constants import (
 	CurrentState,
 )
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
-from nala.downloader import check_pkg, download
+from nala.downloader import download
 from nala.dpkg import DpkgLive, InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import (
 	BrokenError,
@@ -387,13 +386,6 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None
 		print_update_summary(nala_pkgs, cache)
 
 		check_term_ask()
-
-		pkgs = [
-			# Don't download packages that already exist
-			pkg
-			for pkg in pkgs
-			if not pkg.marked_delete and not check_pkg(ARCHIVE_DIR, pkg)
-		]
 
 	# Enable verbose and raw_dpkg if we're piped.
 	if not term.can_format():

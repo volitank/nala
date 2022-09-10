@@ -30,6 +30,7 @@ import asyncio
 import contextlib
 import hashlib
 import re
+import shutil
 import sys
 from asyncio import AbstractEventLoop, CancelledError, gather, run, sleep
 from collections import Counter
@@ -38,7 +39,7 @@ from functools import partial
 from pathlib import Path
 from signal import Signals  # pylint: disable=no-name-in-module #Codacy
 from signal import SIGINT, SIGTERM
-from typing import Union, cast
+from typing import Iterable, Union, cast
 
 from anyio import open_file
 from apt.package import Package, Version
@@ -362,6 +363,10 @@ class PkgDownloader:  # pylint: disable=too-many-instance-attributes
 		"""Filter uris into usable urls."""
 		urls: list[str] = []
 		for uri in candidate.uris:
+			# Sending a file path through the downloader will cause it to lock up
+			# These have already been handled before the downloader runs.
+			if uri.startswith("file:"):
+				continue
 			if not check_trusted(uri, candidate):
 				self.untrusted.append(color(candidate.package.name, "RED"))
 			# Regex to check if we're using mirror://
@@ -571,9 +576,11 @@ async def process_downloads(candidate: Version) -> bool:
 
 def check_trusted(uri: str, candidate: Version) -> bool:
 	"""Check if the candidate is trusted."""
+	dprint(f"Checking trust of {candidate.package.name} ({candidate.version})")
 	for (packagefile, _unused) in candidate._cand.file_list:
 		if packagefile.site in uri and packagefile.archive != "now":
 			indexfile = candidate.package._pcache._list.find_index(packagefile)
+			dprint(f"{uri} = {indexfile and indexfile.is_trusted}")
 			return bool(indexfile and indexfile.is_trusted)
 	return False
 
@@ -673,6 +680,60 @@ def get_hash(version: Version) -> tuple[str, str]:
 	sys.exit(_("There are no hashes available for this package."))
 
 
+def filter_local_repo(pkgs: Iterable[Package]) -> list[Package]:
+	"""Filter any local repository packages.
+
+	This will check if the packages are coming from a local repository.
+
+	If a package is from a local repo it will move it into the archive directory.
+
+	Lastly it will checksum all packages that exist on the system
+	and return a list of packages that need to be downloaded.
+	"""
+	file_uris: list[str] = []
+	untrusted: list[str] = []
+	for pkg in pkgs:
+		# At this point anything that makes it will have a candidate
+		if not pkg.candidate or pkg.marked_delete:
+			continue
+
+		# Check through the uris and see if there are any file paths
+		for uri in pkg.candidate.uris:
+			if not uri.startswith("file:"):
+				continue
+			# We must check trust at this point
+			if not check_trusted(uri, pkg.candidate):
+				untrusted.append(pkg.candidate.filename)
+			# All was well so append our uri and break for the next pkg
+			file_uris.append(uri)
+			break
+
+	# Exit with an error if there are unauthenticated packages
+	# This can proceed if overridden by configuration
+	if untrusted:
+		untrusted_error(untrusted)
+
+	# Copy the local repo debs into the archive directory
+	# This is a must so `apt` knows about it and we can check the hash
+	for file in file_uris:
+		dprint("Moving files from local repository")
+		src = Path(file.lstrip("file:"))
+		dest = ARCHIVE_DIR / src.name
+		# Make sure that the source exists and the destination does not
+		if src.is_file() and not dest.is_file():
+			# Move the file to the archive directory.
+			# We're allowed to do this silently because hashsum comes later
+			dprint(f"{src} => {shutil.copy2(src, dest)}")
+
+	# Return the list of packages that should be downloaded
+	return [
+		pkg
+		for pkg in pkgs
+		# Don't download packages that already exist
+		if not pkg.marked_delete and not check_pkg(ARCHIVE_DIR, pkg)
+	]
+
+
 def download(pkgs: list[Package]) -> None:
 	"""Run downloads and check for failures.
 
@@ -681,7 +742,11 @@ def download(pkgs: list[Package]) -> None:
 	downloader = PkgDownloader(
 		# Start the larger files first, as they take the longest
 		# Ignore mypy here because the pkgs definitely have a candidate if they made it here
-		sorted(pkgs, key=lambda pkg: pkg.candidate.size, reverse=True)  # type: ignore[union-attr]
+		sorted(
+			filter_local_repo(pkgs),
+			key=lambda pkg: pkg.candidate.size,  # type: ignore[union-attr]
+			reverse=True,
+		)
 	)
 	try:
 		run(downloader.start_download())
