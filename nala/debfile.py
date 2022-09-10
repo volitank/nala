@@ -75,6 +75,12 @@ class NalaDebPackage(DebPackage):
 				depends_list.append(NalaDep(base_deps, _type))
 		return depends_list
 
+	def installed_size(self) -> int:
+		"""Get the installed size. Returns 0 if it cannot be found."""
+		with contextlib.suppress(KeyError):
+			return int(self._sections["Installed-Size"])
+		return 0
+
 	@property
 	def dependencies(self) -> list[NalaDep]:
 		"""Return the dependencies of the package version."""

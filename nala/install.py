@@ -26,7 +26,6 @@
 """Functions for the Nala Install command."""
 from __future__ import annotations
 
-import contextlib
 import fnmatch
 import sys
 from pathlib import Path
@@ -458,14 +457,11 @@ def install_local(nala_pkgs: PackageHandler, cache: Cache) -> None:
 			continue
 
 		if not check_local_version(pkg, nala_pkgs):
-			size = 0
-			with contextlib.suppress(KeyError):
-				size = int(pkg._sections["Installed-Size"])
 			nala_pkgs.install_pkgs.append(
 				NalaPackage(
 					pkg.pkgname,
 					pkg._sections["Version"],
-					size,
+					pkg.installed_size(),
 				)
 			)
 
@@ -535,7 +531,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> bool:
 				NalaPackage(
 					pkg.pkgname,
 					pkg._sections["Version"],
-					int(pkg._sections["Installed-Size"]),
+					pkg.installed_size(),
 					pkg_installed(cache_pkg).version,
 				)
 			)
@@ -566,7 +562,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> bool:
 				NalaPackage(
 					pkg.pkgname,
 					pkg._sections["Version"],
-					int(pkg._sections["Installed-Size"]),
+					pkg.installed_size(),
 					pkg_installed(cache_pkg).version,
 				)
 			)
@@ -577,7 +573,7 @@ def check_local_version(pkg: NalaDebPackage, nala_pkgs: PackageHandler) -> bool:
 				NalaPackage(
 					pkg.pkgname,
 					pkg._sections["Version"],
-					int(pkg._sections["Installed-Size"]),
+					pkg.installed_size(),
 					pkg_installed(cache_pkg).version,
 				)
 			)
