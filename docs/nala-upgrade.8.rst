@@ -139,13 +139,26 @@ OPTIONS
 
 		Recommended packages will be installed.
 
-		This variant is the **default**
+		This variant is the **default** unless changed with the **apt** config.
 
 	*--no-install-recommends*
 
 		Recommended package will **NOT** be installed.
 
 		If this option is selected **nala** will display the recommended packages that will not be installed.
+
+**--install-suggests**, **--no-install-suggests**
+	*--install-suggests*
+
+		Suggested packages will be installed.
+
+		This variant is the **default**
+
+	*--no-install-suggests*
+
+		This variant is the **default** unless changed with the **apt** config.
+
+		If this option is selected **nala** will display the suggested packages that will not be installed.
 
 **--fix-broken**, **--no-fix-broken**
 	*--fix-broken*
