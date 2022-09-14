@@ -266,11 +266,6 @@ def gen_printers(
 	"""Generate the printers."""
 	yield from (  # type: ignore[misc]
 		(nala_pkgs.not_needed, headers.not_needed),
-		(nala_pkgs.delete_pkgs + nala_pkgs.delete_config, headers.deleting),
-		(
-			nala_pkgs.autoremove_pkgs + nala_pkgs.autoremove_config,
-			headers.auto_removing,
-		),
 		(nala_pkgs.install_pkgs, headers.installing),
 		(nala_pkgs.reinstall_pkgs, headers.reinstalling),
 		(nala_pkgs.upgrade_pkgs, headers.upgrading),
@@ -279,6 +274,11 @@ def gen_printers(
 		(nala_pkgs.recommend_pkgs, headers.recommending),
 		(nala_pkgs.suggest_pkgs, headers.suggesting),
 		(nala_pkgs.held_pkgs, headers.held_pkgs),
+		(
+			nala_pkgs.autoremove_pkgs + nala_pkgs.autoremove_config,
+			headers.auto_removing,
+		),
+		(nala_pkgs.delete_pkgs + nala_pkgs.delete_config, headers.deleting),
 	)
 
 
