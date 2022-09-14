@@ -33,7 +33,7 @@ from typing import Generator, List, Optional, Pattern
 
 import apt_pkg
 import typer
-from apt.package import Package, Version
+from apt.package import Package
 
 from nala import _, color
 from nala.cache import Cache
@@ -94,7 +94,7 @@ from nala.options import (
 	nala,
 )
 from nala.rich import ELLIPSIS
-from nala.search import iter_search, search_name
+from nala.search import iter_search, search_name, skip_pkg
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
 	PackageHandler,
@@ -103,7 +103,6 @@ from nala.utils import (
 	compile_regex,
 	dedupe_list,
 	eprint,
-	get_version,
 	iter_remove,
 	sudo_check,
 	vprint,
@@ -444,7 +443,7 @@ def show(
 @nala.command(help=_("Search package names and descriptions."))
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def search(
-	word: str = typer.Argument(
+	words: List[str] = typer.Argument(
 		...,
 		help=_("Regex or word to search for"),
 		autocompletion=package_completion,
@@ -464,34 +463,35 @@ def search(
 ) -> None:
 	"""Search package names and descriptions."""
 	cache = Cache()
-	found: set[tuple[Package, Version]] = set()
 	user_installed = (
 		get_list(get_history("Nala"), "User-Installed") if nala_installed else []
 	)
 
-	pattern = (
-		compile_regex(fnmatch.translate(word[2:]))
-		if word.startswith("g/")
-		else compile_regex(word)
-	)
+	patterns = [
+		compile_regex(fnmatch.translate(string[2:]))
+		if string.startswith("g/")
+		else compile_regex(string)
+		for string in words
+	]
 
+	found: list[Package] = []
 	arches = apt_pkg.get_architectures()
-
 	for pkg in cache:
-		if nala_installed and pkg.name not in user_installed:
+		if skip_pkg(cache, pkg, nala_installed, user_installed):
 			continue
-		if arguments.installed and not pkg.installed:
-			continue
-		if arguments.upgradable and not pkg.is_upgradable:
-			continue
-		if arguments.virtual and not cache.is_virtual_package(pkg.name):
-			continue
-		if arguments.all_arches or pkg.architecture() in arches:
-			for item in search_name(pkg, pattern):
-				found.add(item)
+		if (
+			pkg.architecture() in arches[0]
+			or arguments.all_arches
+			and pkg.architecture() in arches
+		) and search_name(pkg, patterns):
+			found.append(pkg)
 
 	if not found:
-		sys.exit(_("{error} {regex} not found.").format(error=ERROR_PREFIX, regex=word))
+		sys.exit(
+			_("{error} {regex} not found.").format(
+				error=ERROR_PREFIX, regex=", ".join(words)
+			)
+		)
 	iter_search(found)
 
 
@@ -530,31 +530,23 @@ def list_pkgs(
 			# Otherwise we default to glob only for list
 			patterns.append(compile_regex(fnmatch.translate(name)))
 
-	def _list_gen() -> Generator[
-		tuple[Package, Version | tuple[Version, ...]], None, None
-	]:
+	def _list_gen() -> Generator[Package, None, None]:
 		"""Generate to speed things up."""
 		for pkg in cache:
-			if nala_installed and pkg.name not in user_installed:
-				continue
-			if arguments.installed and not pkg.installed:
-				continue
-			if arguments.upgradable and not pkg.is_upgradable:
-				continue
-			if arguments.virtual and not cache.is_virtual_package(pkg.name):
+			if skip_pkg(cache, pkg, nala_installed, user_installed):
 				continue
 			if pkg_names:
 				for regex in patterns:
 					# Match against the shortname so that arch isn't included
-					if regex.search(pkg.shortname):
-						yield (pkg, get_version(pkg, inst_first=True))
+					if regex.match(pkg.shortname):
+						yield pkg
 						continue
 				# If names were supplied and no matches
 				# we don't want to grab everything
 				continue
 
 			# In this case no names were supplied so we list everything
-			yield (pkg, get_version(pkg, inst_first=True))
+			yield pkg
 
 	if not iter_search(_list_gen()):
 		sys.exit(_("Nothing was found to list."))

@@ -24,9 +24,9 @@
 """Functions for the Nala Search command."""
 from __future__ import annotations
 
-from typing import Generator, Iterable, Pattern, cast
+from typing import Iterable, Pattern
 
-from apt.package import Package, Version
+from apt import Cache, Package, Version
 
 from nala import COLOR_CODES, _, color
 from nala.options import arguments
@@ -38,10 +38,20 @@ BOT_LINE = "└──" if is_utf8 else "`--"
 LINE = "│   " if is_utf8 else "|   "
 
 
-def search_name(
-	pkg: Package,
-	pattern: Pattern[str],
-) -> Generator[tuple[Package, Version], None, None]:
+def skip_pkg(
+	cache: Cache, pkg: Package, nala_installed: bool, user_installed: list[str]
+) -> bool:
+	"""Check if the package should be skipped based on user switches."""
+	if nala_installed and pkg.shortname not in user_installed:
+		return True
+	if arguments.installed and not pkg.installed:
+		return True
+	if arguments.upgradable and not pkg.is_upgradable:
+		return True
+	return bool(arguments.virtual and not cache.is_virtual_package(pkg.name))
+
+
+def search_name(pkg: Package, patterns: list[Pattern[str]]) -> bool:
 	"""Search the package name and description."""
 	searches = [pkg.shortname]
 	if not arguments.names:
@@ -49,22 +59,19 @@ def search_name(
 		records.lookup(pkg._pkg.version_list[0].file_list[0])
 		searches.extend([records.long_desc, records.source_pkg])
 
-	for string in searches:
-		if not pattern.search(string):
-			continue
-
-		# Must have found a match, Hurray!
-		if isinstance(version := get_version(pkg, inst_first=True), tuple):
-			yield from ((pkg, ver) for ver in version)
-			return
-		yield (pkg, version)
+	for pattern in patterns:
+		for string in searches:
+			if pattern.search(string):
+				return True
+	return False
 
 
-def iter_search(found: Iterable[tuple[Package, Version | tuple[Version, ...]]]) -> bool:
+def iter_search(found: Iterable[Package]) -> bool:
 	"""Iterate the search results."""
 	pkg_list_check: list[Package] = []
-	for item in found:
-		pkg, version = item
+	for pkg in found:
+		version = get_version(pkg, inst_first=True)
+		# Version being a tuple here means --all-versions has been enabled
 		if isinstance(version, tuple):
 			for ver in version:
 				print_search(pkg, ver, pkg_list_check)
@@ -83,7 +90,7 @@ def print_search(pkg: Package, version: Version, pkg_list_check: list[Package]) 
 				set_search_installed(
 					set_search_origin(
 						f"{color(pkg.name, 'GREEN')} {color(version.version, 'BLUE')}",
-						cast(Version, get_version(pkg, cand_first=True)),
+						version,
 					),
 					pkg,
 					version,

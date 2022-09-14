@@ -8,7 +8,7 @@ nala-search - Search package names and descriptions
 SYNOPSIS
 ========
 
-**nala search** [*--options*] REGEX
+**nala search** [*--options*] REGEX ...
 
 DESCRIPTION
 ===========
