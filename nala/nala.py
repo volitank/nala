@@ -28,7 +28,7 @@ from __future__ import annotations
 import fnmatch
 import re
 import sys
-from subprocess import run
+from subprocess import CalledProcessError, run
 from typing import Generator, List, Optional, Pattern, cast
 
 import apt_pkg
@@ -214,14 +214,17 @@ def remove_completion(ctx: typer.Context) -> Generator[str, None, None]:
 
 def package_completion(cur: str) -> Generator[str, None, None]:
 	"""Complete install command arguments."""
-	yield from run(
-		["apt-cache", "--no-generate", "pkgnames", cur]
-		if PKGCACHE.exists()
-		else ["apt-cache", "pkgnames", cur],
-		capture_output=True,
-		check=True,
-		text=True,
-	).stdout.split()
+	try:
+		yield from run(
+			["apt-cache", "--no-generate", "pkgnames", cur]
+			if PKGCACHE.exists()
+			else ["apt-cache", "pkgnames", cur],
+			capture_output=True,
+			check=True,
+			text=True,
+		).stdout.split()
+	except CalledProcessError as error:
+		sys.exit(f"\n{error.stderr}")
 
 
 @nala.command("update", help=_("Update package list."))
