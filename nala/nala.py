@@ -29,11 +29,11 @@ import fnmatch
 import re
 import sys
 from subprocess import run
-from typing import Generator, List, Optional, Pattern
+from typing import Generator, List, Optional, Pattern, cast
 
 import apt_pkg
 import typer
-from apt.package import Package
+from apt import Package, Version
 
 from nala import _, color
 from nala.cache import Cache
@@ -55,7 +55,6 @@ from nala.install import (
 	auto_remover,
 	check_broken,
 	check_state,
-	check_term_ask,
 	fix_excluded,
 	get_changes,
 	install_local,
@@ -97,6 +96,7 @@ from nala.rich import ELLIPSIS
 from nala.search import iter_search, search_name, skip_pkg
 from nala.show import additional_notice, pkg_not_found, show_main
 from nala.utils import (
+	NalaPackage,
 	PackageHandler,
 	ask,
 	command_help,
@@ -295,13 +295,33 @@ def upgrade(
 				cache, tuple(pkg for pkg in cache if pkg.is_inst_broken)
 			).broken_install()
 
-		if kept_back := tuple(
-			pkg
-			for pkg in is_upgrade
-			if not (pkg.marked_upgrade or pkg.marked_delete or pkg in protected)
-		):
-			BrokenError(cache, kept_back).held_pkgs(protected)
-			check_term_ask()
+		# Add any held pkgs to show in the table
+		for pkg in is_upgrade:
+			if (
+				pkg.marked_upgrade
+				or pkg.marked_delete
+				or pkg in protected
+				or not pkg.installed
+			):
+				continue
+
+			if versions := pkg.versions:
+				# After Upgrade they change the candidate for held packages.
+				# This should get the latest version to show.
+				cand = cast(Version, versions[0])
+				nala_pkgs.held_pkgs.append(
+					NalaPackage(
+						pkg.name,
+						cand.version,
+						cand.installed_size,
+						pkg.installed.version,
+					)
+				)
+				continue
+			# Should not hit this, but just in case
+			nala_pkgs.held_pkgs.append(
+				NalaPackage(pkg.name, "Unknown", 0, pkg.installed.version)
+			)
 
 		auto_remover(cache, nala_pkgs)
 		get_changes(cache, nala_pkgs, "upgrade")

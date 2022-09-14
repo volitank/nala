@@ -89,6 +89,7 @@ _CONFIGURE, _CONFIGURING, _CONFIGURED = _(
 SUMMARY_LAYOUT = ("left_adjust", "right_adjust", "left_adjust")
 UPGRADE_LAYOUT = ("pkg_blue", "old_version", "new_version", "pkg_size")
 DOWNGRADE_LAYOUT = ("pkg_yellow", "old_version", "new_version", "pkg_size")
+HELD_LAYOUT = ("pkg_yellow", "old_version", "new_version", "pkg_size")
 DEFAULT_LAYOUT = ("pkg_green", "version", "pkg_size")
 EXTRA_LAYOUT = ("pkg_magenta", "version", "pkg_size")
 REMOVE_LAYOUT = ("pkg_red", "version", "pkg_size")
@@ -118,7 +119,7 @@ COLUMN_MAP: dict[str, dict[str, str | int]] = {
 		"header": f"{PACKAGE}:",
 		"style": "bold orange_red1",
 		"overflow": OVERFLOW,
-		"ratio": 2,
+		"ratio": 3,
 	},
 	"pkg_magenta": {
 		"header": f"{PACKAGE}:",
@@ -195,6 +196,8 @@ class Headers:  # pylint: disable=too-many-instance-attributes
 	configuring: PackageHeaders
 	recommending: PackageHeaders
 	suggesting: PackageHeaders
+	held_pkgs: PackageHeaders
+	# Packages that can be auto removed, but won't
 	not_needed: PackageHeaders | None = None
 
 
@@ -232,6 +235,9 @@ def get_headers() -> Headers:
 		PackageHeaders(EXTRA_LAYOUT, _CONFIGURING, _CONFIGURE),
 		PackageHeaders(EXTRA_LAYOUT, _("Recommended, Will Not Be Installed")),
 		PackageHeaders(EXTRA_LAYOUT, _("Suggested, Will Not Be Installed")),
+		PackageHeaders(
+			DOWNGRADE_LAYOUT, _("Kept Back, Will Not Be Upgraded"), _("Kept Back")
+		),
 		PackageHeaders(REMOVE_LAYOUT, _("Auto-Removable, Will Not Be Removed")),
 	)
 
@@ -247,6 +253,9 @@ def get_history_headers() -> Headers:
 		PackageHeaders(DOWNGRADE_LAYOUT, _DOWNGRADED, _DOWNGRADED),
 		PackageHeaders(EXTRA_LAYOUT, _CONFIGURED, _CONFIGURED),
 		PackageHeaders(EXTRA_LAYOUT, _("Recommended, Will Not Be Installed")),
+		PackageHeaders(
+			DOWNGRADE_LAYOUT, _("Kept Back, Will Not Be Upgraded"), _("Kept Back")
+		),
 		PackageHeaders(EXTRA_LAYOUT, _("Suggested, Will Not Be Installed")),
 	)
 
@@ -269,6 +278,7 @@ def gen_printers(
 		(nala_pkgs.configure_pkgs, headers.configuring),
 		(nala_pkgs.recommend_pkgs, headers.recommending),
 		(nala_pkgs.suggest_pkgs, headers.suggesting),
+		(nala_pkgs.held_pkgs, headers.held_pkgs),
 	)
 
 

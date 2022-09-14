@@ -216,6 +216,7 @@ class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	autoremoved: set[str] = field(default_factory=set)
 	user_explicit: list[Package] = field(default_factory=list)
 	local_debs: list[NalaDebPackage] = field(default_factory=list)
+	# Packages that can be auto removed, but won't
 	not_needed: list[NalaPackage] = field(default_factory=list)
 	delete_pkgs: list[NalaPackage] = field(default_factory=list)
 	install_pkgs: list[NalaPackage] = field(default_factory=list)
@@ -228,6 +229,7 @@ class PackageHandler:  # pylint: disable=too-many-instance-attributes
 	suggest_pkgs: list[NalaPackage | list[NalaPackage]] = field(default_factory=list)
 	configure_pkgs: list[NalaPackage] = field(default_factory=list)
 	downgrade_pkgs: list[NalaPackage] = field(default_factory=list)
+	held_pkgs: list[NalaPackage] = field(default_factory=list)
 
 	def no_summary(
 		self, pkg_set: list[NalaPackage] | list[NalaPackage | list[NalaPackage]]
