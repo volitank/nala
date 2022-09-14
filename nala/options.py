@@ -147,6 +147,7 @@ class Arguments:
 		self.raw_dpkg: bool
 		self.purge: bool = False
 		self.fix_broken: bool
+		self.simple_summary: bool
 
 		# Used in Show, List and Search
 		self.all_versions: bool
@@ -188,6 +189,13 @@ class Arguments:
 		if value is None:
 			return
 		self.auto_remove = value
+
+	def set_summary(self, value: bool) -> None:
+		"""Set option."""
+		if value is None:
+			self.simple_summary = self.config.get_bool("simple_summary")
+			return
+		self.simple_summary = value
 
 	def set_purge(self, value: bool) -> None:
 		"""Set option."""
@@ -443,6 +451,13 @@ UPDATE = typer.Option(
 	callback=arguments.set_update,
 	is_eager=True,
 	help=_("Toggle updating the package list."),
+)
+
+SIMPLE = typer.Option(
+	None,
+	callback=arguments.set_summary,
+	is_eager=True,
+	help=_("Toggle a more condensed transaction summary."),
 )
 
 PURGE = typer.Option(

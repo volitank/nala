@@ -60,6 +60,18 @@ OPTIONS
 
 		Automatically select *no* for any prompts which may need your input.
 
+**--simple**, **--no-simple**
+
+	*--simple*
+
+		Show a more simple and condensed transaction summary.
+
+	*--no-simple*
+
+		Show the standard table transatction summary with more information.
+
+		This variant is the **default**
+
 **-o**, **--option**
 	Set options to pass through to **apt**, **nala**, or **dpkg**.
 

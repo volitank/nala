@@ -50,6 +50,7 @@ from nala.options import (
 	RAW_DPKG,
 	RECOMMENDS,
 	REMOVE_ESSENTIAL,
+	SIMPLE,
 	SUGGESTS,
 	UPDATE,
 	VERBOSE,
@@ -360,6 +361,7 @@ def history_summary(
 def history_info(
 	ctx: typer.Context,
 	hist_id: str = HIST_ID,
+	simple: bool = SIMPLE,
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
 ) -> None:
@@ -468,6 +470,7 @@ def history_undo(
 	install_suggests: bool = SUGGESTS,
 	fix_broken: bool = FIX_BROKEN,
 	assume_yes: bool = ASSUME_YES,
+	simple: bool = SIMPLE,
 	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 ) -> None:
