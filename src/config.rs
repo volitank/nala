@@ -1,7 +1,8 @@
 use std::fs;
+use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
-use clap::ArgMatches;
+use clap::{ArgMatches, ValueSource};
 use toml::map::Map;
 use toml::Value;
 
@@ -36,7 +37,7 @@ impl Config {
 		}
 	}
 
-	pub fn new(color: &Color, conf_file: &str) -> Config {
+	pub fn new(color: &Color, conf_file: &Path) -> Config {
 		// Try to read the entire config file and map it.
 		// Return an empty config and print a warning on failure.
 		let config = match Self::read_config(conf_file) {
@@ -66,34 +67,45 @@ impl Config {
 	}
 
 	/// Read and Return the entire toml configuration file
-	fn read_config(conf_file: &str) -> Result<Map<String, Value>> {
+	fn read_config(conf_file: &Path) -> Result<Map<String, Value>> {
 		let conf = fs::read_to_string(conf_file)
-			.with_context(|| format!("Failed to read {conf_file}, using defaults"))?
+			.with_context(|| format!("Failed to read {}, using defaults", conf_file.display()))?
 			// Parse the Toml string
 			.parse::<Value>()
-			.with_context(|| format!("Failed to parse {conf_file}, using defaults"))?
+			.with_context(|| format!("Failed to parse {}, using defaults", conf_file.display()))?
 			// Serialize Toml into a Mapping
 			.try_into::<Map<String, Value>>()
-			.with_context(|| format!("Unable to serialize {conf_file}, using defaults"))?;
+			.with_context(|| {
+				format!(
+					"Unable to serialize {}, using defaults",
+					conf_file.display()
+				)
+			})?;
 		Ok(conf)
 	}
 
 	/// Read and Return a specific section of the configuration file
 	fn read_section(
 		config_map: &Map<String, Value>,
-		conf_file: &str,
+		conf_file: &Path,
 		section: &str,
 	) -> Result<Map<String, Value>> {
 		let section_map = config_map
 			.get(section)
 			.with_context(|| {
-				format!("Section '[{section}]' was not found in {conf_file}, using defaults")
+				format!(
+					"Section '[{section}]' was not found in {}, using defaults",
+					conf_file.display()
+				)
 			})?
 			// Clone and Serialize the Nala section into its own Map
 			.clone()
 			.try_into::<Map<String, Value>>()
 			.with_context(|| {
-				format!("Unable to map '[{section}]' from {conf_file}, using defaults")
+				format!(
+					"Unable to map '[{section}]' from {}, using defaults",
+					conf_file.display()
+				)
 			})?;
 		Ok(section_map)
 	}
@@ -105,22 +117,41 @@ impl Config {
 			"verbose",
 			"description",
 			"summary",
-			"all_versions",
+			"all-versions",
 			"installed",
-			"nala_installed",
+			"nala-installed",
 			"upgradable",
 			"virtual",
 			"names",
 		];
 
 		for opt in bool_opts {
-			match *args.get_one(opt).unwrap_or(&false) {
-				true => self.set_bool(opt, true),
-				false => self.set_bool(opt, false),
+			// Clap seems to work differently in a release build
+			// For a debug build we need to check for an error
+			if args.try_get_one::<bool>(opt).is_err() {
+				self.set_bool(opt, false);
+				continue;
+			}
+
+			// If the flag exists
+			if let Some(value) = args.get_one::<bool>(opt) {
+				// And the flag was passed from the command line
+				if let Some(ValueSource::CommandLine) = args.value_source(opt) {
+					// Set the config
+					self.set_bool(opt, *value);
+					continue;
+				}
+			}
+
+			// If the flag doesn't exist, wasn't passed by the user, and isn't present in
+			// the config
+			if self.nala_map.get(opt).is_none() {
+				// set it to false
+				self.set_bool(opt, false)
 			}
 		}
 
-		if let Some(pkg_names) = args.get_many::<String>("pkg_names") {
+		if let Some(pkg_names) = args.get_many::<String>("pkg-names") {
 			let pkgs: Vec<String> = pkg_names.cloned().collect();
 			self.pkg_names = if pkgs.is_empty() { None } else { Some(pkgs) };
 

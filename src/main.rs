@@ -1,12 +1,15 @@
+use std::path::PathBuf;
 use std::process::ExitCode;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
+use clap::{CommandFactory, FromArgMatches};
 
 mod cli;
 mod colors;
 mod config;
 mod list;
 mod util;
+use crate::cli::NalaParser;
 use crate::colors::Color;
 use crate::config::Config;
 use crate::list::{list, search};
@@ -21,27 +24,33 @@ fn main() -> ExitCode {
 }
 
 fn main_nala(color: &mut Color) -> Result<()> {
-	let args = cli::build().get_matches();
-	let conf_file = match args.get_one::<String>("config") {
-		Some(string) => string,
-		None => "/etc/nala/nala.conf",
+	let args = NalaParser::command().get_matches();
+	let derived = NalaParser::from_arg_matches(&args)?;
+
+	let conf_file = match derived.config {
+		Some(path) => path,
+		None => PathBuf::from("/etc/nala/nala.conf"),
 	};
-	let mut config = Config::new(color, conf_file);
+
+	let mut config = Config::new(color, &conf_file);
 	color.update_from_config(&config)?;
 
-	if *args.get_one::<bool>("license").unwrap_or(&false) {
+	if derived.license {
 		println!("Not Yet Implemented.");
 		return Ok(());
 	}
 
-	if let Some((name, cmd)) = args.subcommand() {
-		config.load_args(cmd);
-		match name {
-			"list" => list(&config, color)?,
-			"search" => search(&config, color)?,
-			// Match other subcommands here...
-			_ => return Err(anyhow!("Unknown error in the argument parser")),
-		}
+	match args.subcommand() {
+		Some((name, cmd)) => {
+			config.load_args(cmd);
+			match name {
+				"list" => list(&config, color)?,
+				"search" => search(&config, color)?,
+				// Match other subcommands here...
+				_ => return Err(anyhow!("Unknown error in the argument parser")),
+			}
+		},
+		None => bail!("No subcommand was supplied"),
 	}
 	Ok(())
 }
