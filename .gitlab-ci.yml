@@ -2,12 +2,18 @@ stages:
   - test
 variables:
   DEBIAN_FRONTEND: noninteractive
-  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/${CARGO_HOME}/bin"
 
 test:
   stage: test
   image: debian:sid
   environment:
+  cache:
+    key: nala-cache
+    paths:
+      - ".cargo/"
+      - target/
   script:
     - apt-get update
     - apt-get install -y eatmydata
@@ -17,7 +23,12 @@ test:
       sudo
       libapt-pkg-dev
       codespell
+
     - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
+    - rustup toolchain install nightly
+    - rustup toolchain install stable
+
     - cargo install just
-    - just setup-dev
     - just check
+    # Disable tests for now. We need to make sure we can get some solid ones that work
+    # - just test

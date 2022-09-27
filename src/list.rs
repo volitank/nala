@@ -454,6 +454,8 @@ mod test {
 
 	#[test]
 	fn description() {
+		// TODO: This test is not working in the CI.
+		// The full description isn't happening. Must investigate
 		let mut out = Vec::new();
 		let cache = Cache::new();
 		let mut config = Config::default();
@@ -514,6 +516,7 @@ mod test {
 		// Match the description. This may change with different versions of dpkg
 		let mut string = String::from("\u{1b}[1m(\u{1b}[0m\u{1b}[1;38;5;12m");
 		string += "1.21.9";
+		// TODO: In the CI this say Installed and Automatic. Fix it eventually
 		string += "\u{1b}[0m\u{1b}[1m)\u{1b}[0m [Debian/unstable main] [Installed]\n";
 
 		dbg!(&output);
