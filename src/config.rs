@@ -148,21 +148,21 @@ impl Config {
 				None => continue,
 			};
 
-			let color_type = match &theme.color {
-				SerdeColor::Text(string) => ColorType::from_str(string)?,
-				SerdeColor::Integer(int) => ColorType::from_u8(int),
-				SerdeColor::Array(array) => ColorType::from_array(array),
-			};
-
-			let style = match &theme.style {
-				SerdeStyle::Text(string) => Style::from_str(string)?,
-				SerdeStyle::Integer(int) => Style::from_u8(int)?,
-				SerdeStyle::Array(vector) => Style::from_array(vector)?,
-			};
-
-			let theme = Theme::new(style, color_type);
-
-			self.color.color_map.insert(*key, theme);
+			self.color.color_map.insert(
+				*key,
+				Theme::new(
+					match &theme.style {
+						SerdeStyle::Text(string) => Style::from_str(string)?,
+						SerdeStyle::Integer(int) => Style::from_u8(int)?,
+						SerdeStyle::Array(vector) => Style::from_array(vector)?,
+					},
+					match &theme.color {
+						SerdeColor::Text(string) => ColorType::from_str(string)?,
+						SerdeColor::Integer(int) => ColorType::from_u8(int),
+						SerdeColor::Array(array) => ColorType::from_array(array),
+					},
+				),
+			);
 		}
 		Ok(())
 	}

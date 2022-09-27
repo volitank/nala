@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use anyhow::{bail, Result};
-use glob::Pattern;
 use regex::{Regex, RegexBuilder};
 use rust_apt::cache::{Cache, PackageSort};
 use rust_apt::package::{Package, Version};
@@ -11,35 +10,12 @@ use crate::config::Config;
 use crate::dprint;
 
 struct Matcher {
-	globs: Vec<Pattern>,
 	regexs: Vec<Regex>,
 }
 
 impl Matcher {
-	/// Simple wrapper to easy create globs only
-	pub fn new_glob(globs: Vec<Pattern>) -> Matcher {
-		Matcher {
-			globs,
-			regexs: Vec::new(),
-		}
-	}
-
 	/// Simple wrapper to easy create regex only
-	pub fn new_regex(regexs: Vec<Regex>) -> Matcher {
-		Matcher {
-			globs: Vec::new(),
-			regexs,
-		}
-	}
-
-	/// Turn an iterator of strings into glob patters.
-	pub fn from_globs<T: AsRef<str>>(strings: &[T]) -> Result<Matcher> {
-		let mut globs = Vec::new();
-		for string in strings {
-			globs.push(Pattern::new(string.as_ref())?);
-		}
-		Ok(Matcher::new_glob(globs))
-	}
+	pub fn new_regex(regexs: Vec<Regex>) -> Matcher { Matcher { regexs } }
 
 	/// Turn an iterator of strings into regex patterns.
 	pub fn from_regexs<T: AsRef<str>>(strings: &[T]) -> Result<Matcher> {
@@ -83,8 +59,7 @@ impl Matcher {
 				continue;
 			}
 
-			// Get either the candidate or the first version
-			// Maybe only do the candidate or first version in the list like apt?
+			// Search all versions for a matching description
 			for ver in pkg.versions().collect::<Vec<Version>>() {
 				if let Some(desc) = ver.description() {
 					for regex in &self.regexs {
@@ -98,32 +73,6 @@ impl Matcher {
 			}
 		}
 		(found_pkgs, not_found)
-	}
-
-	/// Matches only package names.
-	/// Return found Packages, and not found regex &str.
-	/// Item, Container: IntoIterator<Item=Item>
-	pub fn glob_pkgs<'a, Container: IntoIterator<Item = Package<'a>>>(
-		&self,
-		packages: Container,
-	) -> (Vec<Package<'a>>, HashSet<String>) {
-		let mut found = Vec::new();
-		let mut not_found =
-			HashSet::from_iter(self.globs.iter().map(|glob| glob.as_str().to_string()));
-
-		for pkg in packages {
-			// Glob and split up what is found and not found
-			for glob in &self.globs {
-				if glob.matches(&pkg.name()) {
-					found.push(pkg);
-					// Remove the glob from not_found
-					not_found.remove(glob.as_str());
-					break;
-				}
-			}
-		}
-		// Finally return found Packages, and not found glob String
-		(found, not_found)
 	}
 }
 
@@ -159,17 +108,11 @@ pub fn list(config: &Config, color: &Color) -> Result<()> {
 	let mut out = std::io::stdout().lock();
 	let cache = Cache::new();
 
-	// Filter the packages by names if they were provided
 	let sort = get_sorter(config);
+
 	let (packages, not_found) = match config.pkg_names() {
-		Some(pkg_names) => {
-			let matcher = Matcher::from_globs(pkg_names)?;
-			matcher.glob_pkgs(cache.packages(&sort))
-		},
-		None => (
-			cache.packages(&sort).collect::<Vec<Package>>(),
-			HashSet::new(),
-		),
+		Some(pkg_names) => cache.glob_pkgs(&sort, pkg_names),
+		None => (cache.packages(&sort).collect(), vec![]),
 	};
 
 	// List the packages that were found
@@ -200,7 +143,7 @@ fn list_packages(
 
 	// We at least have one package so we can begin listing.
 	for pkg in packages {
-		if config.get_bool("all_versions", false) && pkg.has_versions() {
+		if config.get_bool("all-versions", false) && pkg.has_versions() {
 			for version in pkg.versions() {
 				write!(out, "{} ", color.package(&pkg.fullname(true)))?;
 				list_version(out, config, color, &pkg, &version)?;
@@ -531,8 +474,7 @@ mod test {
 
 		// Results are based on Debian Sid
 		// These results could change and require updating
-		let matcher = Matcher::from_globs(&["apt?y", "aptly*"]).unwrap();
-		let (packages, _not_found) = matcher.glob_pkgs(cache.packages(&sort));
+		let packages: Vec<Package> = cache.glob_pkgs(&sort, &["apt?y", "aptly*"]).0;
 
 		// print just for easy debugging later
 		for pkg_name in &packages {

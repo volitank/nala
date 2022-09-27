@@ -30,6 +30,10 @@ build:
 	@cargo build
 	@echo Project successfully built!
 
+# Build with custom release profile
+release:
+	@RUSTFLAGS="-C target-cpu=native" cargo build --profile=lto
+
 # Run the tests
 test +ARGS="":
 	@cargo test -- --test-threads 1 {{ARGS}}
