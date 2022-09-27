@@ -2,17 +2,13 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use toml::Value;
-
-use crate::config::Config;
-use crate::util::dprint;
 
 static RESET: &str = "\x1b[0m";
 
 lazy_static! {
-	static ref COLOR_MAP: HashMap<&'static str, u8> = HashMap::from([
+	pub static ref COLOR_MAP: HashMap<&'static str, u8> = HashMap::from([
 		("black", 0),
 		("red", 1),
 		("green", 2),
@@ -37,7 +33,7 @@ lazy_static! {
 }
 
 #[repr(u8)]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// Ansi Color Styles
 pub enum Style {
 	/// Text is Normal
@@ -85,7 +81,7 @@ impl Style {
 	}
 
 	/// Load a Style from an int such as `1` for Bold
-	pub fn from_i64(value: &i64) -> Result<Style> {
+	pub fn from_u8(value: &u8) -> Result<Style> {
 		match value {
 			0 => Ok(Style::Normal),
 			1 => Ok(Style::Bold),
@@ -121,17 +117,13 @@ impl Style {
 	/// Load a style from a toml array
 	///
 	/// Return `Style::Multiple(String)`
-	pub fn from_toml_array(vector: &Vec<Value>) -> Result<Style> {
+	pub fn from_array(vector: &Vec<String>) -> Result<Style> {
 		let last = vector.len() - 1;
 		let mut string = String::new();
 		for (i, value) in vector.iter().enumerate() {
-			let style = match value {
-				Value::Integer(int) => Style::from_i64(int)?,
-				Value::String(string) => Style::from_str(string)?,
-				_ => return Err(anyhow!("RGB Value should be 'int' not '{value:?}'")),
-			};
-
-			string += style.as_str();
+			// let style = Style::from_str(value)?;
+			// Converting to style and then getting the str allows extra type checking
+			string += Style::from_str(value)?.as_str();
 			if i != last {
 				string += ";"
 			}
@@ -158,10 +150,7 @@ pub enum ColorType {
 }
 
 impl ColorType {
-	pub fn from_i64(value: &i64) -> Result<ColorType> {
-		let num = u8::try_from(*value).with_context(|| "Int must be in range 0...255")?;
-		Ok(ColorType::Standard(num))
-	}
+	pub fn from_u8(value: &u8) -> ColorType { ColorType::Standard(*value) }
 
 	pub fn from_str(value: &str) -> Result<ColorType> {
 		match value {
@@ -185,28 +174,8 @@ impl ColorType {
 		}
 	}
 
-	pub fn from_toml_array(vector: &Vec<Value>) -> Result<ColorType> {
-		let total = vector.len();
-		if total != 3 {
-			return Err(anyhow!("RGB Value should contain 3 integers not {total}"));
-		}
-
-		let mut string = String::new();
-		for (num, value) in vector.iter().enumerate() {
-			match value {
-				Value::Integer(int) => {
-					let rgb = u8::try_from(*int).with_context(|| "Int must be in range 0...255")?;
-					string += &rgb.to_string();
-					if num != 2 {
-						string += ";";
-					}
-				},
-				_ => {
-					return Err(anyhow!("RGB Value should be 'int' not '{value:?}'"));
-				},
-			}
-		}
-		Ok(ColorType::Rgb(string))
+	pub fn from_array(array: &[u8; 3]) -> ColorType {
+		ColorType::Rgb(format!("{};{};{}", array[0], array[1], array[2]))
 	}
 }
 
@@ -221,21 +190,15 @@ impl fmt::Display for ColorType {
 
 #[derive(Debug)]
 pub struct Theme {
-	#[allow(dead_code)]
-	/// Name is used for debug purposes
-	name: &'static str,
 	style: Style,
 	color: ColorType,
 }
 
 impl Theme {
-	pub fn new(name: &'static str, style: Style, color: ColorType) -> Self {
-		Self { name, style, color }
-	}
+	pub fn new(style: Style, color: ColorType) -> Self { Self { style, color } }
 
-	pub fn default(name: &'static str, color: ColorType) -> Self {
+	pub fn default(color: ColorType) -> Self {
 		Self {
-			name,
 			style: Style::Bold,
 			color,
 		}
@@ -243,71 +206,26 @@ impl Theme {
 }
 
 /// Color text based on Style and ColorCodes
+#[derive(Debug)]
 pub struct Color {
 	can_color: bool,
-	color_map: HashMap<&'static str, Theme>,
+	pub color_map: HashMap<&'static str, Theme>,
 }
 
-impl Color {
-	pub fn default() -> Color {
+impl Default for Color {
+	fn default() -> Color {
 		let mut color_map: HashMap<&'static str, Theme> = HashMap::new();
 		for (color, code) in &*COLOR_MAP {
-			color_map.insert(color, Theme::default(color, ColorType::Standard(*code)));
+			color_map.insert(color, Theme::default(ColorType::Standard(*code)));
 		}
 		Color {
 			can_color: true,
 			color_map,
 		}
 	}
+}
 
-	pub fn update_from_config(&mut self, config: &Config) -> Result<()> {
-		let config_map = match config.color_map.as_ref() {
-			Ok(map) => map,
-			Err(_err) => {
-				// Disable the warning when theme section is missing.
-				// It is not important enough to warrant a warning.
-				// self.warn(&format!("{err:?}"));
-				return Ok(());
-			},
-		};
-
-		// Iterate the key, value of the [Theme] Configuration
-		for (string, value) in config_map.iter() {
-			let conf_key = string.as_str();
-
-			// If the key is not in the defaults, ignore it
-			if !self.color_map.contains_key(conf_key) {
-				continue;
-			}
-
-			match value {
-				// Each Theme should be a table
-				Value::Table(table) => {
-					dprint!(config, "Loading '{conf_key}' from config");
-					let (key, _unused) = self.color_map.get_key_value(conf_key).unwrap();
-					let theme = Theme::new(
-						key,
-						config
-							.get_style(table, "style")
-							.with_context(|| format!("Invalid value for '{key}.style'"))?,
-						config
-							.get_color(table, "color", *COLOR_MAP.get(key).unwrap())
-							.with_context(|| format!("Invalid value for '{key}.color'"))?,
-					);
-					dprint!(config, "Loaded {theme:?}");
-					self.color_map.insert(key, theme);
-				},
-				_ => {
-					return Err(anyhow!(
-						"Invalid value for '{conf_key}': Unsupported Type '{}'",
-						value.type_str()
-					))
-				},
-			}
-		}
-		Ok(())
-	}
-
+impl Color {
 	/// Color a string based on a Theme
 	pub fn color<'a>(&self, theme: &Theme, string: &'a str) -> Cow<'a, str> {
 		if self.can_color {
