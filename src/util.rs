@@ -200,3 +200,18 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 	}
 	Ok(virtual_filtered)
 }
+
+#[link(name = "c")]
+extern "C" {
+	pub fn geteuid() -> u32;
+}
+
+/// Get the username or return Unknown.
+pub fn get_user() -> String {
+	for key in ["LOGNAME", "USER", "LNAME", "USERNAME"] {
+		if let Ok(name) = std::env::var(key) {
+			return name;
+		}
+	}
+	"Unknown".to_string()
+}

@@ -4,12 +4,14 @@ use std::process::ExitCode;
 use anyhow::{bail, Result};
 use clap::{CommandFactory, FromArgMatches};
 use downloader::download;
+use history::history_test;
 
 mod clean;
 mod cli;
 mod colors;
 mod config;
 mod downloader;
+mod history;
 mod list;
 mod show;
 mod util;
@@ -63,6 +65,7 @@ fn main_nala(color: &Color) -> Result<()> {
 			"show" => show(&config)?,
 			"clean" => clean(&config)?,
 			"download" => download(&config)?,
+			"history" => history_test(&config)?,
 			// Match other subcommands here...
 			_ => bail!("Unknown error in the argument parser"),
 		}
