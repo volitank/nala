@@ -72,6 +72,7 @@ from nala.rich import (
 	dpkg_progress,
 	from_ansi,
 	spinner,
+	to_str,
 )
 from nala.utils import dprint, eprint, term, unit_str
 
@@ -312,7 +313,7 @@ class UpdateProgress(text.AcquireProgress):
 				fetched=FETCHED,
 				size=unit_str(int(self.fetched_bytes)).strip(),
 				elapsed=apt_pkg.time_to_str(elapsed_time),
-				speed=unit_str(int(fetched_speed)).strip(),
+				speed=to_str(int(fetched_speed), 1000).strip(),
 			)
 		)
 
