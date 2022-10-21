@@ -292,11 +292,11 @@ msgstr "Zatrzymano następujące pakiety:"
 
 #: nala/error.py:301
 msgid "The following were held due to exclusions:"
-msgstr ""
+msgstr "Poniższe zostało pozostawione z powodu wykluczeń:"
 
 #: nala/error.py:303
 msgid "Nala was unable to determine why these were held:"
-msgstr ""
+msgstr "Nala nie potrafiła ustalić dlaczego pozostawiono:"
 
 #: nala/error.py:383
 msgid "{package} but it isn't in the cache"
@@ -506,7 +506,7 @@ msgstr "Czy te serwery są w porządku?"
 
 #: nala/fetch.py:303
 msgid "Fetching {distro} mirrors"
-msgstr ""
+msgstr "Pobieranie {distro} serwerów lustrzanych"
 
 #: nala/fetch.py:351
 msgid "{error} Internal Error. Distro detection must be broken"
@@ -522,7 +522,7 @@ msgstr "Przetwarzanie listy serwerów"
 
 #: nala/fetch.py:599
 msgid "Score is how many milliseconds it takes to download the Release file"
-msgstr ""
+msgstr "Wynik podany jest w milisekundach zmierzonych po pobraniu pliku wyjściowego"
 
 #: nala/fetch.py:610
 msgid "Mirrors you want to keep separated by spaces {selection}:"
@@ -586,7 +586,7 @@ msgstr "Wybór wydania Ubuntu."
 
 #: nala/fetch.py:755
 msgid "Choose the Devuan release."
-msgstr ""
+msgstr "Wybierz wydanie Devuan."
 
 #: nala/fetch.py:759
 msgid "Number of mirrors to fetch. [defaults: 16, --auto(3)]"
@@ -598,7 +598,7 @@ msgstr "Dodaj serwery ze źródłami jeśli istnieją."
 
 #: nala/fetch.py:769
 msgid "Add contrib and non-free repos."
-msgstr ""
+msgstr "Dodaj repozytoria contrib i non-free"
 
 #: nala/fetch.py:774
 msgid "Run fetch uninteractively. Will still prompt for overwrite."
@@ -610,7 +610,7 @@ msgstr "Wybór wyłącznie serwerów o danym kodzie ISO."
 
 #: nala/fetch.py:812
 msgid "{error} Nala was unable to find any mirrors."
-msgstr ""
+msgstr "{error} Nala nie była w stanie znaleść żadnych serwerów lustrzanych."
 
 #: nala/downloader.py:92
 msgid "Starting Downloads"
@@ -943,7 +943,7 @@ msgstr ""
 
 #: nala/install.py:329
 msgid "{error} The following {hook_type} commands cannot be found."
-msgstr ""
+msgstr "{error} Następujące {hook_type} komendy nie zostały odnalezione."
 
 #: nala/install.py:347
 msgid "Log Started: [{date}]"
