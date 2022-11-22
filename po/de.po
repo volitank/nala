@@ -1,105 +1,537 @@
+
 msgid ""
 msgstr ""
 "Project-Id-Version:  Nala\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2022-08-01 18:55-0400\n"
+"POT-Creation-Date: 2022-11-22 00:13-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
 "Language-Team: de <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.8.0\n"
+"Generated-By: Babel 2.10.3\n"
 
-#: nala/history.py:84
-msgid "{error} '{command}' for operations other than install or remove are not currently supported"
-msgstr "{error} '{command}' für andere Vorgänge als Installieren oder Entfernen werden derzeit nicht unterstützt"
+#. Answers for the Question prompt "[Y/n]"
+#: nala/utils.py:64
+msgid "Y/y N/n"
+msgstr "J/j N/n"
 
-#: nala/history.py:88
-msgid "Show transaction history.\n"
-"\n"
-"Running `nala history` with no subcommands prints an overview of all transactions."
-msgstr "Transaktionsverlauf anzeigen.\n"
-"\n"
-"Das Ausführen von `nala history` ohne Unterbefehle druckt eine Übersicht aller Transaktionen."
+#: nala/utils.py:126
+msgid "Terminal can't support dialog, falling back to readline"
+msgstr "Terminal kann Dialoge nicht unterstützen und greift auf readline zurück"
 
-#: nala/history.py:103
-msgid "{error} History file seems corrupt. You should try removing {file}"
-msgstr "{error} Die Verlaufsdatei scheint beschädigt zu sein. Sie sollten versuchen, {file} zu entfernen"
+#: nala/utils.py:311
+msgid ""
+"{command} is not a command\n"
+"Did you mean {correction}?"
+msgstr ""
+"{command} ist kein Befehl\n"
+"Meinten Sie {correction}?"
 
-#: nala/history.py:120 nala/history.py:318 nala/history.py:339
-msgid "{error} No history exists."
-msgstr "{error} Es existiert kein Verlauf."
+#: nala/utils.py:343
+msgid "{error} failed regex compilation '{error_msg} at position {position}'"
+msgstr "{error} RegEx Kompilierung fehlgeschlagen '{error_msg}' bei Position {position}'"
 
-#: nala/history.py:124
-msgid "{error} Transaction {num} doesn't exist."
-msgstr "{error} Transaktion {num} existiert nicht."
+#: nala/utils.py:354
+msgid "{error} Nala needs root to fix broken packages"
+msgstr "{error} Nala benötigt root, um defekte Pakete zu reparieren"
 
-#: nala/history.py:291
-msgid "Transaction number"
-msgstr "Transaktionsnummer"
+#: nala/utils.py:359
+msgid "{error} Nala needs root to {command}"
+msgstr "{error} Nala braucht root für {command}"
 
-#: nala/history.py:303
-msgid "Show packages that were explicitly installed with Nala"
-msgstr "Pakete anzeigen, die explizit mit Nala installiert wurden"
+#: nala/utils.py:382
+msgid "{error} Nala is already running another instance {last_pid}"
+msgstr "{error} Nala führt bereits eine andere Instanz aus {last_pid}"
 
-#: nala/history.py:357
-msgid "Show information about a specific transaction."
-msgstr "Informationen zu einer bestimmten Transaktion anzeigen."
+#: nala/utils.py:418
+msgid "Removing files in {dir}"
+msgstr "Dateien in {dir} werden entfernt"
 
-#: nala/history.py:396
-msgid "Nala needs root to clear history"
-msgstr "Nala braucht Root, um den Verlauf zu löschen"
+#: nala/utils.py:421
+msgid "Removed: {filename}"
+msgstr "Entfernt: {filename}"
 
-#: nala/history.py:398
-msgid "Nala needs root to redo history"
-msgstr "Nala benötigt Root, um den Verlauf wiederherzustellen"
+#: nala/utils.py:439 nala/utils.py:457
+msgid "{error} can't find version for {package}"
+msgstr "{error} kann Version für {package} nicht finden"
 
-#: nala/history.py:399
-msgid "Nala needs root to undo history"
-msgstr "Nala benötigt Root, um den Verlauf rückgängig zu machen"
+#: nala/nala.py:122
+msgid "There are broken packages that need to be fixed!"
+msgstr "Es gibt beschädigte Pakete, die repariert werden müssen!"
 
-#: nala/history.py:413
-msgid "History has been cleared"
-msgstr "Der Verlauf wurde gelöscht"
+#: nala/nala.py:124
+msgid "You can use {switch} if you'd like to try without fixing them."
+msgstr "Sie können {switch} verwenden, wenn Sie es versuchen möchten, ohne sie zu reparieren."
 
-#: nala/history.py:417
-msgid "Clear a transaction or the entire history."
-msgstr "Löschen Sie eine Transaktion oder den gesamten Verlauf."
+#: nala/nala.py:169
+msgid "{error} Missing packages to install"
+msgstr "{error} Fehlende Pakete zum Installieren"
 
-#: nala/history.py:422
-msgid "Clear the entire history."
-msgstr "Löschen Sie den gesamten Verlauf."
+#: nala/nala.py:230
+msgid "Update package list."
+msgstr "Paketliste aktualisieren."
 
-#: nala/history.py:431
-msgid "No history exists to clear"
-msgstr "Es ist kein Verlauf zum Löschen vorhanden"
+#: nala/nala.py:245
+msgid "Update package list and upgrade the system."
+msgstr "Aktualisieren Sie die Paketliste und aktualisieren Sie das System."
 
-#: nala/history.py:436
-msgid "{error} ID: {hist_id} does not exist in the history"
-msgstr "{error} ID: {hist_id} existiert nicht im Verlauf"
+#: nala/nala.py:251
+msgid "Specify packages to exclude during upgrade. Accepts glob*"
+msgstr "Geben Sie Pakete an, die während des Upgrades ausgeschlossen werden sollen. Akzeptiert Glob*"
 
-#: nala/history.py:451
-msgid "History has been altered"
-msgstr "Der Verlauf wurde geändert"
+#: nala/nala.py:258
+msgid "Toggle full-upgrade"
+msgstr "Vollständiges Upgrade umschalten"
 
-#: nala/history.py:454
-msgid "Undo a transaction."
-msgstr "Machen Sie eine Transaktion rückgängig."
+#: nala/nala.py:289
+msgid "Would you like us to protect these and try again?"
+msgstr "Möchten Sie, dass wir diese schützen und es erneut versuchen?"
 
-#: nala/history.py:455
-msgid "Redo a transaction."
-msgstr "Wiederholen Sie eine Transaktion."
+#: nala/error.py:581 nala/install.py:232 nala/nala.py:294
+msgid "{error} You have held broken packages"
+msgstr "{error} Sie haben beschädigte Pakete zurückgehalten"
 
-#: nala/history.py:497
-msgid "{warning} This history entry was a purge."
-msgstr "{warning} Dieser Geschichtseintrag war ein purge."
+#: nala/nala.py:337
+msgid "Install packages."
+msgstr "Pakete installieren."
 
-#: nala/history.py:501
-msgid "Do you want to continue with purge enabled?"
-msgstr "Möchten Sie mit aktiviertem purge fortfahren?"
+#: nala/nala.py:344
+msgid "Package(s) to install"
+msgstr "Paket(e) zu installieren"
+
+#: nala/nala.py:367
+msgid "Remove packages."
+msgstr "Pakete entfernen."
+
+#: nala/nala.py:368
+msgid "Purge packages."
+msgstr "Pakete vollständig entfernen (inkl. Konfigurationsdateien)."
+
+#: nala/nala.py:375
+msgid "Package(s) to remove/purge"
+msgstr "Paket(e) zu entfernen"
+
+#: nala/nala.py:397
+msgid "Autoremove packages that are no longer needed."
+msgstr "Alle nicht mehr verwendeten Pakete automatisch entfernen."
+
+#: nala/nala.py:398
+msgid "Autopurge packages that are no longer needed."
+msgstr "Alle nicht mehr verwendeten Pakete automatisch entfernen. (inkl. Konfigurationsdateien)"
+
+#: nala/nala.py:419
+msgid "{error} {config} must be used with either {autoremove} or {autopurge}."
+msgstr "{error} {config} muss entweder mit {autoremove} oder {autopurge} verwendet werden."
+
+#: nala/nala.py:434
+msgid "Show package details."
+msgstr "Paketdetails anzeigen."
+
+#: nala/nala.py:440
+msgid "Package(s) to show"
+msgstr "Paket(e) zu zeigen"
+
+#: nala/nala.py:471
+msgid "Search package names and descriptions."
+msgstr "Suchen Sie nach Paketnamen und Beschreibungen."
+
+#: nala/nala.py:476
+msgid "Regex or word to search for"
+msgstr "Regex oder Wort, nach dem gesucht werden soll"
+
+#: nala/nala.py:519
+msgid "{error} {regex} not found."
+msgstr "{error} {regex} nicht gefunden."
+
+#: nala/nala.py:526
+msgid "List packages based on package names."
+msgstr "Listen Sie Pakete basierend auf Paketnamen auf."
+
+#: nala/nala.py:531
+msgid "Package(s) to list."
+msgstr "Paket(e) zur Liste."
+
+#: nala/nala.py:580
+msgid "Nothing was found to list."
+msgstr "Es wurde nichts zum Auflisten gefunden."
+
+#: nala/nala.py:583
+msgid "Clear out the local archive of downloaded package files."
+msgstr "Löscht das lokale Repository von abgerufenen Paketdateien."
+
+#: nala/nala.py:597
+msgid "Package lists have been cleaned"
+msgstr "Paketlisten wurden bereinigt"
+
+#: nala/nala.py:601
+msgid "Nala sources.list has been cleaned"
+msgstr "Nala sources.list wurde bereinigt"
+
+#: nala/nala.py:607
+msgid ""
+"Removing {cache}\n"
+"Removing {src_cache}"
+msgstr ""
+"{cache} wird entfernt\n"
+"{src_cache} entfernen"
+
+#: nala/nala.py:614
+msgid "Cache has been cleaned"
+msgstr "Cache wurde bereinigt"
+
+#: nala/nala.py:617
+msgid "I beg, pls moo"
+msgstr "Ich bitte, pls moo"
+
+#: nala/nala.py:625
+msgid "I can't moo for I'm a cat"
+msgstr "Ich kann nicht muhen, denn ich bin eine Katze"
+
+#: nala/nala.py:628
+msgid "What did you expect to update?"
+msgstr "Was wolltest du aktualisieren?"
+
+#: nala/nala.py:632
+msgid "What did you expect no-update to do?"
+msgstr "Was hast du von no-update erwartet?"
+
+#: nala/install.py:126
+msgid "Purging configuration files for {package}"
+msgstr "Konfigurationsdateien für {package} löschen"
+
+#: nala/install.py:206
+msgid "{notice} Selected packages cannot be excluded from upgrade safely."
+msgstr "{notice} Ausgewählte Pakete können nicht sicher vom Upgrade ausgeschlossen werden."
+
+#: nala/install.py:228
+msgid "{error} Unable to calculate how to protect the selected packages"
+msgstr "{error} Es kann nicht berechnet werden, wie die ausgewählten Pakete geschützt werden sollen"
+
+#: nala/install.py:234
+msgid "{notice} The following packages need to be protected as well:"
+msgstr "{notice} Die folgenden Pakete müssen ebenfalls geschützt werden:"
+
+#: nala/install.py:289
+msgid "{error} The following hook arguments are invalid: {args}"
+msgstr "{error} Die folgenden Hook-Argumente sind ungültig: {args}"
+
+#: nala/install.py:337
+msgid "{error} The following {hook_type} commands cannot be found."
+msgstr "{error} Die folgenden {hook_type} Befehle konnten nicht gefunden werden."
+
+#: nala/install.py:355
+msgid "Log Started: [{date}]"
+msgstr "Protokoll gestartet: [{date}]"
+
+#: nala/install.py:369
+msgid "Log Ended: [{date}]"
+msgstr "Protokoll beendet: [{date}]"
+
+#: nala/install.py:430
+msgid "{error} Fetching packages has failed!"
+msgstr "{error} Das Abrufen von Paketen ist fehlgeschlagen!"
+
+#: nala/install.py:433 nala/install.py:1072
+msgid "Exiting due to SIGINT"
+msgstr "Verlassen wegen SIGINT"
+
+#: nala/install.py:444
+msgid "{notice} A reboot is required."
+msgstr "{notice} Ein Neustart ist erforderlich."
+
+#: nala/install.py:445
+msgid "Finished Successfully"
+msgstr "Erfolgreich beendet"
+
+#: nala/install.py:507
+msgid "{notice} The following will be installed to satisfy {package}:"
+msgstr "{notice} Folgendes wird installiert, um {package} zu erfüllen:"
+
+#: nala/install.py:550
+msgid ""
+"{notice} Newer version {package} {version} exists in the cache.\n"
+"You should consider using `{command}`"
+msgstr ""
+"{notice} Neuere Version {package} {version} ist im Cache vorhanden.\n"
+"Sie sollten die Verwendung von `{command}` in Betracht ziehen"
+
+#: nala/install.py:593
+msgid "{notice} {deb} has taken priority over {package} from the cache."
+msgstr "{notice} {deb} hat Priorität über {package} aus dem Cache genommen."
+
+#: nala/downloader.py:248 nala/install.py:613
+msgid ""
+"{error} No content length in response from {url}\n"
+"  Ensure the URL points to a Debian Package"
+msgstr ""
+
+#: nala/install.py:650
+msgid ""
+"{error} It is not secure to download a package without a hashsum verification.\n"
+"  If you are sure you do NOT want verification, use '-o APT::Get::AllowUnauthenticated=true'"
+msgstr ""
+
+#: nala/install.py:696
+msgid "{error} Hash does not match the '{hash_type}' Length"
+msgstr ""
+
+#: nala/install.py:703
+msgid "{error} Hash Type '{hash_type}' specified with no hash"
+msgstr ""
+
+#: nala/install.py:710
+#, fuzzy
+msgid "{error} Hash Type '{hash_type}' is unsupported"
+msgstr "{error} {distro} {release} wird nicht unterstützt."
+
+#: nala/install.py:856
+msgid "{error} Version {version} not found for package {package}"
+msgstr "{error} Version {version} für Paket {package} nicht gefunden"
+
+#: nala/install.py:912 nala/install.py:926
+msgid "Virtual Package"
+msgstr "Virtuelles Paket"
+
+#: nala/install.py:969
+msgid "{notice} {package} is not installed"
+msgstr "{notice} {package} ist nicht installiert"
+
+#: nala/install.py:984
+msgid "{package} is already at the latest version {version}"
+msgstr "{package} ist bereits in der neusten Version {version}"
+
+#: nala/install.py:1038
+msgid "{notice} The following packages require a reboot."
+msgstr "{notice} Die folgenden Pakete erfordern einen Neustart."
+
+#: nala/install.py:1053
+msgid "Notices:"
+msgstr "Hinweise:"
+
+#: nala/install.py:1097
+msgid "{error} It can be dangerous to continue without a terminal. Use `--assume-yes`"
+msgstr "{error} Es kann gefährlich sein, ohne Terminal fortzufahren. Verwenden Sie `--assume-yes`"
+
+#: nala/install.py:1104
+msgid "{warning} Using {switch} can be very dangerous!"
+msgstr "{warning} Die Verwendung von {switch} kann sehr gefährlich sein!"
+
+#: nala/install.py:1109
+msgid "Do you want to continue?"
+msgstr "Möchtest du fortfahren?"
+
+#: nala/fetch.py:798 nala/fetch.py:805 nala/install.py:1110
+msgid "Abort."
+msgstr "Abbruch."
+
+#: nala/cache.py:273 nala/install.py:1122
+msgid "All packages are up to date."
+msgstr "Alle Pakete sind aktuell."
+
+#: nala/install.py:1125
+msgid "Nothing for Nala to do."
+msgstr "Nichts für Nala zu tun."
+
+#: nala/install.py:1128
+msgid "Nothing for Nala to remove."
+msgstr "Nichts, was Nala entfernen könnte."
+
+#: nala/install.py:1131
+msgid "Nothing for Nala to fix."
+msgstr "Für Nala gibt es nichts zu reparieren."
+
+#: nala/rich.py:231
+msgid "Time Remaining:"
+msgstr "Verbleibende Zeit:"
+
+#: nala/rich.py:242
+msgid "Running dpkg"
+msgstr "Ausführen von dpkg"
+
+#: nala/rich.py:253
+msgid "Testing Mirrors"
+msgstr "Spiegelserver testen"
+
+#: nala/cache.py:47
+msgid "The following {total} packages can be upgraded:"
+msgstr "Die folgenden {total} Pakete können aktualisiert werden:"
+
+#: nala/cache.py:48
+msgid "Not candidate version"
+msgstr "Nicht-Kandidatenversion"
+
+#: nala/cache.py:131
+msgid "{error} unable to find any packages by globbing {pkg}"
+msgstr "{error} kann keine Pakete durch Globbing von {pkg} finden"
+
+#: nala/cache.py:195
+msgid "{warn} Virtual Packages like {package} can't be removed."
+msgstr "{warn} Virtuelle Pakete wie {package} können nicht entfernt werden."
+
+#: nala/cache.py:226
+msgid "Protecting {package} from upgrade"
+msgstr "Schutz von {package} vor Upgrades"
+
+#: nala/cache.py:234
+msgid "Protecting {package} from auto-removal"
+msgstr "Schutz von {package} vor automatischer Entfernung"
+
+#: nala/cache.py:264
+msgid "{total} packages can be upgraded. Run '{command}' to see them."
+msgstr "{total} Pakete können aktualisiert werden. Führen Sie '{command}' aus, um sie zu sehen."
+
+#: nala/cache.py:300
+msgid "{package} is a virtual package provided by:"
+msgstr "{package} iist ein virtuelles Paket, bereitgestellt von:"
+
+#: nala/cache.py:314
+msgid "You should select just one."
+msgstr "Sie sollten nur eine auswählen."
+
+#: nala/cache.py:320
+msgid ""
+"{notice} Selecting {provider}\n"
+"  Instead of virtual package {package}"
+msgstr ""
+"{notice} Auswahl von {provider}\n"
+"  Anstelle des virtuellen Pakets {package}"
+
+#: nala/error.py:45 nala/show.py:112
+msgid "Depends:"
+msgstr "Hängt ab von:"
+
+#: nala/error.py:47
+msgid "Either:"
+msgstr "Entweder:"
+
+#: nala/error.py:49 nala/show.py:138
+msgid "Breaks:"
+msgstr "Beschädigt:"
+
+#: nala/error.py:51 nala/show.py:136
+msgid "Conflicts:"
+msgstr "Konflikte:"
+
+#: nala/error.py:53
+msgid "{package} is only referenced by name, no packages provides it"
+msgstr "{package} wird nur namentlich referenziert, kein Paket stellt es bereit"
+
+#: nala/error.py:55
+msgid "{dependency} will break {package} {version}"
+msgstr "{dependency} wird {package} {version} beschädigen"
+
+#: nala/error.py:57
+msgid "{dependency} conflicts with {package} {version}"
+msgstr "{dependency} steht in Konflikt mit {package} {version}"
+
+#: nala/error.py:60
+msgid "{error} python-apt gave us {apt_err} This isn't a proper error as it's empty"
+msgstr "{error} python-apt hat {apt_err} zurückgegeben. Dies ist kein richtiger Fehler, da er leer ist"
+
+#: nala/error.py:122
+msgid "{notice} Some index files failed to download. They have been ignored, or old ones used instead."
+msgstr "{notice} Einige Indexdateien konnten nicht heruntergeladen werden. Sie wurden ignoriert oder alte an ihrer Stelle benutzt."
+
+#: nala/error.py:137
+msgid "{error} Installation has failed."
+msgstr "{error} Die Installation ist fehlgeschlagen."
+
+#: nala/error.py:139
+msgid "If you'd like to file a bug report please include '{debug_file}'"
+msgstr "Wenn Sie einen Fehler melden wollen, geben Sie bitte die Datei '{debug_file}' mit an"
+
+#: nala/error.py:160
+msgid "Are you root?"
+msgstr "Bist du root?"
+
+#: nala/error.py:169
+msgid "{error} The following packages are essential!"
+msgstr "{error} Die folgenden Pakete sind unerlässlich!"
+
+#: nala/error.py:174
+msgid "{error} You have attempted to remove essential packages"
+msgstr "{error} Sie haben versucht, wichtige Pakete zu entfernen"
+
+#: nala/error.py:179
+msgid "{error} Please use {switch} if you are sure you want to."
+msgstr "{error} Bitte verwenden Sie {switch}, wenn Sie sicher sind, dass Sie das möchten."
+
+#: nala/error.py:191
+msgid "{error} {package} has no installation candidate."
+msgstr "{error} {package} hat keinen Installationskandidaten."
+
+#: nala/error.py:197 nala/show.py:331
+msgid "{error} {package} not found"
+msgstr "{error} {package} nicht gefunden"
+
+#: nala/error.py:231
+msgid ""
+"{error} {apt_error}\n"
+"  Unsupported File: {filename}"
+msgstr ""
+"{error} {apt_error}\n"
+"  Nicht unterstützte Datei: {filename}"
+
+#: nala/error.py:239
+msgid ""
+"{error} {apt_error}\n"
+"  Could not read meta data from {filename}"
+msgstr ""
+"{error} {apt_error}\n"
+"  Metadaten von {filename} konnten nicht gelesen werden"
+
+#: nala/error.py:299
+msgid "The following packages were kept back:"
+msgstr "Folgende Pakete wurden zurückgehalten:"
+
+#: nala/error.py:305
+msgid "The following were held due to exclusions:"
+msgstr "Die Folgenden wurden wegen Ausschlüssen zurückgehalten:"
+
+#: nala/error.py:307
+msgid "Nala was unable to determine why these were held:"
+msgstr "Nala konnte nicht feststellen, warum diese zurückgehalten wurden:"
+
+#: nala/error.py:387
+msgid "{package} but it isn't in the cache"
+msgstr "{package}, aber es ist nicht im Cache"
+
+#: nala/error.py:400
+msgid "{package} but the cache version is {version}"
+msgstr "{package}, aber die Cache-Version ist {version}"
+
+#: nala/error.py:405
+#, fuzzy
+msgid "{package} but it cannot be installed"
+msgstr "{package}, aber es kann nicht installiert werden"
+
+#: nala/error.py:518
+msgid "{package} has been unmarked."
+msgstr "{package} wurde nicht markiert."
+
+#: nala/error.py:523
+msgid "Try {switch} if you're sure they can be installed."
+msgstr "Versuchen Sie es mit {switch}, wenn Sie sicher sind, dass sie installiert werden können."
+
+#: nala/error.py:528
+msgid "{error} Some packages were unable to be installed."
+msgstr "{error} Einige Pakete konnten nicht installiert werden."
+
+#: nala/error.py:552
+msgid "Installed packages that depend on {package}"
+msgstr "Installierte Pakete, die von {package} abhängen"
+
+#: nala/error.py:565
+msgid "{package} is an Essential package!"
+msgstr "{package} ist ein unverzichtbares Paket!"
+
+#: nala/error.py:577
+msgid "{notice} The information above may be able to help"
+msgstr "{notice} Die obigen Informationen können hilfreich sein"
 
 #. The following are the headers for the transaction summary.
 #. Package:        Version:     Size:
@@ -162,1122 +594,177 @@ msgstr "Herabstufung/Herabstufung/Heruntergestuft"
 msgid "Configure/Configuring/Configured"
 msgstr "Konfigurieren/Konfigurieren/Konfiguriert"
 
-#: nala/summary.py:235 nala/summary.py:251
+#: nala/summary.py:246 nala/summary.py:265
 msgid "Recommended, Will Not Be Installed"
 msgstr "Empfohlen, wird nicht installiert"
 
-#: nala/summary.py:236 nala/summary.py:252
+#: nala/summary.py:247 nala/summary.py:269
 msgid "Suggested, Will Not Be Installed"
 msgstr "Vorgeschlagen, wird nicht installiert"
 
-#: nala/summary.py:237
+#: nala/summary.py:249 nala/summary.py:267
+msgid "Kept Back, Will Not Be Upgraded"
+msgstr ""
+
+#: nala/summary.py:249 nala/summary.py:267
+msgid "Kept Back"
+msgstr ""
+
+#: nala/summary.py:251
 msgid "Auto-Removable, Will Not Be Removed"
 msgstr "Automatisch-entfernbar, wird nicht entfernt"
 
-#: nala/summary.py:321
+#: nala/summary.py:343 nala/summary.py:454
 msgid "Summary"
 msgstr "Zusammenfassung"
 
 #. This ends up looking like [ "Configure 20 Packages" ]
-#: nala/summary.py:334
+#: nala/summary.py:356
 msgid "Packages"
 msgstr "Pakete"
 
-#: nala/summary.py:345
+#: nala/summary.py:367 nala/summary.py:460
 msgid "Total download size"
 msgstr "Gesamtgröße des Downloads"
 
-#: nala/summary.py:347
+#: nala/summary.py:369 nala/summary.py:462
 msgid "Disk space to free"
 msgstr "Speicherplatz freizugeben"
 
-#: nala/summary.py:349
+#: nala/summary.py:371 nala/summary.py:464
 msgid "Disk space required"
 msgstr "Speicherplatz erforderlich"
 
-#: nala/summary.py:353
+#: nala/summary.py:375 nala/summary.py:468
 msgid "Nala will only download the packages"
 msgstr "Nala lädt nur die Pakete herunter"
 
-#: nala/error.py:45 nala/show.py:112
-msgid "Depends:"
-msgstr "Hängt ab von:"
-
-#: nala/error.py:47
-msgid "Either:"
-msgstr "Entweder:"
-
-#: nala/error.py:49 nala/show.py:138
-msgid "Breaks:"
-msgstr "Beschädigt:"
-
-#: nala/error.py:51 nala/show.py:136
-msgid "Conflicts:"
-msgstr "Konflikte:"
-
-#: nala/error.py:53
-msgid "{package} is only referenced by name, no packages provides it"
-msgstr "{package} wird nur namentlich referenziert, kein Paket stellt es bereit"
-
-#: nala/error.py:55
-msgid "{dependency} will break {package} {version}"
-msgstr "{dependency} wird {package} {version} beschädigen"
-
-#: nala/error.py:57
-msgid "{dependency} conflicts with {package} {version}"
-msgstr "{dependency} steht in Konflikt mit {package} {version}"
-
-#: nala/error.py:60
-msgid "{error} python-apt gave us {apt_err} This isn't a proper error as it's empty"
-msgstr "{error} python-apt hat {apt_err} zurückgegeben. Dies ist kein richtiger Fehler, da er leer ist"
-
-#: nala/error.py:118
-msgid "{notice} Some index files failed to download. They have been ignored, or old ones used instead."
-msgstr "{notice} Einige Indexdateien konnten nicht heruntergeladen werden. Sie wurden ignoriert oder alte an ihrer Stelle benutzt."
-
-#: nala/error.py:133
-msgid "{error} Installation has failed."
-msgstr "{error} Die Installation ist fehlgeschlagen."
-
-#: nala/error.py:135
-msgid "If you'd like to file a bug report please include '{debug_file}'"
-msgstr "Wenn Sie einen Fehler melden wollen, geben Sie bitte die Datei '{debug_file}' mit an"
-
-#: nala/error.py:156
-msgid "Are you root?"
-msgstr "Bist du root?"
-
-#: nala/error.py:165
-msgid "{error} The following packages are essential!"
-msgstr "{error} Die folgenden Pakete sind unerlässlich!"
-
-#: nala/error.py:170
-msgid "{error} You have attempted to remove essential packages"
-msgstr "{error} Sie haben versucht, wichtige Pakete zu entfernen"
-
-#: nala/error.py:175
-msgid "{error} Please use {switch} if you are sure you want to."
-msgstr "{error} Bitte verwenden Sie {switch}, wenn Sie sicher sind, dass Sie das möchten."
-
-#: nala/error.py:187
-msgid "{error} {package} has no installation candidate."
-msgstr "{error} {package} hat keinen Installationskandidaten."
-
-#: nala/error.py:193 nala/show.py:333
-msgid "{error} {package} not found"
-msgstr "{error} {package} nicht gefunden"
-
-#: nala/error.py:227
-msgid "{error} {apt_error}\n"
-"  Unsupported File: {filename}"
-msgstr "{error} {apt_error}\n"
-"  Nicht unterstützte Datei: {filename}"
-
-#: nala/error.py:235
-msgid "{error} {apt_error}\n"
-"  Could not read meta data from {filename}"
-msgstr "{error} {apt_error}\n"
-"  Metadaten von {filename} konnten nicht gelesen werden"
-
-#: nala/error.py:295
-msgid "The following packages were kept back:"
-msgstr "Folgende Pakete wurden zurückgehalten:"
-
-#: nala/error.py:301
-msgid "The following were held due to exclusions:"
-msgstr "Die Folgenden wurden wegen Ausschlüssen zurückgehalten:"
-
-#: nala/error.py:303
-msgid "Nala was unable to determine why these were held:"
-msgstr "Nala konnte nicht feststellen, warum diese zurückgehalten wurden:"
-
-#: nala/error.py:383
-msgid "{package} but it isn't in the cache"
-msgstr "{package}, aber es ist nicht im Cache"
-
-#: nala/error.py:396
-msgid "{package} but the cache version is {version}"
-msgstr "{package}, aber die Cache-Version ist {version}"
-
-#: nala/error.py:401
-msgid "{package} but it cannont be installed"
-msgstr "{package}, aber es kann nicht installiert werden"
-
-#: nala/error.py:514
-msgid "{package} has been unmarked."
-msgstr "{package} wurde nicht markiert."
-
-#: nala/error.py:519
-msgid "Try {switch} if you're sure they can be installed."
-msgstr "Versuchen Sie es mit {switch}, wenn Sie sicher sind, dass sie installiert werden können."
-
-#: nala/error.py:524
-msgid "{error} Some packages were unable to be installed."
-msgstr "{error} Einige Pakete konnten nicht installiert werden."
-
-#: nala/error.py:548
-msgid "Installed packages that depend on {package}"
-msgstr "Installierte Pakete, die von {package} abhängen"
-
-#: nala/error.py:561
-msgid "{package} is an Essential package!"
-msgstr "{package} ist ein unverzichtbares Paket!"
-
-#: nala/error.py:573
-msgid "{notice} The information above may be able to help"
-msgstr "{notice} Die obigen Informationen können hilfreich sein"
-
-#: nala/error.py:577 nala/install.py:222 nala/nala.py:289
-msgid "{error} You have held broken packages"
-msgstr "{error} Sie haben beschädigte Pakete zurückgehalten"
-
-#: nala/nala.py:121
-msgid "There are broken packages that need to be fixed!"
-msgstr "Es gibt beschädigte Pakete, die repariert werden müssen!"
-
-#: nala/nala.py:123
-msgid "You can use {switch} if you'd like to try without fixing them."
-msgstr "Sie können {switch} verwenden, wenn Sie es versuchen möchten, ohne sie zu reparieren."
-
-#: nala/nala.py:168
-msgid "{error} Missing packages to install"
-msgstr "{error} Fehlende Pakete zum Installieren"
-
-#: nala/nala.py:226
-msgid "Update package list."
-msgstr "Paketliste aktualisieren."
-
-#: nala/nala.py:241
-msgid "Update package list and upgrade the system."
-msgstr "Aktualisieren Sie die Paketliste und aktualisieren Sie das System."
-
-#: nala/nala.py:247
-msgid "Specify packages to exclude during upgrade. Accepts glob*"
-msgstr "Geben Sie Pakete an, die während des Upgrades ausgeschlossen werden sollen. Akzeptiert Glob*"
-
-#: nala/nala.py:254
-msgid "Toggle full-upgrade"
-msgstr "Vollständiges Upgrade umschalten"
-
-#: nala/nala.py:284
-msgid "Would you like us to protect these and try again?"
-msgstr "Möchten Sie, dass wir diese schützen und es erneut versuchen?"
-
-#: nala/nala.py:312
-msgid "Install packages."
-msgstr "Pakete installieren."
-
-#: nala/nala.py:319
-msgid "Package(s) to install"
-msgstr "Paket(e) zu installieren"
-
-#: nala/nala.py:341
-msgid "Remove packages."
-msgstr "Pakete entfernen."
-
-#: nala/nala.py:342
-msgid "Purge packages."
-msgstr "Pakete vollständig entfernen (inkl. Konfigurationsdateien)."
-
-#: nala/nala.py:349
-msgid "Package(s) to remove/purge"
-msgstr "Paket(e) zu entfernen"
-
-#: nala/nala.py:370
-msgid "Autoremove packages that are no longer needed."
-msgstr "Alle nicht mehr verwendeten Pakete automatisch entfernen."
-
-#: nala/nala.py:371
-msgid "Autopurge packages that are no longer needed."
-msgstr "Alle nicht mehr verwendeten Pakete automatisch entfernen. (inkl. Konfigurationsdateien)"
-
-#: nala/nala.py:391
-msgid "{error} {config} must be used with either {autoremove} or {autopurge}."
-msgstr "{error} {config} muss entweder mit {autoremove} oder {autopurge} verwendet werden."
-
-#: nala/nala.py:406
-msgid "Show package details."
-msgstr "Paketdetails anzeigen."
-
-#: nala/nala.py:412
-msgid "Package(s) to show"
-msgstr "Paket(e) zu zeigen"
-
-#: nala/nala.py:443
-msgid "Search package names and descriptions."
-msgstr "Suchen Sie nach Paketnamen und Beschreibungen."
-
-#: nala/nala.py:448
-msgid "Regex or word to search for"
-msgstr "Regex oder Wort, nach dem gesucht werden soll"
-
-#: nala/nala.py:494
-msgid "{error} {regex} not found."
-msgstr "{error} {regex} nicht gefunden."
-
-#: nala/nala.py:498
-msgid "List packages based on package names."
-msgstr "Listen Sie Pakete basierend auf Paketnamen auf."
-
-#: nala/nala.py:503
-msgid "Package(s) to list."
-msgstr "Paket(e) zur Liste."
-
-#: nala/nala.py:563
-msgid "Nothing was found to list."
-msgstr "Es wurde nichts zum Auflisten gefunden."
-
-#: nala/nala.py:566
-msgid "Clear out the local archive of downloaded package files."
-msgstr "Löscht das lokale Repository von abgerufenen Paketdateien."
-
-#: nala/nala.py:580
-msgid "Package lists have been cleaned"
-msgstr "Paketlisten wurden bereinigt"
-
-#: nala/nala.py:584
-msgid "Nala sources.list has been cleaned"
-msgstr "Nala sources.list wurde bereinigt"
-
-#: nala/nala.py:590
-msgid "Removing {cache}\n"
-"Removing {src_cache}"
-msgstr "{cache} wird entfernt\n"
-"{src_cache} entfernen"
-
-#: nala/nala.py:597
-msgid "Cache has been cleaned"
-msgstr "Cache wurde bereinigt"
-
-#: nala/nala.py:600
-msgid "I beg, pls moo"
-msgstr "Ich bitte, pls moo"
-
-#: nala/nala.py:608
-msgid "I can't moo for I'm a cat"
-msgstr "Ich kann nicht muhen, denn ich bin eine Katze"
-
-#: nala/nala.py:611
-msgid "What did you expect to update?"
-msgstr "Was wolltest du aktualisieren?"
-
-#: nala/nala.py:615
-msgid "What did you expect no-update to do?"
-msgstr "Was hast du von no-update erwartet?"
-
-#: nala/constants.py:90
-msgid "Error:"
-msgstr "Fehler:"
-
-#: nala/constants.py:91
-msgid "Warning:"
-msgstr "Warnung:"
-
-#: nala/constants.py:92
-msgid "Notice:"
-msgstr "Notiz:"
-
-#: nala/fetch.py:77
-msgid "Nala will fetch mirrors with the lowest latency.\n"
+#: nala/fetch.py:81
+msgid ""
+"Nala will fetch mirrors with the lowest latency.\n"
 "\n"
 "For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
 "\n"
 "For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
-msgstr "Nala ruft Mirrors mit der niedrigsten Latenz ab.\n"
+msgstr ""
+"Nala ruft Mirrors mit der niedrigsten Latenz ab.\n"
 "\n"
 "Für Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
 "\n"
 "Für Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
 
-#: nala/fetch.py:266
+#: nala/fetch.py:289
 msgid "Are these mirrors okay?"
 msgstr "Sind diese Spiegel in Ordnung?"
 
 #: nala/fetch.py:303
-msgid "Fetching {distro} mirrors"
-msgstr "Abruf von {distro}-Quellen"
-
-#: nala/fetch.py:351
-msgid "{error} Internal Error. Distro detection must be broken"
-msgstr "{error} Interner Fehler. Distributions-Erkennung muss defekt sein"
-
-#: nala/fetch.py:366
-msgid "{error} unable to connect to {mirror}"
-msgstr "{error} kann keine Verbindung zu {mirror} herstellen"
-
-#: nala/fetch.py:382
-msgid "Parsing mirror list"
-msgstr "Parsen der Spiegelserver-Liste"
-
-#: nala/fetch.py:599
-msgid "Score is how many milliseconds it takes to download the Release file"
-msgstr "Punktzahl gibt an, wie viele Millisekunden das Herunterladen der Release-Datei dauert"
-
-#: nala/fetch.py:610
-msgid "Mirrors you want to keep separated by spaces {selection}:"
+#, fuzzy
+msgid "Mirrors you want to keep, separated by space or comma {selection}:"
 msgstr "Spiegel, die Sie durch Leerzeichen getrennt halten möchten {selection}:"
 
-#: nala/fetch.py:625
+#: nala/fetch.py:325
 msgid "{error} Index {index} doesn't exist."
 msgstr "{error} Index {index} existiert nicht."
 
-#: nala/fetch.py:634
-msgid "{error} Index {index} needs to be an integer."
-msgstr "{error} Index {index} muss eine ganze Zahl sein."
+#: nala/fetch.py:335
+msgid "{error} {value_error}"
+msgstr ""
 
-#: nala/fetch.py:669
+#: nala/fetch.py:345
+msgid "{error} Parser: {parser}"
+msgstr ""
+
+#: nala/fetch.py:376
+msgid "Fetching {distro} mirrors"
+msgstr "Abruf von {distro}-Quellen"
+
+#: nala/fetch.py:424
+msgid "{error} Internal Error. Distro detection must be broken"
+msgstr "{error} Interner Fehler. Distributions-Erkennung muss defekt sein"
+
+#: nala/fetch.py:439
+msgid "{error} unable to connect to {mirror}"
+msgstr "{error} kann keine Verbindung zu {mirror} herstellen"
+
+#: nala/fetch.py:455
+msgid "Parsing mirror list"
+msgstr "Parsen der Spiegelserver-Liste"
+
+#: nala/fetch.py:660
+msgid "Score is how many milliseconds it takes to download the Release file"
+msgstr "Punktzahl gibt an, wie viele Millisekunden das Herunterladen der Release-Datei dauert"
+
+#: nala/fetch.py:733
 msgid "{notice} Nala was unable to fetch {num} mirrors."
 msgstr "{notice} Nala konnte {num} Spiegel nicht holen."
 
-#: nala/fetch.py:680
+#: nala/fetch.py:744
 msgid "Sources have been written to {file}"
 msgstr "Quellen wurden in {file} geschrieben"
 
-#: nala/fetch.py:709
+#: nala/fetch.py:773
 msgid "{error} There was an issue detecting release."
 msgstr "{error} Bei der Erkennung der Freigabe ist ein Problem aufgetreten."
 
-#: nala/fetch.py:716
+#: nala/fetch.py:780
 msgid "{error} {distro} {release} is unsupported."
 msgstr "{error} {distro} {release} wird nicht unterstützt."
 
-#: nala/fetch.py:720
+#: nala/fetch.py:784
 msgid "You can specify Ubuntu or Debian manually."
 msgstr "Sie können Ubuntu oder Debian manuell angeben."
 
-#: nala/fetch.py:730
-msgid "{file} already exists.\n"
+#: nala/fetch.py:794
+msgid ""
+"{file} already exists.\n"
 "Continue and overwrite it?"
-msgstr "{file} existiert bereits.\n"
+msgstr ""
+"{file} existiert bereits.\n"
 "Fortfahren und überschreiben?"
 
-#: nala/fetch.py:734 nala/fetch.py:741 nala/install.py:953
-msgid "Abort."
-msgstr "Abbruch."
-
-#: nala/fetch.py:737
+#: nala/fetch.py:801
 msgid "The above mirrors will be written to {file}. Continue?"
 msgstr "Die obigen Spiegel werden in {file} geschrieben. Fortsetzen?"
 
-#: nala/fetch.py:745
+#: nala/fetch.py:809
 msgid "Fetch fast mirrors to speed up downloads."
 msgstr "Holen Sie sich schnelle Mirrors, um Downloads zu beschleunigen."
 
-#: nala/fetch.py:750
+#: nala/fetch.py:814
 msgid "Choose the Debian release."
 msgstr "Wählen Sie die Debian-Version."
 
-#: nala/fetch.py:752
+#: nala/fetch.py:816
 msgid "Choose the Ubuntu release."
 msgstr "Wählen Sie die Ubuntu-Version."
 
-#: nala/fetch.py:755
+#: nala/fetch.py:819
 msgid "Choose the Devuan release."
 msgstr "Wählen Sie das Devuan Release."
 
-#: nala/fetch.py:759
+#: nala/fetch.py:823
 msgid "Number of mirrors to fetch. [defaults: 16, --auto(3)]"
 msgstr "Anzahl der zu holenden Spiegelserver. [defaults: 16, --auto(3)]"
 
-#: nala/fetch.py:766
+#: nala/fetch.py:830
 msgid "Add the source repos for the mirrors if it exists."
 msgstr "Fügen Sie die Quell-Repositorys für die Spiegel hinzu, falls vorhanden."
 
-#: nala/fetch.py:769
+#: nala/fetch.py:833
 msgid "Add contrib and non-free repos."
 msgstr "Füge contrib und non-free Repositories hinzu."
 
-#: nala/fetch.py:774
+#: nala/fetch.py:838
 msgid "Run fetch uninteractively. Will still prompt for overwrite."
 msgstr "Führen Sie fetch nicht interaktiv aus. Wird immer noch zum Überschreiben aufgefordert."
 
-#: nala/fetch.py:783
+#: nala/fetch.py:847
 msgid "Choose only mirrors of a specific ISO country code."
 msgstr "Wählen Sie nur Mirrors eines bestimmten ISO-Ländercodes."
 
-#: nala/fetch.py:812
+#: nala/fetch.py:876
 msgid "{error} Nala was unable to find any mirrors."
 msgstr "{error} Nala konnte keine Quellen finden."
-
-#: nala/downloader.py:92
-msgid "Starting Downloads"
-msgstr "Herunterladen starten"
-
-#: nala/downloader.py:94
-msgid "Starting Download:"
-msgstr "Download wird gestartet:"
-
-#. Starting Download: http://deb.debian.org/debian 3MB
-#. Starting Download:" will be colored blu
-#: nala/downloader.py:97
-msgid "{starting_download} {url} {size}"
-msgstr "{starting_download} {url} {size}"
-
-#: nala/downloader.py:99
-msgid "Download Complete:"
-msgstr "Download abgeschlossen:"
-
-#. Download Complete: http://deb.debian.org/debian
-#. Download Complete:" will be colored gree
-#: nala/downloader.py:102
-msgid "{download_complete} {url}"
-msgstr "{download_complete} {url}"
-
-#: nala/downloader.py:104
-msgid "Total Packages:"
-msgstr "Pakete insgesamt:"
-
-#. Total Packages: 30/100
-#. Starting Download:" will be colored gree
-#: nala/downloader.py:107
-msgid "{total_packages} {current}/{total}"
-msgstr "{total_packages} {current}/{total}"
-
-#: nala/downloader.py:109
-msgid "Last Completed:"
-msgstr "Zuletzt abgeschlossen:"
-
-#: nala/downloader.py:110
-msgid "{last_completed} {package}"
-msgstr "{last_completed} {package}"
-
-#: nala/downloader.py:113
-msgid "{notice} Nala has removed {filename} but will try another mirror"
-msgstr "{notice} Nala haben {filename} entfernt, werden es aber mit einem anderen Spiegelserver versuchen"
-
-#: nala/downloader.py:114
-msgid "{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'"
-msgstr "{error} Archivdatei konnte nicht verschoben werden, {str_err}: '{file1}' -> '{file2}'"
-
-#: nala/downloader.py:117
-msgid "{error} {filename} does not exist!"
-msgstr "{error} {filename} Existiert nicht!"
-
-#: nala/downloader.py:118
-msgid "{error} Hash Sum does not match: {filename}\n"
-"  Expected Hash: {expected}\n"
-"  Received Hash: {received}"
-msgstr "{error} Hash-Summe stimmt nicht überein: {filename}\n"
-"  Erwarteter Hash: {expected}\n"
-"  Empfangener Hash: {received}"
-
-#: nala/downloader.py:123
-msgid "{error} File has unexpected size: {filename}\n"
-"  Expected Size: {expected}\n"
-"  Received Size: {received}"
-msgstr "{error} Datei hat unerwartete Größe: {filename}\n"
-"  Erwartete Größe: {expected}\n"
-"  Erhaltene Größe: {received}"
-
-#: nala/downloader.py:305
-msgid "Exiting due to {signal}"
-msgstr "Verlassen wegen {signal}"
-
-#: nala/downloader.py:328
-msgid "{error} Using SOCKS proxy, but the 'socksio' package is not installed."
-msgstr "{error} SOCKS-Proxy wird verwendet, aber das Paket „socksio“ ist nicht installiert."
-
-#: nala/downloader.py:333
-msgid "{error} Install using 'nala install python3-socksio'"
-msgstr "{error} Installieren Sie mit „nala install python3-socksio“"
-
-#: nala/downloader.py:356
-msgid "{error} unable to connect to {url}"
-msgstr "{error} Verbindung zu {url} nicht möglich"
-
-#: nala/downloader.py:419
-msgid "Downloading"
-msgstr "Wird heruntergeladen"
-
-#: nala/downloader.py:440
-msgid "Trying the next url: {url}"
-msgstr "Probieren Sie die nächste URL {url} aus"
-
-#: nala/downloader.py:456
-msgid "{warning} The following packages cannot be authenticated!"
-msgstr "{warning} Die folgenden Pakete können nicht authentifiziert werden!"
-
-#: nala/downloader.py:463
-msgid "{error} Some packages were unable to be authenticated"
-msgstr "{error} Einige Pakete konnten nicht authentifiziert werden"
-
-#: nala/downloader.py:468
-msgid "{notice} Configuration is set to allow installation of unauthenticated packages."
-msgstr "{notice} Die Konfiguration ist so eingestellt, dass die Installation von nicht authentifizierten Paketen zugelassen wird."
-
-#: nala/downloader.py:478
-msgid "{error} {url} timed out"
-msgstr "{error} Zeitüberschreitung bei {url}"
-
-#: nala/downloader.py:542
-msgid "{error} No more mirrors available for {filename}"
-msgstr "{error} Keine weiteren Spiegelserver verfügbar für {filename}"
-
-#: nala/downloader.py:626
-msgid "Failed to check hash"
-msgstr "Hash konnte nicht überprüft werden"
-
-#: nala/downloader.py:669
-msgid "{error} {filename} can't be checked for integrity."
-msgstr "{error} {filename} kann nicht auf Integrität überprüft werden."
-
-#: nala/downloader.py:673
-msgid "There are no hashes available for this package."
-msgstr "Für dieses Paket sind keine Hashes verfügbar."
-
-#: nala/downloader.py:696
-msgid "Download complete and in download only mode."
-msgstr "Vollständig und im Nur-Download-Modus herunterladen."
-
-#: nala/downloader.py:701
-msgid "{error} Download failure. The following downloads failed:"
-msgstr "{error} Fehler beim Herunterladen. Folgende Downloads sind fehlgeschlagen:"
-
-#: nala/downloader.py:710
-msgid "In download only mode. Not falling back to apt_pkg."
-msgstr "Im Nur-Download-Modus. Kein Rückgriff auf apt_pkg."
-
-#: nala/downloader.py:712
-msgid "{warning} Falling back to apt_pkg. The following downloads failed:"
-msgstr "{warning} Fallback auf apt_pkg. Folgende Downloads sind fehlgeschlagen:"
-
-#: nala/rich.py:231
-msgid "Time Remaining:"
-msgstr "Verbleibende Zeit:"
-
-#: nala/rich.py:242
-msgid "Running dpkg"
-msgstr "Ausführen von dpkg"
-
-#: nala/rich.py:253
-msgid "Testing Mirrors"
-msgstr "Spiegelserver testen"
-
-#: nala/dpkg.py:93
-msgid "Updated:"
-msgstr "Aktualisiert:"
-
-#: nala/dpkg.py:94
-msgid "Downloaded:"
-msgstr "Heruntergeladen:"
-
-#: nala/dpkg.py:95
-msgid "Ignored:"
-msgstr "Ignoriert:"
-
-#: nala/dpkg.py:96
-msgid "No Change:"
-msgstr "Keine Änderung:"
-
-#. Spacing of following status messages
-#. is to allow the urls to be properly aligned
-#. Especially if your status would come after the package
-#. You do not have to follow this scheme
-#. but do note that the headers will be colored regardless
-#. No Change: http://deb.volian.org/volian scar InRelease
-#. Ignored:   http://deb.volian.org/volian scar InRelease
-#. Updated:   http://deb.volian.org/volian scar InRelease
-#: nala/dpkg.py:106
-msgid "{no_change} {info}"
-msgstr "{no_change} {info}"
-
-#: nala/dpkg.py:107
-msgid "{no_change} {info} [{size}]"
-msgstr "{no_change} {info} [{size}]"
-
-#: nala/dpkg.py:108
-msgid "{ignored}   {info}"
-msgstr "{ignored}      {info}"
-
-#: nala/dpkg.py:109
-msgid "{updated}   {info}"
-msgstr "{updated}   {info}"
-
-#: nala/dpkg.py:110
-msgid "{updated}   {info} [{size}]"
-msgstr "{updated}   {info} [{size}]"
-
-#: nala/dpkg.py:112
-msgid "Removing:"
-msgstr "Entferne:"
-
-#: nala/dpkg.py:113
-msgid "Unpacking:"
-msgstr "Auspacken:"
-
-#: nala/dpkg.py:114
-msgid "Setting up:"
-msgstr "Konfigurieren:"
-
-#: nala/dpkg.py:115
-msgid "Processing:"
-msgstr "Wird bearbeitet:"
-
-#. Spacing of following status messages
-#. is to allow dpkg messages to be properly aligned
-#. Especially if your status would come after the package
-#. You do not have to follow this scheme
-#. but do note that the headers will be colored regardless
-#. Unpacking:   neofetch (7.1.0-3)
-#. Setting up:  neofetch (7.1.0-3)
-#. Removing:    neofetch (7.1.0-3)
-#. Processing:  triggers for man-db (2.10.2-1)
-#. You can change the headers and positions as you would like,
-#: nala/dpkg.py:128
-msgid "{setting_up} {dpkg_msg}"
-msgstr "{setting_up}   {dpkg_msg}"
-
-#: nala/dpkg.py:129
-msgid "{processing} {dpkg_msg}"
-msgstr "{processing} {dpkg_msg}"
-
-#: nala/dpkg.py:130
-msgid "{unpacking}  {dpkg_msg}"
-msgstr "{unpacking}       {dpkg_msg}"
-
-#. That's the end of alignment spacing
-#: nala/dpkg.py:132
-msgid "{removing}   {dpkg_msg}"
-msgstr "{removing}        {dpkg_msg}"
-
-#. This translation is separate from the one below
-#. Because we do a check specifically on this string
-#: nala/dpkg.py:136
-msgid "Fetched"
-msgstr "Holte"
-
-#. Fetched 81.0 MB in 6s (1448 kB/s)
-#: nala/dpkg.py:138
-msgid "{fetched} {size} in {elapsed} ({speed}/s)"
-msgstr "{fetched} {size} in {elapsed} ({speed}/s)"
-
-#: nala/dpkg.py:164
-msgid "%c%s... Done"
-msgstr "%c%s... Fertig"
-
-#: nala/dpkg.py:382
-msgid " [Working]"
-msgstr " [Wird verarbeitet]"
-
-#: nala/dpkg.py:941
-msgid "Purging Packages"
-msgstr "Pakete Löschen"
-
-#: nala/dpkg.py:943
-msgid "Removing Packages"
-msgstr "Pakete entfernen"
-
-#: nala/dpkg.py:945
-msgid "Updating Packages"
-msgstr "Aktualisieren von Paketen"
-
-#: nala/dpkg.py:947
-msgid "Installing Packages"
-msgstr "Pakete installieren"
-
-#: nala/dpkg.py:950
-msgid "History Undo"
-msgstr "Verlauf rückgängig machen"
-
-#: nala/dpkg.py:952
-msgid "History Redo"
-msgstr "Verlauf wiederholen"
-
-#: nala/dpkg.py:957
-msgid "Fetching Missed Packages"
-msgstr "Fehlende Pakete abrufen"
-
-#: nala/dpkg.py:959
-msgid "Fixing Broken Packages"
-msgstr "Defekte Pakete reparieren"
-
-#: nala/dpkg.py:960
-msgid "Updating Package List"
-msgstr "Aktualisierung der Paketlisten"
-
-#: nala/dpkg.py:1056
-msgid "{warning} Quitting now could break your system!"
-msgstr "{warning} Wenn Sie jetzt abbrechen könnte Ihr System beschädigt werden!"
-
-#: nala/dpkg.py:1060
-msgid "Ctrl+C twice quickly will exit"
-msgstr "Ctrl+C zweimal schnell hintereinander beendet das Programm"
-
-#: nala/install.py:116
-msgid "Purging configuration files for {package}"
-msgstr "Konfigurationsdateien für {package} löschen"
-
-#: nala/install.py:196
-msgid "{notice} Selected packages cannot be excluded from upgrade safely."
-msgstr "{notice} Ausgewählte Pakete können nicht sicher vom Upgrade ausgeschlossen werden."
-
-#: nala/install.py:218
-msgid "{error} Unable to calculate how to protect the selected packages"
-msgstr "{error} Es kann nicht berechnet werden, wie die ausgewählten Pakete geschützt werden sollen"
-
-#: nala/install.py:224
-msgid "{notice} The following packages need to be protected as well:"
-msgstr "{notice} Die folgenden Pakete müssen ebenfalls geschützt werden:"
-
-#: nala/install.py:281
-msgid "{error} The following hook arguments are invalid: {args}"
-msgstr "{error} Die folgenden Hook-Argumente sind ungültig: {args}"
-
-#: nala/install.py:329
-msgid "{error} The following {hook_type} commands cannot be found."
-msgstr "{error} Die folgenden {hook_type} Befehle konnten nicht gefunden werden."
-
-#: nala/install.py:347
-msgid "Log Started: [{date}]"
-msgstr "Protokoll gestartet: [{date}]"
-
-#: nala/install.py:361
-msgid "Log Ended: [{date}]"
-msgstr "Protokoll beendet: [{date}]"
-
-#: nala/install.py:431
-msgid "{error} Fetching packages has failed!"
-msgstr "{error} Das Abrufen von Paketen ist fehlgeschlagen!"
-
-#: nala/install.py:434 nala/install.py:915
-msgid "Exiting due to SIGINT"
-msgstr "Verlassen wegen SIGINT"
-
-#: nala/install.py:445
-msgid "{notice} A reboot is required."
-msgstr "{notice} Ein Neustart ist erforderlich."
-
-#: nala/install.py:446
-msgid "Finished Successfully"
-msgstr "Erfolgreich beendet"
-
-#: nala/install.py:511
-msgid "{notice} The following will be installed to satisfy {package}:"
-msgstr "{notice} Folgendes wird installiert, um {package} zu erfüllen:"
-
-#: nala/install.py:554
-msgid "{notice} Newer version {package} {version} exists in the cache.\n"
-"You should consider using `{command}`"
-msgstr "{notice} Neuere Version {package} {version} ist im Cache vorhanden.\n"
-"Sie sollten die Verwendung von `{command}` in Betracht ziehen"
-
-#: nala/install.py:597
-msgid "{notice} {deb} has taken priority over {package} from the cache."
-msgstr "{notice} {deb} hat Priorität über {package} aus dem Cache genommen."
-
-#: nala/install.py:698
-msgid "{error} Version {version} not found for package {package}"
-msgstr "{error} Version {version} für Paket {package} nicht gefunden"
-
-#: nala/install.py:754 nala/install.py:768
-msgid "Virtual Package"
-msgstr "Virtuelles Paket"
-
-#: nala/install.py:811
-msgid "{notice} {package} is not installed"
-msgstr "{notice} {package} ist nicht installiert"
-
-#: nala/install.py:826
-msgid "{package} is already at the latest version {version}"
-msgstr "{package} ist bereits in der neusten Version {version}"
-
-#: nala/install.py:880
-msgid "{notice} The following packages require a reboot."
-msgstr "{notice} Die folgenden Pakete erfordern einen Neustart."
-
-#: nala/install.py:896
-msgid "Notices:"
-msgstr "Hinweise:"
-
-#: nala/install.py:940
-msgid "{error} It can be dangerous to continue without a terminal. Use `--assume-yes`"
-msgstr "{error} Es kann gefährlich sein, ohne Terminal fortzufahren. Verwenden Sie `--assume-yes`"
-
-#: nala/install.py:947
-msgid "{warning} Using {switch} can be very dangerous!"
-msgstr "{warning} Die Verwendung von {switch} kann sehr gefährlich sein!"
-
-#: nala/install.py:952
-msgid "Do you want to continue?"
-msgstr "Möchtest du fortfahren?"
-
-#: nala/cache.py:275 nala/install.py:965
-msgid "All packages are up to date."
-msgstr "Alle Pakete sind aktuell."
-
-#: nala/install.py:968
-msgid "Nothing for Nala to do."
-msgstr "Nichts für Nala zu tun."
-
-#: nala/install.py:971
-msgid "Nothing for Nala to remove."
-msgstr "Nichts, was Nala entfernen könnte."
-
-#: nala/install.py:974
-msgid "Nothing for Nala to fix."
-msgstr "Für Nala gibt es nichts zu reparieren."
-
-#. Answers for the Question prompt "[Y/n]"
-#: nala/utils.py:64
-msgid "Y/y N/n"
-msgstr "J/j N/n"
-
-#: nala/utils.py:123
-msgid "Terminal can't support dialog, falling back to readline"
-msgstr "Terminal kann Dialoge nicht unterstützen und greift auf readline zurück"
-
-#: nala/utils.py:306
-msgid "{command} is not a command\n"
-"Did you mean {correction}?"
-msgstr "{command} ist kein Befehl\n"
-"Meinten Sie {correction}?"
-
-#: nala/utils.py:335
-msgid "Not a valid choice kiddo"
-msgstr "Keine gültige Wahl, Kiddo"
-
-#: nala/utils.py:344
-msgid "{error} failed regex compilation '{error_msg} at position {position}'"
-msgstr "{error} RegEx Kompilierung fehlgeschlagen '{error_msg}' bei Position {position}'"
-
-#: nala/utils.py:355
-msgid "{error} Nala needs root to fix broken packages"
-msgstr "{error} Nala benötigt root, um defekte Pakete zu reparieren"
-
-#: nala/utils.py:360
-msgid "{error} Nala needs root to {command}"
-msgstr "{error} Nala braucht root für {command}"
-
-#: nala/utils.py:383
-msgid "{error} Nala is already running another instance {last_pid}"
-msgstr "{error} Nala führt bereits eine andere Instanz aus {last_pid}"
-
-#: nala/utils.py:419
-msgid "Removing files in {dir}"
-msgstr "Dateien in {dir} werden entfernt"
-
-#: nala/utils.py:422
-msgid "Removed: {filename}"
-msgstr "Entfernt: {filename}"
-
-#: nala/utils.py:440 nala/utils.py:458
-msgid "{error} can't find version for {package}"
-msgstr "{error} kann Version für {package} nicht finden"
-
-#: nala/search.py:124
-msgid "{package} [local]"
-msgstr "{package} [lokal]"
-
-#. Formatting looks as below:
-#. vim 2:8.2.3995-1+b2 [Debian/sid main]
-#. ├── is installed and upgradable to 2:8.2.4659-1
-#. └── Vi IMproved - enhanced vi editor
-#: nala/search.py:136
-msgid "is installed and upgradable to {version}"
-msgstr "ist installiert und aktualisierbar auf {version}"
-
-#. vim 2:8.2.4659-1 [Debian/sid main]
-#. ├── is upgradable from 2:8.2.3995-1+b2
-#. └── Vi IMproved - enhanced vi editor
-#: nala/search.py:145
-msgid "is upgradable from {version}"
-msgstr "ist aktualisierbar von {version}"
-
-#. vim 2:8.2.3995-1+b2 [Debian/sid main]
-#. ├── is installed
-#. └── Vi IMproved - enhanced vi editor
-#: nala/search.py:152
-msgid "is installed"
-msgstr "ist installiert"
-
-#. vim 2:8.2.3995-1+b2 [Debian/sid main]
-#. ├── is installed
-#. └── No Description
-#: nala/search.py:167
-msgid "No Description"
-msgstr "Keine Beschreibung"
-
-#: nala/options.py:57
-msgid "{notice} Unable to read config file: {filename}. Using defaults"
-msgstr "{notice} Konnte Konfigurationsdatei nicht lesen: {filename}. Standardwerte verwenden"
-
-#: nala/options.py:70
-msgid "{error} Config key '{key}' should be a bool not {value}"
-msgstr "{error} Konfigurationsschlüssel '{key}' muss ein boolescher Wert sein, nicht {value}"
-
-#: nala/options.py:314
-msgid "{error} Option {option}: Configuration item must have a '='"
-msgstr "{error} Option {option}: Konfigurationselement muss ein '=' haben"
-
-#: nala/options.py:357
-msgid "It seems the system has no license file\n"
-"The full GPLv3 can be found at:\n"
-"https://www.gnu.org/licenses/gpl-3.0.txt"
-msgstr "Es scheint, dass das System keine Lizenzdatei hat\n"
-"Die vollständige GPLv3 finden Sie unter:\n"
-"https://www.gnu.org/licenses/gpl-3.0.txt"
-
-#: nala/options.py:389
-msgid "Show program's version number and exit."
-msgstr "Versionsnummer des Programms anzeigen und beenden."
-
-#: nala/options.py:397
-msgid "Reads the GPLv3 which Nala is licensed under."
-msgstr "Liest die GPLv3, unter der Nala lizenziert ist."
-
-#: nala/options.py:406
-msgid "Disable scrolling text and print extra information."
-msgstr "Deaktivieren Sie Lauftext und drucken Sie zusätzliche Informationen."
-
-#: nala/options.py:414
-msgid "Logs extra information for debugging."
-msgstr "Protokolliert zusätzliche Informationen zum Debuggen."
-
-#: nala/options.py:422
-msgid "Toggle autoremoving packages."
-msgstr "Automatisches Entfernen von Paketen umschalten."
-
-#: nala/options.py:429
-msgid "Toggle installing recommended packages."
-msgstr "Toggle Installation empfohlener Pakete."
-
-#: nala/options.py:436
-msgid "Toggle installing suggested packages."
-msgstr "Toggle Installieren von vorgeschlagenen Paketen."
-
-#: nala/options.py:443
-msgid "Toggle updating the package list."
-msgstr "Umschalten der Aktualisierung der Paketliste."
-
-#: nala/options.py:451
-msgid "Purge any packages that would be removed."
-msgstr "Bereinigen Sie alle Pakete, die entfernt werden würden."
-
-#: nala/options.py:457
-msgid "Purge packages not installed that have config files."
-msgstr "Löschen Sie nicht installierte Pakete mit Konfigurationsdateien."
-
-#: nala/options.py:465
-msgid "Allow the removal of essential packages."
-msgstr "Lassen Sie das Entfernen wichtiger Pakete zu."
-
-#: nala/options.py:473 nala/options.py:534
-msgid "Packages are only retrieved, not unpacked or installed."
-msgstr "Paketdateien werden nur abgerufen, nicht entpackt oder installiert."
-
-#: nala/options.py:482
-msgid "Toggle fix broken packages."
-msgstr "Wechseln Sie zum Reparieren defekter Pakete."
-
-#: nala/options.py:491
-msgid "Assume 'yes' or 'no' to all prompts."
-msgstr "Gehen Sie bei allen Eingabeaufforderungen von „Ja“ oder „Nein“ aus."
-
-#: nala/options.py:500
-msgid "Set options like Dpkg::Options::=\"--force-confnew\"."
-msgstr "Setzen Sie Optionen wie Dpkg::Options::=\"--force-confnew\"."
-
-#: nala/options.py:508
-msgid "Skips all formatting and you get raw dpkg output."
-msgstr "Überspringt alle Formatierungen und Sie erhalten eine rohe dpkg-Ausgabe."
-
-#: nala/options.py:517
-msgid "Show all versions of a package."
-msgstr "Alle Versionen eines Pakets anzeigen."
-
-#: nala/options.py:526
-msgid "Show all architectures of a package."
-msgstr "Alle Architekturen eines Pakets anzeigen."
-
-#: nala/options.py:543
-msgid "Search only package names."
-msgstr "Nur Paketnamen durchsuchen."
-
-#: nala/options.py:552
-msgid "Only installed packages."
-msgstr "Nur installierte Pakete."
-
-#: nala/options.py:560
-msgid "Only packages explicitly installed with Nala."
-msgstr "Nur Pakete, die explizit mit Nala installiert werden."
-
-#: nala/options.py:569
-msgid "Only upgradable packages."
-msgstr "Nur aktualisierbare Pakete."
-
-#: nala/options.py:586
-msgid "Only virtual packages."
-msgstr "Nur virtuelle Pakete."
-
-#: nala/options.py:594
-msgid "Print the full description of each package."
-msgstr "Zeigen Sie die vollständige Beschreibung jedes Pakets an."
-
-#: nala/options.py:600
-msgid "Remove package lists located in `/var/lib/apt/lists/`."
-msgstr "Entfernen Sie Paketlisten, die sich in `/var/lib/apt/lists/` befinden."
-
-#: nala/options.py:606
-msgid "Remove `nala-sources.list`."
-msgstr "Entfernen Sie „nala-sources.list“."
-
-#: nala/options.py:610
-msgid "Run fetch uninteractively. Will still prompt for overwrite"
-msgstr "Führen Sie fetch nicht interaktiv aus. Wird immer noch zum Überschreiben aufgefordert"
-
-#: nala/options.py:619
-msgid "Show this message and exit."
-msgstr "Diese Meldung anzeigen und beenden."
-
-#: nala/cache.py:47
-msgid "The following {total} packages can be upgraded:"
-msgstr "Die folgenden {total} Pakete können aktualisiert werden:"
-
-#: nala/cache.py:48
-msgid "Not candidate version"
-msgstr "Nicht-Kandidatenversion"
-
-#: nala/cache.py:133
-msgid "{error} unable to find any packages by globbing {pkg}"
-msgstr "{error} kann keine Pakete durch Globbing von {pkg} finden"
-
-#: nala/cache.py:197
-msgid "{warn} Virtual Packages like {package} can't be removed."
-msgstr "{warn} Virtuelle Pakete wie {package} können nicht entfernt werden."
-
-#: nala/cache.py:228
-msgid "Protecting {package} from upgrade"
-msgstr "Schutz von {package} vor Upgrades"
-
-#: nala/cache.py:236
-msgid "Protecting {package} from auto-removal"
-msgstr "Schutz von {package} vor automatischer Entfernung"
-
-#: nala/cache.py:266
-msgid "{total} packages can be upgraded. Run '{command}' to see them."
-msgstr "{total} Pakete können aktualisiert werden. Führen Sie '{command}' aus, um sie zu sehen."
-
-#: nala/cache.py:302
-msgid "{package} is a virtual package provided by:"
-msgstr "{package} iist ein virtuelles Paket, bereitgestellt von:"
-
-#: nala/cache.py:316
-msgid "You should select just one."
-msgstr "Sie sollten nur eine auswählen."
-
-#: nala/cache.py:322
-msgid "{notice} Selecting {provider}\n"
-"  Instead of virtual package {package}"
-msgstr "{notice} Auswahl von {provider}\n"
-"  Anstelle des virtuellen Pakets {package}"
-
-#: nala/__main__.py:43
-msgid "Exiting at your request."
-msgstr "Beende auf Ihren Wunsch."
-
-#: nala/__main__.py:49
-msgid "{error} No space left on device."
-msgstr "{error} Kein Speicherplatz mehr auf dem Gerät."
 
 #. This is for `nala show`
 #. header info looks like "Package: steam:i386"
@@ -1389,17 +876,603 @@ msgstr "Fehler:"
 msgid "Installed-Size:"
 msgstr "Installierte Größe:"
 
-#: nala/show.py:269
+#: nala/show.py:267
 msgid "local install"
 msgstr "lokale Installation"
 
-#: nala/show.py:311
+#: nala/show.py:309
 msgid "{notice} There are {num} additional records. Please use the {switch} switch to see them."
 msgstr "{notice} Es gibt {num} zusätzliche Einträge. Bitte verwenden Sie den Schalter {switch}, um sie anzuzeigen."
 
-#: nala/show.py:327
+#: nala/show.py:325
 msgid "{error} {package} has no version to show"
 msgstr "{error} {package} hat keine Version zum Anzeigen"
+
+#: nala/constants.py:88
+msgid "Error:"
+msgstr "Fehler:"
+
+#: nala/constants.py:89
+msgid "Warning:"
+msgstr "Warnung:"
+
+#: nala/constants.py:90
+msgid "Notice:"
+msgstr "Notiz:"
+
+#: nala/search.py:109
+msgid "{package} [local]"
+msgstr "{package} [lokal]"
+
+#. Formatting looks as below:
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed and upgradable to 2:8.2.4659-1
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:121
+msgid "is installed and upgradable to {version}"
+msgstr "ist installiert und aktualisierbar auf {version}"
+
+#. vim 2:8.2.4659-1 [Debian/sid main]
+#. ├── is upgradable from 2:8.2.3995-1+b2
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:130
+msgid "is upgradable from {version}"
+msgstr "ist aktualisierbar von {version}"
+
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:137
+msgid "is installed"
+msgstr "ist installiert"
+
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed
+#. └── No Description
+#: nala/search.py:152
+msgid "No Description"
+msgstr "Keine Beschreibung"
+
+#: nala/options.py:59
+msgid "{notice} Unable to read config file: {filename}. Using defaults"
+msgstr "{notice} Konnte Konfigurationsdatei nicht lesen: {filename}. Standardwerte verwenden"
+
+#: nala/options.py:72
+msgid "{error} Config key '{key}' should be a bool not {value}"
+msgstr "{error} Konfigurationsschlüssel '{key}' muss ein boolescher Wert sein, nicht {value}"
+
+#: nala/options.py:324
+msgid "{error} Option {option}: Configuration item must have a '='"
+msgstr "{error} Option {option}: Konfigurationselement muss ein '=' haben"
+
+#: nala/options.py:367
+msgid ""
+"It seems the system has no license file\n"
+"The full GPLv3 can be found at:\n"
+"https://www.gnu.org/licenses/gpl-3.0.txt"
+msgstr ""
+"Es scheint, dass das System keine Lizenzdatei hat\n"
+"Die vollständige GPLv3 finden Sie unter:\n"
+"https://www.gnu.org/licenses/gpl-3.0.txt"
+
+#: nala/options.py:399
+msgid "Show program's version number and exit."
+msgstr "Versionsnummer des Programms anzeigen und beenden."
+
+#: nala/options.py:407
+msgid "Reads the GPLv3 which Nala is licensed under."
+msgstr "Liest die GPLv3, unter der Nala lizenziert ist."
+
+#: nala/options.py:416
+msgid "Disable scrolling text and print extra information."
+msgstr "Deaktivieren Sie Lauftext und drucken Sie zusätzliche Informationen."
+
+#: nala/options.py:424
+msgid "Logs extra information for debugging."
+msgstr "Protokolliert zusätzliche Informationen zum Debuggen."
+
+#: nala/options.py:432
+msgid "Toggle autoremoving packages."
+msgstr "Automatisches Entfernen von Paketen umschalten."
+
+#: nala/options.py:439
+msgid "Toggle installing recommended packages."
+msgstr "Toggle Installation empfohlener Pakete."
+
+#: nala/options.py:446
+msgid "Toggle installing suggested packages."
+msgstr "Toggle Installieren von vorgeschlagenen Paketen."
+
+#: nala/options.py:453
+msgid "Toggle updating the package list."
+msgstr "Umschalten der Aktualisierung der Paketliste."
+
+#: nala/options.py:460
+msgid "Toggle a more condensed transaction summary."
+msgstr ""
+
+#: nala/options.py:468
+msgid "Purge any packages that would be removed."
+msgstr "Bereinigen Sie alle Pakete, die entfernt werden würden."
+
+#: nala/options.py:474
+msgid "Purge packages not installed that have config files."
+msgstr "Löschen Sie nicht installierte Pakete mit Konfigurationsdateien."
+
+#: nala/options.py:482
+msgid "Allow the removal of essential packages."
+msgstr "Lassen Sie das Entfernen wichtiger Pakete zu."
+
+#: nala/options.py:490 nala/options.py:551
+msgid "Packages are only retrieved, not unpacked or installed."
+msgstr "Paketdateien werden nur abgerufen, nicht entpackt oder installiert."
+
+#: nala/options.py:499
+msgid "Toggle fix broken packages."
+msgstr "Wechseln Sie zum Reparieren defekter Pakete."
+
+#: nala/options.py:508
+msgid "Assume 'yes' or 'no' to all prompts."
+msgstr "Gehen Sie bei allen Eingabeaufforderungen von „Ja“ oder „Nein“ aus."
+
+#: nala/options.py:517
+msgid "Set options like Dpkg::Options::=\"--force-confnew\"."
+msgstr "Setzen Sie Optionen wie Dpkg::Options::=\"--force-confnew\"."
+
+#: nala/options.py:525
+msgid "Skips all formatting and you get raw dpkg output."
+msgstr "Überspringt alle Formatierungen und Sie erhalten eine rohe dpkg-Ausgabe."
+
+#: nala/options.py:534
+msgid "Show all versions of a package."
+msgstr "Alle Versionen eines Pakets anzeigen."
+
+#: nala/options.py:543
+msgid "Show all architectures of a package."
+msgstr "Alle Architekturen eines Pakets anzeigen."
+
+#: nala/options.py:560
+msgid "Search only package names."
+msgstr "Nur Paketnamen durchsuchen."
+
+#: nala/options.py:569
+msgid "Only installed packages."
+msgstr "Nur installierte Pakete."
+
+#: nala/options.py:577
+msgid "Only packages explicitly installed with Nala."
+msgstr "Nur Pakete, die explizit mit Nala installiert werden."
+
+#: nala/options.py:586
+msgid "Only upgradable packages."
+msgstr "Nur aktualisierbare Pakete."
+
+#: nala/options.py:603
+msgid "Only virtual packages."
+msgstr "Nur virtuelle Pakete."
+
+#: nala/options.py:611
+msgid "Print the full description of each package."
+msgstr "Zeigen Sie die vollständige Beschreibung jedes Pakets an."
+
+#: nala/options.py:617
+msgid "Remove package lists located in `/var/lib/apt/lists/`."
+msgstr "Entfernen Sie Paketlisten, die sich in `/var/lib/apt/lists/` befinden."
+
+#: nala/options.py:623
+msgid "Remove `nala-sources.list`."
+msgstr "Entfernen Sie „nala-sources.list“."
+
+#: nala/options.py:627
+msgid "Run fetch uninteractively. Will still prompt for overwrite"
+msgstr "Führen Sie fetch nicht interaktiv aus. Wird immer noch zum Überschreiben aufgefordert"
+
+#: nala/options.py:636
+msgid "Show this message and exit."
+msgstr "Diese Meldung anzeigen und beenden."
+
+#: nala/history.py:85
+msgid "{error} '{command}' for operations other than install or remove are not currently supported"
+msgstr "{error} '{command}' für andere Vorgänge als Installieren oder Entfernen werden derzeit nicht unterstützt"
+
+#: nala/history.py:89
+msgid ""
+"Show transaction history.\n"
+"\n"
+"Running `nala history` with no subcommands prints an overview of all transactions."
+msgstr ""
+"Transaktionsverlauf anzeigen.\n"
+"\n"
+"Das Ausführen von `nala history` ohne Unterbefehle druckt eine Übersicht aller Transaktionen."
+
+#: nala/history.py:104
+msgid "{error} History file seems corrupt. You should try removing {file}"
+msgstr "{error} Die Verlaufsdatei scheint beschädigt zu sein. Sie sollten versuchen, {file} zu entfernen"
+
+#: nala/history.py:121 nala/history.py:319 nala/history.py:340
+msgid "{error} No history exists."
+msgstr "{error} Es existiert kein Verlauf."
+
+#: nala/history.py:125
+msgid "{error} Transaction {num} doesn't exist."
+msgstr "{error} Transaktion {num} existiert nicht."
+
+#: nala/history.py:292
+msgid "Transaction number"
+msgstr "Transaktionsnummer"
+
+#: nala/history.py:304
+msgid "Show packages that were explicitly installed with Nala"
+msgstr "Pakete anzeigen, die explizit mit Nala installiert wurden"
+
+#: nala/history.py:358
+msgid "Show information about a specific transaction."
+msgstr "Informationen zu einer bestimmten Transaktion anzeigen."
+
+#: nala/history.py:398
+msgid "Nala needs root to clear history"
+msgstr "Nala braucht Root, um den Verlauf zu löschen"
+
+#: nala/history.py:400
+msgid "Nala needs root to redo history"
+msgstr "Nala benötigt Root, um den Verlauf wiederherzustellen"
+
+#: nala/history.py:401
+msgid "Nala needs root to undo history"
+msgstr "Nala benötigt Root, um den Verlauf rückgängig zu machen"
+
+#: nala/history.py:415
+msgid "History has been cleared"
+msgstr "Der Verlauf wurde gelöscht"
+
+#: nala/history.py:419
+msgid "Clear a transaction or the entire history."
+msgstr "Löschen Sie eine Transaktion oder den gesamten Verlauf."
+
+#: nala/history.py:424
+msgid "Clear the entire history."
+msgstr "Löschen Sie den gesamten Verlauf."
+
+#: nala/history.py:433
+msgid "No history exists to clear"
+msgstr "Es ist kein Verlauf zum Löschen vorhanden"
+
+#: nala/history.py:438
+msgid "{error} ID: {hist_id} does not exist in the history"
+msgstr "{error} ID: {hist_id} existiert nicht im Verlauf"
+
+#: nala/history.py:453
+msgid "History has been altered"
+msgstr "Der Verlauf wurde geändert"
+
+#: nala/history.py:456
+msgid "Undo a transaction."
+msgstr "Machen Sie eine Transaktion rückgängig."
+
+#: nala/history.py:457
+msgid "Redo a transaction."
+msgstr "Wiederholen Sie eine Transaktion."
+
+#: nala/history.py:500
+msgid "{warning} This history entry was a purge."
+msgstr "{warning} Dieser Geschichtseintrag war ein purge."
+
+#: nala/history.py:504
+msgid "Do you want to continue with purge enabled?"
+msgstr "Möchten Sie mit aktiviertem purge fortfahren?"
+
+#: nala/downloader.py:86
+msgid "Starting Downloads"
+msgstr "Herunterladen starten"
+
+#: nala/downloader.py:88
+msgid "Starting Download:"
+msgstr "Download wird gestartet:"
+
+#. "Starting Download: http://deb.debian.org/debian 3MB"
+#. "Starting Download:" will be colored blue
+#: nala/downloader.py:91
+msgid "{starting_download} {url} {size}"
+msgstr "{starting_download} {url} {size}"
+
+#: nala/downloader.py:93
+msgid "Download Complete:"
+msgstr "Download abgeschlossen:"
+
+#. "Download Complete: http://deb.debian.org/debian"
+#. "Download Complete:" will be colored green
+#: nala/downloader.py:96
+msgid "{download_complete} {url}"
+msgstr "{download_complete} {url}"
+
+#: nala/downloader.py:98
+msgid "Total Packages:"
+msgstr "Pakete insgesamt:"
+
+#. "Total Packages: 30/100"
+#. "Starting Download:" will be colored green
+#: nala/downloader.py:101
+msgid "{total_packages} {current}/{total}"
+msgstr "{total_packages} {current}/{total}"
+
+#: nala/downloader.py:103
+msgid "Last Completed:"
+msgstr "Zuletzt abgeschlossen:"
+
+#: nala/downloader.py:104
+msgid "{last_completed} {package}"
+msgstr "{last_completed} {package}"
+
+#: nala/downloader.py:107
+#, fuzzy
+msgid "{notice} Nala has removed {filename}"
+msgstr "{notice} Nala haben {filename} entfernt, werden es aber mit einem anderen Spiegelserver versuchen"
+
+#: nala/downloader.py:108
+msgid "{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'"
+msgstr "{error} Archivdatei konnte nicht verschoben werden, {str_err}: '{file1}' -> '{file2}'"
+
+#: nala/downloader.py:111
+msgid "{error} {filename} does not exist!"
+msgstr "{error} {filename} Existiert nicht!"
+
+#: nala/downloader.py:112
+msgid ""
+"{error} Hash Sum does not match: {filename}\n"
+"  Expected Hash: {expected}\n"
+"  Received Hash: {received}"
+msgstr ""
+"{error} Hash-Summe stimmt nicht überein: {filename}\n"
+"  Erwarteter Hash: {expected}\n"
+"  Empfangener Hash: {received}"
+
+#: nala/downloader.py:117
+msgid ""
+"{error} File has unexpected size: {filename}\n"
+"  Expected Size: {expected}\n"
+"  Received Size: {received}"
+msgstr ""
+"{error} Datei hat unerwartete Größe: {filename}\n"
+"  Erwartete Größe: {expected}\n"
+"  Erhaltene Größe: {received}"
+
+#: nala/downloader.py:230
+msgid ""
+"{error} Improper Hash Syntax\n"
+"  Try '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
+msgstr ""
+
+#: nala/downloader.py:296
+msgid "Exiting due to {signal}"
+msgstr "Verlassen wegen {signal}"
+
+#: nala/downloader.py:319
+msgid "{error} Using SOCKS proxy, but the 'socksio' package is not installed."
+msgstr "{error} SOCKS-Proxy wird verwendet, aber das Paket „socksio“ ist nicht installiert."
+
+#: nala/downloader.py:324
+msgid "{error} Install using 'nala install python3-socksio'"
+msgstr "{error} Installieren Sie mit „nala install python3-socksio“"
+
+#: nala/downloader.py:380
+msgid "Downloading"
+msgstr "Wird heruntergeladen"
+
+#: nala/downloader.py:502
+msgid "{error} No more mirrors available for {filename}"
+msgstr "{error} Keine weiteren Spiegelserver verfügbar für {filename}"
+
+#: nala/downloader.py:513
+#, fuzzy
+msgid "{notice} Trying next url: {url}"
+msgstr "Probieren Sie die nächste URL {url} aus"
+
+#: nala/downloader.py:522
+msgid "{warning} The following packages cannot be authenticated!"
+msgstr "{warning} Die folgenden Pakete können nicht authentifiziert werden!"
+
+#: nala/downloader.py:529
+msgid "{error} Some packages were unable to be authenticated"
+msgstr "{error} Einige Pakete konnten nicht authentifiziert werden"
+
+#: nala/downloader.py:534
+msgid "{notice} Configuration is set to allow installation of unauthenticated packages."
+msgstr "{notice} Die Konfiguration ist so eingestellt, dass die Installation von nicht authentifizierten Paketen zugelassen wird."
+
+#: nala/downloader.py:544
+msgid "{error} {url} timed out"
+msgstr "{error} Zeitüberschreitung bei {url}"
+
+#: nala/downloader.py:633
+msgid "Failed to check hash"
+msgstr "Hash konnte nicht überprüft werden"
+
+#: nala/downloader.py:712
+msgid "{error} {filename} can't be checked for integrity."
+msgstr "{error} {filename} kann nicht auf Integrität überprüft werden."
+
+#: nala/downloader.py:716
+msgid "There are no hashes available for this package."
+msgstr "Für dieses Paket sind keine Hashes verfügbar."
+
+#: nala/downloader.py:833
+msgid "{error} unable to connect to {url}"
+msgstr "{error} Verbindung zu {url} nicht möglich"
+
+#: nala/downloader.py:854
+msgid "Download complete and in download only mode."
+msgstr "Vollständig und im Nur-Download-Modus herunterladen."
+
+#: nala/downloader.py:859
+msgid "{error} Download failure. The following downloads failed:"
+msgstr "{error} Fehler beim Herunterladen. Folgende Downloads sind fehlgeschlagen:"
+
+#: nala/downloader.py:868
+msgid "In download only mode. Not falling back to apt_pkg."
+msgstr "Im Nur-Download-Modus. Kein Rückgriff auf apt_pkg."
+
+#: nala/downloader.py:870
+msgid "{warning} Falling back to apt_pkg. The following downloads failed:"
+msgstr "{warning} Fallback auf apt_pkg. Folgende Downloads sind fehlgeschlagen:"
+
+#: nala/__main__.py:44
+msgid "Exiting at your request."
+msgstr "Beende auf Ihren Wunsch."
+
+#: nala/__main__.py:50
+msgid "{error} No space left on device."
+msgstr "{error} Kein Speicherplatz mehr auf dem Gerät."
+
+#: nala/dpkg.py:94
+msgid "Updated:"
+msgstr "Aktualisiert:"
+
+#: nala/dpkg.py:95
+msgid "Downloaded:"
+msgstr "Heruntergeladen:"
+
+#: nala/dpkg.py:96
+msgid "Ignored:"
+msgstr "Ignoriert:"
+
+#: nala/dpkg.py:97
+msgid "No Change:"
+msgstr "Keine Änderung:"
+
+#. Spacing of following status messages
+#. is to allow the urls to be properly aligned
+#. Especially if your status would come after the package
+#. You do not have to follow this scheme
+#. but do note that the headers will be colored regardless
+#. No Change: http://deb.volian.org/volian scar InRelease
+#. Ignored:   http://deb.volian.org/volian scar InRelease
+#. Updated:   http://deb.volian.org/volian scar InRelease
+#: nala/dpkg.py:107
+msgid "{no_change} {info}"
+msgstr "{no_change} {info}"
+
+#: nala/dpkg.py:108
+msgid "{no_change} {info} [{size}]"
+msgstr "{no_change} {info} [{size}]"
+
+#: nala/dpkg.py:109
+msgid "{ignored}   {info}"
+msgstr "{ignored}      {info}"
+
+#: nala/dpkg.py:110
+msgid "{updated}   {info}"
+msgstr "{updated}   {info}"
+
+#: nala/dpkg.py:111
+msgid "{updated}   {info} [{size}]"
+msgstr "{updated}   {info} [{size}]"
+
+#: nala/dpkg.py:113
+msgid "Removing:"
+msgstr "Entferne:"
+
+#: nala/dpkg.py:114
+msgid "Unpacking:"
+msgstr "Auspacken:"
+
+#: nala/dpkg.py:115
+msgid "Setting up:"
+msgstr "Konfigurieren:"
+
+#: nala/dpkg.py:116
+msgid "Processing:"
+msgstr "Wird bearbeitet:"
+
+#. Spacing of following status messages
+#. is to allow dpkg messages to be properly aligned
+#. Especially if your status would come after the package
+#. You do not have to follow this scheme
+#. but do note that the headers will be colored regardless
+#. Unpacking:   neofetch (7.1.0-3)
+#. Setting up:  neofetch (7.1.0-3)
+#. Removing:    neofetch (7.1.0-3)
+#. Processing:  triggers for man-db (2.10.2-1)
+#. You can change the headers and positions as you would like,
+#: nala/dpkg.py:129
+msgid "{setting_up} {dpkg_msg}"
+msgstr "{setting_up}   {dpkg_msg}"
+
+#: nala/dpkg.py:130
+msgid "{processing} {dpkg_msg}"
+msgstr "{processing} {dpkg_msg}"
+
+#: nala/dpkg.py:131
+msgid "{unpacking}  {dpkg_msg}"
+msgstr "{unpacking}       {dpkg_msg}"
+
+#. That's the end of alignment spacing
+#: nala/dpkg.py:133
+msgid "{removing}   {dpkg_msg}"
+msgstr "{removing}        {dpkg_msg}"
+
+#. This translation is separate from the one below
+#. Because we do a check specifically on this string
+#: nala/dpkg.py:137
+msgid "Fetched"
+msgstr "Holte"
+
+#. Fetched 81.0 MB in 6s (1448 kB/s)
+#: nala/dpkg.py:139
+msgid "{fetched} {size} in {elapsed} ({speed}/s)"
+msgstr "{fetched} {size} in {elapsed} ({speed}/s)"
+
+#: nala/dpkg.py:165
+#, python-format
+msgid "%c%s... Done"
+msgstr "%c%s... Fertig"
+
+#: nala/dpkg.py:388
+msgid " [Working]"
+msgstr " [Wird verarbeitet]"
+
+#: nala/dpkg.py:947
+msgid "Purging Packages"
+msgstr "Pakete Löschen"
+
+#: nala/dpkg.py:949
+msgid "Removing Packages"
+msgstr "Pakete entfernen"
+
+#: nala/dpkg.py:951
+msgid "Updating Packages"
+msgstr "Aktualisieren von Paketen"
+
+#: nala/dpkg.py:953
+msgid "Installing Packages"
+msgstr "Pakete installieren"
+
+#: nala/dpkg.py:956
+msgid "History Undo"
+msgstr "Verlauf rückgängig machen"
+
+#: nala/dpkg.py:958
+msgid "History Redo"
+msgstr "Verlauf wiederholen"
+
+#: nala/dpkg.py:963
+msgid "Fetching Missed Packages"
+msgstr "Fehlende Pakete abrufen"
+
+#: nala/dpkg.py:965
+msgid "Fixing Broken Packages"
+msgstr "Defekte Pakete reparieren"
+
+#: nala/dpkg.py:966
+msgid "Updating Package List"
+msgstr "Aktualisierung der Paketlisten"
+
+#: nala/dpkg.py:1062
+msgid "{warning} Quitting now could break your system!"
+msgstr "{warning} Wenn Sie jetzt abbrechen könnte Ihr System beschädigt werden!"
+
+#: nala/dpkg.py:1066
+msgid "Ctrl+C twice quickly will exit"
+msgstr "Ctrl+C zweimal schnell hintereinander beendet das Programm"
 
 #~ msgid "{no_change} {info} [{size}B]"
 #~ msgstr "{no_change} {info} [{size}B]"
@@ -1421,3 +1494,10 @@ msgstr "{error} {package} hat keine Version zum Anzeigen"
 
 #~ msgid "Omits contrib and non-free repos."
 #~ msgstr "Lässt Contrib- und Non-Free-Repos aus."
+
+#~ msgid "{error} Index {index} needs to be an integer."
+#~ msgstr "{error} Index {index} muss eine ganze Zahl sein."
+
+#~ msgid "Not a valid choice kiddo"
+#~ msgstr "Keine gültige Wahl, Kiddo"
+
