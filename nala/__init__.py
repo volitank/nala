@@ -34,20 +34,13 @@ ROOT = ""
 USR = "/usr"
 TERMUX = False
 
-# Before we import anything else we need to make sure that this is in our path
-# Else apt_pkg will give an import error. Conda is an example of this breaking
 # pylint: disable=wrong-import-position
-PY_PATH = f"{USR}/lib/python3/dist-packages"
-if PY_PATH not in sys.path:
-	sys.path.append(PY_PATH)
-
-if not TERMUX:
-	# Termux uses site-packages due to not needing root.
-	# Every where else we should not include site-packages.
-	# Users installing things with pip can and will break Nala.
-	for path in sys.path:
-		if "site-packages" in path and "virtualenvs" not in path:
-			sys.path.remove(path)
+# Before we import anything else we need to make sure that this is in our path
+# Else apt_pkg will give an import error. Conda is an example of this breaking.
+# Additionally if something is installed with pip and pulls in dependencies
+# That Nala uses this can also break. This fix is to add dist-packages to the beginning
+# So it's always queried first.
+sys.path.insert(0, f"{USR}/lib/python3/dist-packages")
 
 import gettext
 
