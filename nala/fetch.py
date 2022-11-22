@@ -31,7 +31,6 @@ import sys
 from asyncio import Semaphore, gather, get_event_loop, run as aiorun
 from pathlib import Path
 from ssl import SSLCertVerificationError, SSLError
-from subprocess import run
 from typing import Iterable, List, Optional, Union
 
 import typer
@@ -546,36 +545,6 @@ def ubuntu_parser(mirror: str, arches: tuple[str, ...]) -> str | None:
 		if result := re.search(UBUNTU_MIRROR, line):
 			return None if only_ports and "ubuntu-ports" not in result[1] else result[1]
 	return None
-
-
-def _lsb_release() -> tuple[str | None, str | None]:
-	"""Run `lsb_release` and get the distro information."""
-	lsb_id = None
-	lsb_codename = None
-	try:
-		lsb_release = run(
-			["lsb_release", "-idrc"], capture_output=True, check=True
-		).stdout.decode()
-	except OSError as error:
-		dprint(error)
-		return lsb_id, lsb_codename
-
-	for line in lsb_release.splitlines():
-		index = line.index("\t") + 1
-		if "Distributor ID" in line:
-			lsb_id = line[index:]
-		if "Codename" in line:
-			lsb_codename = line[index:]
-		# if "Description:" in line:
-		# 	lsb_description = line[index:]
-
-	# Hold off on LinuxMint for Now until we understand if we need to
-	# Parse their list or use Ubuntu/Debian. Also need to setup an LMDE VM
-	# To test that case
-	# if lsb_id and lsb_id.lower() == "linuxmint":
-	# 	lsb_id = DEBIAN if "Debian" in lsb_description else UBUNTU
-
-	return lsb_id, lsb_codename
 
 
 def detect_release(

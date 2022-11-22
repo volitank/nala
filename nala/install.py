@@ -26,7 +26,9 @@
 """Functions for the Nala Install command."""
 from __future__ import annotations
 
+import contextlib
 import fnmatch
+import hashlib
 import sys
 from pathlib import Path
 from shutil import which
@@ -36,10 +38,12 @@ import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
 from apt.package import BaseDependency, Dependency, Package
 from apt_pkg import DepCache, Error as AptError, get_architectures
+from httpx import HTTPError, head
 
 from nala import _, color, color_version
 from nala.cache import Cache
 from nala.constants import (
+	ARCHIVE_DIR,
 	DPKG_LOG,
 	ERROR_PREFIX,
 	NALA_DIR,
@@ -51,7 +55,14 @@ from nala.constants import (
 	CurrentState,
 )
 from nala.debfile import NalaBaseDep, NalaDebPackage, NalaDep
-from nala.downloader import download
+from nala.downloader import (
+	URL,
+	Downloader,
+	URLSet,
+	download,
+	download_pkgs,
+	print_error,
+)
 from nala.dpkg import DpkgLive, InstallProgress, OpProgress, UpdateProgress, notice
 from nala.error import (
 	BrokenError,
@@ -63,7 +74,7 @@ from nala.error import (
 )
 from nala.history import write_history
 from nala.options import arguments
-from nala.rich import Text, dpkg_progress, from_ansi
+from nala.rich import ELLIPSIS, Text, dpkg_progress, from_ansi
 from nala.summary import print_update_summary
 from nala.utils import (
 	DelayedKeyboardInterrupt,
@@ -78,6 +89,8 @@ from nala.utils import (
 	term,
 	vprint,
 )
+
+# pylint: disable=too-many-lines
 
 
 def auto_remover(cache: Cache, nala_pkgs: PackageHandler, config: bool = False) -> None:
@@ -384,7 +397,6 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None
 		check_essential(pkgs)
 		sort_pkg_changes(pkgs, nala_pkgs)
 		print_update_summary(nala_pkgs, cache)
-
 		check_term_ask()
 
 	# Enable verbose and raw_dpkg if we're piped.
@@ -395,8 +407,7 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None
 	if arguments.raw_dpkg:
 		term.restore_locale()
 
-	download(pkgs)
-
+	download_pkgs(pkgs)
 	write_history(cache, nala_pkgs, operation)
 	start_dpkg(cache, nala_pkgs)
 
@@ -588,14 +599,174 @@ def prioritize_local(
 	pkg_names.remove(cache_name)
 
 
+def get_url_size(url: str) -> int:
+	"""Get the URL Header and check for content length."""
+	# We must get the headers so we know what the filesize is.
+	response = head(url, follow_redirects=True)
+	response.raise_for_status()
+	dprint(response.headers)
+
+	try:
+		return int(response.headers["content-length"])
+	except KeyError:
+		sys.exit(
+			_(
+				"{error} No content length in response from {url}\n"
+				"  Ensure the URL points to a Debian Package"
+			).format(error=ERROR_PREFIX, url=url)
+		)
+
+
+def split_url(url_string: str, cache: Cache) -> URLSet:
+	"""Split the URL and try to determine the hash."""
+	dprint(url_split := url_string.split(":"))
+
+	# http
+	proto = url_split[0]
+	# //deb.debian.org/debian/pool/main/n/neofetch/neofetch_7.1.0-2_all.deb
+	body = url_split[1]
+
+	# neofetch_7.1.0-2_all.deb
+	dprint(f"Filename: {(filename := body.split('/').pop())}")
+
+	# Initialize a URL
+	url = URL(
+		f"{proto}:{body}",
+		get_url_size(f"{proto}:{body}"),
+		ARCHIVE_DIR / filename,
+		proto,
+	)
+
+	pkg_attrs = filename.split("_")
+	# ["neofetch", "7.1.0-2", "all"]
+	dprint(f"Package Name: {(pkg_attrs[0])}\n")
+
+	try:
+		hash_or_type = url_split[2]
+	# IndexError Occurs because they did not specify a hash
+	except IndexError:
+		if not arguments.config.apt.find_b("APT::Get::AllowUnauthenticated", False):
+			sys.exit(
+				_(
+					"{error} It is not secure to download a package without a hashsum verification.\n"
+					"  If you are sure you do NOT want verification, use '-o APT::Get::AllowUnauthenticated=true'"
+				).format(error=ERROR_PREFIX)
+			)
+		url.no_hash = True
+		return URLSet([url])
+
+	# sha512 d500faf8b2b9ee3a8fbc6a18f966076ed432894cd4d17b42514ffffac9ee81ce
+	# 945610554a11df24ded152569b77693c57c7967dd71f644af3066bf79a923bfe
+	#
+	# sha256 a694f44fa05fff6d00365bf23217d978841b9e7c8d7f48e80864df08cebef1a8
+	# md5 b9ef863f210d170d282991ad1e0676eb
+	# sha1 d1f34ed00dea59f886b9b99919dfcbbf90d69e15
+
+	# Length of the hex digests
+	len_map = {
+		128: "sha512",
+		64: "sha256",
+		32: "md5sum",
+		40: "sha1",
+	}
+
+	# Clear the hash_type
+	url.hash_type = ""
+	# Attempt to autodetect the hash type based on the len of the hash
+	if hash_type := len_map.get(len(hash_or_type)):
+		url.hash_type = hash_type
+		url.hash = hash_or_type
+		vprint(f"Automatically Selecting {url.hash_type}: {url.hash}")
+
+	# If it doesn't match then it must be specified
+	else:
+		url.hash_type = hash_or_type
+
+		try:
+			url.hash = url_split[3]
+			# This is just testing to ensure it's supported
+			hashlib.new(url.hash_type)
+
+			# If the Type is known we can check the length of the hash to ensure that it's proper
+			if (
+				url.hash_type in len_map.values()
+				and url.hash_type != len_map[len(url.hash)]
+			):
+				sys.exit(
+					_("{error} Hash does not match the '{hash_type}' Length").format(
+						error=ERROR_PREFIX, hash_type=color(url.hash_type, "YELLOW")
+					)
+				)
+
+		except IndexError:
+			sys.exit(
+				_("{error} Hash Type '{hash_type}' specified with no hash").format(
+					error=ERROR_PREFIX, hash_type=color(url.hash_type, "YELLOW")
+				)
+			)
+
+		except ValueError:
+			sys.exit(
+				_("{error} Hash Type '{hash_type}' is unsupported").format(
+					error=ERROR_PREFIX, hash_type=color(url.hash_type, "YELLOW")
+				)
+			)
+
+	# Everything hashed out, lets check for any extra URI's we can add
+	dprint(url)
+	url_set = URLSet([url])
+
+	# Check to see if our package is in the cache
+	if pkg_attrs[0] in cache:
+		dprint("Package found in the cache")
+		pkg = cache[pkg_attrs[0]]
+		for ver in pkg.versions:
+			hash_list = ver._records.hashes
+			with contextlib.suppress(KeyError):
+				if url.hash == hash_list.find(url.hash_type).hashvalue:
+					dprint("Package Hash Found in the cache. Adding URIs")
+					url_set.extend(
+						[URL(uri, url.size, url.path, url.hash) for uri in ver.uris]
+					)
+	# You can check the versions with this. I don't know if it's useful yet
+	# pylint: disable=line-too-long
+	# if (cmp := apt_pkg.version_compare(version, ver.version)) > 0:
+	# 	eprint("A nice little upgrade!")
+	# elif cmp < 0:
+	# 	eprint(_("{notice} Woah are you planning on downgrading this package?").format(notice=NOTICE_PREFIX))
+	# else:
+	# 	print("The Versions are identical")
+	return url_set
+
+
 def split_local(
 	pkg_names: list[str], cache: Cache, local_debs: list[NalaDebPackage]
 ) -> list[str]:
 	"""Split pkg_names into either Local debs, regular install or they don't exist."""
 	not_exist: list[str] = []
+	download_debs = []
+	if urls := [name for name in pkg_names if name.startswith(("http://", "https://"))]:
+		print(f"Checking Urls{ELLIPSIS}")
+		for url in urls:
+			try:
+				vprint(f"Verifying {url}")
+				url_set = split_url(url, cache)
+			except HTTPError as error:
+				print_error(error)
+				sys.exit(1)
+
+			download_debs.append(url_set)
+			pkg_names.remove(url)
+			pkg_names.append(f"{url_set.path()}")
+
+	# .deb packages have to be downloaded before anything else in order to determine dependencies
+	if download_debs:
+		download(Downloader(download_debs))
+
 	for name in pkg_names[:]:
 		if ".deb" in name or "/" in name:
-			if not Path(name).exists():
+			path = Path(name)
+			if not path.exists():
 				not_exist.append(name)
 				pkg_names.remove(name)
 				continue
