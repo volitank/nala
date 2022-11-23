@@ -87,6 +87,7 @@ from nala.utils import (
 	get_pkg_version,
 	pkg_installed,
 	term,
+	unauth_ask,
 	vprint,
 )
 
@@ -645,13 +646,15 @@ def split_url(url_string: str, cache: Cache) -> URLSet:
 		hash_or_type = url_split[2]
 	# IndexError Occurs because they did not specify a hash
 	except IndexError:
-		if not arguments.config.apt.find_b("APT::Get::AllowUnauthenticated", False):
-			sys.exit(
-				_(
-					"{error} It is not secure to download a package without a hashsum verification.\n"
-					"  If you are sure you do NOT want verification, use '-o APT::Get::AllowUnauthenticated=true'"
-				).format(error=ERROR_PREFIX)
+		eprint(
+			_("{notice} {filename} can't be hashsum verified.").format(
+				notice=NOTICE_PREFIX, filename=filename
 			)
+		)
+
+		if not unauth_ask(_("Do you want to continue?")):
+			sys.exit(_("Abort."))
+
 		url.no_hash = True
 		return URLSet([url])
 

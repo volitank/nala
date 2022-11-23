@@ -50,6 +50,7 @@ from nala.constants import (
 	NALA_DIR,
 	NALA_LOCK_FILE,
 	NALA_LOGDIR,
+	NOTICE_PREFIX,
 )
 from nala.options import arguments
 from nala.rich import from_ansi
@@ -332,6 +333,22 @@ def ask(question: str) -> bool:
 
 	resp = input(f"{question} [{YES[0]}/{NO[1]}] ").strip()
 	return len(resp) == 0 or resp[0] in (YES[0], YES[1], "Y", "y")
+
+
+def unauth_ask(question: str) -> bool:
+	"""Ask the user if they'd like to accept unauthenticated packages."""
+	if not arguments.config.apt.find_b("APT::Get::AllowUnauthenticated", False):
+		# If a user is piping something into Nala to bypass this prompt, error because this is unsafe.
+		# The option should be passed on the command line so it's explicit what is happening in scripts.
+		if arguments.assume_yes or not sys.stdin.isatty():
+			sys.exit(
+				_(
+					"{error} Some packages are unable to be authenticated. Use "
+					"'-o APT::Get::AllowUnauthenticated=true' with `--yes`"
+				).format(error=ERROR_PREFIX)
+			)
+		return ask(f"{NOTICE_PREFIX} {question}")
+	return True
 
 
 def compile_regex(regex: str) -> Pattern[str]:
