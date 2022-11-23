@@ -176,6 +176,7 @@ class URL:  # pylint: disable=too-many-instance-attributes
 			version.size,
 			# Have to run the filename through a path to get the last section
 			ARCHIVE_DIR / get_pkg_name(version),
+			"",
 			*get_hash(version),
 		)
 
