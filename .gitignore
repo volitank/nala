@@ -44,3 +44,6 @@ test*.py
 # Nuitka Build
 nala-cli.build/
 nala-cli.bin
+
+# Pyinstaller
+/nala-cli.spec

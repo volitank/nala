@@ -71,9 +71,13 @@ config:
 
 clean:
 	rm -f docs/nala*.8
+	rm -rf ./.venv
 
 uninstall:
 	sudo rm -f /usr/share/man/man8/nala*8.gz
 	sudo rm -f ${LIB_DIR}/apt_pkg.so
 	sudo rm -f ${LIB_DIR}/apt_inst.so
 	sudo python3.10 -m pip uninstall nala
+
+binary:
+	./nala-pyinstall.sh

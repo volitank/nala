@@ -7,6 +7,7 @@ Build-Depends:
   debhelper-compat (= 13),
   dh-sequence-python3,
   python3-all,
+  python3-venv,
   pybuild-plugin-pyproject,
   python3-babel,
   python3-poetry,
