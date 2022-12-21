@@ -59,7 +59,7 @@ black = { git = "https://github.com/volitank/black.git", branch = "black-tabs" }
 codespell = "*"
 isort = "*"
 mypy = "*"
-pre-commit = "^*"
+pre-commit = "*"
 pyupgrade = "*"
 pydocstyle = "*"
 pylint = "*"

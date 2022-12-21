@@ -728,7 +728,7 @@ def split_url(url_string: str, cache: Cache) -> URLSet:
 			with contextlib.suppress(KeyError):
 				if url.hash == hash_list.find(url.hash_type).hashvalue:
 					dprint("Package Hash Found in the cache. Adding URIs")
-					url_set.extend(URL.from_version(ver))
+					url_set.append(URL.from_version(ver))
 
 	# You can check the versions with this. I don't know if it's useful yet
 	# pylint: disable=line-too-long

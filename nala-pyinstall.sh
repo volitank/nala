@@ -7,7 +7,7 @@ set -e
 # Required system dependencies
 sudo apt-get install devscripts apt-utils -y
 
-# Activate the virutal environment first
+# Activate the virtual environment first
 python3 -m venv ./.venv
 . ./.venv/bin/activate
 
