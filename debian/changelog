@@ -1,3 +1,36 @@
+nala (0.12.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add Turkish translation
+  * Allow fetch to accept ranges and comma separation
+  * List and Search work slightly differently. See man page
+  * Remove prompt for kept back pkgs during an upgrade
+  * Show Remove and Auto-Remove packages last during the summary
+  * Add a more condensed summary accessed by config option or `--simple`
+  * Allow installing .deb by passing a URL.
+  * Add prompt for unauthenticated local debs.
+
+  [ Bug Fixes ]
+  * Fetch sometimes adding duplicate entries
+  * Update summary showing `0 Bytes/s`
+  * Ask prompt not accepting `yes` or English when in different locals
+  * Informing a reboot is needed when it is not
+  * Fix transfer_speed_bits type in config
+  * Update summary not showing bits when enabled in config
+  * Unable to select version if available in multiple repos
+  * Search end-of-text regexp not finding matches
+  * Search printing duplicate results
+  * Python site packages causing Nala to crash
+  * Crash if local .deb is missing installed size
+  * Claiming all pkgs are up to date when lock fails
+  * Unable to install packages from a local repository
+  * `--install-suggests` missing from man pages
+  * Search not respecting `--all-arches` switch
+  * Search displaying wrong origin occasionally
+  * Fix exception when shell completion fails
+
+ -- Blake Lee <blake@volian.org>  Tue, 20 Dec 2022 19:56:01 -0600
+
 nala (0.11.1) unstable; urgency=medium
 
   [ Changes ]
