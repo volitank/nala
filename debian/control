@@ -34,6 +34,7 @@ Depends:
   ${misc:Depends},
   apt,
   python3-apt,
+  python3-debian,
 Recommends: python3-socksio
 Description: Commandline frontend for the APT package manager
  Nala is a frontend for the APT package manager. It has a lot
