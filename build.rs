@@ -13,11 +13,12 @@ fn main() -> Result<(), Error> {
 		Some(outdir) => outdir,
 	};
 
-	let mut cmd = NalaParser::command();
+	// let mut cmd = NalaParser::command();
 	let path = generate_to(
-		Bash, &mut cmd,  // We need to specify what generator to use
-		"nala-rs", // We need to specify the bin name manually
-		outdir,    // We need to specify where to write to
+		Bash,
+		&mut NalaParser::command(), // We need to specify what generator to use
+		"nala-rs",                  // We need to specify the bin name manually
+		outdir,                     // We need to specify where to write to
 	)?;
 
 	println!("cargo:warning=completion file is generated: {:?}", path);

@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
 use anyhow::{bail, Result};
+use globset::GlobBuilder;
 use regex::{Regex, RegexBuilder};
-use rust_apt::cache::{Cache, PackageSort};
+use rust_apt::cache::PackageSort;
+use rust_apt::new_cache;
 use rust_apt::package::{Package, Version};
 
 use crate::colors::Color;
@@ -46,7 +48,7 @@ impl Matcher {
 		'outer: for pkg in packages {
 			// Check for pkg name matches first.
 			for regex in &self.regexs {
-				if regex.is_match(&pkg.name()) {
+				if regex.is_match(pkg.name()) {
 					found_pkgs.push(pkg);
 					not_found.remove(regex.as_str());
 					// Continue with packages as we don't want to hit versions if we can help it.
@@ -76,10 +78,44 @@ impl Matcher {
 	}
 }
 
+pub fn glob_pkgs<'a, Container: IntoIterator<Item = Package<'a>>, T: AsRef<str>>(
+	glob_strings: &[T],
+	packages: Container,
+) -> Result<(Vec<Package<'a>>, HashSet<String>)> {
+	let mut found_pkgs = Vec::new();
+
+	// Build the glob patterns from the strings provided
+	let mut globs = vec![];
+	for string in glob_strings {
+		globs.push(
+			GlobBuilder::new(string.as_ref())
+				.case_insensitive(true)
+				.build()?
+				.compile_matcher(),
+		)
+	}
+
+	let mut not_found = HashSet::from_iter(globs.iter().map(|glob| glob.glob().to_string()));
+
+	for pkg in packages {
+		// Check for pkg name matches first.
+		for glob in &globs {
+			if glob.is_match(pkg.name()) {
+				found_pkgs.push(pkg);
+				// Globble Globble Globble this gives us a &str lol
+				not_found.remove(glob.glob().glob());
+				// We have already moved the package so we need to just continue
+				break;
+			}
+		}
+	}
+	Ok((found_pkgs, not_found))
+}
+
 /// The search command
 pub fn search(config: &Config, color: &Color) -> Result<()> {
 	let mut out = std::io::stdout().lock();
-	let cache = Cache::new();
+	let cache = new_cache!()?;
 
 	// Set up the matcher with the regexes
 	let matcher = match config.pkg_names() {
@@ -93,7 +129,7 @@ pub fn search(config: &Config, color: &Color) -> Result<()> {
 		matcher.regex_pkgs(cache.packages(&sort), config.get_bool("names", false));
 
 	// List the packages that were found
-	list_packages(packages, &cache, config, color, &mut out)?;
+	list_packages(packages, config, color, &mut out)?;
 
 	// Alert the user of any patterns that were not found
 	for name in not_found {
@@ -106,17 +142,27 @@ pub fn search(config: &Config, color: &Color) -> Result<()> {
 /// The list command
 pub fn list(config: &Config, color: &Color) -> Result<()> {
 	let mut out = std::io::stdout().lock();
-	let cache = Cache::new();
+	let cache = new_cache!()?;
 
-	let sort = get_sorter(config);
+	let mut sort = get_sorter(config);
 
 	let (packages, not_found) = match config.pkg_names() {
-		Some(pkg_names) => cache.glob_pkgs(&sort, pkg_names),
-		None => (cache.packages(&sort).collect(), vec![]),
+		Some(pkg_names) => {
+			// Stop rust-apt from sorting the package list as it's faster this way.
+			sort.names = false;
+
+			let (mut pkgs, not_found) = glob_pkgs(pkg_names, cache.packages(&sort))?;
+
+			// Sort the packages after glob filtering.
+			pkgs.sort_by_cached_key(|pkg| pkg.name().to_string());
+
+			(pkgs, not_found)
+		},
+		None => (cache.packages(&sort).collect(), HashSet::new()),
 	};
 
 	// List the packages that were found
-	list_packages(packages, &cache, config, color, &mut out)?;
+	list_packages(packages, config, color, &mut out)?;
 
 	// Alert the user of any patterns that were not found
 	for name in not_found {
@@ -131,7 +177,6 @@ pub fn list(config: &Config, color: &Color) -> Result<()> {
 /// Shared function between list and search
 fn list_packages(
 	packages: Vec<Package>,
-	cache: &Cache,
 	config: &Config,
 	color: &Color,
 	out: &mut impl std::io::Write,
@@ -145,7 +190,7 @@ fn list_packages(
 	for pkg in packages {
 		if config.get_bool("all-versions", false) && pkg.has_versions() {
 			for version in pkg.versions() {
-				write!(out, "{} ", color.package(&pkg.fullname(true)))?;
+				write!(out, "{} ", color.package(&pkg.full_name(true)))?;
 				list_version(out, config, color, &pkg, &version)?;
 				list_description(out, config, &version)?;
 			}
@@ -158,7 +203,7 @@ fn list_packages(
 		}
 
 		// Write the package name
-		write!(out, "{} ", color.package(&pkg.fullname(true)))?;
+		write!(out, "{} ", color.package(&pkg.full_name(true)))?;
 
 		// The first version in the list should be the latest
 		if let Some(version) = pkg.versions().next() {
@@ -169,19 +214,19 @@ fn list_packages(
 		}
 
 		// There are no versions so it must be a virtual package
-		list_virtual(out, color, cache, &pkg)?;
+		list_virtual(out, color, &pkg)?;
 	}
 
 	Ok(())
 }
 
 /// List a single version of a package
-fn list_version(
+fn list_version<'a>(
 	out: &mut impl std::io::Write,
 	config: &Config,
 	color: &Color,
-	pkg: &Package,
-	version: &Version,
+	pkg: &'a Package,
+	version: &Version<'a>,
 ) -> std::io::Result<()> {
 	// Add the version to the string
 	dprint!(
@@ -191,20 +236,16 @@ fn list_version(
 		version.version()
 	);
 
-	write!(out, "{}", color.version(&version.version()))?;
+	write!(out, "{}", color.version(version.version()))?;
 
 	if let Some(pkg_file) = version.package_files().next() {
 		dprint!(config, "Package file found, building origin");
 
-		let archive = pkg_file
-			.archive()
-			.unwrap_or_else(|| String::from("Unknown"));
+		let archive = pkg_file.archive().unwrap_or("Unknown");
 
 		if archive != "now" {
-			let origin = pkg_file.origin().unwrap_or_else(|| String::from("Unknown"));
-			let component = pkg_file
-				.component()
-				.unwrap_or_else(|| String::from("Unknown"));
+			let origin = pkg_file.origin().unwrap_or("Unknown");
+			let component = pkg_file.component().unwrap_or("Unknown");
 			write!(out, " [{origin}/{archive} {component}]")?;
 			// write!(out, " [local]")?;
 			// Do we want to show something for this? Kind of handled elsewhere
@@ -217,12 +258,13 @@ fn list_version(
 			config,
 			"Installed and Candidate exist, checking if upgradable"
 		);
+
 		// Version is installed, check if it's upgradable
 		if version == &installed && version < &candidate {
 			return writeln!(
 				out,
 				" [Installed, Upgradable to: {}]",
-				color.version(&candidate.version()),
+				color.version(candidate.version()),
 			);
 		}
 		// Version isn't installed, see if it's the candidate
@@ -230,7 +272,7 @@ fn list_version(
 			return writeln!(
 				out,
 				" [Upgradable from: {}]",
-				color.version(&installed.version()),
+				color.version(installed.version()),
 			);
 		}
 	}
@@ -240,7 +282,7 @@ fn list_version(
 		dprint!(config, "Version is installed and not upgradable.");
 
 		// Version isn't downloadable, consider it locally installed
-		if !version.downloadable() {
+		if !version.is_downloadable() {
 			return writeln!(out, " [Installed, Local]");
 		}
 
@@ -289,12 +331,7 @@ fn list_description(
 }
 
 /// List a virtual package
-fn list_virtual(
-	out: &mut impl std::io::Write,
-	color: &Color,
-	cache: &Cache,
-	pkg: &Package,
-) -> Result<()> {
+fn list_virtual(out: &mut impl std::io::Write, color: &Color, pkg: &Package) -> Result<()> {
 	write!(
 		out,
 		"{}{}{} ",
@@ -303,22 +340,22 @@ fn list_virtual(
 		color.bold(")")
 	)?;
 
-	let provides = cache
-		.provides(pkg, true)
-		.map(|p| p.fullname(true))
-		.collect::<Vec<String>>();
-
 	// If the virtual package provides anything we can show it
-	if !provides.is_empty() {
+	if let Some(provides) = pkg.provides_list() {
+		let names = provides
+			.map(|p| p.target_pkg().full_name(true))
+			.collect::<Vec<String>>();
+
 		writeln!(
 			out,
 			"\n  {} {}",
 			color.bold("Provided By:"),
-			&provides.join(", "),
+			&names.join(", "),
 		)?;
 	} else {
 		writeln!(out, "\n  Nothing provides this package.")?;
 	}
+
 	Ok(())
 }
 
@@ -348,13 +385,13 @@ mod test {
 	#[test]
 	fn virtual_list() {
 		let mut out = Vec::new();
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let color = Color::default();
 
 		// Package selection is based on current Debian Sid
 		// These tests may not be consistent across distributions
 		let pkg = cache.get("matemenu").unwrap();
-		list_virtual(&mut out, &color, &cache, &pkg).unwrap();
+		list_virtual(&mut out, &color, &pkg).unwrap();
 		// Just a print so the output looks better in the tests
 		println!("\n");
 
@@ -379,7 +416,7 @@ mod test {
 		let pkg = cache.get("systemd-sysusers").unwrap();
 
 		// Do the same thing again but with a virtual package that provides
-		list_virtual(&mut out, &color, &cache, &pkg).unwrap();
+		list_virtual(&mut out, &color, &pkg).unwrap();
 
 		// Set up what the correct output should be
 		let mut string = virt.clone();
@@ -400,7 +437,7 @@ mod test {
 		// TODO: This test is not working in the CI.
 		// The full description isn't happening. Must investigate
 		let mut out = Vec::new();
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let mut config = Config::default();
 
 		// Set the description to true so that we are able to get it
@@ -445,22 +482,22 @@ mod test {
 	#[test]
 	fn version() {
 		let mut out = Vec::new();
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let color = Color::default();
 		let config = Config::default();
 
 		let pkg = cache.get("dpkg").unwrap();
+		let cand = pkg.candidate().unwrap();
 
-		list_version(&mut out, &config, &color, &pkg, &pkg.candidate().unwrap()).unwrap();
+		list_version(&mut out, &config, &color, &pkg, &cand).unwrap();
 
 		// Convert the vector of bytes to a string
 		let output = std::str::from_utf8(&out).unwrap();
 
 		// Match the description. This may change with different versions of dpkg
 		let mut string = String::from("\u{1b}[1m(\u{1b}[0m\u{1b}[1;38;5;12m");
-		string += "1.21.9";
-		// TODO: In the CI this say Installed and Automatic. Fix it eventually
-		string += "\u{1b}[0m\u{1b}[1m)\u{1b}[0m [Debian/unstable main] [Installed]\n";
+		string += cand.version();
+		string += "\u{1b}[0m\u{1b}[1m)\u{1b}[0m [Debian/unstable main] [Installed, Automatic]\n";
 
 		dbg!(&output);
 		dbg!(&string);
@@ -469,16 +506,21 @@ mod test {
 
 	#[test]
 	fn glob() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default().names();
 
 		// Results are based on Debian Sid
 		// These results could change and require updating
-		let packages: Vec<Package> = cache.glob_pkgs(&sort, &["apt?y", "aptly*"]).0;
+		let (mut packages, _not_used) =
+			glob_pkgs(&["apt?y", "aptly*"], cache.packages(&sort)).unwrap();
+
+		// Remove anything that is not amd64 arch.
+		// TODO: This should be dynamic based on the hosts primary arch.
+		packages.retain(|p| p.arch() == "amd64");
 
 		// print just for easy debugging later
-		for pkg_name in &packages {
-			println!("{pkg_name}")
+		for pkg in &packages {
+			println!("{}", pkg.full_name(false))
 		}
 		// Currently there are 3 package names that should match
 		assert_eq!(packages.len(), 3);
@@ -486,17 +528,19 @@ mod test {
 
 	#[test]
 	fn regex() {
-		let cache = Cache::new();
+		let cache = new_cache!().unwrap();
 		let sort = PackageSort::default().names();
 
 		// This regex should pull in only dpkg and apt
 		let matcher = Matcher::from_regexs(&[r"^dpk.$", r"^apt$"]).unwrap();
 
-		let (packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort), true);
+		let (mut packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort), true);
+
+		packages.retain(|p| p.arch() == "amd64");
 
 		// print just for easy debugging later
 		for pkg_name in &packages {
-			println!("{pkg_name}")
+			println!("{}", pkg_name.name())
 		}
 		// Should only contain 2 packages, dpkg and apt
 		assert_eq!(packages.len(), 2);
