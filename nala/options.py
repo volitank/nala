@@ -482,14 +482,6 @@ REMOVE_ESSENTIAL = typer.Option(
 	help=_("Allow the removal of essential packages."),
 )
 
-DOWNLOAD_ONLY = typer.Option(
-	False,
-	"--download-only",
-	callback=arguments.set_download_only,
-	is_eager=True,
-	help=_("Packages are only retrieved, not unpacked or installed."),
-)
-
 FIX_BROKEN = typer.Option(
 	True,
 	"-f",
@@ -545,6 +537,7 @@ ALL_ARCHES = typer.Option(
 
 DOWNLOAD_ONLY = typer.Option(
 	False,
+	"-d",
 	"--download-only",
 	callback=arguments.set_download_only,
 	is_eager=True,
