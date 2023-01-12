@@ -22,7 +22,7 @@ Build-Depends:
   bash-completion,
   dh-sequence-bash-completion,
 Rules-Requires-Root: no
-Standards-Version: 4.6.0
+Standards-Version: 4.6.2
 Homepage: https://gitlab.com/volian/nala
 Vcs-Git: https://gitlab.com/volian/nala.git
 Vcs-Browser: https://gitlab.com/volian/nala

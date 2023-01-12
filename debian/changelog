@@ -1,3 +1,11 @@
+nala (0.12.1) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Add python3-debian as a dependency (closes: #1028245)
+  * Missing `-d` switch (closes: #1022274, #1022275)
+
+ -- Blake Lee <blake@volian.org>  Wed, 11 Jan 2023 21:45:57 -0600
+
 nala (0.12.0) unstable; urgency=medium
 
   [ Changes ]
