@@ -10,7 +10,7 @@ Build-Depends:
   python3-venv,
   pybuild-plugin-pyproject,
   python3-babel,
-  python3-poetry,
+  python3-poetry-core,
   python3-apt,
   python3-pexpect,
   python3-httpx,
