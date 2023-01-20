@@ -738,7 +738,8 @@ class InstallProgress(base.InstallProgress):
 			term.RESTORE_TERM in rawline
 			or term.DISABLE_ALT_SCREEN in rawline
 			or self.conf_end(rawline)
-		):
+			# Fix for Dialog Debconf Frontend https://gitlab.com/volian/nala/-/issues/211
+		) and term.ENABLE_ALT_SCREEN not in rawline:
 			self.raw = False
 			self.bug_list = False
 			term.restore_mode()
