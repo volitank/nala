@@ -92,7 +92,7 @@ strict = true
 
 [tool.pydocstyle]
 add_select = "D211, D212"
-ignore = "D206, D203, D213"
+ignore = "D206, D203, D213, D417"
 
 [tool.poetry.scripts]
 nala = "nala.__main__:main"
