@@ -449,7 +449,6 @@ SUGGESTS = typer.Option(
 UPDATE = typer.Option(
 	None,
 	callback=arguments.set_update,
-	is_eager=True,
 	help=_("Toggle updating the package list."),
 )
 
