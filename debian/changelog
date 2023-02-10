@@ -1,3 +1,11 @@
+nala (0.12.2) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Deadlock when using dialog as the debconf frontend
+  * `--option` reverting `--update` to config value
+
+ -- Blake Lee <blake@volian.org>  Wed, 08 Feb 2023 20:37:24 -0600
+
 nala (0.12.1) unstable; urgency=medium
 
   [ Bug Fixes ]
