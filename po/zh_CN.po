@@ -1,0 +1,1493 @@
+# Chinese translations for nala.
+# Copyright (C) 2022 Blake Lee
+# This file is distributed under the same license as the nala project.
+# Translators:
+# Mejituu <acgm@qq.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version:  Nala\n"
+"Report-Msgid-Bugs-To: https://gitlab.com/volian/nala/-/issues\n"
+"POT-Creation-Date: 2022-11-22 00:13-0600\n"
+"PO-Revision-Date: 2023-02-18 13:14+0800\n"
+"Last-Translator: Mejituu <acgm@qq.com>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN Mejituu <acgm@qq.com>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.10.3\n"
+
+#. Answers for the Question prompt "[Y/n]"
+#: nala/utils.py:64
+msgid "Y/y N/n"
+msgstr "Y/y N/n"
+
+#: nala/utils.py:126
+msgid "Terminal can't support dialog, falling back to readline"
+msgstr "终端不支持对话框，依赖于 readline"
+
+#: nala/utils.py:311
+msgid ""
+"{command} is not a command\n"
+"Did you mean {correction}?"
+msgstr ""
+"{command} 不是一个命令\n"
+"Did you mean {correction}?"
+
+#: nala/utils.py:343
+msgid "{error} failed regex compilation '{error_msg} at position {position}'"
+msgstr "{error} 正则表达式编译失败 '{error_msg} 在位置 {position}'"
+
+#: nala/utils.py:354
+msgid "{error} Nala needs root to fix broken packages"
+msgstr "{error} Nala 需要 root 权限来修复损坏的软件包"
+
+#: nala/utils.py:359
+msgid "{error} Nala needs root to {command}"
+msgstr "{error} Nala 需要 root 权限才能执行 {command}"
+
+#: nala/utils.py:382
+msgid "{error} Nala is already running another instance {last_pid}"
+msgstr "{error} Nala 已经在 {last_pid} 中运行"
+
+#: nala/utils.py:418
+msgid "Removing files in {dir}"
+msgstr "删除 {dir} 中的文件"
+
+#: nala/utils.py:421
+msgid "Removed: {filename}"
+msgstr "已删除：{filename}"
+
+#: nala/utils.py:439 nala/utils.py:457
+msgid "{error} can't find version for {package}"
+msgstr "{error} 找不到 {package} 的版本"
+
+#: nala/nala.py:122
+msgid "There are broken packages that need to be fixed!"
+msgstr "有损坏的软件包需要修复！"
+
+#: nala/nala.py:124
+msgid "You can use {switch} if you'd like to try without fixing them."
+msgstr "如果你想尝试而不修复它们，你可以使用 {switch}。"
+
+#: nala/nala.py:169
+msgid "{error} Missing packages to install"
+msgstr "{error} 缺少要安装的软件包"
+
+#: nala/nala.py:230
+msgid "Update package list."
+msgstr "更新软件包列表。"
+
+#: nala/nala.py:245
+msgid "Update package list and upgrade the system."
+msgstr "更新软件包列表并升级系统。"
+
+#: nala/nala.py:251
+msgid "Specify packages to exclude during upgrade. Accepts glob*"
+msgstr "指定要在更新期间排除的软件包。可以使用 *"
+
+#: nala/nala.py:258
+msgid "Toggle full-upgrade"
+msgstr "切换 全面升级"
+
+#: nala/nala.py:289
+msgid "Would you like us to protect these and try again?"
+msgstr "你想让我们保护这些然后再试一次吗？"
+
+#: nala/error.py:581 nala/install.py:232 nala/nala.py:294
+msgid "{error} You have held broken packages"
+msgstr "{error} 有损坏的软件包"
+
+#: nala/nala.py:337
+msgid "Install packages."
+msgstr "安装软件包。"
+
+#: nala/nala.py:344
+msgid "Package(s) to install"
+msgstr "要安装的软件包"
+
+#: nala/nala.py:367
+msgid "Remove packages."
+msgstr "删除软件包。"
+
+#: nala/nala.py:368
+msgid "Purge packages."
+msgstr "清除软件包。"
+
+#: nala/nala.py:375
+msgid "Package(s) to remove/purge"
+msgstr "要删除/清除的软件包"
+
+#: nala/nala.py:397
+msgid "Autoremove packages that are no longer needed."
+msgstr "自动删除不再需要的软件包。"
+
+#: nala/nala.py:398
+msgid "Autopurge packages that are no longer needed."
+msgstr "自动清除不再需要的软件包。"
+
+#: nala/nala.py:419
+msgid "{error} {config} must be used with either {autoremove} or {autopurge}."
+msgstr "{error} {config} 必须与 {autoremove} 或 {autopurge} 一起使用。"
+
+#: nala/nala.py:434
+msgid "Show package details."
+msgstr "显示软件包的详情。"
+
+#: nala/nala.py:440
+msgid "Package(s) to show"
+msgstr "要显示的软件包"
+
+#: nala/nala.py:471
+msgid "Search package names and descriptions."
+msgstr "搜索软件包的名称和描述。"
+
+#: nala/nala.py:476
+msgid "Regex or word to search for"
+msgstr "要搜索的正则表达式或关键词"
+
+#: nala/nala.py:519
+msgid "{error} {regex} not found."
+msgstr "{error} {regex} 未找到。"
+
+#: nala/nala.py:526
+msgid "List packages based on package names."
+msgstr "根据软件包的名称列出软件包。"
+
+#: nala/nala.py:531
+msgid "Package(s) to list."
+msgstr "要列出的软件包。"
+
+#: nala/nala.py:580
+msgid "Nothing was found to list."
+msgstr "没有找到要列出的内容。"
+
+#: nala/nala.py:583
+msgid "Clear out the local archive of downloaded package files."
+msgstr "清除下载软件包文件的本地存档。"
+
+#: nala/nala.py:597
+msgid "Package lists have been cleaned"
+msgstr "软件包列表已被清除"
+
+#: nala/nala.py:601
+msgid "Nala sources.list has been cleaned"
+msgstr "Nala 的 sources.list 已被清除"
+
+#: nala/nala.py:607
+msgid ""
+"Removing {cache}\n"
+"Removing {src_cache}"
+msgstr ""
+"删除 {cache}\n"
+"删除 {src_cache}"
+
+#: nala/nala.py:614
+msgid "Cache has been cleaned"
+msgstr "缓存已被清理"
+
+#: nala/nala.py:617
+msgid "I beg, pls moo"
+msgstr "我求求你了，求你了"
+
+#: nala/nala.py:625
+msgid "I can't moo for I'm a cat"
+msgstr "我不会哞哞叫 因为我是一只猫"
+
+#: nala/nala.py:628
+msgid "What did you expect to update?"
+msgstr "您希望更新什么呢？"
+
+#: nala/nala.py:632
+msgid "What did you expect no-update to do?"
+msgstr "没有更新后你想要做什么呢？"
+
+#: nala/install.py:126
+msgid "Purging configuration files for {package}"
+msgstr "清除 {package} 的配置文件"
+
+#: nala/install.py:206
+msgid "{notice} Selected packages cannot be excluded from upgrade safely."
+msgstr "{notice} 选定的软件包不能安全地排除在升级之外。"
+
+#: nala/install.py:228
+msgid "{error} Unable to calculate how to protect the selected packages"
+msgstr "{error} 无法计算如何保护所选软件包"
+
+#: nala/install.py:234
+msgid "{notice} The following packages need to be protected as well:"
+msgstr "{notice} 以下软件包也需要保护："
+
+#: nala/install.py:289
+msgid "{error} The following hook arguments are invalid: {args}"
+msgstr "{error} 以下 hook 参数无效：{args}"
+
+#: nala/install.py:337
+msgid "{error} The following {hook_type} commands cannot be found."
+msgstr "{error} 未找到以下命令 {hook_type}。"
+
+#: nala/install.py:355
+msgid "Log Started: [{date}]"
+msgstr "日志开始：[{date}]"
+
+#: nala/install.py:369
+msgid "Log Ended: [{date}]"
+msgstr "日志结束：[{date}]"
+
+#: nala/install.py:430
+msgid "{error} Fetching packages has failed!"
+msgstr "{error} 获取软件包失败！"
+
+#: nala/install.py:433 nala/install.py:1072
+msgid "Exiting due to SIGINT"
+msgstr "由于 SIGINT 而退出"
+
+#: nala/install.py:444
+msgid "{notice} A reboot is required."
+msgstr "{notice} 需要重启。"
+
+#: nala/install.py:445
+msgid "Finished Successfully"
+msgstr "成功完成"
+
+#: nala/install.py:507
+msgid "{notice} The following will be installed to satisfy {package}:"
+msgstr "{notice} 将安装以下依赖以满足 {package}："
+
+#: nala/install.py:550
+msgid ""
+"{notice} Newer version {package} {version} exists in the cache.\n"
+"You should consider using `{command}`"
+msgstr ""
+"{notice} 更新版本 {package} {version} 已在缓存中。\n"
+"考虑使用 `{command}`"
+
+#: nala/install.py:593
+msgid "{notice} {deb} has taken priority over {package} from the cache."
+msgstr "{notice} {deb} 优先于缓存中的 {package}。"
+
+#: nala/downloader.py:248 nala/install.py:613
+msgid ""
+"{error} No content length in response from {url}\n"
+"  Ensure the URL points to a Debian Package"
+msgstr ""
+"{error} {url} 的响应没有内容长度\n"
+"  确保 URL 指向 Debian 软件包"
+
+#: nala/install.py:650
+msgid ""
+"{error} It is not secure to download a package without a hashsum verification.\n"
+"  If you are sure you do NOT want verification, use '-o APT::Get::AllowUnauthenticated=true'"
+msgstr ""
+"{error} 在没有哈希和验证的情况下下载软件包是不安全的。\n"
+"  如果您确定不想验证，请使用 '-o APT::Get::AllowUnauthenticated=true'"
+
+#: nala/install.py:696
+msgid "{error} Hash does not match the '{hash_type}' Length"
+msgstr "{error} 哈希 '{hash_type}' 长度不匹配"
+
+#: nala/install.py:703
+msgid "{error} Hash Type '{hash_type}' specified with no hash"
+msgstr "{error} 指定的哈希类型 '{hash_type}' 没有哈希值"
+
+#: nala/install.py:710
+#, fuzzy
+msgid "{error} Hash Type '{hash_type}' is unsupported"
+msgstr "{error} {distro} {release} 不受支持。"
+
+#: nala/install.py:856
+msgid "{error} Version {version} not found for package {package}"
+msgstr "{error} 找不到软件包 {package} 的版本 {version}"
+
+#: nala/install.py:912 nala/install.py:926
+msgid "Virtual Package"
+msgstr "虚拟软件包"
+
+#: nala/install.py:969
+msgid "{notice} {package} is not installed"
+msgstr "{notice} {package} 未安装"
+
+#: nala/install.py:984
+msgid "{package} is already at the latest version {version}"
+msgstr "{package} 已是最新版本 {version}"
+
+#: nala/install.py:1038
+msgid "{notice} The following packages require a reboot."
+msgstr "{notice} 以下软件包需要重启。"
+
+#: nala/install.py:1053
+msgid "Notices:"
+msgstr "注意事项："
+
+#: nala/install.py:1097
+msgid "{error} It can be dangerous to continue without a terminal. Use `--assume-yes`"
+msgstr "{error} 在没有终端的情况下继续可能很危险。使用 `--assume-yes`"
+
+#: nala/install.py:1104
+msgid "{warning} Using {switch} can be very dangerous!"
+msgstr "{warning} 使用 {switch} 可能非常危险！"
+
+#: nala/install.py:1109
+msgid "Do you want to continue?"
+msgstr "你想继续吗？"
+
+#: nala/fetch.py:798 nala/fetch.py:805 nala/install.py:1110
+msgid "Abort."
+msgstr "中止。"
+
+#: nala/cache.py:273 nala/install.py:1122
+msgid "All packages are up to date."
+msgstr "所有软件包都是最新的。"
+
+#: nala/install.py:1125
+msgid "Nothing for Nala to do."
+msgstr "Nala 无事可做。"
+
+#: nala/install.py:1128
+msgid "Nothing for Nala to remove."
+msgstr "Nala 没有什么可以删除的。"
+
+#: nala/install.py:1131
+msgid "Nothing for Nala to fix."
+msgstr "Nala 没有什么可以修复的。"
+
+#: nala/rich.py:231
+msgid "Time Remaining:"
+msgstr "剩余时间："
+
+#: nala/rich.py:242
+msgid "Running dpkg"
+msgstr "运行 dpkg"
+
+#: nala/rich.py:253
+msgid "Testing Mirrors"
+msgstr "测试镜像源"
+
+#: nala/cache.py:47
+msgid "The following {total} packages can be upgraded:"
+msgstr "可以升级以下 {total} 个软件包："
+
+#: nala/cache.py:48
+msgid "Not candidate version"
+msgstr "非候选版本"
+
+#: nala/cache.py:131
+msgid "{error} unable to find any packages by globbing {pkg}"
+msgstr "{error} 无法通过通配 {pkg} 找到任何包"
+
+#: nala/cache.py:195
+msgid "{warn} Virtual Packages like {package} can't be removed."
+msgstr "{warn} 无法删除像 {package} 这样的虚拟软件包。"
+
+#: nala/cache.py:226
+msgid "Protecting {package} from upgrade"
+msgstr "保护 {package} 免于更新"
+
+#: nala/cache.py:234
+msgid "Protecting {package} from auto-removal"
+msgstr "保护 {package} 免于自动删除"
+
+#: nala/cache.py:264
+msgid "{total} packages can be upgraded. Run '{command}' to see them."
+msgstr "{total} 个软件包可以升级，运行 '{command}' 以查看它们。"
+
+#: nala/cache.py:300
+msgid "{package} is a virtual package provided by:"
+msgstr "{package} 是一个虚拟软件包，由："
+
+#: nala/cache.py:314
+msgid "You should select just one."
+msgstr "您只能选择一个。"
+
+#: nala/cache.py:320
+msgid ""
+"{notice} Selecting {provider}\n"
+"  Instead of virtual package {package}"
+msgstr ""
+"{notice} 选择 {provider}\n"
+"  而不是虚拟软件包 {package}"
+
+#: nala/error.py:45 nala/show.py:112
+msgid "Depends:"
+msgstr "依赖："
+
+#: nala/error.py:47
+msgid "Either:"
+msgstr "任一："
+
+#: nala/error.py:49 nala/show.py:138
+msgid "Breaks:"
+msgstr "破坏："
+
+#: nala/error.py:51 nala/show.py:136
+msgid "Conflicts:"
+msgstr "冲突："
+
+#: nala/error.py:53
+msgid "{package} is only referenced by name, no packages provides it"
+msgstr "{package} 仅通过名称引用，没有软件包提供它"
+
+#: nala/error.py:55
+msgid "{dependency} will break {package} {version}"
+msgstr "{dependency} 会破坏 {package} {version}"
+
+#: nala/error.py:57
+msgid "{dependency} conflicts with {package} {version}"
+msgstr "{dependency} 与 {package} {version} 冲突"
+
+#: nala/error.py:60
+msgid "{error} python-apt gave us {apt_err} This isn't a proper error as it's empty"
+msgstr "{error} python-apt 给了我们 {apt_err} 这不是一个正确的错误，因为它是空的"
+
+#: nala/error.py:122
+msgid "{notice} Some index files failed to download. They have been ignored, or old ones used instead."
+msgstr "{notice} 部分索引文件下载失败，它们已被忽略，或者使用旧的代替。"
+
+#: nala/error.py:137
+msgid "{error} Installation has failed."
+msgstr "{error} 安装失败。"
+
+#: nala/error.py:139
+msgid "If you'd like to file a bug report please include '{debug_file}'"
+msgstr "如果您想提交错误报告，请包含 '{debug_file}'"
+
+#: nala/error.py:160
+msgid "Are you root?"
+msgstr "你有 root 权限吗？"
+
+#: nala/error.py:169
+msgid "{error} The following packages are essential!"
+msgstr "{error} 以下软件包必不可少！"
+
+#: nala/error.py:174
+msgid "{error} You have attempted to remove essential packages"
+msgstr "{error} 您试图删除必备软件包"
+
+#: nala/error.py:179
+msgid "{error} Please use {switch} if you are sure you want to."
+msgstr "{error} 如果您确定要这样做，请使用 {switch}。"
+
+#: nala/error.py:191
+msgid "{error} {package} has no installation candidate."
+msgstr "{error} {package} 没有安装候选项。"
+
+#: nala/error.py:197 nala/show.py:331
+msgid "{error} {package} not found"
+msgstr "{error} {package} 未找到"
+
+#: nala/error.py:231
+msgid ""
+"{error} {apt_error}\n"
+"  Unsupported File: {filename}"
+msgstr ""
+"{error} {apt_error}\n"
+"  不兼容的文件：{filename}"
+
+#: nala/error.py:239
+msgid ""
+"{error} {apt_error}\n"
+"  Could not read meta data from {filename}"
+msgstr ""
+"{error} {apt_error}\n"
+"  无法读取 {filename} 的元数据"
+
+#: nala/error.py:299
+msgid "The following packages were kept back:"
+msgstr "保留以下软件包："
+
+#: nala/error.py:305
+msgid "The following were held due to exclusions:"
+msgstr "由于排除，以下内容将被保留："
+
+#: nala/error.py:307
+msgid "Nala was unable to determine why these were held:"
+msgstr "Nala 无法确定为什么要保留这些："
+
+#: nala/error.py:387
+msgid "{package} but it isn't in the cache"
+msgstr "{package} 不在缓存中"
+
+#: nala/error.py:400
+msgid "{package} but the cache version is {version}"
+msgstr "{package} 缓存的版本是 {version}"
+
+#: nala/error.py:405
+#, fuzzy
+msgid "{package} but it cannot be installed"
+msgstr "{package} 无法安装"
+
+#: nala/error.py:518
+msgid "{package} has been unmarked."
+msgstr "{package} 未被选中。"
+
+#: nala/error.py:523
+msgid "Try {switch} if you're sure they can be installed."
+msgstr "如果您确定可以安装它们，请尝试 {switch}。"
+
+#: nala/error.py:528
+msgid "{error} Some packages were unable to be installed."
+msgstr "{error} 一些软件包无法安装。"
+
+#: nala/error.py:552
+msgid "Installed packages that depend on {package}"
+msgstr "已安装依赖于 {package} 的软件包"
+
+#: nala/error.py:565
+msgid "{package} is an Essential package!"
+msgstr "{package} 是必备软件包！"
+
+#: nala/error.py:577
+msgid "{notice} The information above may be able to help"
+msgstr "{notice} 以上信息可能会有所帮助"
+
+#. The following are the headers for the transaction summary.
+#. Package:        Version:     Size:
+#. ansible-core    2.12.4-1    1.2 MB
+#: nala/summary.py:40
+msgid "Package/Version/Size/Old Version/New Version/Either"
+msgstr "软件包/版本/大小/旧版本/新版本/任一"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Auto-Purge 20 Packages" ]
+#: nala/summary.py:45
+msgid "Auto-Purge/Auto-Purging/Auto-Purged"
+msgstr "自动清除/自动清除中/已自动清除"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Auto-Remove 20 Packages" ]
+#: nala/summary.py:50
+msgid "Auto-Remove/Auto-Removing/Auto-Removed"
+msgstr "自动删除/自动删除中/已自动删除"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Remove 20 Packages" ]
+#: nala/summary.py:55
+msgid "Remove/Removing/Removed"
+msgstr "删除/删除中/已删除"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Purge 20 Packages" ]
+#: nala/summary.py:60
+msgid "Purge/Purging/Purged"
+msgstr "清除/清除中/已清除"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Install 20 Packages" ]
+#: nala/summary.py:65
+msgid "Install/Installing/Installed"
+msgstr "安装/安装中/已安装"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Reinstall 20 Packages" ]
+#: nala/summary.py:70
+msgid "Reinstall/Reinstalling/Reinstalled"
+msgstr "重新安装/重新安装中/已重新安装"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Upgrade 20 Packages" ]
+#: nala/summary.py:75
+msgid "Upgrade/Upgrading/Upgraded"
+msgstr "升级/升级中/已升级"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Downgrade 20 Packages" ]
+#: nala/summary.py:80
+msgid "Downgrade/Downgrading/Downgraded"
+msgstr "降级/降级中/已降级"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Configure 20 Packages" ]
+#: nala/summary.py:85
+msgid "Configure/Configuring/Configured"
+msgstr "配置/配置中/已配置"
+
+#: nala/summary.py:246 nala/summary.py:265
+msgid "Recommended, Will Not Be Installed"
+msgstr "推荐，但不会安装"
+
+#: nala/summary.py:247 nala/summary.py:269
+msgid "Suggested, Will Not Be Installed"
+msgstr "建议，但不会安装"
+
+#: nala/summary.py:249 nala/summary.py:267
+msgid "Kept Back, Will Not Be Upgraded"
+msgstr "保留，但不会升级"
+
+#: nala/summary.py:249 nala/summary.py:267
+msgid "Kept Back"
+msgstr "保留"
+
+#: nala/summary.py:251
+msgid "Auto-Removable, Will Not Be Removed"
+msgstr "可自动删除，但不会删除"
+
+#: nala/summary.py:343 nala/summary.py:454
+msgid "Summary"
+msgstr "摘要"
+
+#. This ends up looking like [ "Configure 20 Packages" ]
+#: nala/summary.py:356
+msgid "Packages"
+msgstr "软件包"
+
+#: nala/summary.py:367 nala/summary.py:460
+msgid "Total download size"
+msgstr "总下载大小"
+
+#: nala/summary.py:369 nala/summary.py:462
+msgid "Disk space to free"
+msgstr "释放空间"
+
+#: nala/summary.py:371 nala/summary.py:464
+msgid "Disk space required"
+msgstr "所需空间"
+
+#: nala/summary.py:375 nala/summary.py:468
+msgid "Nala will only download the packages"
+msgstr "Nala 只会下载软件包"
+
+#: nala/fetch.py:81
+msgid ""
+"Nala will fetch mirrors with the lowest latency.\n"
+"\n"
+"For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
+"\n"
+"For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
+msgstr ""
+"Nala 将搜索延迟最低的镜像源。\n"
+"\n"
+"对于 Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
+"\n"
+"对于 Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
+
+#: nala/fetch.py:289
+msgid "Are these mirrors okay?"
+msgstr "这些镜像源可以吗?"
+
+#: nala/fetch.py:303
+#, fuzzy
+msgid "Mirrors you want to keep, separated by space or comma {selection}:"
+msgstr "您要保留的镜像源，以空格分隔 {selection}："
+
+#: nala/fetch.py:325
+msgid "{error} Index {index} doesn't exist."
+msgstr "{error} 索引 {index} 不存在。"
+
+#: nala/fetch.py:335
+msgid "{error} {value_error}"
+msgstr "{error} {value_error}"
+
+#: nala/fetch.py:345
+msgid "{error} Parser: {parser}"
+msgstr "{error} 解析器：{parser}"
+
+#: nala/fetch.py:376
+msgid "Fetching {distro} mirrors"
+msgstr "从 {distro} 中获取镜像源"
+
+#: nala/fetch.py:424
+msgid "{error} Internal Error. Distro detection must be broken"
+msgstr "{error} 内部错误。必须禁用发行版检测"
+
+#: nala/fetch.py:439
+msgid "{error} unable to connect to {mirror}"
+msgstr "{error} 无法连接到 {mirror}"
+
+#: nala/fetch.py:455
+msgid "Parsing mirror list"
+msgstr "解析镜像源列表"
+
+#: nala/fetch.py:660
+msgid "Score is how many milliseconds it takes to download the Release file"
+msgstr "分数 是下载 Release 文件所需的毫秒数。"
+
+#: nala/fetch.py:733
+msgid "{notice} Nala was unable to fetch {num} mirrors."
+msgstr "{notice} Nala 无法获得 {num} 个镜像源。"
+
+#: nala/fetch.py:744
+msgid "Sources have been written to {file}"
+msgstr "软件源已写入 {file}"
+
+#: nala/fetch.py:773
+msgid "{error} There was an issue detecting release."
+msgstr "{error} 检测版本时出现问题。"
+
+#: nala/fetch.py:780
+msgid "{error} {distro} {release} is unsupported."
+msgstr "{error} {distro} {release} 不受支持。"
+
+#: nala/fetch.py:784
+msgid "You can specify Ubuntu or Debian manually."
+msgstr "您可以手动指定 Ubuntu 或 Debian。"
+
+#: nala/fetch.py:794
+msgid ""
+"{file} already exists.\n"
+"Continue and overwrite it?"
+msgstr ""
+"{file} 已存在。\n"
+"继续并覆盖它？"
+
+#: nala/fetch.py:801
+msgid "The above mirrors will be written to {file}. Continue?"
+msgstr "以上镜像源将被写入 {file}。继续？"
+
+#: nala/fetch.py:809
+msgid "Fetch fast mirrors to speed up downloads."
+msgstr "获取最快的镜像源以加快下载速度。"
+
+#: nala/fetch.py:814
+msgid "Choose the Debian release."
+msgstr "选择 Debian 版本。"
+
+#: nala/fetch.py:816
+msgid "Choose the Ubuntu release."
+msgstr "选择 Ubuntu 版本。"
+
+#: nala/fetch.py:819
+msgid "Choose the Devuan release."
+msgstr "选择 Devuan 版本。"
+
+#: nala/fetch.py:823
+msgid "Number of mirrors to fetch. [defaults: 16, --auto(3)]"
+msgstr "要获取的镜像源数量。[defaults: 16, --auto(3)]"
+
+#: nala/fetch.py:830
+msgid "Add the source repos for the mirrors if it exists."
+msgstr "添加镜像源的源代码存储库（如果存在）。"
+
+#: nala/fetch.py:833
+msgid "Add contrib and non-free repos."
+msgstr "添加 contrib 和 non-free 存储库。"
+
+#: nala/fetch.py:838
+msgid "Run fetch uninteractively. Will still prompt for overwrite."
+msgstr "以非交互方式运行 fetch，仍然会提示覆盖。"
+
+#: nala/fetch.py:847
+msgid "Choose only mirrors of a specific ISO country code."
+msgstr "仅选择特定 ISO 国家代码的镜像源。"
+
+#: nala/fetch.py:876
+msgid "{error} Nala was unable to find any mirrors."
+msgstr "{error} Nala 找不到任何镜像源。"
+
+#. This is for `nala show`
+#. header info looks like "Package: steam:i386"
+#: nala/show.py:44
+msgid "{header} {info}"
+msgstr "{header} {info}"
+
+#: nala/show.py:57
+msgid "{pkg_name} has no candidate"
+msgstr "{pkg_name} 没有候选"
+
+#: nala/show.py:74
+msgid "Homepage:"
+msgstr "主页："
+
+#: nala/show.py:77
+msgid "Download-Size:"
+msgstr "下载大小："
+
+#: nala/show.py:80
+msgid "APT-Sources:"
+msgstr "APT 来源："
+
+#: nala/show.py:84
+msgid "Description:"
+msgstr "描述："
+
+#: nala/show.py:95
+msgid "Provides:"
+msgstr "提供："
+
+#: nala/show.py:101
+msgid "Enhances:"
+msgstr "增强："
+
+#: nala/show.py:109
+msgid "Pre-Depends:"
+msgstr "预依赖："
+
+#: nala/show.py:116
+msgid "Recommends:"
+msgstr "推荐："
+
+#: nala/show.py:121
+msgid "Suggests:"
+msgstr "建议："
+
+#: nala/show.py:132
+msgid "Replaces:"
+msgstr "取代："
+
+#: nala/show.py:144 nala/show.py:145
+msgid "yes"
+msgstr "是"
+
+#: nala/show.py:144 nala/show.py:145
+msgid "no"
+msgstr "否"
+
+#: nala/show.py:149
+msgid "Package:"
+msgstr "软件包："
+
+#: nala/show.py:151
+msgid "Version:"
+msgstr "版本："
+
+#: nala/show.py:154
+msgid "Architecture:"
+msgstr "架构："
+
+#: nala/show.py:156
+msgid "Installed:"
+msgstr "已安装："
+
+#: nala/show.py:157
+msgid "Priority:"
+msgstr "优先级："
+
+#: nala/show.py:158
+msgid "Essential:"
+msgstr "必备："
+
+#: nala/show.py:159
+msgid "Section:"
+msgstr "标签："
+
+#: nala/show.py:160
+msgid "Source:"
+msgstr "源码："
+
+#: nala/show.py:163
+msgid "Origin:"
+msgstr "来源："
+
+#: nala/show.py:164
+msgid "Maintainer:"
+msgstr "维护者："
+
+#: nala/show.py:168
+msgid "Original-Maintainer:"
+msgstr "原维护者："
+
+#: nala/show.py:172
+msgid "Bugs:"
+msgstr "错误："
+
+#: nala/show.py:175
+msgid "Installed-Size:"
+msgstr "安装大小："
+
+#: nala/show.py:267
+msgid "local install"
+msgstr "本地安装"
+
+#: nala/show.py:309
+msgid "{notice} There are {num} additional records. Please use the {switch} switch to see them."
+msgstr "{notice} 还有 {num} 条记录，使用 {switch} 选项查看它们。"
+
+#: nala/show.py:325
+msgid "{error} {package} has no version to show"
+msgstr "{error} {package} 没有可显示的版本"
+
+#: nala/constants.py:88
+msgid "Error:"
+msgstr "错误："
+
+#: nala/constants.py:89
+msgid "Warning:"
+msgstr "警告："
+
+#: nala/constants.py:90
+msgid "Notice:"
+msgstr "注意："
+
+#: nala/search.py:109
+msgid "{package} [local]"
+msgstr "{package} [local]"
+
+#. Formatting looks as below:
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed and upgradable to 2:8.2.4659-1
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:121
+msgid "is installed and upgradable to {version}"
+msgstr "已安装并可升级到 {version}"
+
+#. vim 2:8.2.4659-1 [Debian/sid main]
+#. ├── is upgradable from 2:8.2.3995-1+b2
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:130
+msgid "is upgradable from {version}"
+msgstr "可以从 {version} 升级"
+
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:137
+msgid "is installed"
+msgstr "已安装"
+
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed
+#. └── No Description
+#: nala/search.py:152
+msgid "No Description"
+msgstr "无描述"
+
+#: nala/options.py:59
+msgid "{notice} Unable to read config file: {filename}. Using defaults"
+msgstr "{notice} 无法读取配置文件：{filename}。将使用默认值"
+
+#: nala/options.py:72
+msgid "{error} Config key '{key}' should be a bool not {value}"
+msgstr "{error} 配置键 '{key}' 必须是布尔值而不是 {value}"
+
+#: nala/options.py:324
+msgid "{error} Option {option}: Configuration item must have a '='"
+msgstr "{error} 选项 {option}：配置项必须有一个 '='"
+
+#: nala/options.py:367
+msgid ""
+"It seems the system has no license file\n"
+"The full GPLv3 can be found at:\n"
+"https://www.gnu.org/licenses/gpl-3.0.txt"
+msgstr ""
+"好像系统没有 license 文件\n"
+"完整的 GPLv3 可在以下位置找到：\n"
+"https://www.gnu.org/licenses/gpl-3.0.txt"
+
+#: nala/options.py:399
+msgid "Show program's version number and exit."
+msgstr "显示程序的版本并退出。"
+
+#: nala/options.py:407
+msgid "Reads the GPLv3 which Nala is licensed under."
+msgstr "阅读 Nala 获得的许可 GPLv3。"
+
+#: nala/options.py:416
+msgid "Disable scrolling text and print extra information."
+msgstr "禁用文本滚动并显示附加信息。"
+
+#: nala/options.py:424
+msgid "Logs extra information for debugging."
+msgstr "记录用于调试的附加信息。"
+
+#: nala/options.py:432
+msgid "Toggle autoremoving packages."
+msgstr "切换 自动删除的软件包。"
+
+#: nala/options.py:439
+msgid "Toggle installing recommended packages."
+msgstr "切换 安装推荐的软件包。"
+
+#: nala/options.py:446
+msgid "Toggle installing suggested packages."
+msgstr "切换 安装建议的软件包。"
+
+#: nala/options.py:453
+msgid "Toggle updating the package list."
+msgstr "切换 软件包列表更新。"
+
+#: nala/options.py:460
+msgid "Toggle a more condensed transaction summary."
+msgstr "切换 更简洁的交易摘要。"
+
+#: nala/options.py:468
+msgid "Purge any packages that would be removed."
+msgstr "清除所有将要删除的包。"
+
+#: nala/options.py:474
+msgid "Purge packages not installed that have config files."
+msgstr "清除未安装软件包的配置文件。"
+
+#: nala/options.py:482
+msgid "Allow the removal of essential packages."
+msgstr "允许删除必备软件包。"
+
+#: nala/options.py:490 nala/options.py:551
+msgid "Packages are only retrieved, not unpacked or installed."
+msgstr "仅获取软件包，不解压或安装软件包。"
+
+#: nala/options.py:499
+msgid "Toggle fix broken packages."
+msgstr "切换 修复损坏的软件包。"
+
+#: nala/options.py:508
+msgid "Assume 'yes' or 'no' to all prompts."
+msgstr "接受所有提示为 '是' 或 '否'。"
+
+#: nala/options.py:517
+msgid "Set options like Dpkg::Options::=\"--force-confnew\"."
+msgstr "设置 Dpkg::Options::=\"--force-confnew\" 等选项。"
+
+#: nala/options.py:525
+msgid "Skips all formatting and you get raw dpkg output."
+msgstr "跳过所有格式化并获取原始 dpkg 输出。"
+
+#: nala/options.py:534
+msgid "Show all versions of a package."
+msgstr "显示软件包的所有版本。"
+
+#: nala/options.py:543
+msgid "Show all architectures of a package."
+msgstr "显示一个软件包的所有架构。"
+
+#: nala/options.py:560
+msgid "Search only package names."
+msgstr "仅搜索软件包的名称。"
+
+#: nala/options.py:569
+msgid "Only installed packages."
+msgstr "仅安装的软件包。"
+
+#: nala/options.py:577
+msgid "Only packages explicitly installed with Nala."
+msgstr "仅使用 Nala 安装的软件包。"
+
+#: nala/options.py:586
+msgid "Only upgradable packages."
+msgstr "仅可升级的软件包。"
+
+#: nala/options.py:603
+msgid "Only virtual packages."
+msgstr "仅限虚拟软件包。"
+
+#: nala/options.py:611
+msgid "Print the full description of each package."
+msgstr "打印每个软件包的完整描述。"
+
+#: nala/options.py:617
+msgid "Remove package lists located in `/var/lib/apt/lists/`."
+msgstr "删除位于 `/var/lib/apt/lists/` 中的软件包列表。"
+
+#: nala/options.py:623
+msgid "Remove `nala-sources.list`."
+msgstr "删除 `nala-sources.list`。"
+
+#: nala/options.py:627
+msgid "Run fetch uninteractively. Will still prompt for overwrite"
+msgstr "以非交互方式运行 fetch，仍然会提示覆盖"
+
+#: nala/options.py:636
+msgid "Show this message and exit."
+msgstr "显示此消息并退出。"
+
+#: nala/history.py:85
+msgid "{error} '{command}' for operations other than install or remove are not currently supported"
+msgstr "{error} '{command}' 当前不支持安装或删除以外的操作"
+
+#: nala/history.py:89
+msgid ""
+"Show transaction history.\n"
+"\n"
+"Running `nala history` with no subcommands prints an overview of all transactions."
+msgstr ""
+"显示交易历史。\n"
+"\n"
+"在没有子命令的情况下运行 `nala history` 会打印出所有交易的摘要。"
+
+#: nala/history.py:104
+msgid "{error} History file seems corrupt. You should try removing {file}"
+msgstr "{error} 历史文件似乎已损坏。您应该尝试删除 {file}"
+
+#: nala/history.py:121 nala/history.py:319 nala/history.py:340
+msgid "{error} No history exists."
+msgstr "{error} 没有历史记录。"
+
+#: nala/history.py:125
+msgid "{error} Transaction {num} doesn't exist."
+msgstr "{error} 交易 {num} 不存在。"
+
+#: nala/history.py:292
+msgid "Transaction number"
+msgstr "交易号"
+
+#: nala/history.py:304
+msgid "Show packages that were explicitly installed with Nala"
+msgstr "显示使用 Nala 显式安装的软件包"
+
+#: nala/history.py:358
+msgid "Show information about a specific transaction."
+msgstr "显示有关特定交易的信息。"
+
+#: nala/history.py:398
+msgid "Nala needs root to clear history"
+msgstr "Nala 需要 root 权限才能清除历史记录"
+
+#: nala/history.py:400
+msgid "Nala needs root to redo history"
+msgstr "Nala 需要 root 权限才能重做历史记录"
+
+#: nala/history.py:401
+msgid "Nala needs root to undo history"
+msgstr "Nala 需要 root 权限才能撤消历史记录"
+
+#: nala/history.py:415
+msgid "History has been cleared"
+msgstr "历史记录已被清除"
+
+#: nala/history.py:419
+msgid "Clear a transaction or the entire history."
+msgstr "清除交易或所有历史记录。"
+
+#: nala/history.py:424
+msgid "Clear the entire history."
+msgstr "清除所有历史记录。"
+
+#: nala/history.py:433
+msgid "No history exists to clear"
+msgstr "没有要清除的历史记录"
+
+#: nala/history.py:438
+msgid "{error} ID: {hist_id} does not exist in the history"
+msgstr "{error} ID：{hist_id} 在历史记录中不存在"
+
+#: nala/history.py:453
+msgid "History has been altered"
+msgstr "历史记录已被修改"
+
+#: nala/history.py:456
+msgid "Undo a transaction."
+msgstr "撤消一笔交易。"
+
+#: nala/history.py:457
+msgid "Redo a transaction."
+msgstr "重做一笔交易。"
+
+#: nala/history.py:500
+msgid "{warning} This history entry was a purge."
+msgstr "{warning} 这个历史条目是一个清除。"
+
+#: nala/history.py:504
+msgid "Do you want to continue with purge enabled?"
+msgstr "是否要继续启用清除？"
+
+#: nala/downloader.py:86
+msgid "Starting Downloads"
+msgstr "开始下载"
+
+#: nala/downloader.py:88
+msgid "Starting Download:"
+msgstr "开始下载："
+
+#. "Starting Download: http://deb.debian.org/debian 3MB"
+#. "Starting Download:" will be colored blue
+#: nala/downloader.py:91
+msgid "{starting_download} {url} {size}"
+msgstr "{starting_download} {url} {size}"
+
+#: nala/downloader.py:93
+msgid "Download Complete:"
+msgstr "下载完成："
+
+#. "Download Complete: http://deb.debian.org/debian"
+#. "Download Complete:" will be colored green
+#: nala/downloader.py:96
+msgid "{download_complete} {url}"
+msgstr "{download_complete} {url}"
+
+#: nala/downloader.py:98
+msgid "Total Packages:"
+msgstr "总软件包："
+
+#. "Total Packages: 30/100"
+#. "Starting Download:" will be colored green
+#: nala/downloader.py:101
+msgid "{total_packages} {current}/{total}"
+msgstr "{total_packages} {current}/{total}"
+
+#: nala/downloader.py:103
+msgid "Last Completed:"
+msgstr "上次完成："
+
+#: nala/downloader.py:104
+msgid "{last_completed} {package}"
+msgstr "{last_completed} {package}"
+
+#: nala/downloader.py:107
+#, fuzzy
+msgid "{notice} Nala has removed {filename}"
+msgstr "{notice} Nala 删除了 {filename} 但会尝试另一个镜像源"
+
+#: nala/downloader.py:108
+msgid "{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'"
+msgstr "{error} 无法移动存档文件，{str_err}: '{file1}' -> '{file2}'"
+
+#: nala/downloader.py:111
+msgid "{error} {filename} does not exist!"
+msgstr "{error} {filename} 不存在！"
+
+#: nala/downloader.py:112
+msgid ""
+"{error} Hash Sum does not match: {filename}\n"
+"  Expected Hash: {expected}\n"
+"  Received Hash: {received}"
+msgstr ""
+"{error} 校验和不匹配：{filename}\n"
+"  预期哈希：{expected}\n"
+"  实际哈希：{received}"
+
+#: nala/downloader.py:117
+msgid ""
+"{error} File has unexpected size: {filename}\n"
+"  Expected Size: {expected}\n"
+"  Received Size: {received}"
+msgstr ""
+"{error} 文件大小不匹配：{filename}\n"
+"  预期大小：{expected}\n"
+"  实际大小：{received}"
+
+#: nala/downloader.py:230
+msgid ""
+"{error} Improper Hash Syntax\n"
+"  Try '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
+msgstr ""
+"{error} 错误的哈希语法\n"
+"  尝试 '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
+
+#: nala/downloader.py:296
+msgid "Exiting due to {signal}"
+msgstr "由于 {signal} 退出"
+
+#: nala/downloader.py:319
+msgid "{error} Using SOCKS proxy, but the 'socksio' package is not installed."
+msgstr "{error} 使用 SOCKS 代理，但未安装 'socksio' 软件包。"
+
+#: nala/downloader.py:324
+msgid "{error} Install using 'nala install python3-socksio'"
+msgstr "{error} 使用 'nala install python3-socksio' 安装"
+
+#: nala/downloader.py:380
+msgid "Downloading"
+msgstr "下载中"
+
+#: nala/downloader.py:502
+msgid "{error} No more mirrors available for {filename}"
+msgstr "{error} {filename} 没有可用的镜像源"
+
+#: nala/downloader.py:513
+#, fuzzy
+msgid "{notice} Trying next url: {url}"
+msgstr "{notice} 正在尝试下一个源：{url}"
+
+#: nala/downloader.py:522
+msgid "{warning} The following packages cannot be authenticated!"
+msgstr "{warning} 以下软件包无法通过身份验证！"
+
+#: nala/downloader.py:529
+msgid "{error} Some packages were unable to be authenticated"
+msgstr "{error} 一些软件包无法通过身份验证"
+
+#: nala/downloader.py:534
+msgid "{notice} Configuration is set to allow installation of unauthenticated packages."
+msgstr "{notice} 配置设置为允许安装未经身份验证的软件包。"
+
+#: nala/downloader.py:544
+msgid "{error} {url} timed out"
+msgstr "{error} {url} 超时"
+
+#: nala/downloader.py:633
+msgid "Failed to check hash"
+msgstr "无法验证哈希"
+
+#: nala/downloader.py:712
+msgid "{error} {filename} can't be checked for integrity."
+msgstr "{error} 无法验证 {filename} 的完整性。"
+
+#: nala/downloader.py:716
+msgid "There are no hashes available for this package."
+msgstr "此软件包没有可用的哈希值。"
+
+#: nala/downloader.py:833
+msgid "{error} unable to connect to {url}"
+msgstr "{error} 无法连接到 {url}"
+
+#: nala/downloader.py:854
+msgid "Download complete and in download only mode."
+msgstr "下载完成并处于仅下载模式中。"
+
+#: nala/downloader.py:859
+msgid "{error} Download failure. The following downloads failed:"
+msgstr "{error} 下载失败。以下软件包下载失败："
+
+#: nala/downloader.py:868
+msgid "In download only mode. Not falling back to apt_pkg."
+msgstr "在仅下载模式下，需要依赖 apt_pkg。"
+
+#: nala/downloader.py:870
+msgid "{warning} Falling back to apt_pkg. The following downloads failed:"
+msgstr "{warning} 调用 apt_pkg。以下软件包下载失败："
+
+#: nala/__main__.py:44
+msgid "Exiting at your request."
+msgstr "应您的要求退出。"
+
+#: nala/__main__.py:50
+msgid "{error} No space left on device."
+msgstr "{error} 设备上没有剩余空间。"
+
+#: nala/dpkg.py:94
+msgid "Updated:"
+msgstr "更新："
+
+#: nala/dpkg.py:95
+msgid "Downloaded:"
+msgstr "下载："
+
+#: nala/dpkg.py:96
+msgid "Ignored:"
+msgstr "忽略："
+
+#: nala/dpkg.py:97
+msgid "No Change:"
+msgstr "无变化："
+
+#. Spacing of following status messages
+#. is to allow the urls to be properly aligned
+#. Especially if your status would come after the package
+#. You do not have to follow this scheme
+#. but do note that the headers will be colored regardless
+#. No Change: http://deb.volian.org/volian scar InRelease
+#. Ignored:   http://deb.volian.org/volian scar InRelease
+#. Updated:   http://deb.volian.org/volian scar InRelease
+#: nala/dpkg.py:107
+msgid "{no_change} {info}"
+msgstr "{no_change} {info}"
+
+#: nala/dpkg.py:108
+msgid "{no_change} {info} [{size}]"
+msgstr "{no_change} {info} [{size}]"
+
+#: nala/dpkg.py:109
+msgid "{ignored}   {info}"
+msgstr "{ignored}    {info}"
+
+#: nala/dpkg.py:110
+msgid "{updated}   {info}"
+msgstr "{updated} {info}"
+
+#: nala/dpkg.py:111
+msgid "{updated}   {info} [{size}]"
+msgstr "{updated} {info} [{size}]"
+
+#: nala/dpkg.py:113
+msgid "Removing:"
+msgstr "删除："
+
+#: nala/dpkg.py:114
+msgid "Unpacking:"
+msgstr "解包："
+
+#: nala/dpkg.py:115
+msgid "Setting up:"
+msgstr "设置："
+
+#: nala/dpkg.py:116
+msgid "Processing:"
+msgstr "处理："
+
+#. Spacing of following status messages
+#. is to allow dpkg messages to be properly aligned
+#. Especially if your status would come after the package
+#. You do not have to follow this scheme
+#. but do note that the headers will be colored regardless
+#. Unpacking:   neofetch (7.1.0-3)
+#. Setting up:  neofetch (7.1.0-3)
+#. Removing:    neofetch (7.1.0-3)
+#. Processing:  triggers for man-db (2.10.2-1)
+#. You can change the headers and positions as you would like,
+#: nala/dpkg.py:129
+msgid "{setting_up} {dpkg_msg}"
+msgstr "{setting_up}    {dpkg_msg}"
+
+#: nala/dpkg.py:130
+msgid "{processing} {dpkg_msg}"
+msgstr "{processing}      {dpkg_msg}"
+
+#: nala/dpkg.py:131
+msgid "{unpacking}  {dpkg_msg}"
+msgstr "{unpacking} {dpkg_msg}"
+
+#. That's the end of alignment spacing
+#: nala/dpkg.py:133
+msgid "{removing}   {dpkg_msg}"
+msgstr "{removing}   {dpkg_msg}"
+
+#. This translation is separate from the one below
+#. Because we do a check specifically on this string
+#: nala/dpkg.py:137
+msgid "Fetched"
+msgstr "已获取"
+
+#. Fetched 81.0 MB in 6s (1448 kB/s)
+#: nala/dpkg.py:139
+msgid "{fetched} {size} in {elapsed} ({speed}/s)"
+msgstr "{fetched} {size} 耗时 {elapsed} 秒 ({speed}/s)"
+
+#: nala/dpkg.py:165
+#, python-format
+msgid "%c%s... Done"
+msgstr "%c%s... 完毕"
+
+#: nala/dpkg.py:388
+msgid " [Working]"
+msgstr " [Trabajando]"
+
+#: nala/dpkg.py:947
+msgid "Purging Packages"
+msgstr "清除软件包"
+
+#: nala/dpkg.py:949
+msgid "Removing Packages"
+msgstr "删除软件包"
+
+#: nala/dpkg.py:951
+msgid "Updating Packages"
+msgstr "更新软件包"
+
+#: nala/dpkg.py:953
+msgid "Installing Packages"
+msgstr "安装软件包"
+
+#: nala/dpkg.py:956
+msgid "History Undo"
+msgstr "撤消历史"
+
+#: nala/dpkg.py:958
+msgid "History Redo"
+msgstr "重做历史"
+
+#: nala/dpkg.py:963
+msgid "Fetching Missed Packages"
+msgstr "获取丢失的软件包"
+
+#: nala/dpkg.py:965
+msgid "Fixing Broken Packages"
+msgstr "修复损坏的软件包"
+
+#: nala/dpkg.py:966
+msgid "Updating Package List"
+msgstr "更新软件包列表"
+
+#: nala/dpkg.py:1062
+msgid "{warning} Quitting now could break your system!"
+msgstr "{warning} 现在退出可能会损坏您的系统！"
+
+#: nala/dpkg.py:1066
+msgid "Ctrl+C twice quickly will exit"
+msgstr "快速按两次 Ctrl+C 退出"
+
+#~ msgid "{error} Index {index} needs to be an integer."
+#~ msgstr "{error} 索引 {index} 必须是整数。"
+
+#~ msgid "Not a valid choice kiddo"
+#~ msgstr "这不是正确的选项，兄弟"
+
