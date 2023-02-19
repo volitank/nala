@@ -58,7 +58,7 @@ from httpx import (
 	get,
 )
 
-from nala import _, color
+from nala import _, __version__, color
 from nala.constants import (
 	ARCHIVE_DIR,
 	ERRNO_PATTERN,
@@ -399,7 +399,12 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 			return True
 		with Live(get_renderable=self._gen_table, refresh_per_second=10) as self.live:
 			async with AsyncClient(
-				timeout=20, proxies=self.proxy, follow_redirects=True
+				timeout=20,
+				proxies=self.proxy,
+				follow_redirects=True,
+				# Custom user agent fixes some downloading issues
+				# Caused by httpx default agent sometimes being blocked.
+				headers={"user-agent": f"nala/{__version__}"},
 			) as client:
 				loop = asyncio.get_running_loop()
 				tasks = (
