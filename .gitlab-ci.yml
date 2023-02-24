@@ -18,10 +18,10 @@ test:
       apt-utils
       python3-cachecontrol
       python3-pip
+      python3-poetry
     - eatmydata mk-build-deps
       --tool 'apt-get --yes'
       --install debian/control
-    # Install poetry again with pip as there is a bug in Debian packaging.
-    - pip install poetry
+
     - poetry install
     - poetry run pre-commit run --all-files
