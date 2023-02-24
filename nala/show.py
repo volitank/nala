@@ -141,7 +141,7 @@ def additional_related(candidate: Version) -> str:
 
 def show_format(pkg: Package, candidate: Version) -> str:
 	"""Format main section for show command."""
-	installed = _("yes") if pkg.is_installed else _("no")
+	installed = _("yes") if candidate.is_installed else _("no")
 	essential = _("yes") if pkg.essential else _("no")
 	maintainer = format_maintainer(f"{candidate.record.get('Maintainer')}".split())
 
