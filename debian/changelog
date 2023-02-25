@@ -1,3 +1,11 @@
+nala (0.12.3) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Fix show listing each version as installed
+  * Fix default httpx agent failing some downloads
+
+ -- Blake Lee <blake@volian.org>  Sat, 25 Feb 2023 15:26:46 -0600
+
 nala (0.12.2) unstable; urgency=medium
 
   [ Bug Fixes ]
