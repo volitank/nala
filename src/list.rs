@@ -190,7 +190,7 @@ fn list_packages(
 	for pkg in packages {
 		if config.get_bool("all-versions", false) && pkg.has_versions() {
 			for version in pkg.versions() {
-				write!(out, "{} ", color.package(&pkg.full_name(true)))?;
+				write!(out, "{} ", color.package(&pkg.fullname(true)))?;
 				list_version(out, config, color, &pkg, &version)?;
 				list_description(out, config, &version)?;
 			}
@@ -203,7 +203,7 @@ fn list_packages(
 		}
 
 		// Write the package name
-		write!(out, "{} ", color.package(&pkg.full_name(true)))?;
+		write!(out, "{} ", color.package(&pkg.fullname(true)))?;
 
 		// The first version in the list should be the latest
 		if let Some(version) = pkg.versions().next() {
@@ -343,7 +343,7 @@ fn list_virtual(out: &mut impl std::io::Write, color: &Color, pkg: &Package) -> 
 	// If the virtual package provides anything we can show it
 	if let Some(provides) = pkg.provides_list() {
 		let names = provides
-			.map(|p| p.target_pkg().full_name(true))
+			.map(|p| p.target_pkg().fullname(true))
 			.collect::<Vec<String>>();
 
 		writeln!(
@@ -520,7 +520,7 @@ mod test {
 
 		// print just for easy debugging later
 		for pkg in &packages {
-			println!("{}", pkg.full_name(false))
+			println!("{}", pkg.fullname(false))
 		}
 		// Currently there are 3 package names that should match
 		assert_eq!(packages.len(), 3);
