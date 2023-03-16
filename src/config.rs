@@ -19,7 +19,7 @@ pub struct Config {
 
 	// The following fields are not used with serde
 	#[serde(skip)]
-	color: Color,
+	pub color: Color,
 
 	#[serde(skip)]
 	pkg_names: Option<Vec<String>>,

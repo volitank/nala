@@ -8,11 +8,13 @@ mod cli;
 mod colors;
 mod config;
 mod list;
+mod show;
 mod util;
 use crate::cli::NalaParser;
 use crate::colors::Color;
 use crate::config::Config;
 use crate::list::{list, search};
+use crate::show::show;
 
 fn main() -> ExitCode {
 	// Setup default color to print pretty even if the config fails
@@ -53,8 +55,9 @@ fn main_nala(color: &Color) -> Result<()> {
 		Some((name, cmd)) => {
 			config.load_args(cmd);
 			match name {
-				"list" => list(&config, color)?,
-				"search" => search(&config, color)?,
+				"list" => list(&config)?,
+				"search" => search(&config)?,
+				"show" => show(&config)?,
 				// Match other subcommands here...
 				_ => return Err(anyhow!("Unknown error in the argument parser")),
 			}

@@ -259,9 +259,9 @@ impl Color {
 		self.color(self.color_map.get("bright_yellow").unwrap(), string)
 	}
 
-	// pub fn blue<'a>(&self, string: &'a str) -> Cow<'a, str> {
-	// 	self.color(self.color_map.get("bright_blue").unwrap(), string)
-	// }
+	pub fn blue<'a>(&self, string: &'a str) -> Cow<'a, str> {
+		self.color(self.color_map.get("bright_blue").unwrap(), string)
+	}
 
 	/// Styles the text in bold only
 	pub fn bold<'a>(&self, string: &'a str) -> Cow<'a, str> { self.style(Style::Bold, string) }
@@ -271,12 +271,29 @@ impl Color {
 		self.color(self.color_map.get("package").unwrap(), string)
 	}
 
+	/// Color the dependency, choosing if it's red or green
+	pub fn dependency<'a>(&self, string: &'a str, red: bool) -> Cow<'a, str> {
+		if red {
+			return self.color(self.color_map.get("bright_red").unwrap(), string);
+		}
+		self.color(self.color_map.get("package").unwrap(), string)
+	}
+
 	/// Color the version according to configuration
 	pub fn version<'a>(&self, string: &'a str) -> Cow<'a, str> {
 		let open = self.bold("(");
 		let close = self.bold(")");
 		let version = self.color(self.color_map.get("version").unwrap(), string);
 		Cow::Owned(format!("{open}{version}{close}"))
+	}
+
+	/// Print a notice to stdout
+	// TODO: Should this go to stderr?
+	pub fn notice(&self, string: &str) {
+		println!(
+			"{} {string}",
+			self.color(self.color_map.get("warning").unwrap(), "Notice:",)
+		);
 	}
 
 	/// Print a warning to stderr

@@ -32,6 +32,7 @@ pub struct NalaParser {
 pub enum Commands {
 	List(List),
 	Search(Search),
+	Show(Show),
 }
 
 #[derive(Args, Debug)]
@@ -76,6 +77,17 @@ pub struct Search {
 	#[clap(long, action)]
 	pub names: bool,
 
+	// Flatten list commands args into search
 	#[clap(flatten)]
 	pub list_args: List,
+}
+
+#[derive(Args, Debug)]
+pub struct Show {
+	/// Package names to show
+	#[clap(required = false)]
+	pub pkg_names: Vec<String>,
+
+	#[clap(short = 'a', long, action)]
+	pub all_versions: bool,
 }
