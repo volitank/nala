@@ -4,12 +4,14 @@ use std::process::ExitCode;
 use anyhow::{anyhow, bail, Result};
 use clap::{CommandFactory, FromArgMatches};
 
+mod clean;
 mod cli;
 mod colors;
 mod config;
 mod list;
 mod show;
 mod util;
+use crate::clean::clean;
 use crate::cli::NalaParser;
 use crate::colors::Color;
 use crate::config::Config;
@@ -58,6 +60,7 @@ fn main_nala(color: &Color) -> Result<()> {
 				"list" => list(&config)?,
 				"search" => search(&config)?,
 				"show" => show(&config)?,
+				"clean" => clean(&config)?,
 				// Match other subcommands here...
 				_ => return Err(anyhow!("Unknown error in the argument parser")),
 			}
