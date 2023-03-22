@@ -17,6 +17,9 @@ Install works similar to the way it does in **apt**.
 
 **nala** takes multiple packages as arguments and will install all of them.
 
+To install a specific version of a package you may use the *=* sign as below
+	**nala install** *tmux=3.3a-3~bpo11+1*
+
 OPTIONS
 =======
 
