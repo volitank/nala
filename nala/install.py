@@ -1075,7 +1075,11 @@ def setup_cache() -> Cache:
 		sys.exit(ExitCode.SIGINT)
 	except BrokenPipeError:
 		sys.stderr.close()
-	return Cache(OpProgress())
+	try:
+		cache = Cache(OpProgress())
+	except apt_pkg.Error as err:
+		apt_error(err, True)
+	return cache
 
 
 def sort_pkg_name(pkg: Package) -> str:

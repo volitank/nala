@@ -69,6 +69,7 @@ from nala.options import (
 	AUTO_REMOVE,
 	CONFIG,
 	DEBUG,
+	DEFAULT_RELEASE,
 	DOWNLOAD_ONLY,
 	FETCH,
 	FIX_BROKEN,
@@ -357,6 +358,7 @@ def install(
 	assume_yes: bool = ASSUME_YES,
 	simple: bool = SIMPLE,
 	dpkg_option: List[str] = OPTION,
+	default_release: str = DEFAULT_RELEASE,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
 ) -> None:

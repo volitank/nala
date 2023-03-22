@@ -286,6 +286,12 @@ class Arguments:
 		else:
 			self.config.apt.set("APT::Install-Suggests", "0")
 
+	def set_default_release(self, value: str) -> None:
+		"""Set option."""
+		if not value:
+			return
+		self.config.apt.set("APT::Default-Release", value)
+
 	def set_update(self, value: Optional[bool]) -> None:
 		"""Set option."""
 		if value is None:
@@ -444,6 +450,14 @@ SUGGESTS = typer.Option(
 	callback=arguments.set_suggests,
 	is_eager=True,
 	help=_("Toggle installing suggested packages."),
+)
+
+DEFAULT_RELEASE = typer.Option(
+	None,
+	"-t",
+	"--target-release",
+	callback=arguments.set_default_release,
+	help=_("Set the default release to install packages from."),
 )
 
 UPDATE = typer.Option(

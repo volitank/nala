@@ -45,6 +45,13 @@ OPTIONS
 **-d**, **--download-only**
 	Packages are only retrieved, not unpacked or installed.
 
+**-t**, **--target-release**
+	Set the release in which Nala will install packages from
+
+	Example: Install neofetch from the testing repo:
+
+		**nala install --target-release** *testing neofetch*
+
 **--remove-essential**
 	Allow the removal of essential packages.
 
