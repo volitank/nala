@@ -299,6 +299,14 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 	def _set_proxy(self) -> None:
 		"""Set proxy configuration."""
 		for proto in ("http", "https"):
+			# This code is for the common cases of configuring proxies
+			if common_proxy := config.find(f"Acquire::{proto}::Proxy"):
+				# If the proxy is set to direct or false we disable it
+				if common_proxy.lower() not in ("direct", "false"):
+					self.proxy[f"{proto}://"] = common_proxy
+
+			# The remainder of code is for proxying specific repos. Such a configuration may look like
+			# Acquire::http::Proxy::deb.volian.org "xxx:8087"
 			try:
 				proxy_config = cast(
 					Configuration, config.subtree(f"Acquire::{proto}::Proxy")  # type: ignore[attr-defined]
@@ -326,16 +334,10 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 								"{error} Install using 'nala install python3-socksio'"
 							).format(error=ERROR_PREFIX)
 						)
-				if value == "DIRECT":
+				# If direct or false, disable the proxy
+				if value.lower() in ("direct", "false"):
 					value = None
-					# self.proxy[f"{proto}://{key}"] = None
-					# continue
 				self.proxy[f"{proto}://{key}"] = value
-
-		if http_proxy := config.find("Acquire::http::Proxy"):
-			self.proxy["http://"] = http_proxy
-		if https_proxy := config.find("Acquire::https::Proxy"):
-			self.proxy["https://"] = https_proxy
 
 	async def _check_count(self, url: str) -> str:
 		"""Check the url count and return if Nala should continue."""
