@@ -2,7 +2,7 @@ use std::fs::{read_dir, remove_file};
 
 use anyhow::{Context, Result};
 
-use crate::config::Config;
+use crate::config::{Config, Paths};
 
 fn remove_files(file_str: &str) -> Result<()> {
 	// If the path doesn't exist just ignore it
@@ -22,17 +22,18 @@ fn remove_files(file_str: &str) -> Result<()> {
 
 pub fn clean(config: &Config) -> Result<()> {
 	if config.get_bool("lists", false) {
-		remove_files("/var/lib/apt/lists/")?;
-		return remove_files("/var/lib/apt/lists/partial/");
+		let lists_dir = config.get_path(&Paths::Lists);
+		remove_files(&lists_dir)?;
+		return remove_files(&(lists_dir + "partial/"));
 	}
 
 	if config.get_bool("fetch", false) {
-		remove_file("/etc/apt/sources.list.d/nala-sources.list")
-			.context("Failed to remove `/etc/apt/sources.list.d/nala-sources.list`")?;
-		// Because of anyhow we have to return Ok here.
-		return Ok(());
+		let nala_sources = Paths::NalaSources.path();
+		return remove_file(nala_sources)
+			.with_context(|| format!("Failed to remove {}", nala_sources));
 	}
 
-	remove_files("/var/cache/apt/archives/")?;
-	remove_files("/var/cache/apt/lists/partial/")
+	let archive = config.get_path(&Paths::Archive);
+	remove_files(&archive)?;
+	remove_files(&(archive + "partial/"))
 }

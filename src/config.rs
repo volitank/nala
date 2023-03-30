@@ -4,10 +4,42 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use clap::{ArgMatches, ValueSource};
+use rust_apt::config::Config as AptConfig;
 use serde::Deserialize;
 
 use crate::colors::{Color, ColorType, Style, Theme, COLOR_MAP};
 use crate::util::dprint;
+
+/// Represents different file and directory paths
+pub enum Paths {
+	/// The Archive dir holds packages.
+	/// Default dir `/var/cache/apt/archives/`
+	Archive,
+	/// The Lists dir hold package lists from `update` command.
+	/// Default dir `/var/lib/apt/lists/`
+	Lists,
+	/// Nala Sources file is generated from the `fetch` command.
+	/// Default file `/etc/apt/sources.list.d/nala-sources.list`
+	NalaSources,
+}
+
+impl Paths {
+	pub fn path(&self) -> &'static str {
+		match self {
+			Paths::Archive => "Dir::Cache::Archives",
+			Paths::Lists => "Dir::State::Lists",
+			Paths::NalaSources => "/etc/apt/sources.list.d/nala-sources.list",
+		}
+	}
+
+	pub fn default_path(&self) -> &'static str {
+		match self {
+			Paths::Archive => "/var/cache/apt/archives/",
+			Paths::Lists => "/var/lib/apt/lists/",
+			Paths::NalaSources => "/etc/apt/sources.list.d/nala-sources.list",
+		}
+	}
+}
 
 #[derive(Deserialize, Debug)]
 /// Configuration struct
@@ -23,6 +55,9 @@ pub struct Config {
 
 	#[serde(skip)]
 	pkg_names: Option<Vec<String>>,
+
+	#[serde(skip)]
+	pub apt: AptConfig,
 }
 
 impl Default for Config {
@@ -33,6 +68,7 @@ impl Default for Config {
 			color_data: HashMap::new(),
 			color: Color::default(),
 			pkg_names: None,
+			apt: AptConfig::new(),
 		}
 	}
 }
@@ -131,6 +167,16 @@ impl Config {
 	/// Set a bool in the configuration
 	pub fn set_bool(&mut self, key: &str, value: bool) {
 		self.nala_map.insert(key.to_string(), value);
+	}
+
+	/// Get a path from the configuration based on the Path enum
+	pub fn get_path(&self, dir: &Paths) -> String {
+		match dir {
+			// For now NalaSources is hard coded.
+			Paths::NalaSources => dir.path().to_string(),
+			// Everything else should be an Apt Path
+			_ => self.apt.dir(dir.path(), dir.default_path()),
+		}
 	}
 
 	/// Get the package names that were passed as arguments
