@@ -37,6 +37,7 @@ pub enum Commands {
 }
 
 #[derive(Args, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct List {
 	/// Package names to search
 	#[clap(required = false)]

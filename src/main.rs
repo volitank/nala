@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use clap::{CommandFactory, FromArgMatches};
 
 mod clean;
@@ -53,22 +53,19 @@ fn main_nala(color: &Color) -> Result<()> {
 		return Ok(());
 	}
 
-	match args.subcommand() {
-		Some((name, cmd)) => {
-			config.load_args(cmd);
-			match name {
-				"list" => list(&config)?,
-				"search" => search(&config)?,
-				"show" => show(&config)?,
-				"clean" => clean(&config)?,
-				// Match other subcommands here...
-				_ => return Err(anyhow!("Unknown error in the argument parser")),
-			}
-		},
-		None => {
-			NalaParser::command().print_help()?;
-			bail!("Subcommand not found")
-		},
+	if let Some((name, cmd)) = args.subcommand() {
+		config.load_args(cmd);
+		match name {
+			"list" => list(&config)?,
+			"search" => search(&config)?,
+			"show" => show(&config)?,
+			"clean" => clean(&config)?,
+			// Match other subcommands here...
+			_ => bail!("Unknown error in the argument parser"),
+		}
+	} else {
+		NalaParser::command().print_help()?;
+		bail!("Subcommand not found")
 	}
 	Ok(())
 }

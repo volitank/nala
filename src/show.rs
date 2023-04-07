@@ -55,7 +55,7 @@ pub fn show_dependency(config: &Config, depends: &Vec<&Dependency>, red: bool) -
 
 	// If there are more than 4 deps format with multiple lines
 	if total_deps > 4 {
-		depends_string += "\n    "
+		depends_string += "\n    ";
 	}
 
 	for (i, dep) in depends.iter().enumerate() {
@@ -64,7 +64,7 @@ pub fn show_dependency(config: &Config, depends: &Vec<&Dependency>, red: bool) -
 			for (j, base_dep) in dep.base_deps.iter().enumerate() {
 				depends_string += &format_dependency(config, base_dep, red);
 				if j + 1 != dep.base_deps.len() {
-					depends_string += " | "
+					depends_string += " | ";
 				}
 			}
 			depends_string += dependency_footer(total_deps, i);
@@ -89,9 +89,9 @@ pub fn format_local(pkg: &Package, config: &Config, pacstall_regex: &Regex) -> S
 			postfix
 		)) {
 			if let Some(repo) = pacstall_regex.captures(&metadata) {
-				pac_repo += repo.get(1).unwrap().as_str()
+				pac_repo += repo.get(1).unwrap().as_str();
 			} else {
-				pac_repo += "https://github.com/pacstall/pacstall-programs"
+				pac_repo += "https://github.com/pacstall/pacstall-programs";
 			}
 		}
 	}
@@ -110,7 +110,7 @@ pub fn show_version<'a>(
 	ver: &'a Version<'a>,
 	pacstall_regex: &Regex,
 	url_regex: &Regex,
-) -> Result<()> {
+) {
 	println!(
 		"{} {}",
 		config.color.bold("Package:"),
@@ -255,7 +255,6 @@ pub fn show_version<'a>(
 	);
 
 	println!();
-	Ok(())
 }
 
 /// The show command
@@ -282,19 +281,14 @@ pub fn show(config: &Config) -> Result<()> {
 		let versions = pkg.versions().collect::<Vec<_>>();
 		additional_records += versions.len();
 
-		match config.get_bool("all-versions", false) {
-			false => {
-				if let Some(version) = versions.first() {
-					show_version(config, &pkg, version, &pacstall_regex, &url_regex)?;
-					additional_records -= 1;
-				}
-			},
-			true => {
-				for version in &versions {
-					show_version(config, &pkg, version, &pacstall_regex, &url_regex)?;
-					additional_records -= 1;
-				}
-			},
+		if config.get_bool("all-versions", false) {
+			for version in &versions {
+				show_version(config, &pkg, version, &pacstall_regex, &url_regex);
+				additional_records -= 1;
+			}
+		} else if let Some(version) = versions.first() {
+			show_version(config, &pkg, version, &pacstall_regex, &url_regex);
+			additional_records -= 1;
 		}
 	}
 

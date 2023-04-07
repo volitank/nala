@@ -30,7 +30,7 @@ pub fn clean(config: &Config) -> Result<()> {
 	if config.get_bool("fetch", false) {
 		let nala_sources = Paths::NalaSources.path();
 		return remove_file(nala_sources)
-			.with_context(|| format!("Failed to remove {}", nala_sources));
+			.with_context(|| format!("Failed to remove {nala_sources}"));
 	}
 
 	let archive = config.get_path(&Paths::Archive);

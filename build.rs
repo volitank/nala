@@ -8,10 +8,7 @@ use clap_complete::shells::Bash;
 include!("src/cli.rs");
 
 fn main() -> Result<(), Error> {
-	let outdir = match env::var_os("OUT_DIR") {
-		None => return Ok(()),
-		Some(outdir) => outdir,
-	};
+	let Some(outdir) = env::var_os("OUT_DIR") else { return Ok(()) };
 
 	// let mut cmd = NalaParser::command();
 	let path = generate_to(
@@ -21,7 +18,7 @@ fn main() -> Result<(), Error> {
 		outdir,                     // We need to specify where to write to
 	)?;
 
-	println!("cargo:warning=completion file is generated: {:?}", path);
+	println!("cargo:warning=completion file is generated: {path:?}");
 
 	Ok(())
 }

@@ -76,12 +76,12 @@ impl Style {
 			Style::InvertColors => "7",
 			Style::Hide => "8",
 			Style::StrikeThrough => "9",
-			_ => panic!("as_str is not supported for the multiple variant"),
+			Style::Multiple(_) => panic!("as_str is not supported for the multiple variant"),
 		}
 	}
 
 	/// Load a Style from an int such as `1` for Bold
-	pub fn from_u8(value: &u8) -> Result<Style> {
+	pub fn from_u8(value: u8) -> Result<Style> {
 		match value {
 			0 => Ok(Style::Normal),
 			1 => Ok(Style::Bold),
@@ -125,7 +125,7 @@ impl Style {
 			// Converting to style and then getting the str allows extra type checking
 			string += Style::from_str(value)?.as_str();
 			if i != last {
-				string += ";"
+				string += ";";
 			}
 		}
 		Ok(Style::Multiple(string))
@@ -150,7 +150,7 @@ pub enum ColorType {
 }
 
 impl ColorType {
-	pub fn from_u8(value: &u8) -> ColorType { ColorType::Standard(*value) }
+	pub fn from_u8(value: u8) -> ColorType { ColorType::Standard(value) }
 
 	pub fn from_str(value: &str) -> Result<ColorType> {
 		match value {
@@ -174,7 +174,7 @@ impl ColorType {
 		}
 	}
 
-	pub fn from_array(array: &[u8; 3]) -> ColorType {
+	pub fn from_array(array: [u8; 3]) -> ColorType {
 		ColorType::Rgb(format!("{};{};{}", array[0], array[1], array[2]))
 	}
 }
@@ -205,7 +205,7 @@ impl Theme {
 	}
 }
 
-/// Color text based on Style and ColorCodes
+/// Color text based on Style and `ColorCodes`
 #[derive(Debug)]
 pub struct Color {
 	can_color: bool,
@@ -242,7 +242,7 @@ impl Color {
 		Cow::Borrowed(string)
 	}
 
-	pub fn style<'a>(&self, style: Style, string: &'a str) -> Cow<'a, str> {
+	pub fn style<'a>(&self, style: &Style, string: &'a str) -> Cow<'a, str> {
 		if self.can_color {
 			return Cow::Owned(format!("\x1b[{style}m{string}{RESET}"));
 		}
@@ -264,7 +264,7 @@ impl Color {
 	}
 
 	/// Styles the text in bold only
-	pub fn bold<'a>(&self, string: &'a str) -> Cow<'a, str> { self.style(Style::Bold, string) }
+	pub fn bold<'a>(&self, string: &'a str) -> Cow<'a, str> { self.style(&Style::Bold, string) }
 
 	/// Color the package name according to configuration
 	pub fn package<'a>(&self, string: &'a str) -> Cow<'a, str> {

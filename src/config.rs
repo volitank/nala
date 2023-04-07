@@ -134,7 +134,7 @@ impl Config {
 			// and isn't present in the config
 			if self.nala_map.get(opt).is_none() {
 				// set it to false
-				self.set_bool(opt, false)
+				self.set_bool(opt, false);
 			}
 		}
 
@@ -151,7 +151,7 @@ impl Config {
 		if self.debug() {
 			let map_string = format!("Config Map = {:#?}", self.nala_map);
 			for line in map_string.lines() {
-				eprintln!("DEBUG: {line}")
+				eprintln!("DEBUG: {line}");
 			}
 		}
 	}
@@ -190,24 +190,20 @@ impl Config {
 		// Key will be the name of the format, example: "error"
 		for key in default_map.keys() {
 			// If the key is not in the defaults, ignore it
-			let theme = match self.color_data.get(*key) {
-				Some(theme) => theme,
-				// We probably should set a default here from the default map?
-				None => continue,
-			};
+			let Some(theme) = self.color_data.get(*key) else { continue };
 
 			self.color.color_map.insert(
 				*key,
 				Theme::new(
 					match &theme.style {
 						SerdeStyle::Text(string) => Style::from_str(string)?,
-						SerdeStyle::Integer(int) => Style::from_u8(int)?,
+						SerdeStyle::Integer(int) => Style::from_u8(*int)?,
 						SerdeStyle::Array(vector) => Style::from_array(vector)?,
 					},
 					match &theme.color {
 						SerdeColor::Text(string) => ColorType::from_str(string)?,
-						SerdeColor::Integer(int) => ColorType::from_u8(int),
-						SerdeColor::Array(array) => ColorType::from_array(array),
+						SerdeColor::Integer(int) => ColorType::from_u8(*int),
+						SerdeColor::Array(array) => ColorType::from_array(*array),
 					},
 				),
 			);

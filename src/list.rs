@@ -274,6 +274,7 @@ fn get_sorter(config: &Config) -> PackageSort {
 }
 
 #[cfg(test)]
+#[allow(clippy::wildcard_imports)]
 mod test {
 	use crate::list::*;
 
@@ -414,7 +415,7 @@ mod test {
 
 		// print just for easy debugging later
 		for pkg in &packages {
-			println!("{}", pkg.fullname(false))
+			println!("{}", pkg.fullname(false));
 		}
 		// Currently there are 3 package names that should match
 		assert_eq!(packages.len(), 3);
@@ -434,7 +435,7 @@ mod test {
 
 		// print just for easy debugging later
 		for pkg_name in &packages {
-			println!("{}", pkg_name.name())
+			println!("{}", pkg_name.name());
 		}
 		// Should only contain 2 packages, dpkg and apt
 		assert_eq!(packages.len(), 2);

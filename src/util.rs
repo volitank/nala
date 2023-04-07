@@ -43,15 +43,18 @@ impl Matcher {
 	/// Matches only package names.
 	/// Return found Packages, and not found regex &str.
 	///
-	/// names_only = true will match only against pkg names.
+	/// `names_only` = true will match only against pkg names.
 	pub fn regex_pkgs<'a, Container: IntoIterator<Item = Package<'a>>>(
 		&self,
 		packages: Container,
 		names_only: bool,
 	) -> (Vec<Package<'a>>, HashSet<String>) {
 		let mut found_pkgs = Vec::new();
-		let mut not_found =
-			HashSet::from_iter(self.regexs.iter().map(|regex| regex.as_str().to_string()));
+		let mut not_found = self
+			.regexs
+			.iter()
+			.map(|regex| regex.as_str().to_string())
+			.collect::<HashSet<_>>();
 
 		'outer: for pkg in packages {
 			// Check for pkg name matches first.
@@ -100,10 +103,13 @@ pub fn glob_pkgs<'a, Container: IntoIterator<Item = Package<'a>>, T: AsRef<str>>
 				.case_insensitive(true)
 				.build()?
 				.compile_matcher(),
-		)
+		);
 	}
 
-	let mut not_found = HashSet::from_iter(globs.iter().map(|glob| glob.glob().to_string()));
+	let mut not_found = globs
+		.iter()
+		.map(|glob| glob.glob().to_string())
+		.collect::<HashSet<_>>();
 
 	for pkg in packages {
 		// Check for pkg name matches first.
@@ -180,7 +186,7 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 						"    {} {}",
 						config.color.package(&target.fullname(true)),
 						config.color.version(cand.version()),
-					)
+					);
 				}
 			}
 			bail!("You should select just one.")
