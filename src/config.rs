@@ -3,7 +3,8 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use clap::{ArgMatches, ValueSource};
+use clap::parser::ValueSource;
+use clap::ArgMatches;
 use rust_apt::config::Config as AptConfig;
 use serde::Deserialize;
 
@@ -102,9 +103,9 @@ impl Config {
 			"verbose",
 			"description",
 			"summary",
-			"all-versions",
+			"all_versions",
 			"installed",
-			"nala-installed",
+			"nala_installed",
 			"upgradable",
 			"virtual",
 			"names",
@@ -140,7 +141,7 @@ impl Config {
 
 		// TODO: I bet this breaks on commands without pkgnames.
 		// See the first condition in this loop
-		if let Some(pkg_names) = args.get_many::<String>("pkg-names") {
+		if let Some(pkg_names) = args.get_many::<String>("pkg_names") {
 			let pkgs: Vec<String> = pkg_names.cloned().collect();
 			self.pkg_names = if pkgs.is_empty() { None } else { Some(pkgs) };
 

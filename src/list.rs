@@ -84,7 +84,7 @@ fn list_packages(
 
 	// We at least have one package so we can begin listing.
 	for pkg in packages {
-		if config.get_bool("all-versions", false) && pkg.has_versions() {
+		if config.get_bool("all_versions", false) && pkg.has_versions() {
 			for version in pkg.versions() {
 				write!(out, "{} ", config.color.package(&pkg.fullname(true)))?;
 				list_version(out, config, &pkg, &version)?;

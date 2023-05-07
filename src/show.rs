@@ -281,7 +281,7 @@ pub fn show(config: &Config) -> Result<()> {
 		let versions = pkg.versions().collect::<Vec<_>>();
 		additional_records += versions.len();
 
-		if config.get_bool("all-versions", false) {
+		if config.get_bool("all_versions", false) {
 			for version in &versions {
 				show_version(config, &pkg, version, &pacstall_regex, &url_regex);
 				additional_records -= 1;

@@ -9,9 +9,8 @@ edition = "2021"
 rust-apt = { git = "https://gitlab.com/volian/rust-apt" }
 #rust-apt = { path = "../rust-apt" }
 # rust-apt = "*"
-clap = { version = "3.2", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 lazy_static = "1.4"
-once_cell = "1.13"
 toml = "0.5"
 anyhow = "1.0"
 regex = "1.6"
