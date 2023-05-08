@@ -131,6 +131,9 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 	cache: &'a Cache,
 	config: &Config,
 ) -> Result<HashSet<Package<'a>>> {
+	// clippy thinks that the package is mutable
+	// But it only hashes the ID and you can't really mutate a package
+	#[allow(clippy::mutable_key_type)]
 	let mut virtual_filtered = HashSet::new();
 	for pkg in packages {
 		// If the package has versions then it isn't virtual
@@ -153,6 +156,9 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 
 		// Package is virtual so get its providers.
 		// HashSet for duplicated packages when there is more than one version
+		// clippy thinks that the package is mutable
+		// But it only hashes the ID and you can't really mutate a package
+		#[allow(clippy::mutable_key_type)]
 		let providers: HashSet<Package> = pkg.provides().map(|p| p.package()).collect();
 
 		// If there is only one provider just select that as the target

@@ -23,7 +23,7 @@ pub fn search(config: &Config) -> Result<()> {
 	// Filter the packages by names if they were provided
 	let sort = get_sorter(config);
 	let (packages, not_found) =
-		matcher.regex_pkgs(cache.packages(&sort), config.get_bool("names", false));
+		matcher.regex_pkgs(cache.packages(&sort)?, config.get_bool("names", false));
 
 	// List the packages that were found
 	list_packages(packages, config, &mut out)?;
@@ -48,14 +48,14 @@ pub fn list(config: &Config) -> Result<()> {
 			// Stop rust-apt from sorting the package list as it's faster this way.
 			sort.names = false;
 
-			let (mut pkgs, not_found) = glob_pkgs(pkg_names, cache.packages(&sort))?;
+			let (mut pkgs, not_found) = glob_pkgs(pkg_names, cache.packages(&sort)?)?;
 
 			// Sort the packages after glob filtering.
 			pkgs.sort_by_cached_key(|pkg| pkg.name().to_string());
 
 			(pkgs, not_found)
 		},
-		None => (cache.packages(&sort).collect(), HashSet::new()),
+		None => (cache.packages(&sort)?.collect(), HashSet::new()),
 	};
 
 	// List the packages that were found
@@ -407,7 +407,7 @@ mod test {
 		// Results are based on Debian Sid
 		// These results could change and require updating
 		let (mut packages, _not_used) =
-			glob_pkgs(&["apt?y", "aptly*"], cache.packages(&sort)).unwrap();
+			glob_pkgs(&["apt?y", "aptly*"], cache.packages(&sort).unwrap()).unwrap();
 
 		// Remove anything that is not amd64 arch.
 		// TODO: This should be dynamic based on the hosts primary arch.
@@ -429,7 +429,7 @@ mod test {
 		// This regex should pull in only dpkg and apt
 		let matcher = Matcher::from_regexs(&[r"^dpk.$", r"^apt$"]).unwrap();
 
-		let (mut packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort), true);
+		let (mut packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort).unwrap(), true);
 
 		packages.retain(|p| p.arch() == "amd64");
 

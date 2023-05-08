@@ -271,7 +271,7 @@ pub fn show(config: &Config) -> Result<()> {
 	let sort = PackageSort::default().include_virtual();
 
 	let (packages, _not_found) = match config.pkg_names() {
-		Some(pkg_names) => glob_pkgs(pkg_names, cache.packages(&sort))?,
+		Some(pkg_names) => glob_pkgs(pkg_names, cache.packages(&sort)?)?,
 		None => bail!("At least one package name must be specified"),
 	};
 
