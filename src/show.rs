@@ -111,73 +111,40 @@ pub fn show_version<'a>(
 	pacstall_regex: &Regex,
 	url_regex: &Regex,
 ) {
-	println!(
-		"{} {}",
-		config.color.bold("Package:"),
-		config.color.package(&pkg.fullname(true))
-	);
-
-	println!(
-		"{} {}",
-		config.color.bold("Version:"),
-		config.color.blue(ver.version())
-	);
-
-	println!("{} {}", config.color.bold("Architecture:"), pkg.arch());
-
-	println!(
-		"{} {}",
-		config.color.bold("Installed:"),
-		if ver.is_installed() { "Yes" } else { "No" }
-	);
-
-	println!(
-		"{} {}",
-		config.color.bold("Priority:"),
-		ver.priority_str().unwrap_or("Unknown")
-	);
-
-	println!(
-		"{} {}",
-		config.color.bold("Essential:"),
-		if pkg.is_essential() { "Yes" } else { "No" }
-	);
-
-	println!(
-		"{} {}",
-		config.color.bold("Section:"),
-		ver.section().unwrap_or("Unknown")
-	);
-
-	println!("{} {}", config.color.bold("Source:"), ver.source_name());
-
-	if let Some(record) = ver.get_record(RecordField::Maintainer) {
-		println!("{} {}", config.color.bold("Maintainer:"), record);
-	}
-
-	if let Some(record) = ver.get_record(RecordField::OriginalMaintainer) {
-		println!("{} {}", config.color.bold("Original-Maintainer:"), record);
-	}
-
-	println!(
-		"{} {}",
-		config.color.bold("Installed-Size:"),
-		unit_str(ver.installed_size(), NumSys::Binary)
-	);
-
-	println!(
-		"{} {}",
-		config.color.bold("Download-Size:"),
-		unit_str(ver.size(), NumSys::Binary)
-	);
+	let mut version_map: Vec<(&str, String)> = vec![
+		("Package", config.color.package(&pkg.fullname(true)).into()),
+		("Version", config.color.blue(ver.version()).into()),
+		("Architecture", pkg.arch().to_string()),
+		("Installed", ver.is_installed().to_string()),
+		("Priority", ver.priority_str().unwrap_or("Unknown").into()),
+		("Essential", pkg.is_essential().to_string()),
+		("Section", ver.section().unwrap_or("Unknown").to_string()),
+		("Source", ver.source_name().to_string()),
+		(
+			"Installed-Size",
+			unit_str(ver.installed_size(), NumSys::Binary),
+		),
+		("Download-Size", unit_str(ver.size(), NumSys::Binary)),
+		(
+			"Maintainer",
+			ver.get_record(RecordField::Maintainer)
+				.unwrap_or("Unknown".to_string()),
+		),
+		(
+			"Original-Maintainer",
+			ver.get_record(RecordField::OriginalMaintainer)
+				.unwrap_or("Unknown".to_string()),
+		),
+		(
+			"Homepage",
+			ver.get_record(RecordField::Homepage)
+				.unwrap_or("Unknown".to_string()),
+		),
+	];
 
 	// Package File Section
 	if let Some(pkg_file) = ver.package_files().next() {
-		println!(
-			"{} {}",
-			config.color.bold("Origin:"),
-			pkg_file.origin().unwrap_or("Unknown")
-		);
+		version_map.push(("Origin", pkg_file.origin().unwrap_or("Unknown").to_string()));
 
 		// Check if source is local, pacstall or from a repo
 		let mut source = String::new();
@@ -194,12 +161,8 @@ pub fn show_version<'a>(
 					pkg_file.arch().unwrap()
 				);
 			}
-			println!("{} {source}", config.color.bold("APT-Sources:"));
+			version_map.push(("APT-Sources", source));
 		}
-	}
-
-	if let Some(record) = ver.get_record(RecordField::Homepage) {
-		println!("{} {}", config.color.bold("Homepage:"), record);
 	}
 
 	// If there are provides then show them!
@@ -209,16 +172,16 @@ pub fn show_version<'a>(
 		.collect();
 
 	if !providers.is_empty() {
-		println!("{} {}", config.color.bold("Provides:"), providers.join(" "));
+		version_map.push(("Provides", providers.join(" ")));
 	}
 
 	let dependencies = [
-		("Depends:", DepType::Depends),
-		("Recommends:", DepType::Recommends),
-		("Suggests:", DepType::Suggests),
-		("Replaces:", DepType::Replaces),
-		("Conflicts:", DepType::Conflicts),
-		("Breaks:", DepType::Breaks),
+		("Depends", DepType::Depends),
+		("Recommends", DepType::Recommends),
+		("Suggests", DepType::Suggests),
+		("Replaces", DepType::Replaces),
+		("Conflicts", DepType::Conflicts),
+		("Breaks", DepType::Breaks),
 	];
 
 	for (header, deptype) in dependencies {
@@ -239,22 +202,24 @@ pub fn show_version<'a>(
 			// These Dependency types will be colored red
 			let red = matches!(deptype, DepType::Conflicts | DepType::Breaks);
 
-			println!(
-				"{} {}",
-				config.color.bold(header),
-				// Trim end because I have no idea how to code properly
-				show_dependency(config, &deduped_depends, red).trim_end(),
-			);
+			version_map.push((
+				header,
+				show_dependency(config, &deduped_depends, red)
+					.trim_end()
+					.to_string(),
+			));
 		}
 	}
 
-	println!(
-		"{} {}",
-		config.color.bold("Description:"),
-		ver.description().unwrap_or_else(|| "Unknown".to_string())
-	);
+	version_map.push((
+		"Description",
+		ver.description().unwrap_or_else(|| "Unknown".to_string()) + "\n",
+	));
 
-	println!();
+	let delimiter = config.color.bold(":");
+	for (header, info) in version_map {
+		println!("{}{delimiter} {info}", config.color.bold(header))
+	}
 }
 
 /// The show command
