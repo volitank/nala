@@ -1,3 +1,16 @@
+nala (0.13.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add Chinese translations
+  * Update German and Portuguese translations
+  * Add `--target-release`/`-t` switch
+
+  [ Bug Fixes ]
+  * Fix unable to download packages from authenticated repos
+  * Fix error when proxy is set to "false"
+
+ -- Blake Lee <blake@volian.org>  Sat, 27 May 2023 19:50:09 -0500
+
 nala (0.12.3) unstable; urgency=medium
 
   [ Bug Fixes ]
