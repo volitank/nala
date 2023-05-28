@@ -511,10 +511,15 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 						error=ERROR_PREFIX, filename=color(urls.filename(), "YELLOW")
 					)
 				)
-			self.failed.append(urls.filename())
+
 			# Status error are fatal as apt_pkg is likely to fail with these as well
 			if isinstance(error, HTTPStatusError):
+				# 401 Unauthenticated should be allowed to pass to apt for authentication
+				if error.response.status_code == 401:
+					return
 				self.fatal = True
+
+			self.failed.append(urls.filename())
 			return
 
 		eprint(
@@ -572,6 +577,12 @@ def print_error(error: DownloadErrorTypes) -> None:
 			)
 		)
 		return
+
+	# If 401 Unauthenticated we do not need to print anything
+	# This is a secure repository like Ubuntu Pro. apt_pkg will pick it up
+	if isinstance(error, HTTPStatusError) and error.response.status_code == 401:
+		return
+
 	msg = f"{error}" or type(error).__name__
 	msg = msg.replace("\n", "\n  ")
 	eprint(f"{ERROR_PREFIX} {msg}")
