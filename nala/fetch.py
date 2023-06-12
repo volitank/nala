@@ -703,11 +703,29 @@ def range_from_str(string: str, count: int) -> Iterable[int]:
 	return {int(num) for num in re.split(r",|\s", string) if num}
 
 
+def format_component(url: str, component: str, release: str, non_free: bool) -> str:
+	"""Add non-free-firmware repository if applicable."""
+	# Starting with bookworm there is an additional component, non-free-firmware.
+	# The best way to do this is just check if it exists for the mirror.
+	if not non_free:
+		return component
+	try:
+		get(
+			f"{url}/dists/{release}/non-free-firmware/",
+			timeout=15,
+			follow_redirects=True,
+		).raise_for_status()
+	except HTTPError:
+		return component
+	return f"{component} non-free-firmware"
+
+
 def build_sources(  # pylint: disable=too-many-arguments
 	release: str,
 	component: str,
 	sources: list[str],
 	netselect_scored: Iterable[str],
+	non_free: bool,
 	fetches: int = 3,
 	live: bool = False,
 	check_sources: bool = False,
@@ -721,9 +739,13 @@ def build_sources(  # pylint: disable=too-many-arguments
 		# This protects us from writing mirrors that we already have in the sources
 		if any(line.rstrip("/") in mirror and release in mirror for mirror in sources):
 			continue
-		source += f"deb {line} {release} {component}\n"
+
+		deb_entry = (
+			f"{line} {release} {format_component(line, component, release, non_free)}"
+		)
+		source += f"deb {deb_entry}\n"
 		if check_sources:
-			source += f"deb-src {line} {release} {component}\n"
+			source += f"deb-src {deb_entry}\n"
 		source += "\n"
 		num += 1
 		if not live and num == fetches:
@@ -887,6 +909,7 @@ def fetch(
 			component,
 			parse_sources(),
 			netselect_scored,
+			non_free,
 			fetches=fetches,
 			check_sources=sources,
 		)
@@ -911,6 +934,7 @@ def fetch(
 			component,
 			sources_list,
 			fetch_live.user_list.values(),
+			non_free,
 			live=True,
 			check_sources=sources,
 		)
