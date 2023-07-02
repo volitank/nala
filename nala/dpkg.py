@@ -813,7 +813,7 @@ def format_version(match: list[str], line: str) -> str:
 	"""Format version numbers."""
 	for ver in match:
 		version = ver[1:-1]
-		if version[0].isdigit():
+		if version and version[0].isdigit():
 			new_ver = ver.replace(version, color(version, "BLUE"))
 			new_ver = re.sub(PARENTHESIS_PATTERN, paren_color, new_ver)
 			line = line.replace(ver, new_ver)
