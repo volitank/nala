@@ -155,6 +155,9 @@ class Arguments:
 		# Used in Search
 		self.all_arches: bool
 
+		# Used in Upgrade
+		self.full_upgrade: bool
+
 		# Search and List Arguments
 		self.names: bool
 		self.upgradable: bool
@@ -212,6 +215,13 @@ class Arguments:
 	def set_fix_broken(self, value: bool) -> None:
 		"""Set option."""
 		self.fix_broken = value
+
+	def set_full_upgrade(self, value: bool) -> None:
+		"""Set option."""
+		if value is None:
+			self.full_upgrade = self.config.get_bool("full_upgrade")
+			return
+		self.full_upgrade = value
 
 	def set_assume_prompt(self, value: Optional[bool]) -> None:
 		"""Set option."""
@@ -458,6 +468,13 @@ DEFAULT_RELEASE = typer.Option(
 	"--target-release",
 	callback=arguments.set_default_release,
 	help=_("Set the default release to install packages from."),
+)
+
+FULL_UPGRADE = typer.Option(
+	None,
+	"--full / --no-full",
+	callback=arguments.set_full_upgrade,
+	help=_("Toggle full-upgrade"),
 )
 
 UPDATE = typer.Option(

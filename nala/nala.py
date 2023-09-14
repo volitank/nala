@@ -74,6 +74,7 @@ from nala.options import (
 	FETCH,
 	FIX_BROKEN,
 	FULL,
+	FULL_UPGRADE,
 	INSTALLED,
 	LISTS,
 	MAN_HELP,
@@ -256,7 +257,7 @@ def upgrade(
 	raw_dpkg: bool = RAW_DPKG,
 	download_only: bool = DOWNLOAD_ONLY,
 	remove_essential: bool = REMOVE_ESSENTIAL,
-	full: bool = typer.Option(True, help=_("Toggle full-upgrade")),
+	full_upgrade: bool = FULL_UPGRADE,
 	update: bool = UPDATE,
 	auto_remove: bool = AUTO_REMOVE,
 	install_recommends: bool = RECOMMENDS,
@@ -272,7 +273,6 @@ def upgrade(
 	sudo_check()
 
 	def _upgrade(
-		full: bool = True,
 		exclude: list[str] | None = None,
 		nested_cache: Cache | None = None,
 	) -> None:
@@ -283,13 +283,13 @@ def upgrade(
 		is_upgrade = tuple(cache.upgradable_pkgs())
 		protected = cache.protect_upgrade_pkgs(exclude)
 		try:
-			cache.upgrade(dist_upgrade=full)
+			cache.upgrade(dist_upgrade=arguments.full_upgrade)
 		except apt_pkg.Error:
 			if exclude:
 				exclude = fix_excluded(protected, is_upgrade)
 				if ask(_("Would you like us to protect these and try again?")):
 					cache.clear()
-					_upgrade(full, exclude, cache)
+					_upgrade(exclude, cache)
 					sys.exit()
 				sys.exit(
 					_("{error} You have held broken packages").format(
@@ -332,7 +332,7 @@ def upgrade(
 		auto_remover(cache, nala_pkgs)
 		get_changes(cache, nala_pkgs, "upgrade")
 
-	_upgrade(full, exclude)
+	_upgrade(exclude)
 
 
 @nala.command(help=_("Install packages."))
