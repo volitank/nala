@@ -244,6 +244,55 @@ def _update(
 	setup_cache().print_upgradable()
 
 
+@nala.command("dist-upgrade", hidden=True)
+@nala.command("full-upgrade", hidden=True)
+# pylint: disable=unused-argument,too-many-arguments, too-many-locals
+def dist_upgrade(
+	exclude: Optional[List[str]] = typer.Option(
+		None,
+		metavar="PKG",
+		help=_("Specify packages to exclude during upgrade. Accepts glob*"),
+	),
+	purge: bool = PURGE,
+	debug: bool = DEBUG,
+	raw_dpkg: bool = RAW_DPKG,
+	download_only: bool = DOWNLOAD_ONLY,
+	remove_essential: bool = REMOVE_ESSENTIAL,
+	full_upgrade: bool = FULL_UPGRADE,
+	update: bool = UPDATE,
+	auto_remove: bool = AUTO_REMOVE,
+	install_recommends: bool = RECOMMENDS,
+	install_suggests: bool = SUGGESTS,
+	fix_broken: bool = FIX_BROKEN,
+	assume_yes: bool = ASSUME_YES,
+	dpkg_option: List[str] = OPTION,
+	simple: bool = SIMPLE,
+	verbose: bool = VERBOSE,
+	man_help: bool = MAN_HELP,
+) -> None:
+	"""Upgrade alias."""
+	arguments.full_upgrade = True
+	upgrade(
+		exclude,
+		purge,
+		debug,
+		raw_dpkg,
+		download_only,
+		remove_essential,
+		full_upgrade,
+		update,
+		auto_remove,
+		install_recommends,
+		install_suggests,
+		fix_broken,
+		assume_yes,
+		dpkg_option,
+		simple,
+		verbose,
+		man_help,
+	)
+
+
 @nala.command(help=_("Update package list and upgrade the system."))
 # pylint: disable=unused-argument,too-many-arguments, too-many-locals
 def upgrade(
