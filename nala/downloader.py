@@ -81,6 +81,7 @@ from nala.rich import (
 from nala.utils import dprint, eprint, get_pkg_name, term, unit_str, vprint
 
 MIRROR_PATTERN = re.compile(r"mirror://(.*?/.*?)/")
+MIRROR_FILE_PATTERN = re.compile(r"mirror\+file:(/.*?)/pool")
 URL_PATTERN = re.compile(r"(https?://.*?/.*?)/")
 
 STARTING_DOWNLOADS = color(_("Starting Downloads") + ELLIPSIS, "BLUE")
@@ -835,6 +836,19 @@ def filter_uris(
 			yield from (
 				link + candidate.filename
 				for link in mirrors[domain]
+				if not link.startswith("#")
+			)
+			continue
+		# Regex to check if we're using mirror+file:/
+		if regex := MIRROR_FILE_PATTERN.search(uri):
+			if regex.group(1) not in mirrors:
+				mirrors[regex.group(1)] = (
+					Path(regex.group(1)).read_text(encoding="utf-8").splitlines()
+				)
+
+			yield from (
+				f"{link}/{candidate.filename}"
+				for link in mirrors[regex.group(1)]
 				if not link.startswith("#")
 			)
 			continue
