@@ -1,3 +1,16 @@
+nala (0.14.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Add `dist-upgrade` and `full-upgrade` alias
+  * Add config option to change default mode
+
+  [ Bug Fixes ]
+  * Fix crash when listchanges frontend is set to text
+  * Fix fetch not adding non-free-firmware
+  * Fix hang during download when using mirror+file URI
+
+ -- Blake Lee <blake@volian.org>  Mon, 09 Oct 2023 21:05:26 -0500
+
 nala (0.13.0) unstable; urgency=medium
 
   [ Changes ]
