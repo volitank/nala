@@ -948,7 +948,7 @@ class DpkgLive(Live):
 					msg += _("Purging Packages")
 				else:
 					msg += _("Removing Packages")
-			elif arguments.command == "upgrade":
+			elif arguments.command in ("upgrade", "dist-upgrade", "full-upgrade"):
 				msg += _("Updating Packages")
 			elif arguments.command == "install":
 				msg += _("Installing Packages")
