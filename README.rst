@@ -30,10 +30,9 @@ For installation instructions see our `wiki page <https://gitlab.com/volian/nala
 
 Outside of pretty formatting, the number 1 reason to use Nala over ``apt`` is parallel downloads.
 
-By default we will download 3 packages per unique mirror in your ``sources.list`` file.
-
+Nala will download 3 packages at a time per unique mirror in your ``sources.list`` file.
+This constraint is to limit how hard Nala hits mirrors.
 Opening multiple connections to the same mirror is great for speeding up downloading many small packages.
-We have the 3 connections per mirror limit to minimize how hard we are hitting mirrors.
 
 Additionally we alternate downloads between the available mirrors to improve download speeds even further.
 If a mirror fails for whatever reason, we just try the next until all defined mirrors are exhausted.

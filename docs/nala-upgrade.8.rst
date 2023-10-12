@@ -13,7 +13,11 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-By default **nala** will run the equivalent of **apt update && apt full-upgrade --auto-remove**.
+By default **nala** will only upgrade packages and autoremove.
+
+Some upgrades, such as getting a new release **nala** may need to install or remove packages.
+This can be handled using the *--full* switch as below, or using **upgrade** aliases like
+**nala dist-upgrade** or **nala full-upgrade**
 
 If you are just looking to update the package cache and not actually perform an upgrade you can use:
 	**nala update**
@@ -35,10 +39,10 @@ OPTIONS
 	*--full*
 		This will run the equivalent of **apt full-upgrade**
 
-		This variant is the **default**
-
 	*--no-full*
 		This will run the equivalent of **apt-get upgrade**
+
+		This variant is the **default**
 
 **--purge**
 	Purge any packages that would removed during the transaction.
