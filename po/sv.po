@@ -1,18 +1,18 @@
-
 msgid ""
 msgstr ""
-"Project-Id-Version:  Nala\n"
+"Project-Id-Version: Nala\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2023-10-09 21:11-0500\n"
-"PO-Revision-Date: 2022-08-13 12:04+0200\n"
+"PO-Revision-Date: 2023-12-17 16:17+0100\n"
 "Last-Translator: Luna Jernberg <droidbittin@gmail.com>\n"
-"Language: sv\n"
 "Language-Team: sv <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.10.3\n"
+"X-Generator: Poedit 3.4.1\n"
 
 #. Answers for the Question prompt "[Y/n]"
 #: nala/utils.py:65
@@ -32,9 +32,8 @@ msgstr ""
 "Menade du {correction}?"
 
 #: nala/utils.py:345
-#, fuzzy
 msgid "{error} Some packages are unable to be authenticated. Use '-o APT::Get::AllowUnauthenticated=true' with `--yes`"
-msgstr "{error} Vissa paket kunde inte autentiseras"
+msgstr "{error} Vissa paket kunde inte autentiseras. Använd '-o APT::Get::AllowUauthenticated=true' med '--yes'"
 
 #: nala/utils.py:360
 msgid "{error} failed regex compilation '{error_msg} at position {position}'"
@@ -198,7 +197,7 @@ msgstr "Vad förväntade du dig att uppdatera?"
 
 #: nala/nala.py:683
 msgid "What did you expect no-update to do?"
-msgstr ""
+msgstr "Vad förväntade du dig att ingen no-update skulle göra?"
 
 #: nala/install.py:127
 msgid "Purging configuration files for {package}"
@@ -269,11 +268,12 @@ msgid ""
 "{error} No content length in response from {url}\n"
 "  Ensure the URL points to a Debian Package"
 msgstr ""
+"{error} Ingen innehållslängd som svar från {url}\n"
+"  Se till att URL:en pekar på ett Debianpaket"
 
 #: nala/install.py:650
-#, fuzzy
 msgid "{notice} {filename} can't be hashsum verified."
-msgstr "{error} {filnamn} kan inte kontrolleras för integritet."
+msgstr "{notice} {filename} kan inte kontrolleras för integritet."
 
 #: nala/install.py:655 nala/install.py:1115
 msgid "Do you want to continue?"
@@ -285,16 +285,15 @@ msgstr "Avbryt."
 
 #: nala/install.py:699
 msgid "{error} Hash does not match the '{hash_type}' Length"
-msgstr ""
+msgstr "{error} Hash matchar inte '{hash_type}'-längden"
 
 #: nala/install.py:706
 msgid "{error} Hash Type '{hash_type}' specified with no hash"
-msgstr ""
+msgstr "{error} Hashtypen '{hash_type}' har angetts utan hash"
 
 #: nala/install.py:713
-#, fuzzy
 msgid "{error} Hash Type '{hash_type}' is unsupported"
-msgstr "{error} {distro} {release} stöds inte."
+msgstr "{error} Hashtypen '{hash_type}' stöds inte"
 
 #: nala/install.py:858
 msgid "{error} Version {version} not found for package {package}"
@@ -366,7 +365,7 @@ msgstr "Inte kandidatversion"
 
 #: nala/cache.py:131
 msgid "{error} unable to find any packages by globbing {pkg}"
-msgstr ""
+msgstr "{error} kunde inte hitta några paket genom att globba {pkg}"
 
 #: nala/cache.py:195
 msgid "{warn} Virtual Packages like {package} can't be removed."
@@ -505,7 +504,6 @@ msgid "{package} but the cache version is {version}"
 msgstr "{package} men cacheversionen är {version}"
 
 #: nala/error.py:405
-#, fuzzy
 msgid "{package} but it cannot be installed"
 msgstr "{package} men det kan inte installeras"
 
@@ -604,11 +602,11 @@ msgstr "Föreslagna, kommer inte att installeras"
 
 #: nala/summary.py:249 nala/summary.py:267
 msgid "Kept Back, Will Not Be Upgraded"
-msgstr ""
+msgstr "Hålls tillbaka, kommer inte att uppgraderas"
 
 #: nala/summary.py:249 nala/summary.py:267
 msgid "Kept Back"
-msgstr ""
+msgstr "Hålls tillbaka"
 
 #: nala/summary.py:251
 msgid "Auto-Removable, Will Not Be Removed"
@@ -658,9 +656,8 @@ msgid "Are these mirrors okay?"
 msgstr "Är dessa speglar okej?"
 
 #: nala/fetch.py:303
-#, fuzzy
 msgid "Mirrors you want to keep, separated by space or comma {selection}:"
-msgstr "Speglar du vill behålla åtskilda med mellanslag {selection}:"
+msgstr "Speglar du vill behålla, åtskilda av mellanslag eller kommatecken {selection}:"
 
 #: nala/fetch.py:325
 msgid "{error} Index {index} doesn't exist."
@@ -668,11 +665,11 @@ msgstr "{error} Index {index} existerar inte."
 
 #: nala/fetch.py:335
 msgid "{error} {value_error}"
-msgstr ""
+msgstr "{error} {value_error}"
 
 #: nala/fetch.py:345
 msgid "{error} Parser: {parser}"
-msgstr ""
+msgstr "{error} Analysator: {parser}"
 
 #: nala/fetch.py:376
 msgid "Fetching {distro} mirrors"
@@ -985,7 +982,7 @@ msgstr "Växla installation av föreslagna paket."
 
 #: nala/options.py:470
 msgid "Set the default release to install packages from."
-msgstr ""
+msgstr "Ställ in standardutgåva att installera paket från."
 
 #: nala/options.py:477
 msgid "Toggle full-upgrade"
@@ -997,7 +994,7 @@ msgstr "Växla uppdatering av paketlistan."
 
 #: nala/options.py:490
 msgid "Toggle a more condensed transaction summary."
-msgstr ""
+msgstr "Växla en mer komprimerad transaktionsöversikt."
 
 #: nala/options.py:498
 msgid "Purge any packages that would be removed."
@@ -1017,7 +1014,7 @@ msgstr "Växla laga trasiga paket."
 
 #: nala/options.py:530
 msgid "Assume 'yes' or 'no' to all prompts."
-msgstr ""
+msgstr "Antag \"ja\" eller \"nej\" till alla uppmaningar."
 
 #: nala/options.py:539
 msgid "Set options like Dpkg::Options::=\"--force-confnew\"."
@@ -1212,9 +1209,8 @@ msgid "{last_completed} {package}"
 msgstr "{last_completed} {package}"
 
 #: nala/downloader.py:108
-#, fuzzy
 msgid "{notice} Nala has removed {filename}"
-msgstr "{notice} Nala har tagit bort {filename} men kommer att försöka med en annan spegel"
+msgstr "{notice} Nala har tagit bort {filename}"
 
 #: nala/downloader.py:109
 msgid "{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'"
@@ -1240,7 +1236,7 @@ msgid ""
 "  Expected Size: {expected}\n"
 "  Received Size: {received}"
 msgstr ""
-"{error} Filen har oväntad storlek: {filnamn}\n"
+"{error} Filen har oväntad storlek: {filename}\n"
 "   Förväntad storlek: {expected}\n"
 "   Mottagen storlek: {received}"
 
@@ -1249,6 +1245,8 @@ msgid ""
 "{error} Improper Hash Syntax\n"
 "  Try '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
 msgstr ""
+"{error} Felaktig hashsyntax\n"
+"  Prova '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
 
 #: nala/downloader.py:298
 msgid "Exiting due to {signal}"
@@ -1271,9 +1269,8 @@ msgid "{error} No more mirrors available for {filename}"
 msgstr "{error} Inga fler speglar tillgängliga för {filename}"
 
 #: nala/downloader.py:527
-#, fuzzy
 msgid "{notice} Trying next url: {url}"
-msgstr "Försöker nästa url: {url}"
+msgstr "{notice} Försöker nästa url: {url}"
 
 #: nala/downloader.py:536
 msgid "{warning} The following packages cannot be authenticated!"
@@ -1289,7 +1286,7 @@ msgstr "{notice} Konfigurationen är inställd att tillåta installation av oaut
 
 #: nala/downloader.py:558
 msgid "{error} {url} timed out"
-msgstr ""
+msgstr "{error} {url} tog timeout"
 
 #: nala/downloader.py:653
 msgid "Failed to check hash"
@@ -1297,7 +1294,7 @@ msgstr "Misslyckades att kontrollera hash"
 
 #: nala/downloader.py:732
 msgid "{error} {filename} can't be checked for integrity."
-msgstr "{error} {filnamn} kan inte kontrolleras för integritet."
+msgstr "{error} {filename} kan inte kontrolleras för integritet."
 
 #: nala/downloader.py:736
 msgid "There are no hashes available for this package."
@@ -1490,9 +1487,3 @@ msgstr "Ctrl+C två gånger kommer avsluta"
 
 #~ msgid "Not a valid choice kiddo"
 #~ msgstr "Inte ett giltigt val unge"
-
-#~ msgid ""
-#~ "{error} It is not secure to download a package without a hashsum verification.\n"
-#~ "  If you are sure you do NOT want verification, use '-o APT::Get::AllowUnauthenticated=true'"
-#~ msgstr ""
-
