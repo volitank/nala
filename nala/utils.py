@@ -383,6 +383,7 @@ def sudo_check(args: Iterable[str] | None = None) -> None:
 
 	NALA_LOCK_FILE.touch(exist_ok=True)
 	global LOCK_FILE  # pylint: disable=global-statement
+	# pylint: disable=consider-using-with
 	LOCK_FILE = NALA_LOCK_FILE.open("r+", encoding="ascii")
 	current_pid = os.getpid()
 	last_pid = LOCK_FILE.read()

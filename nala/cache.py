@@ -106,8 +106,7 @@ class Cache(_Cache):
 			pkg = self._cache[pkgname]
 		except KeyError:
 			return False
-		else:
-			return not pkg.has_versions
+		return not pkg.has_versions
 
 	def glob_filter(self, pkg_names: list[str], show: bool = False) -> list[str]:
 		"""Filter provided packages and glob *.

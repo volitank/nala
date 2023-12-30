@@ -204,12 +204,12 @@ def remove_completion(ctx: typer.Context) -> Generator[str, None, None]:
 	for package in DPKG_STATE.read_text(encoding="utf-8").split("\n\n"):
 		pkg_name = pkg_status = None
 		for line in package.splitlines():
-			if len(feilds := line.split(": ")) == 1:
+			if len(fields := line.split(": ")) == 1:
 				continue
-			if "Package" in feilds:
-				pkg_name = feilds[1]
-			if "Status" in feilds and status.findall(feilds[1]):
-				pkg_status = feilds[1]
+			if "Package" in fields:
+				pkg_name = fields[1]
+			if "Status" in fields and status.findall(fields[1]):
+				pkg_status = fields[1]
 		if pkg_name and pkg_status:
 			yield pkg_name
 

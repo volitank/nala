@@ -27,6 +27,7 @@ repos:
           --check-hidden,
           --check-filenames,
           --skip=*.po,
+          --skip=poetry.lock,
           --builtin,
           clear,
           rare,

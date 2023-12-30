@@ -129,7 +129,7 @@ nala (0.10.0) unstable; urgency=medium
   * `upgrade` fails sometimes when using install hooks
   * Local .debs cannot be installed
   * `fetch` sometimes crashing on a bad mirror
-  * Lowered referesh rate to minimize flicker
+  * Lowered refresh rate to minimize flicker
   * .debs without a reported size are uninstallable
   * `history` sometimes overwriting entries
   * `upgrade --exclude` not working at all

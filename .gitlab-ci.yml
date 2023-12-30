@@ -18,10 +18,11 @@ test:
       apt-utils
       python3-cachecontrol
       python3-pip
-      python3-poetry
     - eatmydata mk-build-deps
       --tool 'apt-get --yes'
       --install debian/control
 
+    - curl -sSL https://install.python-poetry.org | python3 -
+    - export PATH="/root/.local/bin:$PATH"
     - poetry install
     - poetry run pre-commit run --all-files

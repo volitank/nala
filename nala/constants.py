@@ -83,6 +83,7 @@ SOURCEPARTS = Path(apt_pkg.config.find_dir("Dir::Etc::sourceparts"))
 DPKG_STATE = Path(apt_pkg.config.find_dir("Dir::State::status"))
 """/var/lib/dpkg/status"""
 
+# pylint: disable=invalid-name
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
 
 ERROR_PREFIX = color(_("Error:"), "RED")
