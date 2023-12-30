@@ -808,6 +808,7 @@ def split_local(
 def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) -> bool:
 	"""Manage installation or removal of packages."""
 	with cache.actiongroup():  # type: ignore[attr-defined]
+		fixer = apt_pkg.ProblemResolver(cache._depcache)
 		for pkg_name in pkg_names:
 			if pkg_name in cache:
 				pkg = cache[pkg_name]
@@ -823,7 +824,11 @@ def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) ->
 							dprint(f"Marked Remove: {pkg.name}")
 						continue
 					if not pkg.installed or pkg.marked_downgrade:
-						pkg.mark_install(auto_fix=arguments.fix_broken)
+						# Auto_inst is false as we need to do this part later
+						# after all packages have been marked.
+						pkg.mark_install(auto_inst=False, auto_fix=False)
+						fixer.clear(pkg._pkg)
+						fixer.protect(pkg._pkg)
 						dprint(f"Marked Install: {pkg.name}")
 					elif pkg.is_upgradable:
 						pkg.mark_upgrade()
@@ -835,6 +840,14 @@ def package_manager(pkg_names: list[str], cache: Cache, remove: bool = False) ->
 					):
 						raise error from error
 					return False
+	# When installing packages we need to iterate them again and mark them differently
+	# Apt does not do this for removing packages.
+	# https://github.com/volitank/nala/issues/27
+	if not remove:
+		for pkg_name in pkg_names:
+			if pkg_name in cache:
+				pkg = cache[pkg_name]
+				pkg.mark_install(auto_fix=arguments.fix_broken)
 	return True
 
 
