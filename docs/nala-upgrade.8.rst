@@ -13,6 +13,19 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
+There are 3 modes to an upgrade with apt.
+
+	Only Upgrade packages, do NOT Install or Remove any packages.
+		(**nala upgrade** / **apt-get upgrade**)
+
+	Upgrade and Install NEW packages if required, but do NOT remove any.
+		(**apt upgrade**)
+
+		**python3-apt** does not support this mode, there is no **nala** equivalent.
+
+	Upgrade and Install NEW packages and Remove packages if necessary.
+		(**nala full-upgrade** / **apt full-upgrade** / **apt-get dist-upgrade**)
+
 By default **nala** will only upgrade packages and autoremove.
 
 Some upgrades, such as getting a new release **nala** may need to install or remove packages.

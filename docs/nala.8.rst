@@ -50,7 +50,19 @@ COMMANDS
 
 **upgrade**
 
-	**upgrade** upgrades packages installed on the system.
+	**upgrade** Only Upgrades packages, does NOT Install or Remove any packages.
+
+	By default **nala** will run the equivalent of **apt update && apt-get upgrade** *--auto-remove*.
+
+	This behavior can be changed in the configuration file or you can use **nala upgrade** *--no-update*.
+
+	*upgrade with Nala is not the same as upgrade with apt. It is equivalent to apt-get upgrade*
+
+	For more information and options run **nala upgrade** *--help*
+
+**full-upgrade**
+
+	**full-upgrade** Upgrades and Installs NEW packages and Removes packages if necessary.
 
 	By default **nala** will run the equivalent of **apt update && apt full-upgrade** *--auto-remove*.
 
