@@ -350,7 +350,7 @@ class Arguments:
 		try:
 			self.update = (
 				self.config.get_bool("auto_update", True)
-				if sys.argv[1] == "upgrade"
+				if sys.argv[1] in {"upgrade", "full-upgrade", "dist-upgrade"}
 				else False
 			)
 		except IndexError:
