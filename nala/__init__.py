@@ -47,6 +47,13 @@ import gettext
 import apt_pkg
 from rich.console import Console
 
+# Debian needs to be initialized before the apt config.
+# Inside debian.debian_support they init apt_pkg without checking if it's been initialized.
+# If this is imported after apt_pkg.config is setup,
+# it causes duplicates for things like pre/post invoke hooks
+# https://gitlab.com/volian/nala/-/issues/287
+import debian.debian_support  # isort:skip
+
 if "APT" not in apt_pkg.config:
 	apt_pkg.init_config()
 apt_pkg.init_system()
