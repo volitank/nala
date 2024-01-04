@@ -37,7 +37,7 @@ import termios
 from time import sleep, time
 from traceback import format_exception
 from types import FrameType
-from typing import Callable, Match, TextIO
+from typing import Match, TextIO
 
 import apt_pkg
 from apt.progress import base, text
@@ -420,7 +420,6 @@ class InstallProgress(base.InstallProgress):
 		self.child: AptExpect
 		self.child_fd: int
 		self.child_pid: int
-		self.line_fix: list[bytes] = []
 		# Setting environment to xterm seems to work fine for linux terminal
 		# I don't think we will be supporting much more this this, at least for now
 		if not term.is_xterm() and not arguments.raw_dpkg:
@@ -480,7 +479,7 @@ class InstallProgress(base.InstallProgress):
 		self.child = AptExpect(self.child_fd, timeout=None)
 
 		signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
-		self.child.interact(self.pre_filter)
+		self.child.interact(self)
 		return os.WEXITSTATUS(self.wait_child())
 
 	def sigwinch_passthrough(
@@ -658,31 +657,7 @@ class InstallProgress(base.InstallProgress):
 				return
 			if self.apt_diff_pulse(data) or self.apt_differences(data):
 				return
-
-			if not data.endswith(term.CRLF):
-				self.line_fix.append(data)
-				return
-
-			if self.line_fix:
-				self.dpkg_log(f"line_fix = {repr(self.line_fix)}\n")
-				data = b"".join(self.line_fix) + data
-				self.line_fix.clear()
-
-			if data.count(b"\r\n") > 1:
-				self.split_data(data)
-				return
 		self.format_dpkg_output(data)
-
-	def split_data(self, data: bytes) -> None:
-		"""Split data into clean single lines to format."""
-		data_split = data.split(b"\r\n")
-		error = data_split[0].decode() in dpkg_error
-		self.dpkg_log(f"Data_Split = {repr(data_split)}\n")
-		for line in data_split:
-			for new_line in line.split(b"\r"):
-				if new_line:
-					check_error(data, new_line.decode(), error)
-					self.format_dpkg_output(new_line)
 
 	def format_dpkg_output(self, rawline: bytes) -> None:
 		"""Facilitate what needs to happen to dpkg output."""
@@ -714,6 +689,21 @@ class InstallProgress(base.InstallProgress):
 
 		self.term_log(rawline)
 
+		# We need to split up large lines and handle them individually.
+		if rawline.count(b"\r\n") > 1:
+			data_split = rawline.strip().split(b"\r\n")
+			error = data_split[0].decode() in dpkg_error
+			self.dpkg_log(f"Data_Split = {repr(data_split)}\n")
+			for new_line in data_split:
+				if not new_line:
+					continue
+				check_error(rawline, new_line.decode(), error)
+				self.format_write(new_line.decode(), rawline)
+			return
+		self.format_write(line, rawline)
+
+	def format_write(self, line: str, rawline: bytes) -> None:
+		"""Format the line if and handle writing it to the terminal."""
 		# Main format section for making things pretty
 		msg = msg_formatter(line)
 		# If verbose we just send it. No bars
@@ -875,7 +865,7 @@ class DpkgLive(Live):
 
 	def __init__(self, install: bool = True) -> None:
 		"""Subclass for dpkg live display."""
-		super().__init__(refresh_per_second=4)
+		super().__init__(auto_refresh=False, refresh_per_second=4)
 		self.install = install
 		self.scroll_list: list[str] = []
 		self.scroll_config = (False, False, True)
@@ -1028,7 +1018,7 @@ def fork() -> tuple[int, int]:
 class AptExpect(fdspawn):  # type: ignore[misc]
 	"""Subclass of fdspawn to add the interact method."""
 
-	def interact(self, output_filter: Callable[[bytes], None]) -> None:
+	def interact(self, install_progress: InstallProgress) -> None:
 		"""Hacked up interact method.
 
 		Because pexpect doesn't want to have one for fdspawn.
@@ -1046,17 +1036,17 @@ class AptExpect(fdspawn):  # type: ignore[misc]
 
 		_setwinsize(self.child_fd, term.lines, term.columns)
 
-		self.interact_copy(output_filter)
+		self.interact_copy(install_progress)
 
-	def interact_copy(self, output_filter: Callable[[bytes], None]) -> None:
+	def interact_copy(self, install_progress: InstallProgress) -> None:
 		"""Interact with the pty."""
 		while self.isalive():
 			try:
 				ready = poll_ignore_interrupts([self.child_fd, term.STDIN])
-				if self.child_fd in ready and not self._read(output_filter):
+				if self.child_fd in ready and not self._read(install_progress):
 					break
 				if term.STDIN in ready:
-					self._write()
+					self._write(install_progress)
 			except KeyboardInterrupt:
 				term.write(term.CURSER_UP + term.CLEAR_LINE)
 				eprint(
@@ -1067,10 +1057,11 @@ class AptExpect(fdspawn):  # type: ignore[misc]
 				eprint(color(_("Ctrl+C twice quickly will exit") + ELLIPSIS, "RED"))
 				sleep(0.5)
 
-	def _read(self, output_filter: Callable[[bytes], None]) -> bool:
+	def _read(self, install_progress: InstallProgress) -> bool:
 		"""Read data from the pty and send it for formatting."""
 		try:
-			data = os.read(self.child_fd, 1000)
+			# We need to read 4096 as sometimes dpkg gives us a lot of lines at one time.
+			data = os.read(self.child_fd, 4096)
 		except OSError as err:
 			if err.args[0] == errno.EIO:
 				# Linux-style EOF
@@ -1079,12 +1070,16 @@ class AptExpect(fdspawn):  # type: ignore[misc]
 		if data == b"":
 			# BSD-style EOF
 			return False
-		output_filter(data)
+		install_progress.pre_filter(data)
 		return True
 
-	def _write(self) -> None:
+	def _write(self, install_progress: InstallProgress) -> None:
 		"""Write user inputs into the pty."""
 		data = os.read(term.STDIN, 1000)
+		# Term up and clear in case we answer a question. This stops some live window artifacts.
+		# We need to not do this if we're in raw mode or else it breaks things.
+		if not install_progress.raw:
+			term.write((term.CURSER_UP + term.CLEAR_LINE) * 2)
 		while data != b"" and self.isalive():
 			split = os.write(self.child_fd, data)
 			data = data[split:]
