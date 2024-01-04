@@ -6,7 +6,7 @@ variables:
 
 test:
   stage: test
-  image: debian:sid
+  image: debian:bookworm
   environment:
   script:
     - apt-get update
@@ -19,7 +19,7 @@ test:
       python3-cachecontrol
       python3-pip
     - eatmydata mk-build-deps
-      --tool 'apt-get --yes'
+      --tool 'apt-get --yes -o Debug::pkgProblemResolver=yes --no-install-recommends'
       --install debian/control
 
     - curl -sSL https://install.python-poetry.org | python3 -
