@@ -127,23 +127,6 @@ class InstState(IntEnum):
 
 
 # dpkg constants
-CONF_MESSAGE = (
-	b"   What would you like to do about it ?  Your options are:\r\n"
-	b"    Y or I  : install the package maintainer's version\r\n"
-	b"    N or O  : keep your currently-installed version\r\n"
-	b"      D     : show the differences between the versions\r\n"
-	b"      Z     : start a shell to examine the situation\r\n"
-)
-CONF_ANSWERS = (
-	b"y",
-	b"Y",
-	b"i",
-	b"I",
-	b"n",
-	b"N",
-	b"o",
-	b"O",
-)
 NOTICES = (
 	b"The currently running kernel version is not the expected kernel version",
 	b"Please remove.",

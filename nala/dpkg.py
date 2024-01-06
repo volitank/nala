@@ -47,8 +47,6 @@ from ptyprocess.ptyprocess import _setwinsize
 
 from nala import _, color
 from nala.constants import (
-	CONF_ANSWERS,
-	CONF_MESSAGE,
 	DPKG_ERRORS,
 	DPKG_STATUS,
 	ERROR_PREFIX,
@@ -415,7 +413,6 @@ class InstallProgress(base.InstallProgress):
 		self.live = live
 		self.config_purge = config_purge
 		self.raw = False
-		self.bug_list = False
 		self.last_line = b""
 		self.child: AptExpect
 		self.child_fd: int
@@ -494,24 +491,6 @@ class InstallProgress(base.InstallProgress):
 			with contextlib.suppress(ValueError):
 				_setwinsize(self.child_fd, term_size[0], term_size[1])
 
-	def conf_check(self, rawline: bytes) -> None:
-		"""Check if we get a conf prompt."""
-		if CONF_MESSAGE in rawline:
-			self.raw_init()
-		if b"Parsing Found/Fixed information... Done" in rawline and b"bugs" in rawline:
-			self.bug_list = True
-			self.raw_init()
-
-	def conf_end(self, rawline: bytes) -> bool:
-		"""Check to see if the conf prompt is over."""
-		if self.bug_list:
-			return rawline == term.CRLF and (
-				b"[Y/n/?/...]" in self.last_line or self.last_line in (b"y", b"Y")
-			)
-		return rawline == term.CRLF and (
-			CONF_MESSAGE in self.last_line or self.last_line in CONF_ANSWERS
-		)
-
 	def dpkg_log(self, msg: str) -> None:
 		"""Write to dpkg-debug.log and flush."""
 		self._dpkg_log.write(msg)
@@ -526,13 +505,6 @@ class InstallProgress(base.InstallProgress):
 		"""Handle any status messages."""
 		for status in DPKG_STATUS:
 			if status in data:
-				if status in (
-					b"[Working]",
-					b"[Connecting",
-					b"[Waiting for headers]",
-					b"[Connected to",
-				):
-					return True
 				statuses = data.split(b"\r")
 				if len(statuses) > 2:
 					self.dpkg_log(f"Status_Split = {repr(statuses)}\n")
@@ -543,31 +515,6 @@ class InstallProgress(base.InstallProgress):
 				self.dpkg_log(term.LF.decode())
 				return True
 		return False
-
-	def apt_diff_pulse(self, data: bytes) -> bool:
-		"""Handle pulse messages from apt-listdifferences."""
-		if data.startswith(b"\r") and data.endswith(b"s"):
-			spinner.text = from_ansi(color(fill_pulse(data.decode().split())))
-			self.live.scroll_bar(update_spinner=True)
-			return True
-		return False
-
-	def apt_differences(self, data: bytes) -> bool:
-		"""Handle messages from apt-listdifferences."""
-		if not data.strip().endswith((b"%", b"%]")):
-			return False
-		for line in data.splitlines():
-			if any(item in line.decode() for item in SPAM) or not line:
-				continue
-			if b"Get" in line:
-				self.dpkg_log(f"Get = [{repr(line)}]\n")
-				self.format_dpkg_output(line)
-				continue
-			pulse = [msg for msg in line.decode().split() if msg]
-			self.dpkg_log(f"Difference = [{pulse}]\n")
-			spinner.text = from_ansi(color(" ".join(pulse)))
-			self.live.scroll_bar(update_spinner=True)
-		return True
 
 	def read_status(self) -> None:
 		"""Read the status fd and send it to update progress bar."""
@@ -632,7 +579,6 @@ class InstallProgress(base.InstallProgress):
 	def pre_filter(self, data: bytes) -> None:
 		"""Filter data from interact."""
 		self.read_status()
-		self.conf_check(data)
 
 		# This is a work around for a hang in non-interactive mode
 		# https://github.com/liske/needrestart/issues/129
@@ -652,11 +598,8 @@ class InstallProgress(base.InstallProgress):
 
 		self.dpkg_log(f"Raw = {self.raw}: [{repr(data)}]\n")
 
-		if not self.raw:
-			if self.dpkg_status(data):
-				return
-			if self.apt_diff_pulse(data) or self.apt_differences(data):
-				return
+		if not self.raw and self.dpkg_status(data):
+			return
 		self.format_dpkg_output(data)
 
 	def format_dpkg_output(self, rawline: bytes) -> None:
@@ -667,17 +610,10 @@ class InstallProgress(base.InstallProgress):
 		if self.raw:
 			self.rawline_handler(rawline)
 			return
-		self.line_handler(rawline)
 
-	def line_handler(self, rawline: bytes) -> None:
-		"""Handle text operations for not a rawline."""
 		line = ascii_replace(rawline.decode().strip())
 
 		if check_line_spam(line, rawline, self.last_line):
-			return
-
-		# Percent is for apt-listdifferences, b'99% [6  1988 kB]'
-		if line == "" or "% [" in line:
 			return
 
 		if (
@@ -727,11 +663,9 @@ class InstallProgress(base.InstallProgress):
 		if (
 			term.RESTORE_TERM in rawline
 			or term.DISABLE_ALT_SCREEN in rawline
-			or self.conf_end(rawline)
 			# Fix for Dialog Debconf Frontend https://gitlab.com/volian/nala/-/issues/211
 		) and term.ENABLE_ALT_SCREEN not in rawline:
 			self.raw = False
-			self.bug_list = False
 			term.restore_mode()
 			self.live.start()
 		self.set_last_line(rawline)

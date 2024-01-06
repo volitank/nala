@@ -27,16 +27,17 @@
 from __future__ import annotations
 
 import contextlib
-import fnmatch
+import fcntl
 import hashlib
+import os
 import sys
+from io import TextIOWrapper
 from pathlib import Path
-from shutil import which
 from typing import Iterable, List, Sequence, cast
 
 import apt_pkg
 from apt.cache import FetchFailedException, LockFailedException
-from apt.package import BaseDependency, Dependency, Package
+from apt.package import BaseDependency, Dependency, Package, Version
 from apt_pkg import DepCache, Error as AptError, get_architectures
 from httpx import HTTPError, head
 
@@ -84,6 +85,7 @@ from nala.utils import (
 	dprint,
 	eprint,
 	get_date,
+	get_pkg_name,
 	get_pkg_version,
 	pkg_installed,
 	term,
@@ -242,112 +244,185 @@ def fix_excluded(protected: set[Package], is_upgrade: Iterable[Package]) -> list
 	return sorted(new_pkg | old_pkg)
 
 
-def hook_exists(key: str, pkg_names: set[str]) -> str:
-	"""Return True if the hook file exists on the system."""
-	if "*" in key and (globbed := fnmatch.filter(pkg_names, key)):
-		return globbed[0]
-	return key if key == "hook" or key in pkg_names else ""
+def set_comp(current_version: Version, cand: Version) -> str:
+	"""Set the compare string."""
+	if current_version < cand:
+		return f"< {cand.version} "
+	if current_version > cand:
+		return f"> {cand.version} "
+	# It must be equals
+	return f"= {cand.version} "
 
 
-def parse_hook_args(
-	pkg: str, hook: dict[str, str | list[str]], cache: Cache
-) -> list[str]:
-	"""Parse the arguments for the advanced hook."""
-	invalid: list[str] = []
-	cmd = cast(str, hook.get("hook", "")).split()
-	if args := cast(List[str], hook.get("args", [])):
-		arg_pkg = cache[pkg]
-		for arg in args:
-			# See if they are valid base package attributes
-			if arg in ("name", "fullname"):
-				cmd.append(getattr(arg_pkg, arg))
-				continue
+def set_multi_arch(version: Version, hook_ver: int) -> str:
+	"""Set multi arch if Version 3."""
+	if hook_ver >= 3:
+		return f"{version.architecture} {version._cand.multi_arch} "
+	return ""
 
-			# Convert simple args to candidate args
-			if arg in ("version", "architecture"):
-				arg = f"candidate.{arg}"
 
-			# Otherwise they could be a specific version argument
-			# arg = "candidate.arch"
-			if (
-				arg.startswith(("candidate.", "installed."))
-				and len(arg_split := arg.split(".")) > 1
-				and arg_split[1] in ("version", "architecture")
-			):
-				version = (
-					arg_pkg.candidate
-					if arg_split[0] == "candidate"
-					else arg_pkg.installed
-				)
-				cmd.append(getattr(version, arg_split[1]) if version else "None")
-				continue
+def get_now_version(pkg: Package) -> Version | None:
+	"""Get the now Version or None."""
+	for ver in pkg.versions:
+		for origin in ver.origins:
+			if origin.archive == "now":
+				return ver
+	return None
 
-			# If none of these matched then the requested argument is invalid.
-			invalid.append(color(arg, "YELLOW"))
 
-	if invalid:
-		sys.exit(
-			_("{error} The following hook arguments are invalid: {args}").format(
-				error=ERROR_PREFIX, args=", ".join(invalid)
-			)
+def pkg_info(pkg: Package, version: int) -> str:
+	"""Set package info for version 2+."""
+	string = ""
+	# Set currently installed version.
+	if not (current_version := pkg.installed) and pkg.marked_delete:
+		current_version = get_now_version(pkg)
+
+	string += f"{pkg.name} "
+
+	if current_version:
+		file = ARCHIVE_DIR / get_pkg_name(current_version)
+		string += (
+			f"{current_version.version} {set_multi_arch(current_version, version)}"
 		)
-	return cmd
+	else:
+		string += "- " if version <= 2 else "- - none "
+
+	if cand := pkg.candidate:
+		file = ARCHIVE_DIR / get_pkg_name(cand)
+		if current_version:
+			string += (
+				f"{set_comp(current_version, cand)} {set_multi_arch(cand, version)}"
+			)
+		else:
+			string += f"< {cand.version} {set_multi_arch(cand, version)}"
+	else:
+		string += "> - " if version <= 2 else "> - - none "
+
+	if pkg.marked_install or pkg.marked_upgrade:
+		string += f"{file}\n" if file else "**ERROR**\n"
+	elif pkg.marked_delete:
+		string += "**REMOVE**\n"
+	elif pkg.has_config_files:
+		string += "**CONFIGURE**\n"
+	else:
+		string += f"{pkg.marked_upgrade}\n"
+	return string
 
 
-def check_hooks(pkg_names: set[str], cache: Cache) -> None:
-	"""Check that the hook paths exist before trying to run anything."""
-	bad_hooks: dict[str, list[str]] = {
-		"PreInstall": [],
-		"PostInstall": [],
-	}
-	for hook_type, hook_list in bad_hooks.items():
-		for key, hook in arguments.config.get_hook(hook_type).items():
-			if pkg := hook_exists(key, pkg_names):
-				if isinstance(hook, dict):
-					# Print a pretty debug message for the hooks
-					pretty = [(f"{key} = {value},\n") for key, value in hook.items()]
-					dprint(
-						f"{hook_type} {{\n"
-						f"{(indent := '    ')}Key: {key}, Hook: {{\n"
-						f"{indent*2}{f'{indent*2}'.join(pretty)}{indent}}}\n}}"
-					)
-					cmd = parse_hook_args(pkg, hook, cache)
-				else:
-					dprint(f"{hook_type} {{ Key: {key}, Hook: {hook} }}")
-					cmd = hook.split()
+def write_config_info(w: TextIOWrapper, version: int) -> None:
+	"""Seend the version and config info to the hook."""
+	# Send the Hook the Version of apt hook it will use.
+	# This version of APT supports only v3, so don't sent higher versions
+	if version <= 3:
+		w.write(f"VERSION {version}\n")
+	else:
+		w.write("VERSION 3\n")
+	w.flush()
 
-				# Check to make sure we can even run the hook
-				if not which(cmd[0]):
-					hook_list.append(color(cmd, "YELLOW"))
+	# Write out configuration to the hook
+	for line in arguments.config.apt.dump().splitlines():
+		key, value = line.split(maxsplit=1)
+		# Strip config formatters and remove any empty values
+		if raw_value := value.strip('";'):
+			key = apt_pkg.quote_string(key, '="\n')  # type: ignore[attr-defined]
+			value = apt_pkg.quote_string(raw_value, "\n")  # type: ignore[attr-defined]
+
+			w.write(f"{key}={value}\n")
+			w.flush()
+	w.write("\n")
+	w.flush()
+
+
+def apt_hook_with_pkgs(cache: Cache) -> None:
+	"""Run apt hooks with packages."""
+	apt_hooks = apt_pkg.config.value_list("DPkg::Pre-Install-Pkgs")
+	# Remove the hooks so that apt doesn't also run them.
+	apt_pkg.config.clear("DPkg::Pre-Install-Pkgs")
+
+	for hook in apt_hooks:
+		if not hook:
+			continue
+
+		args = hook.split()
+
+		version = arguments.config.apt.find_i(  # type: ignore[attr-defined]
+			f"DPkg::Tools::Options::{args[0]}::VERSION", 1
+		)
+		info_fd = arguments.config.apt.find_i(  # type: ignore[attr-defined]
+			f"DPkg::Tools::Options::{args[0]}::InfoFD", 0
+		)
+
+		# Setup package information
+		pkgs: list[str] = []
+
+		for pkg in cache.get_changes():
+			if version <= 1:
+				# Only deal with packages marked install or upgraded
+				if not (pkg.marked_install or pkg.marked_upgrade):
 					continue
 
-				dprint(f"Hook Command: {' '.join(cmd)}")
-				if hook_type == "PreInstall":
-					arguments.config.apt.set("DPkg::Pre-Invoke::", " ".join(cmd))
-				elif hook_type == "PostInstall":
-					arguments.config.apt.set("DPkg::Post-Invoke::", " ".join(cmd))
+				if not (cand := pkg.candidate):
+					continue
 
-	# If there are no bad hooks we can continue with the installation
-	if not bad_hooks["PreInstall"] + bad_hooks["PostInstall"]:
-		return
+				# Make sure the file exists
+				if not (file := ARCHIVE_DIR / get_pkg_name(cand)):
+					continue
+				pkgs.append(f"{file}\n")
+				continue
 
-	# There are bad hooks, so we should exit as to not mess anything up
-	for hook_type, hook_list in bad_hooks.items():
-		if hook_list:
-			eprint(
-				_("{error} The following {hook_type} commands cannot be found.").format(
-					error=ERROR_PREFIX, hook_type=hook_type
-				)
-			)
-			eprint(f"  {', '.join(hook_list)}")
-	sys.exit(1)
+			pkgs.append(pkg_info(pkg, version))
+
+		# Start setting up pipes
+		(statusfd, writefd) = os.pipe()
+
+		if pid := os.fork() == 0:
+			os.set_inheritable(statusfd, True)
+			os.dup2(statusfd, info_fd)
+
+			fcntl.fcntl(statusfd, fcntl.F_SETFL, os.O_NONBLOCK)
+			os.environ["APT_HOOK_INFO_FD"] = f"{info_fd}"
+			args = ["/bin/sh", "-c", hook]
+			os._exit(os.execv(args[0], args))
+		else:
+			w = os.fdopen(writefd, "w")
+
+			# Don't write config data for Version 1
+			if version >= 2:
+				write_config_info(w, version)
+
+			for pkg in pkgs:  # type: ignore[assignment]
+				w.write(pkg)  # type: ignore[arg-type]
+				w.flush()
+			w.close()
+
+			# We need to exit if a Hook ends up failing.
+			if exit_code := os.WEXITSTATUS(
+				# Wait for the pid to finish and get it's exit code.
+				os.waitpid(pid, 0)[1]
+			):
+				sys.exit(exit_code)
+
+
+def run_scripts(hooks: list[str]) -> None:
+	"""Run system scripts."""
+	for hook in hooks:
+		if exit_code := os.WEXITSTATUS(os.system(hook)):
+			sys.exit(exit_code)
 
 
 def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	"""Commit the package changes to the cache."""
 	dprint("Commit Pkgs")
 	task = dpkg_progress.add_task("", total=nala_pkgs.dpkg_progress_total())
-	check_hooks({pkg.name for pkg in nala_pkgs.all_pkgs()}, cache)
+
+	pre_invoke = arguments.config.apt.value_list("DPkg::Pre-Invoke")
+	arguments.config.apt.clear("DPkg::Pre-Invoke")
+
+	post_invoke = arguments.config.apt.value_list("DPkg::Post-Invoke")
+	arguments.config.apt.clear("DPkg::Post-Invoke")
+
+	run_scripts(pre_invoke)
+	apt_hook_with_pkgs(cache)
 
 	with DpkgLive(install=True) as live:
 		with open(DPKG_LOG, "w", encoding="utf-8") as dpkg_log:
@@ -373,6 +448,7 @@ def commit_pkgs(cache: Cache, nala_pkgs: PackageHandler) -> None:
 		dpkg_progress.reset(task)
 		dpkg_progress.advance(task, advance=nala_pkgs.dpkg_progress_total())
 		live.scroll_bar(rerender=True)
+	run_scripts(post_invoke)
 
 
 def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None:
