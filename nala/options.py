@@ -400,9 +400,17 @@ def version(value: bool) -> None:
 def help_callback(value: bool) -> None:
 	"""Show man page instead of normal help."""
 	if value:
+		# This works for purge/remove and autopurge/remove
+		command = arguments.command.replace("purge", "remove")
+		if command in {"full-upgrade", "dist-upgrade"}:
+			command = "upgrade"
+		elif command == "uninstall":
+			command = "remove"
+		elif command == "info":
+			command = "show"
 		sys.exit(
 			run(  # pylint: disable=subprocess-run-check
-				["man", f"nala-{arguments.command.replace('purge', 'remove')}"]
+				["man", f"nala-{command}"]
 			).returncode
 		)
 
