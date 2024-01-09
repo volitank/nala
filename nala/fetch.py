@@ -67,7 +67,7 @@ from debian.deb822 import Deb822  # isort:skip
 
 DEBIAN = "Debian"
 UBUNTU = "Ubuntu"
-DEVUAN = "Devaun"
+DEVUAN = "Devuan"
 
 DOMAIN_PATTERN = re.compile(r"https?://([A-Za-z_0-9.-]+).*")
 UBUNTU_COUNTRY = re.compile(r"<mirror:countrycode>(.*)</mirror:countrycode>")
