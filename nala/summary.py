@@ -25,7 +25,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from itertools import zip_longest
 from typing import Generator, Iterable
 
 from nala import _, color, console
@@ -177,11 +176,41 @@ def get_rows(pkg: NalaPackage, layout: Iterable[str]) -> Generator[Text, None, N
 
 def version_diff(pkg: NalaPackage) -> str:
 	"""Return a colored diff of the new version."""
-	if pkg.old_version:
-		for i, char in enumerate(zip_longest(pkg.old_version, pkg.version)):
-			if char[0] != char[1]:
-				return f"{pkg.version[:i]}{color(pkg.version[i:], 'YELLOW')}"
-	return pkg.version
+	# If there is no old version, then we don't need to color anything
+	if not pkg.old_version:
+		return pkg.version
+
+	# Check for just revision change first.
+	old_ver = pkg.old_version.rsplit("-", 1)
+	new_ver = pkg.version.rsplit("-", 1)
+
+	# If there isn't a revision these shouldn't ever match
+	# If they do match then only the revision has changed
+	if old_ver[0] == new_ver[0]:
+		return f"{new_ver[0]}-{color(new_ver[1], 'YELLOW')}"
+
+	# Split both version strings. Example "1.12.3" = ["1", "12", "3"]
+	old_ver = pkg.old_version.split(".", 2)
+	new_ver = pkg.version.split(".", 2)
+
+	start_color = 0
+	for i, section in enumerate(old_ver):
+		# Guard clause, no index error below
+		if i > len(new_ver) - 1:
+			break
+
+		if section != new_ver[i]:
+			start_color = i
+			break
+
+	# Rebuild the version string with color for diff sections
+	colored_ver = []
+	for i, section in enumerate(new_ver):
+		if i >= start_color:
+			colored_ver.append(color(section, "YELLOW"))
+			continue
+		colored_ver.append(section)
+	return ".".join(colored_ver)
 
 
 @dataclass
