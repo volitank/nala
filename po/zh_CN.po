@@ -280,7 +280,7 @@ msgstr ""
 #: nala/install.py:650
 #, fuzzy
 msgid "{notice} {filename} can't be hashsum verified."
-msgstr "{error} 无法验证 {filename} 的完整性。"
+msgstr "{notice} 无法验证 {filename} 的完整性。"
 
 #: nala/install.py:655 nala/install.py:1115
 msgid "Do you want to continue?"
