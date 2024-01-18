@@ -51,6 +51,7 @@ from nala.constants import (
 	NALA_LOCK_FILE,
 	NALA_LOGDIR,
 	NOTICE_PREFIX,
+	PARTIAL_DIR,
 )
 from nala.options import arguments
 from nala.rich import from_ansi
@@ -380,6 +381,7 @@ def sudo_check(args: Iterable[str] | None = None) -> None:
 	# Make sure our directories exist
 	NALA_DIR.mkdir(exist_ok=True)
 	NALA_LOGDIR.mkdir(exist_ok=True)
+	PARTIAL_DIR.mkdir(parents=True, exist_ok=True)
 
 	NALA_LOCK_FILE.touch(exist_ok=True)
 	global LOCK_FILE  # pylint: disable=global-statement
