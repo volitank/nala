@@ -24,6 +24,7 @@
 """Nala package manager."""
 from __future__ import annotations
 
+import os
 import sys
 
 # Set Path as below for termux environment
@@ -78,9 +79,20 @@ COLOR_CODES: dict[str, str | int] = {
 
 
 def color(text: object, text_color: str = "") -> str:
-	"""Return bold text in the color of your choice."""
-	if not console.is_terminal or console.is_dumb_terminal:
+	"""Return colored text if allowed."""
+	if os.environ.get("FORCE_COLOR"):
+		return color_text(text, text_color)
+	if (
+		os.environ.get("NO_COLOR")
+		or not console.is_terminal
+		or console.is_dumb_terminal
+	):
 		return f"{text}"
+	return color_text(text, text_color)
+
+
+def color_text(text: object, text_color: str = "") -> str:
+	"""Return bold text in the color of your choice."""
 	return (
 		f"\x1b[1;{COLOR_CODES[text_color]}m{text}{COLOR_CODES['RESET']}"
 		if text_color

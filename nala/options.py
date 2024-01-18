@@ -24,6 +24,7 @@
 """The options module."""
 from __future__ import annotations
 
+import os
 import sys
 from pydoc import pager
 from subprocess import run
@@ -222,6 +223,15 @@ class Arguments:
 			self.full_upgrade = self.config.get_bool("full_upgrade")
 			return
 		self.full_upgrade = value
+
+	def set_color(self, value: bool) -> None:
+		"""Set color or no color."""
+		if value is None:
+			return
+		if value:
+			os.environ["FORCE_COLOR"] = "true"
+		else:
+			os.environ["NO_COLOR"] = "true"
 
 	def set_assume_prompt(self, value: Optional[bool]) -> None:
 		"""Set option."""
@@ -483,6 +493,13 @@ FULL_UPGRADE = typer.Option(
 	"--full / --no-full",
 	callback=arguments.set_full_upgrade,
 	help=_("Toggle full-upgrade"),
+)
+
+COLOR = typer.Option(
+	None,
+	"--color / --no-color",
+	callback=arguments.set_color,
+	help=(_("Force color or no color.")),
 )
 
 UPDATE = typer.Option(

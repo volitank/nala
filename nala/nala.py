@@ -67,6 +67,7 @@ from nala.options import (
 	ALL_VERSIONS,
 	ASSUME_YES,
 	AUTO_REMOVE,
+	COLOR,
 	CONFIG,
 	DEBUG,
 	DEFAULT_RELEASE,
@@ -110,6 +111,8 @@ from nala.utils import (
 	sudo_check,
 	vprint,
 )
+
+# pylint: disable=unused-argument,too-many-arguments, too-many-locals
 
 nala_pkgs = PackageHandler()
 
@@ -230,13 +233,13 @@ def package_completion(cur: str) -> Generator[str, None, None]:
 
 
 @nala.command("update", help=_("Update package list."))
-# pylint: disable=unused-argument
 def _update(
 	debug: bool = DEBUG,
 	raw_dpkg: bool = RAW_DPKG,
 	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Update package list."""
 	sudo_check()
@@ -250,7 +253,6 @@ def _update(
 	help=_("Upgrade the system by removing/installing/upgrading packages."),
 )
 @nala.command(help=_("Upgrade the system by upgrading packages only."))
-# pylint: disable=unused-argument,too-many-arguments, too-many-locals
 def upgrade(
 	exclude: Optional[List[str]] = typer.Option(
 		None,
@@ -273,6 +275,7 @@ def upgrade(
 	simple: bool = SIMPLE,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Update package list and upgrade the system."""
 	sudo_check()
@@ -345,7 +348,6 @@ def upgrade(
 
 
 @nala.command(help=_("Install packages."))
-# pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def install(
 	ctx: typer.Context,
 	pkg_names: Optional[List[str]] = typer.Argument(
@@ -370,6 +372,7 @@ def install(
 	default_release: str = DEFAULT_RELEASE,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Install packages."""
 	_install(pkg_names, ctx)
@@ -378,7 +381,6 @@ def install(
 @nala.command(help=_("Remove packages."))
 @nala.command("purge", help=_("Purge packages."))
 @nala.command("uninstall", hidden=True)
-# pylint: disable=unused-argument,too-many-arguments
 def remove(
 	pkg_names: List[str] = typer.Argument(
 		...,
@@ -399,6 +401,7 @@ def remove(
 	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Remove or Purge packages."""
 	command_help("uninstall", "remove", update)
@@ -407,7 +410,6 @@ def remove(
 
 @nala.command("autoremove", help=_("Autoremove packages that are no longer needed."))
 @nala.command("autopurge", help=_("Autopurge packages that are no longer needed."))
-# pylint: disable=unused-argument,too-many-arguments
 def _auto_remove(
 	purge: bool = PURGE,
 	debug: bool = DEBUG,
@@ -422,6 +424,7 @@ def _auto_remove(
 	dpkg_option: List[str] = OPTION,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Command for autoremove."""
 	sudo_check()
@@ -444,7 +447,6 @@ def _auto_remove(
 
 @nala.command(help=_("Show package details."))
 @nala.command("info", hidden=True)
-# pylint: disable=unused-argument
 def show(
 	pkg_names: List[str] = typer.Argument(
 		...,
@@ -455,6 +457,7 @@ def show(
 	verbose: bool = VERBOSE,
 	all_versions: bool = ALL_VERSIONS,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Show package details."""
 	command_help("info", "show", None)
@@ -480,7 +483,6 @@ def show(
 
 
 @nala.command(help=_("Search package names and descriptions."))
-# pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def search(
 	words: List[str] = typer.Argument(
 		...,
@@ -499,6 +501,7 @@ def search(
 	virtual: bool = VIRTUAL,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Search package names and descriptions."""
 	cache = Cache()
@@ -535,7 +538,6 @@ def search(
 
 
 @nala.command("list", help=_("List packages based on package names."))
-# pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def list_pkgs(
 	pkg_names: Optional[List[str]] = typer.Argument(
 		None,
@@ -552,6 +554,7 @@ def list_pkgs(
 	virtual: bool = VIRTUAL,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""List packages based on package names."""
 	cache = Cache()
@@ -592,13 +595,13 @@ def list_pkgs(
 
 
 @nala.command(help=_("Clear out the local archive of downloaded package files."))
-# pylint: disable=unused-argument
 def clean(
 	lists: bool = LISTS,
 	fetch: bool = FETCH,
 	debug: bool = DEBUG,
 	verbose: bool = VERBOSE,
 	man_help: bool = MAN_HELP,
+	color_force: bool = COLOR,
 ) -> None:
 	"""Clear out the local archive of downloaded package files."""
 	sudo_check()
@@ -626,10 +629,10 @@ def clean(
 
 
 @nala.command(hidden=True, help=_("I beg, pls moo"))
-# pylint: disable=unused-argument
 def moo(
 	moos: Optional[List[str]] = typer.Argument(None, hidden=True),
 	update: bool = typer.Option(None, hidden=True),
+	color_force: bool = COLOR,
 ) -> None:
 	"""I beg, pls moo."""
 	print(CAT)
