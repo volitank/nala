@@ -808,25 +808,6 @@ def check_supported(
 	sys.exit(1)
 
 
-def fetch_checks(source: str) -> None:
-	"""Perform checks and error if we shouldn't continue."""
-	print(source, end="")
-	if NALA_SOURCES.exists():
-		if not ask(
-			_("{file} already exists.\nContinue and overwrite it?").format(
-				file=color(NALA_SOURCES, "YELLOW")
-			)
-		):
-			sys.exit(_("Abort."))
-
-	elif not ask(
-		_("The above mirrors will be written to {file}. Continue?").format(
-			file=NALA_SOURCES
-		)
-	):
-		sys.exit(_("Abort."))
-
-
 @nala.command(
 	short_help=_("Fetch fast mirrors to speed up downloads."), help=FETCH_HELP
 )
@@ -914,7 +895,13 @@ def fetch(
 			check_sources=sources,
 		)
 
-		fetch_checks(source)
+		print(source, end="")
+		if NALA_SOURCES.exists() and not ask(
+			_("{file} already exists.\nContinue and overwrite it?").format(
+				file=color(NALA_SOURCES, "YELLOW")
+			)
+		):
+			sys.exit(_("Abort."))
 		write_sources(source)
 		return
 
