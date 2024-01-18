@@ -22,10 +22,21 @@
 # You should have received a copy of the GNU General Public License
 # along with nala.  If not, see <https://www.gnu.org/licenses/>.
 """Nala package manager."""
+
 from __future__ import annotations
 
 import os
 import sys
+from subprocess import run
+
+# pylint: disable=subprocess-run-check
+
+if len(sys.argv) == 1:
+	sys.exit(run(["man", "nala"]).returncode)
+
+if len(sys.argv) == 2 and ("--help" in sys.argv or "-h" in sys.argv):
+	sys.exit(run(["man", "nala"]).returncode)
+
 
 # Set Path as below for termux environment
 # ROOT = "@TERMUX_PREFIX@"
