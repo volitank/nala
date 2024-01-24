@@ -80,53 +80,6 @@ def convert_man(
 		run(pandoc, check=True)
 
 
-@nala_app.command(name="nuitka")
-def run_nuitka(
-	_compile: bool = typer.Option(
-		False, "--compile", help="Compile '.po' files to '.mo'"
-	)
-) -> None:
-	"""Compile Nala with Nuitka."""
-	env = BuildEnvironment(build_dir="debian/nala-legacy")
-	if _compile:
-		compile_translations(env)
-
-	follow_imports = (
-		"nala",
-		"rich",
-		"anyio",
-		"typer",
-		"click",
-		"httpx",
-		"httpcore",
-		"h11",
-		"charset_normalizer",
-		"socksio",
-		"typing_extensions",
-		"pexpect",
-		"ptyprocess",
-		"pygments",
-		"rfc3986",
-		"sniffio",
-		"certifi",
-		"idna",
-		"tomli",
-	)
-	nuitka = [
-		"nuitka3",
-		"--assume-yes-for-downloads",
-		"--plugin-enable=pylint-warnings",
-		"--remove-output",
-		"nala-cli.py",
-		"-o",
-		f"{env.bin_dir}/nala",
-	]
-
-	nuitka.extend(f"--include-package={mod}" for mod in follow_imports)
-	run(nuitka, check=True)
-	run(f"chrpath -d {env.bin_dir}/nala".split(), check=True)
-
-
 def update_translations() -> None:
 	"""Update the .po files from the pot file."""
 	update = "pybabel update --no-wrap -i po/nala.pot".split()
