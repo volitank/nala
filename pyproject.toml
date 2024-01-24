@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nala"
-version = "0.14.0"
+version = "0.15.0"
 description = "Commandline frontend for the apt package manager"
 authors = [
 	"Blake Lee <blake@volian.org>",

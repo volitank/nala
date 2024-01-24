@@ -1,3 +1,26 @@
+nala (0.15.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Update translations
+  * Improve version diff coloring
+  * Add `--color / --no-color` switch
+
+  [ Bug Fixes ]
+  * Fix local install chooses wrong deps sometimes
+  * Fix no dpkg title when using upgrade alias
+  * Fix nala sometimes installs wrong dependencies
+  * Fix nala not updating package lists with upgrade aliases
+  * Fix apt config containing duplicate hooks
+  * Fix aliases `--help` not showing manpage
+  * Fix downloads failing if `/var/cache/apt/archives` doesn't exist
+  * Fix fetch asking on `--auto` to write file
+  * Fix wrong key in some translations
+  * Fix help without sub command not showing man page
+  * Fix nala waiting for input and not showing prompts
+  * Fix `nala history` hanging on permission error (closes: #1041826, #1041821)
+
+ -- Blake Lee <blake@volian.org>  Tue, 23 Jan 2024 23:37:08 -0600
+
 nala (0.14.0) unstable; urgency=medium
 
   [ Changes ]

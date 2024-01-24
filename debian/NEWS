@@ -1,3 +1,9 @@
+nala (0.15.0) unstable; urgency=medium
+  Nala hooks have been removed. You should use apt hooks.
+
+ -- Blake Lee <blake@volian.org>  Tue, 23 Jan 2024 23:37:08 -0600
+
+
 nala (0.9.0) unstable; urgency=medium
   The configuration file for Nala at `/etc/nala/nala.conf`
   has been changed to toml. This change is BREAKING as the older config

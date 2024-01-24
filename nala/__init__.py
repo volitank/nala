@@ -70,7 +70,7 @@ if "APT" not in apt_pkg.config:
 	apt_pkg.init_config()
 apt_pkg.init_system()
 
-__version__ = "0.14.0"
+__version__ = "0.15.0"
 
 console = Console()
 
