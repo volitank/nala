@@ -105,6 +105,8 @@ def load_history_file() -> HistoryFile:
 				"{error} History file seems corrupt. You should try removing {file}"
 			).format(error=ERROR_PREFIX, file=NALA_HISTORY)
 		)
+	except PermissionError as error:
+		sys.exit(f"{error}")
 
 
 def write_history_file(data: HistoryFile) -> None:
