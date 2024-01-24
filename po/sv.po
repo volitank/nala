@@ -1,4 +1,3 @@
-
 msgid ""
 msgstr ""
 "Project-Id-Version:  Nala\n"
@@ -81,11 +80,11 @@ msgstr "Uppdatera paketlista."
 
 #: nala/nala.py:253
 msgid "Upgrade the system by removing/installing/upgrading packages."
-msgstr ""
+msgstr "Uppgradera systemet genom att ta bort/installera/uppgradera paket"
 
 #: nala/nala.py:255
 msgid "Upgrade the system by upgrading packages only."
-msgstr ""
+msgstr "Uppgradera systemet genom att uppgradera paket endast."
 
 #: nala/nala.py:260
 msgid "Specify packages to exclude during upgrade. Accepts glob*"
@@ -982,7 +981,7 @@ msgstr "Växla full-upgrade"
 
 #: nala/options.py:502
 msgid "Force color or no color."
-msgstr ""
+msgstr "Tvinga färg eller ingen färg"
 
 #: nala/options.py:508
 msgid "Toggle updating the package list."
