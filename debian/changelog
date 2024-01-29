@@ -1,3 +1,13 @@
+nala (0.15.1) unstable; urgency=medium
+
+  [ Changes ]
+  * Update Swedish translations
+
+  [ Bug Fixes ]
+  * Fix shell completion failing due to help pages
+
+ -- Blake Lee <blake@volian.org>  Mon, 29 Jan 2024 10:13:54 -0600
+
 nala (0.15.0) unstable; urgency=medium
 
   [ Changes ]
