@@ -31,11 +31,11 @@ from subprocess import run
 
 # pylint: disable=subprocess-run-check
 
-if len(sys.argv) == 1:
-	sys.exit(run(["man", "nala"]).returncode)
-
-if len(sys.argv) == 2 and ("--help" in sys.argv or "-h" in sys.argv):
-	sys.exit(run(["man", "nala"]).returncode)
+# Stop this code from running during shell completions
+if not os.environ.get("_NALA_COMPLETE"):
+	# If nala is ran with no arguments so the man page
+	if len(sys.argv) == 1:
+		sys.exit(run(["man", "nala"]).returncode)
 
 
 # Set Path as below for termux environment

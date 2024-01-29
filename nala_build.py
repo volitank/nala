@@ -25,7 +25,7 @@ class BuildEnvironment:
 		self.locale_dir = f"{build_dir}{USR}/share/locale"
 
 
-nala_app = typer.Typer(add_completion=False, no_args_is_help=True)
+nala_app = typer.Typer(add_completion=False)
 
 
 def check_root(operation: str) -> None:

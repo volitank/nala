@@ -376,7 +376,7 @@ class Arguments:
 
 
 arguments = Arguments()
-nala = typer.Typer(add_completion=True, no_args_is_help=True)
+nala = typer.Typer(add_completion=True)
 history_typer = typer.Typer(name="history")
 nala.add_typer(history_typer)
 
@@ -690,9 +690,7 @@ CONTEXT_SETTINGS = {
 
 
 @nala.command("help", hidden=True)
-@nala.callback(
-	context_settings=CONTEXT_SETTINGS, no_args_is_help=True, invoke_without_command=True
-)
+@nala.callback(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
 # pylint: disable=unused-argument
 def global_options(
 	ctx: typer.Context,
