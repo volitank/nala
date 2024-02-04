@@ -101,8 +101,9 @@ fn list_packages(
 		// Write the package name
 		write!(out, "{} ", config.color.package(&pkg.fullname(true)))?;
 
-		// The first version in the list should be the latest
-		if let Some(version) = pkg.versions().next() {
+		// Get the candidate if we're only going to show one version.
+		// Fall back to the first version in the list if there isn't a candidate.
+		if let Some(version) = pkg.candidate().or(pkg.versions().next()) {
 			// There is a version! Let's format it
 			list_version(out, config, &pkg, &version)?;
 			list_description(out, config, &version)?;
@@ -142,8 +143,6 @@ fn list_version<'a>(
 			let origin = pkg_file.origin().unwrap_or("Unknown");
 			let component = pkg_file.component().unwrap_or("Unknown");
 			write!(out, " [{origin}/{archive} {component}]")?;
-			// write!(out, " [local]")?;
-			// Do we want to show something for this? Kind of handled elsewhere
 		}
 	}
 
@@ -151,7 +150,9 @@ fn list_version<'a>(
 	if let (Some(installed), Some(candidate)) = (pkg.installed(), pkg.candidate()) {
 		dprint!(
 			config,
-			"Installed and Candidate exist, checking if upgradable"
+			"Installed '{}' and Candidate '{}' exists, checking if upgradable",
+			installed.version(),
+			candidate.version(),
 		);
 
 		// Version is installed, check if it's upgradable
