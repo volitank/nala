@@ -8,7 +8,9 @@ use clap_complete::shells::Bash;
 include!("src/cli.rs");
 
 fn main() -> Result<(), Error> {
-	let Some(outdir) = env::var_os("OUT_DIR") else { return Ok(()) };
+	let Some(outdir) = env::var_os("OUT_DIR") else {
+		return Ok(());
+	};
 
 	// let mut cmd = NalaParser::command();
 	let path = generate_to(

@@ -191,7 +191,9 @@ impl Config {
 		// Key will be the name of the format, example: "error"
 		for key in default_map.keys() {
 			// If the key is not in the defaults, ignore it
-			let Some(theme) = self.color_data.get(*key) else { continue };
+			let Some(theme) = self.color_data.get(*key) else {
+				continue;
+			};
 
 			self.color.color_map.insert(
 				*key,
