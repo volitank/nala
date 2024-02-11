@@ -12,10 +12,10 @@ msgstr ""
 "Project-Id-Version:  Nala\n"
 "Report-Msgid-Bugs-To: https://gitlab.com/volian/nala/-/issues\n"
 "POT-Creation-Date: 2024-01-23 23:24-0600\n"
-"PO-Revision-Date: 2022-11-16 17:49-0300\n"
-"Last-Translator: marcelo cripe <marcelocripe@gmail.com>, 2022\n"
+"PO-Revision-Date: 2024-02-08 16:53-0300\n"
+"Last-Translator: Ciro Mota <contato.ciromota@outlook.com>, 2024\n"
 "Language: pt_BR\n"
-"Language-Team: pt_BR antiX Linux Community Contributions\n"
+"Language-Team: \n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
@@ -90,11 +90,11 @@ msgstr "Atualizar a lista de pacotes."
 
 #: nala/nala.py:253
 msgid "Upgrade the system by removing/installing/upgrading packages."
-msgstr ""
+msgstr "Atualize o sistema removendo/instalando/atualizando os pacotes."
 
 #: nala/nala.py:255
 msgid "Upgrade the system by upgrading packages only."
-msgstr ""
+msgstr "Atualize o sistema atualizando apenas os pacotes."
 
 #: nala/nala.py:260
 msgid "Specify packages to exclude during upgrade. Accepts glob*"
@@ -273,6 +273,8 @@ msgid ""
 "{error} No content length in response from {url}\n"
 "  Ensure the URL points to a Debian Package"
 msgstr ""
+"{error} Nenhuma extensão de conteúdo na resposta de {url}\n"
+"  Certifique-se de que o URL aponta para um pacote Debian"
 
 #: nala/install.py:741
 #, fuzzy
@@ -289,11 +291,11 @@ msgstr "Abortando."
 
 #: nala/install.py:790
 msgid "{error} Hash does not match the '{hash_type}' Length"
-msgstr ""
+msgstr "{error} Hash não corresponde ao comprimento '{hash_type}'"
 
 #: nala/install.py:797
 msgid "{error} Hash Type '{hash_type}' specified with no hash"
-msgstr ""
+msgstr "{error} Tipo de hash '{hash_type}' especificado sem hash"
 
 #: nala/install.py:804
 #, fuzzy
@@ -422,7 +424,7 @@ msgstr "Conflita com:"
 
 #: nala/error.py:53
 msgid "{package} is only referenced by name, no packages provides it"
-msgstr "O pacote {package} só é referenciado por nome e não é fornecidopor outro pacote."
+msgstr "O pacote {package} só é referenciado por nome e não é fornecido por outro pacote."
 
 #: nala/error.py:55
 msgid "{dependency} will break {package} {version}"
@@ -438,7 +440,8 @@ msgstr "Ocorreu o erro {error}, o python-apt retornou o erro {apt_err}. Este nã
 
 #: nala/error.py:122
 msgid "{notice} Some index files failed to download. They have been ignored, or old ones used instead."
-msgstr "Observe o aviso {notice} de que alguns arquivos de índice falharam quando os arquivos estavam sendo baixados ou transferidos. Os arquivos foram ignorados ou os antigos foram utilizados em seu lugar."
+msgstr "Observe o aviso {notice} de que alguns arquivos de índice falharam quando os arquivos estavam sendo baixados\n"
+" ou transferidos. Os arquivos foram ignorados ou os antigos foram utilizados em seu lugar."
 
 #: nala/error.py:137
 msgid "{error} Installation has failed."
@@ -608,11 +611,11 @@ msgstr "Os Pacotes Sugeridos Não Serão Instalados"
 
 #: nala/summary.py:278 nala/summary.py:296
 msgid "Kept Back, Will Not Be Upgraded"
-msgstr ""
+msgstr "Mantido, Não Será Atualizado"
 
 #: nala/summary.py:278 nala/summary.py:296
 msgid "Kept Back"
-msgstr ""
+msgstr "Mantido"
 
 #: nala/summary.py:280
 msgid "Auto-Removable, Will Not Be Removed"
@@ -676,7 +679,7 @@ msgstr ""
 
 #: nala/fetch.py:345
 msgid "{error} Parser: {parser}"
-msgstr ""
+msgstr "{error} Analisador: {parser}"
 
 #: nala/fetch.py:376
 msgid "Fetching {distro} mirrors"
@@ -985,7 +988,7 @@ msgstr "Alternar para a opção de instalação dos pacotes sugeridos."
 
 #: nala/options.py:488
 msgid "Set the default release to install packages from."
-msgstr ""
+msgstr "Defina a versão padrão de onde instalar os pacotes."
 
 #: nala/options.py:495
 msgid "Toggle full-upgrade"
@@ -993,7 +996,7 @@ msgstr "Alternar para a atualização completa"
 
 #: nala/options.py:502
 msgid "Force color or no color."
-msgstr ""
+msgstr "Forçar cores ou sem cores."
 
 #: nala/options.py:508
 msgid "Toggle updating the package list."
@@ -1001,7 +1004,7 @@ msgstr "Alternar para a opção de atualização da lista dos pacotes."
 
 #: nala/options.py:515
 msgid "Toggle a more condensed transaction summary."
-msgstr ""
+msgstr "Alterne para um resumo de transação mais condensado."
 
 #: nala/options.py:523
 msgid "Purge any packages that would be removed."
@@ -1252,7 +1255,7 @@ msgstr ""
 msgid ""
 "{error} Improper Hash Syntax\n"
 "  Try '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
-msgstr ""
+msgstr "  Tente algo como '{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
 
 #: nala/downloader.py:298
 msgid "Exiting due to {signal}"
@@ -1517,6 +1520,8 @@ msgstr "Pressionando as teclas Ctrl+C duas vezes sairá rapidamente"
 #~ "{error} It is not secure to download a package without a hashsum verification.\n"
 #~ "  If you are sure you do NOT want verification, use '-o APT::Get::AllowUnauthenticated=true'"
 #~ msgstr ""
+#~ "{error} Não é seguro baixar um pacote sem verificação de hashsum.\n"
+#~ "  Se você tiver certeza de que NÃO deseja verificação, use '-o APT::Get::AllowUnauthenticated=true'"
 
 #~ msgid "Update package list and upgrade the system."
 #~ msgstr "Atualizar a lista de pacotes e atualizar o sistema operacional."
