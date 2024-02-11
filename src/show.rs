@@ -48,7 +48,7 @@ pub fn dependency_footer(total_deps: usize, index: usize) -> &'static str {
 	" "
 }
 
-pub fn show_dependency(config: &Config, depends: &Vec<&Dependency>, red: bool) -> String {
+pub fn show_dependency(config: &Config, depends: &[&Dependency], red: bool) -> String {
 	let mut depends_string = String::new();
 	// Get total deps number to include Or Dependencies
 	let total_deps = depends.len();

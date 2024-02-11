@@ -117,7 +117,7 @@ impl Style {
 	/// Load a style from a toml array
 	///
 	/// Return `Style::Multiple(String)`
-	pub fn from_array(vector: &Vec<String>) -> Result<Style> {
+	pub fn from_array(vector: &[String]) -> Result<Style> {
 		let last = vector.len() - 1;
 		let mut string = String::new();
 		for (i, value) in vector.iter().enumerate() {
@@ -261,6 +261,10 @@ impl Color {
 
 	pub fn blue<'a>(&self, string: &'a str) -> Cow<'a, str> {
 		self.color(self.color_map.get("bright_blue").unwrap(), string)
+	}
+
+	pub fn red<'a>(&self, string: &'a str) -> Cow<'a, str> {
+		self.color(self.color_map.get("bright_red").unwrap(), string)
 	}
 
 	/// Styles the text in bold only

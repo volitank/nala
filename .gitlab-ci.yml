@@ -23,6 +23,8 @@ test:
       sudo
       libapt-pkg-dev
       codespell
+      pkg-config
+      libssl-dev
 
     - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
     - rustup toolchain install nightly
