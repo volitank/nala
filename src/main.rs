@@ -11,14 +11,17 @@ mod cli;
 mod colors;
 mod config;
 mod downloader;
+mod fetch;
 mod history;
 mod list;
 mod show;
+mod tui;
 mod util;
 use crate::clean::clean;
 use crate::cli::NalaParser;
 use crate::colors::Color;
 use crate::config::Config;
+use crate::fetch::fetch;
 use crate::list::{list, search};
 use crate::show::show;
 
@@ -58,7 +61,8 @@ fn main_nala(color: &Color) -> Result<()> {
 	}
 
 	if let Some((name, cmd)) = args.subcommand() {
-		config.load_args(cmd);
+		config.command = name.to_string();
+		config.load_args(cmd, derived.command);
 		match name {
 			"list" => list(&config)?,
 			"search" => search(&config)?,
@@ -66,6 +70,7 @@ fn main_nala(color: &Color) -> Result<()> {
 			"clean" => clean(&config)?,
 			"download" => download(&config)?,
 			"history" => history_test(&config)?,
+			"fetch" => fetch(&config)?,
 			// Match other subcommands here...
 			_ => bail!("Unknown error in the argument parser"),
 		}

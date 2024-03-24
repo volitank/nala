@@ -8,6 +8,7 @@ use clap::ArgMatches;
 use rust_apt::config::Config as AptConfig;
 use serde::Deserialize;
 
+use crate::cli::Commands;
 use crate::colors::{Color, ColorType, Style, Theme, COLOR_MAP};
 use crate::util::dprint;
 
@@ -19,6 +20,12 @@ pub enum Paths {
 	/// The Lists dir hold package lists from `update` command.
 	/// Default dir `/var/lib/apt/lists/`
 	Lists,
+	/// The main Source List.
+	/// Default file `/etc/apt/sources.list`
+	SourceList,
+	/// The Sources parts directory
+	/// Default dir `/etc/apt/sources.list.d/`
+	SourceParts,
 	/// Nala Sources file is generated from the `fetch` command.
 	/// Default file `/etc/apt/sources.list.d/nala-sources.list`
 	NalaSources,
@@ -29,7 +36,9 @@ impl Paths {
 		match self {
 			Paths::Archive => "Dir::Cache::Archives",
 			Paths::Lists => "Dir::State::Lists",
-			Paths::NalaSources => "/etc/apt/sources.list.d/nala-sources.list",
+			Paths::SourceList => "Dir::Etc::sourcelist",
+			Paths::SourceParts => "Dir::Etc::sourceparts",
+			Paths::NalaSources => "/etc/apt/sources.list.d/nala.sources",
 		}
 	}
 
@@ -37,7 +46,9 @@ impl Paths {
 		match self {
 			Paths::Archive => "/var/cache/apt/archives/",
 			Paths::Lists => "/var/lib/apt/lists/",
-			Paths::NalaSources => "/etc/apt/sources.list.d/nala-sources.list",
+			Paths::SourceList => "/etc/apt/sources.list",
+			Paths::SourceParts => "/etc/apt/sources.list.d/",
+			Paths::NalaSources => "/etc/apt/sources.list.d/nala.sources",
 		}
 	}
 }
@@ -50,6 +61,9 @@ pub struct Config {
 	#[serde(rename(deserialize = "Theme"))]
 	color_data: HashMap<String, ThemeType>,
 
+	#[serde(skip)]
+	pub string_map: HashMap<String, String>,
+
 	// The following fields are not used with serde
 	#[serde(skip)]
 	pub color: Color,
@@ -58,7 +72,17 @@ pub struct Config {
 	pkg_names: Option<Vec<String>>,
 
 	#[serde(skip)]
+	countries: Option<Vec<String>>,
+
+	#[serde(skip)]
 	pub apt: AptConfig,
+
+	#[serde(skip)]
+	pub auto: Option<u8>,
+
+	#[serde(skip)]
+	/// The command the is being run
+	pub command: String,
 }
 
 impl Default for Config {
@@ -66,10 +90,14 @@ impl Default for Config {
 	fn default() -> Config {
 		Config {
 			nala_map: HashMap::new(),
+			string_map: HashMap::new(),
 			color_data: HashMap::new(),
 			color: Color::default(),
 			pkg_names: None,
+			countries: None,
+			auto: None,
 			apt: AptConfig::new(),
+			command: "Command Not Given Yet".to_string(),
 		}
 	}
 }
@@ -97,7 +125,11 @@ impl Config {
 	}
 
 	/// Load configuration with the command line arguments
-	pub fn load_args(&mut self, args: &ArgMatches) {
+	pub fn load_args(&mut self, args: &ArgMatches, commands: Option<Commands>) {
+		if let Some(Commands::Fetch(opts)) = commands {
+			self.auto = opts.auto;
+		};
+
 		let bool_opts = [
 			"debug",
 			"verbose",
@@ -111,6 +143,10 @@ impl Config {
 			"names",
 			"lists",
 			"fetch",
+			// Fetch Options
+			"non_free",
+			"https_only",
+			"sources",
 		];
 
 		for opt in bool_opts {
@@ -139,13 +175,27 @@ impl Config {
 			}
 		}
 
-		// TODO: I bet this breaks on commands without pkgnames.
-		// See the first condition in this loop
-		if let Some(pkg_names) = args.get_many::<String>("pkg_names") {
+		if let Ok(Some(pkg_names)) = args.try_get_many::<String>("pkg_names") {
 			let pkgs: Vec<String> = pkg_names.cloned().collect();
 			self.pkg_names = if pkgs.is_empty() { None } else { Some(pkgs) };
 
 			dprint!(self, "Package Names = {:?}", self.pkg_names);
+		}
+
+		// TODO: It may be time to make these like bool opts above.
+		if let Ok(Some(countries)) = args.try_get_many::<String>("country") {
+			let country_vec: Vec<String> = countries.cloned().collect();
+			self.countries = if country_vec.is_empty() { None } else { Some(country_vec) };
+
+			dprint!(self, "Country = {:?}", self.countries);
+		}
+
+		let option_strings = ["debian", "ubuntu", "devuan"];
+
+		for opt in option_strings {
+			if let Ok(Some(value)) = args.try_get_one::<String>(opt) {
+				self.string_map.insert(opt.to_string(), value.to_string());
+			}
 		}
 
 		// If Debug is there we can print the whole thing.
@@ -170,7 +220,16 @@ impl Config {
 		self.nala_map.insert(key.to_string(), value);
 	}
 
-	/// Get a path from the configuration based on the Path enum
+	/// Get a file from the configuration based on the Path enum.
+	pub fn get_file(&self, file: &Paths) -> String {
+		match file {
+			// For now NalaSources is hard coded.
+			Paths::NalaSources => file.path().to_string(),
+			_ => self.apt.file(file.path(), file.default_path()),
+		}
+	}
+
+	/// Get a path from the configuration based on the Path enum.
 	pub fn get_path(&self, dir: &Paths) -> String {
 		match dir {
 			// For now NalaSources is hard coded.
@@ -182,6 +241,9 @@ impl Config {
 
 	/// Get the package names that were passed as arguments
 	pub fn pkg_names(&self) -> Option<&Vec<String>> { self.pkg_names.as_ref() }
+
+	/// Get the countries that were passed as arguments
+	pub fn countries(&self) -> Option<&Vec<String>> { self.countries.as_ref() }
 
 	/// Return true if debug is enabled
 	pub fn debug(&self) -> bool { self.get_bool("debug", false) }

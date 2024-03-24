@@ -6,20 +6,14 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use bytes::Bytes;
-use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode};
-use crossterm::execute;
-use crossterm::terminal::{
-	disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
+use crossterm::event::{self, Event, KeyCode};
 use digest::DynDigest;
 use indicatif::{FormattedDuration, ProgressBar};
-use once_cell::sync::OnceCell;
 use ratatui::layout::Flex;
 use ratatui::prelude::*;
 use ratatui::style::Stylize;
 use ratatui::widgets::block::Title;
 use ratatui::widgets::*;
-use regex::{Regex, RegexBuilder};
 use reqwest::Response;
 use rust_apt::cache::Cache;
 use rust_apt::new_cache;
@@ -35,36 +29,7 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 
 use crate::config::Config;
-
-pub struct MirrorRegex {
-	mirror: OnceCell<Regex>,
-	mirror_file: OnceCell<Regex>,
-}
-
-impl MirrorRegex {
-	fn new() -> Self {
-		MirrorRegex {
-			mirror: OnceCell::new(),
-			mirror_file: OnceCell::new(),
-		}
-	}
-
-	fn mirror(&self) -> Result<&Regex> {
-		self.mirror.get_or_try_init(|| {
-			Ok(RegexBuilder::new(r"mirror://(.*?/.*?)/")
-				.case_insensitive(true)
-				.build()?)
-		})
-	}
-
-	fn mirror_file(&self) -> Result<&Regex> {
-		self.mirror_file.get_or_try_init(|| {
-			Ok(RegexBuilder::new(r"mirror\+file:(/.*?)/pool")
-				.case_insensitive(true)
-				.build()?)
-		})
-	}
-}
+use crate::util::{init_terminal, restore_terminal, NalaRegex};
 
 /// Return the package name. Checks if epoch is needed.
 fn get_pkg_name(version: &Version) -> String {
@@ -272,7 +237,7 @@ pub struct Downloader {
 	untrusted: HashSet<String>,
 	not_found: Vec<String>,
 	mirrors: HashMap<String, String>,
-	mirror_regex: MirrorRegex,
+	mirror_regex: NalaRegex,
 	progress: Arc<Mutex<Progress>>,
 }
 
@@ -283,7 +248,7 @@ impl Downloader {
 			untrusted: HashSet::new(),
 			not_found: vec![],
 			mirrors: HashMap::new(),
-			mirror_regex: MirrorRegex::new(),
+			mirror_regex: NalaRegex::new(),
 			progress: Arc::new(Mutex::new(Progress::new(0))),
 		}
 	}
@@ -569,22 +534,12 @@ pub async fn download(config: &Config) -> Result<()> {
 	}
 
 	// setup terminal
-	enable_raw_mode()?;
-	let mut stdout = std::io::stdout();
-	execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-	let backend = CrosstermBackend::new(stdout);
-	// let mut terminal = Terminal::new(backend)?;
-	let mut terminal = Terminal::with_options(
-		backend,
-		TerminalOptions {
-			viewport: Viewport::Fullscreen,
-		},
-	)?;
+	let mut terminal = init_terminal()?;
 
 	// create app and run it
 	let tick_rate = Duration::from_millis(250);
 	let res = run_app(&mut terminal, &mut downloader, tick_rate).await;
-	disable_raw(&mut terminal)?;
+	restore_terminal()?;
 
 	// This is for closing out of the app.
 	if res.is_ok() {
@@ -787,18 +742,6 @@ fn build_block<'a, T: Into<Title<'a>>>(title: T) -> Block<'a> {
 				.fg(Color::Cyan)
 				.add_modifier(Modifier::BOLD),
 		)
-}
-
-/// Restore Terminal
-fn disable_raw<B: std::io::Write + Backend>(terminal: &mut Terminal<B>) -> Result<()> {
-	disable_raw_mode()?;
-	execute!(
-		terminal.backend_mut(),
-		LeaveAlternateScreen,
-		DisableMouseCapture,
-	)?;
-	terminal.show_cursor()?;
-	Ok(())
 }
 
 /// Return the hash_type and the hash_value to be used.

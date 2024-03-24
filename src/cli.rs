@@ -36,6 +36,7 @@ pub enum Commands {
 	Clean(Clean),
 	Download(Download),
 	History(History),
+	Fetch(Fetch),
 }
 
 #[derive(Args, Debug)]
@@ -120,14 +121,31 @@ pub struct Download {
 }
 
 #[derive(Args, Debug)]
-pub struct History {
-	// TODO: This currently doesn't work without pkg_names
-	// This is because of config.rs
-	// Error:
-	//
-	// thread 'main' panicked at src/config.rs:144:39:
-	// Mismatch between definition and access of `pkg_names`. Unknown argument or group id.
-	// Make sure you are using the argument id and not the short or long flags
-	#[clap(required = false)]
-	pub pkg_names: Vec<String>,
+pub struct History {}
+
+#[derive(Args, Debug)]
+pub struct Fetch {
+	#[clap(long, action)]
+	pub non_free: bool,
+
+	#[clap(long, action)]
+	pub https_only: bool,
+
+	#[clap(long, action)]
+	pub sources: bool,
+
+	#[clap(long, num_args = 0..=1, default_missing_value="3")]
+	pub auto: Option<u8>,
+
+	#[clap(short = 'c', long, action)]
+	pub country: Vec<String>,
+
+	#[clap(long, action)]
+	pub debian: Option<String>,
+
+	#[clap(long, action)]
+	pub ubuntu: Option<String>,
+
+	#[clap(long, action)]
+	pub devuan: Option<String>,
 }
