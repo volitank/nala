@@ -291,10 +291,9 @@ impl Color {
 		Cow::Owned(format!("{open}{version}{close}"))
 	}
 
-	/// Print a notice to stdout
-	// TODO: Should this go to stderr?
+	/// Print a notice to stderr
 	pub fn notice(&self, string: &str) {
-		println!(
+		eprintln!(
 			"{} {string}",
 			self.color(self.color_map.get("warning").unwrap(), "Notice:",)
 		);

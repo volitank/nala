@@ -1,0 +1,74 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+        exclude: "^po/"
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-ast
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: pylint
+        name: check code for errors
+        language: system
+        entry: poetry run pylint
+        types: [python]
+      - id: codespell
+        name: check for misspellings
+        description: Check for common misspellings in text files
+        args: [
+          --check-hidden,
+          --check-filenames,
+          --skip=*.po,
+          --skip=poetry.lock,
+          --builtin,
+          clear,
+          rare,
+          informal,
+          usage,
+          code
+        ]
+        language: system
+        entry: poetry run codespell --exclude-file ./.codespell-ignore-lines
+        types: [text]
+      - id: black
+        name: format python code
+        description: Automatically format code to follow the black code style
+        language: system
+        entry: poetry run black
+        types_or: [python, pyi]
+        require_serial: true
+      - id: isort
+        name: sort python imports
+        description: Automatically sort import statements
+        language: system
+        entry: poetry run isort
+        types_or: [cython, pyi, python]
+        require_serial: true
+      - id: pyupgrade
+        name: check for old python syntax
+        description: Automatically upgrade syntax for newer versions
+        args: [--py36-plus, --keep-runtime-typing]
+        language: system
+        entry: poetry run pyupgrade
+        types: [python]
+      - id: mypy
+        name: type check python code
+        description: Static type checker for Python
+        language: system
+        entry: poetry run mypy
+        types_or: [python, pyi]
+        require_serial: true
+      - id: pydocstyle
+        name: check docstrings
+        description: Check docstrings
+        language: system
+        entry: poetry run pydocstyle
+        types: [python]

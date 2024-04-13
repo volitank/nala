@@ -7,7 +7,7 @@ variables:
 
 test:
   stage: test
-  image: debian:sid
+  image: debian:bookworm
   environment:
   cache:
     key: nala-cache

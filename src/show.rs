@@ -235,7 +235,7 @@ pub fn show(config: &Config) -> Result<()> {
 	// Filter the packages by names if they were provided
 	let sort = PackageSort::default().include_virtual();
 
-	let (packages, _not_found) = match config.pkg_names() {
+	let (packages, not_found) = match config.pkg_names() {
 		Some(pkg_names) => glob_pkgs(pkg_names, cache.packages(&sort)?)?,
 		None => bail!("At least one package name must be specified"),
 	};
@@ -257,9 +257,15 @@ pub fn show(config: &Config) -> Result<()> {
 		}
 	}
 
+	for name in &not_found {
+		config
+			.color
+			.notice(&format!("'{}' was not found", config.color.package(name)));
+	}
+
 	if additional_records != 0 {
 		config.color.notice(
-			&format_args!(
+			&format!(
 				"There are {} additional records. Please use the {} switch to see them.",
 				config.color.yellow(&additional_records.to_string()),
 				config.color.yellow("'-a'"),

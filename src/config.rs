@@ -56,9 +56,9 @@ impl Paths {
 #[derive(Deserialize, Debug)]
 /// Configuration struct
 pub struct Config {
-	#[serde(rename(deserialize = "Nala"))]
+	#[serde(rename(deserialize = "Nala"), default)]
 	nala_map: HashMap<String, bool>,
-	#[serde(rename(deserialize = "Theme"))]
+	#[serde(rename(deserialize = "Theme"), default)]
 	color_data: HashMap<String, ThemeType>,
 
 	#[serde(skip)]

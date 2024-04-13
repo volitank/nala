@@ -26,12 +26,7 @@ pub fn search(config: &Config) -> Result<()> {
 		matcher.regex_pkgs(cache.packages(&sort)?, config.get_bool("names", false));
 
 	// List the packages that were found
-	list_packages(packages, config, &mut out)?;
-
-	// Alert the user of any patterns that were not found
-	for name in not_found {
-		config.color.warn(&format!("'{name}' was not found"));
-	}
+	list_packages(config, packages, not_found, &mut out)?;
 
 	Ok(())
 }
@@ -59,12 +54,7 @@ pub fn list(config: &Config) -> Result<()> {
 	};
 
 	// List the packages that were found
-	list_packages(packages, config, &mut out)?;
-
-	// Alert the user of any patterns that were not found
-	for name in not_found {
-		config.color.warn(&format!("'{name}' was not found"));
-	}
+	list_packages(config, packages, not_found, &mut out)?;
 
 	Ok(())
 }
@@ -73,15 +63,11 @@ pub fn list(config: &Config) -> Result<()> {
 ///
 /// Shared function between list and search
 fn list_packages(
-	packages: Vec<Package>,
 	config: &Config,
+	packages: Vec<Package>,
+	not_found: HashSet<String>,
 	out: &mut impl std::io::Write,
 ) -> Result<()> {
-	// If packages are empty then there is nothing to list.
-	if packages.is_empty() {
-		bail!("Nothing was found to list");
-	}
-
 	// We at least have one package so we can begin listing.
 	for pkg in packages {
 		if config.get_bool("all_versions", false) && pkg.has_versions() {
@@ -112,6 +98,12 @@ fn list_packages(
 
 		// There are no versions so it must be a virtual package
 		list_virtual(out, config, &pkg)?;
+	}
+
+	for name in &not_found {
+		config
+			.color
+			.notice(&format!("'{}' was not found", config.color.package(name)));
 	}
 
 	Ok(())
