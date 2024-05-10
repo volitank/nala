@@ -1,3 +1,12 @@
+nala (0.15.2) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Fix wrong formatting in pt_BR translation
+  * Fix index error when diff same version
+  * Fix Nala writing history despite dpkg failing
+
+ -- Blake Lee <blake@volian.org>  Fri, 10 May 2024 03:14:22 +0000
+
 nala (0.15.1) unstable; urgency=medium
 
   [ Changes ]
