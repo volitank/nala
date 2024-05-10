@@ -176,8 +176,9 @@ def get_rows(pkg: NalaPackage, layout: Iterable[str]) -> Generator[Text, None, N
 
 def version_diff(pkg: NalaPackage) -> str:
 	"""Return a colored diff of the new version."""
-	# If there is no old version, then we don't need to color anything
-	if not pkg.old_version:
+	# If there is no old version, or the versions are the same
+	# then don't color anything
+	if not pkg.old_version or pkg.old_version == pkg.version:
 		return pkg.version
 
 	# Check for just revision change first.
