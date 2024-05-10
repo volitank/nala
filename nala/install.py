@@ -485,8 +485,8 @@ def get_changes(cache: Cache, nala_pkgs: PackageHandler, operation: str) -> None
 		term.restore_locale()
 
 	download_pkgs(pkgs)
-	write_history(cache, nala_pkgs, operation)
 	start_dpkg(cache, nala_pkgs)
+	write_history(cache, nala_pkgs, operation)
 
 
 def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
@@ -498,6 +498,7 @@ def start_dpkg(cache: Cache, nala_pkgs: PackageHandler) -> None:
 	# Catch system error because if dpkg fails it'll throw this
 	except (apt_pkg.Error, SystemError) as error:
 		apt_error(error)
+		sys.exit(1)
 	except FetchFailedException as error:
 		# We have already printed this error likely. but just in case
 		# We write it to the dpkg_log so at least we'll know about it.
