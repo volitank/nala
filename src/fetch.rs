@@ -6,9 +6,8 @@ use anyhow::{bail, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use reqwest::Client;
-use rust_apt::new_cache;
-use rust_apt::package::Package;
 use rust_apt::tagfile::{parse_tagfile, TagSection};
+use rust_apt::{new_cache, Package};
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio::time::Duration;
@@ -20,10 +19,10 @@ use crate::{dprint, tui};
 fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 	let pkg_file = pkg?.candidate()?.package_files().next()?;
 
-	if let (Ok(origin), Ok(codename)) = (pkg_file.origin(), pkg_file.codename()) {
-		return Some((origin.to_string(), codename.to_string()));
-	}
-	None
+	Some((
+		pkg_file.origin()?.to_string(),
+		pkg_file.codename()?.to_string(),
+	))
 }
 
 fn detect_release(config: &Config) -> Result<(String, String, String)> {

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
-use rust_apt::new_cache;
-use rust_apt::package::Version;
+use rust_apt::{new_cache, Version};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;

@@ -15,11 +15,9 @@ use ratatui::style::Stylize;
 use ratatui::widgets::block::Title;
 use ratatui::widgets::*;
 use reqwest::Response;
-use rust_apt::cache::Cache;
-use rust_apt::new_cache;
-use rust_apt::package::Version;
 use rust_apt::records::RecordField;
 use rust_apt::util::{terminal_width, unit_str, NumSys};
+use rust_apt::{new_cache, Version};
 use sha2::{Digest, Sha256, Sha512};
 use tokio::fs;
 use tokio::fs::File;
@@ -65,7 +63,6 @@ pub struct Uri {
 impl Uri {
 	async fn from_version<'a>(
 		version: &'a Version<'a>,
-		cache: &Cache,
 		config: &Config,
 		downloader: &mut Downloader,
 		archive: String,
@@ -75,7 +72,7 @@ impl Uri {
 		let (hash_type, hash_value) = get_hash(config, version)?;
 
 		Ok(Arc::new(Mutex::new(Uri {
-			uris: downloader.filter_uris(version, cache, config).await?,
+			uris: downloader.filter_uris(version, config).await?,
 			archive: archive.clone() + &get_pkg_name(version),
 			destination: archive + "partial/" + &get_pkg_name(version),
 			hash_type,
@@ -384,11 +381,11 @@ impl Downloader {
 	async fn filter_uris<'a>(
 		&mut self,
 		version: &'a Version<'a>,
-		cache: &Cache,
 		config: &Config,
 	) -> Result<Vec<String>> {
 		let mut filtered = Vec::new();
 
+		// TODO: fix this and do trusted for each pkg_file!
 		for uri in version.uris() {
 			// Sending a file path through the downloader will cause it to lock up
 			// These have already been handled before the downloader runs.
@@ -398,7 +395,7 @@ impl Downloader {
 				continue;
 			}
 
-			if !uri_trusted(cache, version)? {
+			if !uri_trusted(version) {
 				self.untrusted
 					.insert(config.color.red(version.parent().name()).to_string());
 			}
@@ -435,15 +432,14 @@ impl Downloader {
 	}
 }
 
-pub fn uri_trusted<'a>(cache: &Cache, version: &'a Version<'a>) -> Result<bool> {
-	for mut pf in version.package_files() {
-		// TODO: There is a bug here with codium specifically
-		// It doesn't have an archive. Check apt source for clues here.
-		if pf.archive()? != "now" {
-			return Ok(cache.is_trusted(&mut pf));
-		}
-	}
-	Ok(false)
+// TODO: Port back to rust-apt as a method on version?
+// Also should we check to make sure each indivdual URI is trusted?
+// I seem to think that if one pkg file is trusted then they all are technically
+// Okay because of the HashSums
+pub fn uri_trusted<'a>(version: &'a Version<'a>) -> bool {
+	version
+		.package_files()
+		.any(|pf| pf.is_downloadable() && pf.index_file().is_trusted())
 }
 
 pub fn untrusted_error(config: &Config, untrusted: &HashSet<String>) -> Result<()> {
@@ -492,7 +488,7 @@ pub async fn download(config: &Config) -> Result<()> {
 					if version.is_downloadable() {
 						let uri =
 							// Download command defaults to current directory
-							Uri::from_version(version, &cache, config, &mut downloader, "./".to_string()).await?;
+							Uri::from_version(version, config, &mut downloader, "./".to_string()).await?;
 						downloader.uri_list.push(uri);
 						break;
 					}

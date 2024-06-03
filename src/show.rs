@@ -2,11 +2,9 @@ use std::fs;
 
 use anyhow::{bail, Result};
 use regex::{Regex, RegexBuilder};
-use rust_apt::cache::PackageSort;
-use rust_apt::new_cache;
-use rust_apt::package::{BaseDep, DepType, Dependency, Package, Version};
 use rust_apt::records::RecordField;
 use rust_apt::util::{unit_str, NumSys};
+use rust_apt::{new_cache, BaseDep, DepType, Dependency, Package, PackageSort, Version};
 
 use crate::config::Config;
 use crate::util::{glob_pkgs, virtual_filter};
@@ -19,20 +17,22 @@ pub fn format_dependency(config: &Config, base_dep: &BaseDep, red: bool) -> Stri
 	let open_paren = config.color.bold("(");
 	let close_paren = config.color.bold(")");
 
-	if let Some(comp) = base_dep.comp() {
+	let target_name = config
+		.color
+		.dependency(base_dep.target_package().name(), red)
+		.to_string();
+
+	if let Some(comp) = base_dep.comp_type() {
 		return format!(
 			// libgnutls30 (>= 3.7.5)
-			"{} {open_paren}{comp} {}{close_paren}",
-			config.color.dependency(base_dep.target_pkg().name(), red),
+			"{target_name} {open_paren}{comp} {}{close_paren}",
 			// There's a compare operator in the dependency.
 			// Dang better have a version smh my head.
 			config.color.blue(base_dep.version().unwrap())
 		);
 	}
-	config
-		.color
-		.dependency(base_dep.target_pkg().name(), red)
-		.to_string()
+
+	target_name
 }
 
 pub fn dependency_footer(total_deps: usize, index: usize) -> &'static str {
@@ -61,9 +61,9 @@ pub fn show_dependency(config: &Config, depends: &[&Dependency], red: bool) -> S
 	for (i, dep) in depends.iter().enumerate() {
 		// Or Deps need to be formatted slightly different.
 		if dep.is_or() {
-			for (j, base_dep) in dep.base_deps.iter().enumerate() {
+			for (j, base_dep) in dep.iter().enumerate() {
 				depends_string += &format_dependency(config, base_dep, red);
-				if j + 1 != dep.base_deps.len() {
+				if j + 1 != dep.len() {
 					depends_string += " | ";
 				}
 			}
@@ -107,7 +107,7 @@ pub fn format_local(pkg: &Package, config: &Config, pacstall_regex: &Regex) -> S
 pub fn show_version<'a>(
 	config: &Config,
 	pkg: &'a Package,
-	ver: &'a Version<'a>,
+	ver: &'a Version,
 	pacstall_regex: &Regex,
 	url_regex: &Regex,
 ) {
@@ -148,7 +148,7 @@ pub fn show_version<'a>(
 
 		// Check if source is local, pacstall or from a repo
 		let mut source = String::new();
-		if let Ok(archive) = pkg_file.archive() {
+		if let Some(archive) = pkg_file.archive() {
 			if archive == "now" {
 				source += &format_local(pkg, config, pacstall_regex);
 			} else {
@@ -166,6 +166,8 @@ pub fn show_version<'a>(
 	}
 
 	// If there are provides then show them!
+	// TODO: Add has_provides method to version
+	// Package has it right now.
 	let providers: Vec<String> = ver
 		.provides()
 		.map(|p| config.color.package(p.name()).to_string())
@@ -175,13 +177,16 @@ pub fn show_version<'a>(
 		version_map.push(("Provides", providers.join(" ")));
 	}
 
+	// TODO: Once we get down to the ol translations we need to figure out
+	// If we will be able to use as_ref for the headers. Or get the translation
+	// From libapt-pkg
 	let dependencies = [
 		("Depends", DepType::Depends),
 		("Recommends", DepType::Recommends),
 		("Suggests", DepType::Suggests),
 		("Replaces", DepType::Replaces),
 		("Conflicts", DepType::Conflicts),
-		("Breaks", DepType::Breaks),
+		("Breaks", DepType::DpkgBreaks),
 	];
 
 	for (header, deptype) in dependencies {
@@ -200,7 +205,7 @@ pub fn show_version<'a>(
 			}
 
 			// These Dependency types will be colored red
-			let red = matches!(deptype, DepType::Conflicts | DepType::Breaks);
+			let red = matches!(deptype, DepType::Conflicts | DepType::DpkgBreaks);
 
 			version_map.push((
 				header,
@@ -236,7 +241,7 @@ pub fn show(config: &Config) -> Result<()> {
 	let sort = PackageSort::default().include_virtual();
 
 	let (packages, not_found) = match config.pkg_names() {
-		Some(pkg_names) => glob_pkgs(pkg_names, cache.packages(&sort)?)?,
+		Some(pkg_names) => glob_pkgs(pkg_names, cache.packages(&sort))?,
 		None => bail!("At least one package name must be specified"),
 	};
 

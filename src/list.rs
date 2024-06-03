@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::{bail, Result};
-use rust_apt::cache::PackageSort;
-use rust_apt::new_cache;
-use rust_apt::package::{Package, Version};
+use rust_apt::{new_cache, Package, PackageSort, Version};
 
 use crate::config::Config;
 use crate::dprint;
@@ -22,8 +20,10 @@ pub fn search(config: &Config) -> Result<()> {
 
 	// Filter the packages by names if they were provided
 	let sort = get_sorter(config);
-	let (packages, not_found) =
-		matcher.regex_pkgs(cache.packages(&sort)?, config.get_bool("names", false));
+	let (mut packages, not_found) =
+		matcher.regex_pkgs(cache.packages(&sort), config.get_bool("names", false));
+
+	packages.sort_by_cached_key(|pkg| pkg.name().to_string());
 
 	// List the packages that were found
 	list_packages(config, packages, not_found, &mut out)?;
@@ -36,21 +36,18 @@ pub fn list(config: &Config) -> Result<()> {
 	let mut out = std::io::stdout().lock();
 	let cache = new_cache!()?;
 
-	let mut sort = get_sorter(config);
+	let sort = get_sorter(config);
 
 	let (packages, not_found) = match config.pkg_names() {
 		Some(pkg_names) => {
-			// Stop rust-apt from sorting the package list as it's faster this way.
-			sort.names = false;
-
-			let (mut pkgs, not_found) = glob_pkgs(pkg_names, cache.packages(&sort)?)?;
+			let (mut pkgs, not_found) = glob_pkgs(pkg_names, cache.packages(&sort))?;
 
 			// Sort the packages after glob filtering.
 			pkgs.sort_by_cached_key(|pkg| pkg.name().to_string());
 
 			(pkgs, not_found)
 		},
-		None => (cache.packages(&sort)?.collect(), HashSet::new()),
+		None => (cache.packages(&sort).collect(), HashSet::new()),
 	};
 
 	// List the packages that were found
@@ -113,7 +110,7 @@ fn list_packages(
 fn list_version<'a>(
 	out: &mut impl std::io::Write,
 	config: &Config,
-	pkg: &'a Package,
+	pkg: &Package<'a>,
 	version: &Version<'a>,
 ) -> std::io::Result<()> {
 	// Add the version to the string
@@ -219,7 +216,11 @@ fn list_description(
 }
 
 /// List a virtual package
-fn list_virtual(out: &mut impl std::io::Write, config: &Config, pkg: &Package) -> Result<()> {
+fn list_virtual(
+	out: &mut impl std::io::Write,
+	config: &Config,
+	pkg: &Package,
+) -> Result<(), std::io::Error> {
 	write!(
 		out,
 		"{}{}{} ",
@@ -228,28 +229,25 @@ fn list_virtual(out: &mut impl std::io::Write, config: &Config, pkg: &Package) -
 		config.color.bold(")")
 	)?;
 
-	// If the virtual package provides anything we can show it
-	if let Some(provides) = pkg.provides_list() {
-		let names = provides
-			.map(|p| p.target_pkg().fullname(true))
-			.collect::<Vec<String>>();
-
-		writeln!(
-			out,
-			"\n  {} {}",
-			config.color.bold("Provided By:"),
-			&names.join(", "),
-		)?;
-	} else {
-		writeln!(out, "\n  Nothing provides this package.")?;
+	if !pkg.has_provides() {
+		return writeln!(out, "\n  Nothing provides this package.");
 	}
 
-	Ok(())
+	// If the virtual package provides anything show it
+	writeln!(
+		out,
+		"\n  {} {}",
+		config.color.bold("Provided By:"),
+		&pkg.provides()
+			.map(|p| p.package().fullname(true))
+			.collect::<Vec<_>>()
+			.join(", "),
+	)
 }
 
 /// Configure sorter for list and search
 fn get_sorter(config: &Config) -> PackageSort {
-	let mut sort = PackageSort::default().names();
+	let mut sort = PackageSort::default();
 
 	// set up our sorting parameters
 	if config.get_bool("installed", false) {
@@ -400,7 +398,7 @@ mod test {
 		// Results are based on Debian Sid
 		// These results could change and require updating
 		let (mut packages, _not_used) =
-			glob_pkgs(&["apt?y", "aptly*"], cache.packages(&sort).unwrap()).unwrap();
+			glob_pkgs(&["apt?y", "aptly*"], cache.packages(&sort)).unwrap();
 
 		// Remove anything that is not amd64 arch.
 		// TODO: This should be dynamic based on the hosts primary arch.
@@ -422,7 +420,7 @@ mod test {
 		// This regex should pull in only dpkg and apt
 		let matcher = Matcher::from_regexs(&[r"^dpk.$", r"^apt$"]).unwrap();
 
-		let (mut packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort).unwrap(), true);
+		let (mut packages, _not_found) = matcher.regex_pkgs(cache.packages(&sort), true);
 
 		packages.retain(|p| p.arch() == "amd64");
 

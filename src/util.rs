@@ -21,8 +21,7 @@ use once_cell::sync::OnceCell;
 use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::Terminal;
 use regex::{Regex, RegexBuilder};
-use rust_apt::cache::Cache;
-use rust_apt::package::{Package, Version};
+use rust_apt::{Cache, Package, Version};
 
 use crate::config::Config;
 
