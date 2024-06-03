@@ -63,25 +63,27 @@ REBOOT_PKGS = Path(f"{ROOT}/var/run/reboot-required.pkgs")
 NALA_LOCK_FILE = Path(f"{ROOT}/var/lock/nala.lock")
 """/var/lock/nala.lock"""
 
+CACHE_DIR = Path(apt_pkg.config.find_dir("Dir::Cache", "/var/cache/apt"))
+ETC_DIR = Path(apt_pkg.config.find_dir("Dir::Etc", "/etc/apt"))
+
+
+def apt_file(key: str, prepend: Path, sub_path: str) -> Path:
+	"""Get the apt directory. Build prepend/sub_path if None."""
+	if file := apt_pkg.config.find_file(key):
+		return Path(file)
+	return prepend / sub_path
+
+
 # Apt Directories
-ARCHIVE_DIR = Path(apt_pkg.config.find_dir("Dir::Cache::Archives"))
-"""/var/cache/apt/archives/"""
+ARCHIVE_DIR = apt_file("Dir::Cache::Archives", CACHE_DIR, "/var/cache/apt/archives")
 PARTIAL_DIR = ARCHIVE_DIR / "partial"
-"""/var/cache/apt/archives/partial"""
-LISTS_DIR = Path(apt_pkg.config.find_dir("Dir::State::Lists"))
-"""/var/lib/apt/lists/"""
+PKGCACHE = apt_file("Dir::Cache::pkgcache", CACHE_DIR, "pkgcache.bin")
+SRCPKGCACHE = apt_file("Dir::Cache::srcpkgcache", CACHE_DIR, "srcpkgcache.bin")
+LISTS_DIR = Path(apt_pkg.config.find_dir("Dir::State::Lists", "/var/lib/apt/lists/"))
 LISTS_PARTIAL_DIR = LISTS_DIR / "partial"
-"""/var/lib/apt/lists/partial"""
-PKGCACHE = Path(apt_pkg.config.find_dir("Dir::Cache::pkgcache"))
-"""/var/cache/apt/pkgcache.bin"""
-SRCPKGCACHE = Path(apt_pkg.config.find_dir("Dir::Cache::srcpkgcache"))
-"""/var/cache/apt/srcpkgcache.bin"""
-SOURCELIST = Path(apt_pkg.config.find_file("Dir::Etc::sourcelist"))
-"""/etc/apt/sources.list"""
-SOURCEPARTS = Path(apt_pkg.config.find_dir("Dir::Etc::sourceparts"))
-"""/etc/apt/sources.list.d"""
-DPKG_STATE = Path(apt_pkg.config.find_dir("Dir::State::status"))
-"""/var/lib/dpkg/status"""
+DPKG_STATE = Path(apt_pkg.config.find_dir("Dir::State::status", "/var/lib/dpkg/status"))
+SOURCELIST = apt_file("Dir::Etc::sourcelist", ETC_DIR, "/etc/apt/sources.list")
+SOURCEPARTS = apt_file("Dir::Etc::sourceparts", ETC_DIR, "/etc/apt/sources.list.d")
 
 # pylint: disable=invalid-name
 HANDLER = Union[Callable[[int, Optional[FrameType]], Any], int, Handlers, None]
