@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
@@ -46,7 +47,6 @@ fn get_pkg_name(version: &Version) -> String {
 	filename
 }
 
-// #[derive(Clone, Debug)]
 pub struct Uri {
 	uris: Vec<String>,
 	archive: String,
@@ -343,27 +343,21 @@ impl Downloader {
 		version: &'a Version<'a>,
 		uris: &mut Vec<String>,
 		filename: &str,
-	) -> Result<bool> {
-		if let Some(data) = self.mirrors.get(filename) {
-			for line in data.lines() {
-				if !line.is_empty() && !line.starts_with('#') {
-					uris.push(
-						line.to_string()
-							+ "/" + &version.get_record(RecordField::Filename).unwrap(),
-					);
-				}
+	) -> Option<()> {
+		// Return None if not in mirrors.
+		for line in self.mirrors.get(filename)?.lines() {
+			if !line.is_empty() && !line.starts_with('#') {
+				uris.push(line.to_string() + "/" + &version.get_record(RecordField::Filename)?);
 			}
-			return Ok(true);
 		}
-		Ok(false)
+		Some(())
 	}
 
 	async fn add_to_mirrors(&mut self, uri: &str, filename: &str) -> Result<()> {
 		self.mirrors.insert(
 			filename.to_string(),
 			match uri.starts_with("mirror+file:") {
-				true => std::fs::read_to_string(filename)
-					.with_context(|| format!("Failed to read {filename}, using defaults"))?,
+				true => read_to_string(filename).await?,
 				false => {
 					reqwest::get("http://".to_string() + filename)
 						.await?
@@ -385,19 +379,28 @@ impl Downloader {
 	) -> Result<Vec<String>> {
 		let mut filtered = Vec::new();
 
-		// TODO: fix this and do trusted for each pkg_file!
-		for uri in version.uris() {
-			// Sending a file path through the downloader will cause it to lock up
-			// These have already been handled before the downloader runs.
-			// TODO: We haven't actually handled anything yet. In python nala it happens
-			// before it gets here. lol
-			if uri.starts_with("file:") {
+		for vf in version.version_files() {
+			let pf = vf.package_file();
+
+			if !pf.is_downloadable() {
 				continue;
 			}
 
-			if !uri_trusted(version) {
+			// Make sure the File is trusted.
+			if !pf.index_file().is_trusted() {
+				// Erroring is handled later if there are any untrusted URIs
 				self.untrusted
 					.insert(config.color.red(version.parent().name()).to_string());
+			}
+
+			let uri = pf.index_file().archive_uri(&vf.lookup().filename());
+
+			if uri.starts_with("file:") {
+				// Sending a file path through the downloader will cause it to lock up
+				// These have already been handled before the downloader runs.
+				// TODO: We haven't actually handled anything yet. In python nala it happens
+				// before it gets here. lol
+				continue;
 			}
 
 			// We should probably consolidate this. And maybe test if mirror: works.
@@ -408,7 +411,10 @@ impl Downloader {
 						self.add_to_mirrors(&uri, filename).await?;
 					};
 
-					if self.get_from_mirrors(version, &mut filtered, filename)? {
+					if self
+						.get_from_mirrors(version, &mut filtered, filename)
+						.is_some()
+					{
 						continue;
 					}
 				}
@@ -419,27 +425,19 @@ impl Downloader {
 						self.add_to_mirrors(&uri, filename).await?;
 					};
 
-					if self.get_from_mirrors(version, &mut filtered, filename)? {
+					if self
+						.get_from_mirrors(version, &mut filtered, filename)
+						.is_some()
+					{
 						continue;
 					}
 				}
 			}
-
 			// If none of the conditions meet then we just add it to the uris
 			filtered.push(uri);
 		}
 		Ok(filtered)
 	}
-}
-
-// TODO: Port back to rust-apt as a method on version?
-// Also should we check to make sure each indivdual URI is trusted?
-// I seem to think that if one pkg file is trusted then they all are technically
-// Okay because of the HashSums
-pub fn uri_trusted<'a>(version: &'a Version<'a>) -> bool {
-	version
-		.package_files()
-		.any(|pf| pf.is_downloadable() && pf.index_file().is_trusted())
 }
 
 pub fn untrusted_error(config: &Config, untrusted: &HashSet<String>) -> Result<()> {
@@ -478,7 +476,7 @@ pub async fn download(config: &Config) -> Result<()> {
 		deduped.dedup();
 
 		// Create the partial directory
-		fs::create_dir("./partial").await?;
+		mkdir("./partial").await?;
 
 		let cache = new_cache!()?;
 		for name in &deduped {
@@ -577,7 +575,7 @@ pub async fn download(config: &Config) -> Result<()> {
 	}
 
 	// Finally remove the partial directory
-	fs::remove_dir("./partial").await?;
+	rmdir("./partial").await?;
 
 	Ok(())
 }
@@ -805,7 +803,7 @@ pub async fn download_file(progress: Arc<Mutex<Progress>>, uri: Arc<Mutex<Uri>>)
 			uri.lock().await.uris.remove(0);
 
 			// Remove the bad file so that it can't be used at all.
-			fs::remove_file(&dest).await?;
+			remove_file(uri.clone(), &dest).await?;
 			continue;
 		}
 
@@ -835,6 +833,27 @@ async fn open_connection(client: &reqwest::Client, uri: Arc<Mutex<Uri>>) -> Resu
 	Ok(response_res?)
 }
 
+// Like fs::create_dir_all but it has added context for failure.
+pub async fn mkdir<P: AsRef<Path> + ?Sized + std::fmt::Display>(path: &P) -> Result<()> {
+	fs::create_dir_all(path)
+		.await
+		.with_context(|| format!("Failed to create '{path}'"))
+}
+
+pub async fn read_to_string<P: AsRef<Path> + ?Sized + std::fmt::Display>(
+	path: &P,
+) -> Result<String> {
+	fs::read_to_string(path)
+		.await
+		.with_context(|| format!("Failed to read '{path}'"))
+}
+
+pub async fn rmdir<P: AsRef<Path> + ?Sized + std::fmt::Display>(path: &P) -> Result<()> {
+	fs::remove_dir(path)
+		.await
+		.with_context(|| format!("Failed to remove '{path}'"))
+}
+
 async fn open_file(uri: Arc<Mutex<Uri>>, dest: &str) -> Result<File> {
 	// Create the File to write the download into
 	let file_res = fs::File::create(dest).await;
@@ -855,6 +874,17 @@ async fn move_file(uri: Arc<Mutex<Uri>>, dest: &str) -> Result<()> {
 		uri.lock().await.crash = true;
 	}
 	file_res.with_context(|| format!("Could not move '{dest}' to '{archive_dest}'"))
+}
+
+async fn remove_file(uri: Arc<Mutex<Uri>>, dest: &str) -> Result<()> {
+	let archive_dest = uri.lock().await.archive.to_string();
+
+	let file_res = fs::remove_file(dest).await;
+
+	if file_res.is_err() {
+		uri.lock().await.crash = true;
+	}
+	file_res.with_context(|| format!("Could not remove '{dest}' to '{archive_dest}'"))
 }
 
 async fn get_chunk(response: &mut Response, uri: Arc<Mutex<Uri>>) -> Result<Option<Bytes>> {
