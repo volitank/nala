@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rust-apt = { git = "https://gitlab.com/volian/rust-apt", branch = "progress" }
-# rust-apt = { git = "https://gitlab.com/volian/rust-apt" }
+# rust-apt = { git = "https://gitlab.com/volian/rust-apt", branch = "progress" }
+rust-apt = { git = "https://gitlab.com/volian/rust-apt" }
 # rust-apt = { path = "../rust-apt" }
 # rust-apt = "*"
 clap = { version = "4", features = ["derive"] }
@@ -47,4 +47,5 @@ lto = true
 # Can't really tell if this changes anything
 # codegen-units = 1
 
-panic = "abort"
+# This causes it to not work on some machines?
+# panic = "abort"

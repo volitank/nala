@@ -169,7 +169,7 @@ impl Config {
 
 			// If the flag doesn't exist, wasn't passed by the user,
 			// and isn't present in the config
-			if self.nala_map.get(opt).is_none() {
+			if !self.nala_map.contains_key(opt) {
 				// set it to false
 				self.set_bool(opt, false);
 			}
