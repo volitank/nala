@@ -3,10 +3,11 @@ use std::fs;
 use anyhow::{bail, Result};
 use regex::{Regex, RegexBuilder};
 use rust_apt::records::RecordField;
-use rust_apt::util::{unit_str, NumSys};
+use rust_apt::util::NumSys;
 use rust_apt::{new_cache, BaseDep, DepType, Dependency, Package, PackageSort, Version};
 
 use crate::config::Config;
+use crate::tui::progress::UnitStr;
 use crate::util::{glob_pkgs, virtual_filter};
 
 pub fn build_regex(pattern: &str) -> Result<Regex> {
@@ -111,6 +112,7 @@ pub fn show_version<'a>(
 	pacstall_regex: &Regex,
 	url_regex: &Regex,
 ) {
+	let unit = UnitStr::new(0, NumSys::Binary);
 	let mut version_map: Vec<(&str, String)> = vec![
 		("Package", config.color.package(&pkg.fullname(true)).into()),
 		("Version", config.color.blue(ver.version()).into()),
@@ -120,11 +122,8 @@ pub fn show_version<'a>(
 		("Essential", pkg.is_essential().to_string()),
 		("Section", ver.section().unwrap_or("Unknown").to_string()),
 		("Source", ver.source_name().to_string()),
-		(
-			"Installed-Size",
-			unit_str(ver.installed_size(), NumSys::Binary),
-		),
-		("Download-Size", unit_str(ver.size(), NumSys::Binary)),
+		("Installed-Size", unit.str(ver.installed_size())),
+		("Download-Size", unit.str(ver.size())),
 		(
 			"Maintainer",
 			ver.get_record(RecordField::Maintainer)

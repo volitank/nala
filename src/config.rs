@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::cli::Commands;
 use crate::colors::{Color, ColorType, Style, Theme, COLOR_MAP};
-use crate::util::dprint;
+use crate::dprint;
 
 /// Represents different file and directory paths
 pub enum Paths {
@@ -247,6 +247,9 @@ impl Config {
 
 	/// Return true if debug is enabled
 	pub fn debug(&self) -> bool { self.get_bool("debug", false) }
+
+	/// Return true if verbose or debug is enabled
+	pub fn verbose(&self) -> bool { self.debug() || self.get_bool("verbose", false) }
 
 	fn update_color(&mut self) -> Result<()> {
 		let default_map = &*COLOR_MAP;

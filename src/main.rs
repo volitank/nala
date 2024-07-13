@@ -3,7 +3,6 @@ use std::process::ExitCode;
 
 use anyhow::{bail, Result};
 use clap::{ArgMatches, CommandFactory, FromArgMatches};
-use downloader::download;
 use history::history_test;
 use rust_apt::error::AptErrors;
 
@@ -25,6 +24,7 @@ use crate::clean::clean;
 use crate::cli::NalaParser;
 use crate::colors::Color;
 use crate::config::Config;
+use crate::downloader::download;
 use crate::fetch::fetch;
 use crate::list::{list, search};
 use crate::show::show;

@@ -1,13 +1,12 @@
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style, Stylize};
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{
-	Block, BorderType, Borders, List, ListItem, ListState, Padding, Paragraph, StatefulWidget,
-	Widget,
+	Block, BorderType, List, ListItem, ListState, Padding, Paragraph, StatefulWidget, Widget,
 };
 use ratatui::Terminal;
 
@@ -95,13 +94,13 @@ impl StatefulList {
 }
 
 /// The Struct that drives the Fetch TUI
-pub struct FetchTui {
+pub struct App {
 	items: StatefulList,
 }
 
-impl FetchTui {
+impl App {
 	pub fn new(scored: Vec<(String, u128)>) -> Self {
-		FetchTui {
+		App {
 			items: StatefulList::new(scored),
 		}
 	}
@@ -138,6 +137,12 @@ impl FetchTui {
 								.map(|f| f.url)
 								.collect());
 						},
+						// CTRL+C will return an empty vec to exit cleanly without progressing.
+						Char('c') => {
+							if key.modifiers.contains(KeyModifiers::CONTROL) {
+								return Ok(vec![]);
+							}
+						},
 						Char('j') | Down => self.items.next(),
 						Char('k') | Up => self.items.previous(),
 						Char(' ') => self.change_status(),
@@ -156,13 +161,12 @@ impl FetchTui {
 	}
 
 	fn render_lists(&mut self, area: Rect, buf: &mut Buffer) {
-		let outer_block = Block::default()
+		let outer_block = Block::bordered()
 			.title("  Nala Fetch  ".reset().bold())
 			.title_alignment(Alignment::Center)
-			.add_modifier(Modifier::BOLD)
-			.borders(Borders::ALL)
+			.bold()
 			.border_type(BorderType::Rounded)
-			.fg(Color::Cyan);
+			.fg(Color::LightGreen);
 
 		let [mirror_area, score_area] = Layout::horizontal([
 			Constraint::Length(self.items.align.0 as u16 + 4),
@@ -198,7 +202,7 @@ impl FetchTui {
 	}
 }
 
-impl Widget for &mut FetchTui {
+impl Widget for &mut App {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 		// Create a space for header, todo list and the footer.
 		let [list_area, info_area, footer_area] = Layout::vertical([
@@ -212,7 +216,7 @@ impl Widget for &mut FetchTui {
 
 		Paragraph::new("\nScore is how many milliseconds it takes to download the Release file.")
 			.centered()
-			.style(Style::new().italic())
+			.italic()
 			.render(info_area, buf);
 
 		Paragraph::new(
@@ -225,12 +229,9 @@ impl Widget for &mut FetchTui {
 }
 
 fn item_list<'a>(block: Block<'a>, item_vec: Vec<ListItem<'a>>) -> List<'a> {
-	List::new(item_vec).block(block).highlight_style(
-		Style::default()
-			.add_modifier(Modifier::BOLD)
-			.add_modifier(Modifier::REVERSED)
-			.fg(Color::Blue),
-	)
+	List::new(item_vec)
+		.block(block)
+		.highlight_style(Style::default().bold().reversed().fg(Color::Blue))
 }
 
 fn fetch_block(title: &str) -> Block {

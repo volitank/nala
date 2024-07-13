@@ -1,32 +1,72 @@
-use std::time::Duration;
-
 use anyhow::Result;
-use crossterm::{cursor, execute};
-use indicatif::{ProgressBar, ProgressStyle};
-use rust_apt::error::{pending_error, AptErrors};
 use rust_apt::progress::{AcquireProgress, DynAcquireProgress};
 use rust_apt::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
-use rust_apt::util::{terminal_width, time_str, unit_str, NumSys};
 use rust_apt::{new_cache, PackageSort};
+use tokio::sync::mpsc;
 
 use crate::config::Config;
+use crate::tui;
 
-pub fn update(config: &Config) -> Result<(), AptErrors> {
+pub enum Message {
+	Print(String),
+	Messages(Vec<String>),
+	UpdatePosition((u64, u64)),
+	Fetched((String, u64)),
+}
+
+/// The function just runs apt's update and is designed to go into
+/// it's own little thread.
+pub async fn update_thread(acquire: NalaAcquireProgress) -> Result<()> {
 	let cache = new_cache!()?;
-	let mut stdout = std::io::stdout();
+	cache.update(&mut AcquireProgress::new(acquire))?;
+	Ok(())
+}
 
-	// TODO: Handle CtrlC here so that we can unhide the cursor
-	execute!(stdout, cursor::Hide)?;
+#[tokio::main]
+pub async fn update(config: &Config) -> Result<()> {
+	// Setup channel to talk between threads
+	let (tx, mut rx) = mpsc::unbounded_channel();
+	// Setup the acquire struct and send it to the update thread
+	let acquire = NalaAcquireProgress::new(config, tx);
+	let task = tokio::task::spawn(update_thread(acquire));
 
-	let res = cache.update(&mut AcquireProgress::new(NalaAcquireProgress::new(config)));
+	let mut progress = tui::NalaProgressBar::new()?;
 
-	execute!(stdout, cursor::Show)?;
+	while let Some(msg) = rx.recv().await {
+		match msg {
+			Message::UpdatePosition((total, current)) => {
+				progress.indicatif.set_length(total);
+				progress.indicatif.set_position(current);
+			},
+			Message::Print(msg) => {
+				progress.print(msg)?;
+			},
+			Message::Fetched((msg, file_size)) => {
+				progress.print(if file_size > 0 {
+					format!("{msg} [{}]", progress.unit.str(file_size))
+				} else {
+					msg
+				})?;
+			},
+			Message::Messages(msg) => {
+				progress.msg = msg;
+				progress.render()?;
+			},
+		}
 
-	// Do not print how many packages are upgradable if update errored.
-	#[allow(clippy::question_mark)]
-	if res.is_err() {
-		return res;
+		// Exit immedately.
+		// This is the only way to stop apt's update
+		if tui::poll_exit_event()? {
+			progress.clean_up()?;
+			std::process::exit(1);
+		}
 	}
+
+	progress.clean_up()?;
+
+	task.await??;
+
+	println!("{}", config.color.bold(&progress.finished_string()));
 
 	let cache = new_cache!()?;
 	let sort = PackageSort::default().upgradable();
@@ -51,182 +91,39 @@ pub fn update(config: &Config) -> Result<(), AptErrors> {
 	// 	println!("{pkg} ({inst}) -> ({cand})");
 	// }
 
-	res
-}
-
-// "┏━┳┓\n"
-// "┃ ┃┃\n"
-// "┣━╋┫\n"
-// "┃ ┃┃\n"
-// "┣━╋┫\n"
-// "┣━╋┫\n"
-// "┃ ┃┃\n"
-// "┗━┻┛\n"
-
-// "╭─┬╮\n"
-// "│ ││\n"
-// "├─┼┤\n"
-// "│ ││\n"
-// "├─┼┤\n"
-// "├─┼┤\n"
-// "│ ││\n"
-// "╰─┴╯\n"
-
-const HEAVY: [&str; 6] = ["━", "┃", "┏", "┓", "┗", "┛"];
-#[allow(dead_code)]
-const ROUNDED: [&str; 6] = ["─", "│", "╭", "╮", "╰", "╯"];
-#[allow(dead_code)]
-const ASCII: [&str; 6] = ["-", "|", "x", "x", "x", "x"];
-
-pub struct Border {
-	chars: [&'static str; 6],
-	width: usize,
-	top: String,
-	bot: String,
-}
-
-impl Border {
-	pub fn new(chars: [&'static str; 6]) -> Border {
-		Self {
-			chars,
-			width: 0,
-			top: String::new(),
-			bot: String::new(),
-		}
-	}
-
-	pub fn horizontal(&self) -> &str { self.chars[0] }
-
-	pub fn vertical(&self) -> &str { self.chars[1] }
-
-	pub fn width_changed(&mut self) -> bool {
-		let width = terminal_width();
-		if self.width != width {
-			self.width = width;
-			return true;
-		}
-		false
-	}
-
-	pub fn top_border(&mut self) -> &str {
-		if self.width_changed() || self.top.is_empty() {
-			let header = "Update";
-
-			self.top = format!(
-				"{}{} {header} {}{}",
-				self.chars[2],
-				self.horizontal(),
-				self.horizontal().repeat(self.width - header.len() - 5),
-				self.chars[3],
-			);
-		}
-		&self.top
-	}
-
-	pub fn bottom_border(&mut self) -> &str {
-		if self.width_changed() || self.bot.is_empty() {
-			self.bot = format!(
-				"{}{}{}",
-				self.chars[4],
-				self.horizontal().repeat(self.width - 2),
-				self.chars[5],
-			)
-		}
-		&self.bot
-	}
+	Ok(())
 }
 
 /// AptAcquireProgress is the default struct for the update method on the cache.
 ///
 /// This struct mimics the output of `apt update`.
-pub struct NalaAcquireProgress<'a> {
-	config: &'a Config,
+pub struct NalaAcquireProgress {
+	apt_config: rust_apt::config::Config,
 	pulse_interval: usize,
-	max: usize,
-	progress: ProgressBar,
-	border: Border,
 	ign: String,
 	hit: String,
 	get: String,
 	err: String,
+	tx: mpsc::UnboundedSender<Message>,
 }
 
-impl<'a> NalaAcquireProgress<'a> {
+impl NalaAcquireProgress {
 	/// Returns a new default progress instance.
-	pub fn new(config: &'a Config) -> Self {
-		let mut progress = Self {
-			config,
+	pub fn new(config: &Config, tx: mpsc::UnboundedSender<Message>) -> Self {
+		Self {
+			apt_config: rust_apt::config::Config::new(),
 			pulse_interval: 0,
-			max: 0,
-			progress: ProgressBar::hidden(),
 			// TODO: Maybe we should make it configurable.
-			border: Border::new(HEAVY),
 			ign: config.color.yellow("Ignored").into(),
 			hit: config.color.package("No Change").into(),
 			get: config.color.blue("Updated").into(),
 			err: config.color.red("Error").into(),
-		};
-		progress.progress = ProgressBar::new(0)
-			.with_style(progress.get_style("".to_string()))
-			.with_prefix("%");
-
-		progress.progress.enable_steady_tick(Duration::from_secs(1));
-		progress
-	}
-
-	pub fn get_style(&mut self, msg: String) -> ProgressStyle {
-		// "┏━┳┓\n"
-		// "┃ ┃┃\n"
-		// "┣━╋┫\n"
-		// "┃ ┃┃\n"
-		// "┣━╋┫\n"
-		// "┣━╋┫\n"
-		// "┃ ┃┃\n"
-		// "┗━┻┛\n"
-
-		// "╭─┬╮\n"
-		// "│ ││\n"
-		// "├─┼┤\n"
-		// "│ ││\n"
-		// "├─┼┤\n"
-		// "├─┼┤\n"
-		// "│ ││\n"
-		// "╰─┴╯\n"
-
-		// TODO: This will need to be methods on the struct
-		// And we will have to shift it around to be ASCII safe maybe.
-		let mut template = self
-			.config
-			.color
-			.package(self.border.top_border())
-			.to_string();
-
-		template += "\n";
-		if !msg.is_empty() {
-			template += &msg;
-			template += "\n";
+			tx,
 		}
-
-		let side = self
-			.config
-			.color
-			.package(self.border.vertical())
-			.to_string();
-
-		template += &format!(
-			"{side} {{spinner:.bold}} {{percent:.bold}}{{prefix:.bold}} [{{wide_bar:.cyan/red}}] \
-			 {{bytes}}/{{total_bytes}} ({{eta}}) {side}\n{}",
-			self.config.color.package(self.border.bottom_border())
-		);
-
-		ProgressStyle::with_template(&template)
-			.unwrap()
-			.tick_strings(&[".  ", ".. ", "...", "   "])
-			.progress_chars("━━")
 	}
 }
 
-impl<'a> DynAcquireProgress for NalaAcquireProgress<'a> {
+impl DynAcquireProgress for NalaAcquireProgress {
 	/// Used to send the pulse interval to the apt progress class.
 	///
 	/// Pulse Interval is in microseconds.
@@ -244,22 +141,25 @@ impl<'a> DynAcquireProgress for NalaAcquireProgress<'a> {
 	///
 	/// Prints out the short description and the expected size.
 	fn hit(&mut self, item: &ItemDesc) {
-		self.progress
-			.println(format!("{}: {}", self.hit, item.description()));
+		self.tx
+			.send(Message::Print(format!(
+				"{}: {}",
+				self.hit,
+				item.description()
+			)))
+			.unwrap();
 	}
 
 	/// Called when an Item has started to download
 	///
 	/// Prints out the short description and the expected size.
 	fn fetch(&mut self, item: &ItemDesc) {
-		let mut msg = format!("{}:   {}", self.get, item.description());
-
-		let file_size = item.owner().file_size();
-		if file_size != 0 {
-			msg += &format!(" [{}]", unit_str(file_size, NumSys::Decimal))
-		}
-
-		self.progress.println(msg);
+		self.tx
+			.send(Message::Fetched((
+				format!("{}:   {}", self.get, item.description()),
+				item.owner().file_size(),
+			)))
+			.unwrap();
 	}
 
 	/// Called when an item is successfully and completely fetched.
@@ -279,34 +179,14 @@ impl<'a> DynAcquireProgress for NalaAcquireProgress<'a> {
 	/// Stop does not pass information into the method.
 	///
 	/// prints out the bytes downloaded and the overall average line speed.
-	fn stop(&mut self, status: &AcqTextStatus) {
-		if pending_error() {
-			return;
-		}
-
-		let msg = if status.fetched_bytes() != 0 {
-			self.config
-				.color
-				.bold(&format!(
-					"Fetched {} in {} ({}/s)",
-					unit_str(status.fetched_bytes(), NumSys::Decimal),
-					time_str(status.elapsed_time()),
-					unit_str(status.current_cps(), NumSys::Decimal)
-				))
-				.to_string()
-		} else {
-			"Nothing to fetch.".to_string()
-		};
-		self.progress.println(msg);
-	}
+	fn stop(&mut self, _: &AcqTextStatus) {}
 
 	/// Called when an Item fails to download.
 	///
 	/// Print out the ErrorText for the Item.
 	fn fail(&mut self, item: &ItemDesc) {
 		let mut show_error = self
-			.config
-			.apt
+			.apt_config
 			.bool("Acquire::Progress::Ignore::ShowErrorText", true);
 		let error_text = item.owner().error_text();
 
@@ -320,11 +200,12 @@ impl<'a> DynAcquireProgress for NalaAcquireProgress<'a> {
 			_ => &self.err,
 		};
 
-		self.progress
-			.println(format!("{header}: {}", item.description()));
+		self.tx
+			.send(Message::Print(format!("{header}: {}", item.description())))
+			.unwrap();
 
 		if show_error {
-			self.progress.println(error_text);
+			self.tx.send(Message::Print(error_text)).unwrap();
 		}
 	}
 
@@ -334,11 +215,13 @@ impl<'a> DynAcquireProgress for NalaAcquireProgress<'a> {
 	/// Each line has an overall percent meter and a per active item status
 	/// meter along with an overall bandwidth and ETA indicator.
 	fn pulse(&mut self, status: &AcqTextStatus, owner: &PkgAcquire) {
-		self.progress.set_length(status.total_bytes());
-		self.progress.set_position(status.current_bytes());
+		self.tx
+			.send(Message::UpdatePosition((
+				status.total_bytes(),
+				status.current_bytes(),
+			)))
+			.unwrap();
 
-		let term_width = terminal_width();
-		let side = self.config.color.package(self.border.vertical());
 		let mut string: Vec<String> = vec![];
 
 		for worker in owner.workers().iter() {
@@ -362,38 +245,18 @@ impl<'a> DynAcquireProgress for NalaAcquireProgress<'a> {
 			if let Some(dest_file) = owner.dest_file().split_terminator('/').last() {
 				// Decide on protocol.
 				let proto = if item.uri().starts_with("https") { "https://" } else { "http://" };
-				// Build the correct URI by destination file. item.uri() returns the /by-hash
-				// link.
-				let uri = dest_file.replace('_', "/");
-				// Calculate string padding. - 2 for border. - 2 for spaces.
-				let padding = term_width - work_string.len() - proto.len() - uri.len() - 4;
+				// Build the correct URI by destination file.
+				// item.uri() returns the /by-hash link.
+				let mut uri = dest_file.replace('_', "/");
+				uri.insert_str(0, proto);
 
-				string.push(format!(
-					"{side} {} {proto}{uri}{}{side}",
-					self.config.color.bold(&work_string),
-					&" ".repeat(padding),
-				));
-				// Break only for slim progress
-				if !self.config.get_bool("verbose", false) {
-					break;
-				}
+				string.push(work_string);
+
+				string.push(uri);
+				break;
 			};
 		}
 
-		// If there are no worker strings just return
-		if string.is_empty() {
-			return;
-		}
-
-		self.max = string.len().max(self.max);
-
-		let filler = format!("{side}{}{side}", &" ".repeat(term_width - 2));
-
-		while string.len() < self.max {
-			string.insert(0, filler.to_string())
-		}
-
-		let style = self.get_style(string.join("\n"));
-		self.progress.set_style(style);
+		self.tx.send(Message::Messages(string)).unwrap();
 	}
 }

@@ -3,7 +3,6 @@ use std::fs;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use reqwest::Client;
 use rust_apt::tagfile::{parse_tagfile, TagSection};
@@ -13,7 +12,7 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 
 use crate::config::{Config, Paths};
-use crate::util::{init_terminal, restore_terminal, sudo_check, NalaRegex};
+use crate::util::{sudo_check, NalaRegex};
 use crate::{dprint, tui};
 
 fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
@@ -247,22 +246,19 @@ async fn score_handler(
 	mirror_strings: HashSet<String>,
 	release: &str,
 ) -> Result<Vec<(String, u128)>> {
-	let mut set = JoinSet::new();
-
-	let semp = Arc::new(Semaphore::new(30));
-	let mut score = vec![];
-
 	// Setup Progress Bar
-	let pb = ProgressBar::new(mirror_strings.len() as u64);
-	pb.set_style(
-		ProgressStyle::with_template("{prefix:.bold}[{bar:40.cyan/red}] {percent}% • {pos}/{len}")
-			.unwrap()
-			.progress_chars("━━"),
-	);
-	pb.set_prefix("Testing Mirrors: ");
+	let mut pb = tui::NalaProgressBar::new()?;
+	pb.indicatif.set_length(mirror_strings.len() as u64);
 
+	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
+	let semp = Arc::new(Semaphore::new(30));
+	// If we decide we want more information during this portion
+	// for something like verbose/debug we probably need an mpsc
+	// let (tx, mut rx) = mpsc::unbounded_channel();
+	let mut set = JoinSet::new();
 	for url in &mirror_strings {
 		set.spawn(net_select_score(
+			client.clone(),
 			semp.clone(),
 			config.get_bool("https_only", false),
 			url.strip_suffix('/').unwrap_or(url).to_string(),
@@ -270,13 +266,21 @@ async fn score_handler(
 		));
 	}
 
-	// Run all of the futures.
+	// Get the results from scoring.
+	let mut score = vec![];
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
+			pb.msg = vec!["Finished: ".to_string(), response.0.to_string()];
 			score.push(response)
 		}
-		pb.inc(1);
+		pb.indicatif.inc(1);
+		pb.render()?;
+		if tui::poll_exit_event()? {
+			pb.clean_up()?;
+			std::process::exit(1);
+		}
 	}
+	pb.clean_up()?;
 
 	// Move FetchScore out of its Arc and then return the final vec.
 	score.sort_by_key(|k| k.1);
@@ -285,6 +289,7 @@ async fn score_handler(
 
 /// Score the url with https and http depending on config.
 async fn net_select_score(
+	client: Client,
 	semp: Arc<Semaphore>,
 	https_only: bool,
 	url: String,
@@ -292,7 +297,6 @@ async fn net_select_score(
 ) -> Result<(String, u128)> {
 	let sem = semp.acquire_owned().await?;
 	let https = url.replace("http://", "https://");
-	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 
 	if let Ok(response) = fetch_release(&client, &https, &release).await {
 		return Ok(response);
@@ -477,9 +481,9 @@ pub fn fetch(config: &Config) -> Result<()> {
 		scored.into_iter().map(|(s, _)| s).collect()
 	} else {
 		dprint!(config, "Interactive mode, starting TUI");
-		let terminal = init_terminal()?;
-		let chosen = tui::FetchTui::new(scored).run(terminal)?;
-		restore_terminal()?;
+		let terminal = tui::init_terminal()?;
+		let chosen = tui::fetch::App::new(scored).run(terminal)?;
+		tui::restore_terminal()?;
 		chosen
 	};
 
