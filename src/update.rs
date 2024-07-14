@@ -4,6 +4,7 @@ use rust_apt::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
 use rust_apt::{new_cache, PackageSort};
 use tokio::sync::mpsc;
 
+use crate::colors::Theme;
 use crate::config::Config;
 use crate::tui;
 
@@ -30,7 +31,7 @@ pub async fn update(config: &Config) -> Result<()> {
 	let acquire = NalaAcquireProgress::new(config, tx);
 	let task = tokio::task::spawn(update_thread(acquire));
 
-	let mut progress = tui::NalaProgressBar::new()?;
+	let mut progress = tui::NalaProgressBar::new(config)?;
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
@@ -66,7 +67,7 @@ pub async fn update(config: &Config) -> Result<()> {
 
 	task.await??;
 
-	println!("{}", config.color.bold(&progress.finished_string()));
+	println!("{}", config.highlight(&progress.finished_string()));
 
 	let cache = new_cache!()?;
 	let sort = PackageSort::default().upgradable();
@@ -75,8 +76,8 @@ pub async fn update(config: &Config) -> Result<()> {
 	if !upgradable.is_empty() {
 		println!(
 			"{} packages can be upgraded. Run '{}' to see them.",
-			config.color.yellow(&format!("{}", upgradable.len())),
-			config.color.package("nala list --upgradable")
+			config.color(Theme::Notice, &format!("{}", upgradable.len())),
+			config.color(Theme::Primary, "nala list --upgradable")
 		);
 	}
 
@@ -114,10 +115,10 @@ impl NalaAcquireProgress {
 			apt_config: rust_apt::config::Config::new(),
 			pulse_interval: 0,
 			// TODO: Maybe we should make it configurable.
-			ign: config.color.yellow("Ignored").into(),
-			hit: config.color.package("No Change").into(),
-			get: config.color.blue("Updated").into(),
-			err: config.color.red("Error").into(),
+			ign: config.color(Theme::Notice, "Ignored"),
+			hit: config.color(Theme::Primary, "No Change"),
+			get: config.color(Theme::Secondary, "Updated"),
+			err: config.color(Theme::Error, "Error"),
 			tx,
 		}
 	}

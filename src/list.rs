@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::{bail, Result};
 use rust_apt::{new_cache, Package, PackageSort, Version};
 
+use crate::colors::Theme;
 use crate::config::Config;
 use crate::dprint;
 use crate::util::{glob_pkgs, Matcher};
@@ -69,7 +70,11 @@ fn list_packages(
 	for pkg in packages {
 		if config.get_bool("all_versions", false) && pkg.has_versions() {
 			for version in pkg.versions() {
-				write!(out, "{} ", config.color.package(&pkg.fullname(true)))?;
+				write!(
+					out,
+					"{} ",
+					config.color(Theme::Primary, &pkg.fullname(true))
+				)?;
 				list_version(out, config, &pkg, &version)?;
 				list_description(out, config, &version)?;
 			}
@@ -82,7 +87,11 @@ fn list_packages(
 		}
 
 		// Write the package name
-		write!(out, "{} ", config.color.package(&pkg.fullname(true)))?;
+		write!(
+			out,
+			"{} ",
+			config.color(Theme::Primary, &pkg.fullname(true))
+		)?;
 
 		// Get the candidate if we're only going to show one version.
 		// Fall back to the first version in the list if there isn't a candidate.
@@ -98,9 +107,10 @@ fn list_packages(
 	}
 
 	for name in &not_found {
-		config
-			.color
-			.notice(&format!("'{}' was not found", config.color.package(name)));
+		config.color(
+			Theme::Notice,
+			&format!("'{}' was not found", config.color(Theme::Primary, name)),
+		);
 	}
 
 	Ok(())
@@ -121,7 +131,7 @@ fn list_version<'a>(
 		version.version()
 	);
 
-	write!(out, "{}", config.color.version(version.version()))?;
+	write!(out, "{}", config.color_ver(version.version()))?;
 
 	if let Some(pkg_file) = version.package_files().next() {
 		dprint!(config, "Package file found, building origin");
@@ -149,7 +159,7 @@ fn list_version<'a>(
 			return writeln!(
 				out,
 				" [Installed, Upgradable to: {}]",
-				config.color.version(candidate.version()),
+				config.color_ver(candidate.version()),
 			);
 		}
 		// Version isn't installed, see if it's the candidate
@@ -157,7 +167,7 @@ fn list_version<'a>(
 			return writeln!(
 				out,
 				" [Upgradable from: {}]",
-				config.color.version(installed.version()),
+				config.color_ver(installed.version()),
 			);
 		}
 	}
@@ -224,9 +234,9 @@ fn list_virtual(
 	write!(
 		out,
 		"{}{}{} ",
-		config.color.bold("("),
-		config.color.yellow("Virtual Package"),
-		config.color.bold(")")
+		config.highlight("("),
+		config.color(Theme::Notice, "Virtual Package"),
+		config.highlight(")")
 	)?;
 
 	if !pkg.has_provides() {
@@ -237,7 +247,7 @@ fn list_virtual(
 	writeln!(
 		out,
 		"\n  {} {}",
-		config.color.bold("Provided By:"),
+		config.highlight("Provided By:"),
 		&pkg.provides()
 			.map(|p| p.package().fullname(true))
 			.collect::<Vec<_>>()
@@ -308,7 +318,7 @@ mod test {
 		// Set up what the correct output should be
 		let mut string = virt.clone();
 		string += "  ";
-		string += &config.color.bold("Provided By:");
+		string += &config.highlight("Provided By:");
 		string += " systemd-standalone-sysusers, systemd, opensysusers\n";
 
 		// Convert the vector of bytes to a string

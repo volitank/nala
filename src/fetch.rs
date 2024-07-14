@@ -26,7 +26,7 @@ fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 
 fn detect_release(config: &Config) -> Result<(String, String, String)> {
 	for distro in ["debian", "ubuntu", "devuan"] {
-		if let Some(value) = config.string_map.get(distro) {
+		if let Some(value) = config.get_str(distro) {
 			dprint!(config, "Distro '{distro} {value}' passed on CLI");
 			let distro = distro.to_string();
 			let keyring = format!("/usr/share/keyrings/{distro}-archive-keyring.gpg");
@@ -93,7 +93,7 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 		.with_context(|| format!("Failed to read {main}"))?
 		.lines()
 	{
-		if let Some(domain) = domain_from_list(regex.domain()?, line) {
+		if let Some(domain) = domain_from_list(regex.domain(), line) {
 			sources.insert(domain);
 		}
 	}
@@ -139,7 +139,7 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 						continue;
 					}
 
-					if let Some(domain) = regex_string(regex.domain()?, uri) {
+					if let Some(domain) = regex_string(regex.domain(), uri) {
 						sources.insert(domain);
 					}
 				}
@@ -149,7 +149,7 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 
 		if filename.ends_with(".list") {
 			for line in data.as_str().lines() {
-				if let Some(domain) = domain_from_list(regex.domain()?, line) {
+				if let Some(domain) = domain_from_list(regex.domain(), line) {
 					sources.insert(domain);
 				}
 			}
@@ -247,7 +247,7 @@ async fn score_handler(
 	release: &str,
 ) -> Result<Vec<(String, u128)>> {
 	// Setup Progress Bar
-	let mut pb = tui::NalaProgressBar::new()?;
+	let mut pb = tui::NalaProgressBar::new(config)?;
 	pb.indicatif.set_length(mirror_strings.len() as u64);
 
 	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
@@ -373,24 +373,12 @@ fn ubuntu_url(
 		.any(|arch| arch != "amd64" && arch != "i386");
 
 	if let Some(hash_set) = countries {
-		if !hash_set.contains(
-			regex
-				.ubuntu_country()
-				.unwrap()
-				.captures(mirror)?
-				.get(1)?
-				.as_str(),
-		) {
+		if !hash_set.contains(regex.ubuntu_country().captures(mirror)?.get(1)?.as_str()) {
 			return None;
 		}
 	}
 
-	let url = regex
-		.ubuntu_url()
-		.unwrap()
-		.captures(mirror)?
-		.get(1)?
-		.as_str();
+	let url = regex.ubuntu_url().captures(mirror)?.get(1)?.as_str();
 	let is_ports = url.contains("ubuntu-ports");
 
 	// Don't return non ports if we only want ports
@@ -476,13 +464,13 @@ pub fn fetch(config: &Config) -> Result<()> {
 	}
 
 	// Only run the TUI if --auto is not on
-	let chosen = if config.auto.is_some() {
+	let chosen = if config.auto().is_some() {
 		dprint!(config, "Auto mode, not starting TUI");
 		scored.into_iter().map(|(s, _)| s).collect()
 	} else {
 		dprint!(config, "Interactive mode, starting TUI");
 		let terminal = tui::init_terminal()?;
-		let chosen = tui::fetch::App::new(scored).run(terminal)?;
+		let chosen = tui::fetch::App::new(config, scored).run(terminal)?;
 		tui::restore_terminal()?;
 		chosen
 	};
@@ -506,7 +494,7 @@ pub fn fetch(config: &Config) -> Result<()> {
 
 	nala_sources += "URIs: ";
 	for (i, mirror) in chosen.iter().enumerate() {
-		if config.auto.is_some_and(|auto| i + 1 > auto as usize) {
+		if config.auto().is_some_and(|auto| i + 1 > auto as usize) {
 			break;
 		}
 		if i > 0 {

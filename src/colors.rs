@@ -1,317 +1,135 @@
-use std::borrow::Cow;
-use std::collections::HashMap;
-use std::fmt;
+use core::fmt;
+use std::cell::OnceCell;
 
-use anyhow::{anyhow, Result};
-use lazy_static::lazy_static;
+use serde::Deserialize;
 
-static RESET: &str = "\x1b[0m";
+pub type RatStyle = ratatui::style::Style;
+pub type RatColor = ratatui::style::Color;
+pub type RatMod = ratatui::style::Modifier;
 
-lazy_static! {
-	pub static ref COLOR_MAP: HashMap<&'static str, u8> = HashMap::from([
-		("black", 0),
-		("red", 1),
-		("green", 2),
-		("yellow", 3),
-		("blue", 4),
-		("magenta", 5),
-		("cyan", 6),
-		("white", 7),
-		("bright_black", 8),
-		("bright_red", 9),
-		("bright_green", 10),
-		("bright_yellow", 11),
-		("bright_blue", 12),
-		("bright_magenta", 13),
-		("bright_cyan", 14),
-		("bright_white", 15),
-		("warning", 11),
-		("error", 9),
-		("package", 10),
-		("version", 12),
-	]);
+/// Default Modifier for Serde
+fn bold() -> RatMod { RatMod::BOLD }
+
+#[derive(Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
+pub enum Theme {
+	Primary,
+	Secondary,
+	Highlight,
+	Regular,
+	ProgressFilled,
+	ProgressUnfilled,
+	Notice,
+	Warning,
+	Error,
 }
 
-#[repr(u8)]
-#[derive(Debug)]
-/// Ansi Color Styles
-pub enum Style {
-	/// Text is Normal
-	Normal,
-	/// Text is Bold
-	Bold,
-	/// Text is Faint
-	Faint,
-	/// Text is Italic
-	Italic,
-	/// Underlines the text
-	Underline,
-	/// Text will slowly blink
-	SlowBlink,
-	/// Rapidly blinks the text
-	RapidBlink,
-	/// Inverts the Foreground and Background Colors
-	InvertColors,
-	/// Not widely supported
-	Hide,
-	/// Strike through the text
-	StrikeThrough,
-	/// Multiple Styles as a String
-	Multiple(String),
+impl Theme {
+	pub fn default_style(&self) -> Style {
+		match self {
+			Theme::Primary => Style::bold(RatColor::LightGreen),
+			Theme::Secondary => Style::bold(RatColor::LightBlue),
+			Theme::Regular => Style::no_bold(RatColor::White),
+			Theme::Highlight => Style::bold(RatColor::White),
+
+			Theme::ProgressFilled => Style::bold(RatColor::LightGreen),
+			Theme::ProgressUnfilled => Style::bold(RatColor::LightRed),
+
+			Theme::Notice => Style::bold(RatColor::LightYellow),
+			Theme::Warning => Style::bold(RatColor::LightYellow),
+			Theme::Error => Style::bold(RatColor::LightRed),
+		}
+	}
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Style {
+	fg: RatColor,
+	bg: Option<RatColor>,
+	#[serde(default = "bold")]
+	modifier: RatMod,
+	/// ANSI Code that goes before the string.
+	#[serde(skip)]
+	string: OnceCell<String>,
 }
 
 impl Style {
-	/// Return the Enum as a str ansi code
-	///
-	/// If called on `Style::Multiple` this will panic
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			Style::Normal => "0",
-			Style::Bold => "1",
-			Style::Faint => "2",
-			Style::Italic => "3",
-			Style::Underline => "4",
-			Style::SlowBlink => "5",
-			Style::RapidBlink => "6",
-			Style::InvertColors => "7",
-			Style::Hide => "8",
-			Style::StrikeThrough => "9",
-			Style::Multiple(_) => panic!("as_str is not supported for the multiple variant"),
+	pub fn new(modifier: RatMod, fg: RatColor, bg: Option<RatColor>) -> Self {
+		Self {
+			fg,
+			bg,
+			modifier,
+			string: OnceCell::new(),
 		}
 	}
 
-	/// Load a Style from an int such as `1` for Bold
-	pub fn from_u8(value: u8) -> Result<Style> {
-		match value {
-			0 => Ok(Style::Normal),
-			1 => Ok(Style::Bold),
-			2 => Ok(Style::Faint),
-			3 => Ok(Style::Italic),
-			4 => Ok(Style::Underline),
-			5 => Ok(Style::SlowBlink),
-			6 => Ok(Style::RapidBlink),
-			7 => Ok(Style::InvertColors),
-			8 => Ok(Style::Hide),
-			9 => Ok(Style::StrikeThrough),
-			_ => Err(anyhow!("Value '{value}' is not a valid Int Style")),
+	pub fn default() -> Self { Self::no_bold(RatColor::White) }
+
+	pub fn bold(color: RatColor) -> Self { Self::new(RatMod::BOLD, color, None) }
+
+	pub fn no_bold(color: RatColor) -> Self { Self::new(RatMod::empty(), color, None) }
+
+	pub fn to_rat(&self) -> RatStyle {
+		let rat = RatStyle::default().fg(self.fg).add_modifier(self.modifier);
+
+		if let Some(bg) = self.bg {
+			return rat.bg(bg);
+		}
+		rat
+	}
+
+	pub fn ansi_color(&self) -> &str {
+		match self.fg {
+			RatColor::Reset => "0",
+			RatColor::Black => "30",
+			RatColor::Red => "31",
+			RatColor::Green => "32",
+			RatColor::Yellow => "33",
+			RatColor::Blue => "34",
+			RatColor::Magenta => "35",
+			RatColor::Cyan => "36",
+			RatColor::Gray => "37",
+			RatColor::DarkGray => "90",
+			RatColor::LightRed => "91",
+			RatColor::LightGreen => "92",
+			RatColor::LightYellow => "93",
+			RatColor::LightBlue => "94",
+			RatColor::LightMagenta => "95",
+			RatColor::LightCyan => "96",
+			RatColor::White => "97",
+			_ => unreachable!(),
 		}
 	}
 
-	/// Load a Style from a str such as `"underline"`
-	pub fn from_str(value: &str) -> Result<Style> {
-		match value {
-			"default" => Ok(Style::Normal),
-			"bold" => Ok(Style::Bold),
-			"faint" => Ok(Style::Faint),
-			"italic" => Ok(Style::Italic),
-			"underline" => Ok(Style::Underline),
-			"slow_blink" => Ok(Style::SlowBlink),
-			"rapid_blink" => Ok(Style::RapidBlink),
-			"invert_colors" => Ok(Style::InvertColors),
-			"hide" => Ok(Style::Hide),
-			"strike_through" => Ok(Style::StrikeThrough),
-			_ => Err(anyhow!("Value '{value}' is not a valid String Style")),
-		}
-	}
-
-	/// Load a style from a toml array
-	///
-	/// Return `Style::Multiple(String)`
-	pub fn from_array(vector: &[String]) -> Result<Style> {
-		let last = vector.len() - 1;
-		let mut string = String::new();
-		for (i, value) in vector.iter().enumerate() {
-			// let style = Style::from_str(value)?;
-			// Converting to style and then getting the str allows extra type checking
-			string += Style::from_str(value)?.as_str();
-			if i != last {
-				string += ";";
-			}
-		}
-		Ok(Style::Multiple(string))
+	pub fn mod_string(&self) -> String {
+		[
+			(RatMod::BOLD, "1"),
+			(RatMod::DIM, "2"),
+			(RatMod::ITALIC, "3"),
+			(RatMod::UNDERLINED, "4"),
+			(RatMod::SLOW_BLINK, "5"),
+			(RatMod::RAPID_BLINK, "6"),
+			(RatMod::REVERSED, "7"),
+			(RatMod::HIDDEN, "8"),
+			(RatMod::CROSSED_OUT, "9"),
+		]
+		.into_iter()
+		.filter_map(|(m, a)| self.modifier.contains(m).then_some(a))
+		.collect::<Vec<&str>>()
+		.join(";")
 	}
 }
 
 impl fmt::Display for Style {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			// Multiple cannot use as_str. It will panic
-			Style::Multiple(string) => write!(f, "{string}")?,
-			_ => write!(f, "{}", self.as_str())?,
-		}
-		Ok(())
-	}
-}
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let string = self.string.get_or_init(|| {
+			let ansi_color = match self.fg {
+				RatColor::Rgb(r, g, b) => &format!("38;2;{r};{g};{b}"),
+				RatColor::Indexed(int) => &format!("38;5;{int}"),
+				_ => self.ansi_color(),
+			};
 
-#[derive(Debug)]
-pub enum ColorType {
-	Standard(u8),
-	Rgb(String),
-}
-
-impl ColorType {
-	pub fn from_u8(value: u8) -> ColorType { ColorType::Standard(value) }
-
-	pub fn from_str(value: &str) -> Result<ColorType> {
-		match value {
-			"black" => Ok(ColorType::Standard(0)),
-			"red" => Ok(ColorType::Standard(1)),
-			"green" => Ok(ColorType::Standard(2)),
-			"yellow" => Ok(ColorType::Standard(3)),
-			"blue" => Ok(ColorType::Standard(4)),
-			"magenta" => Ok(ColorType::Standard(5)),
-			"cyan" => Ok(ColorType::Standard(6)),
-			"white" => Ok(ColorType::Standard(7)),
-			"bright_black" => Ok(ColorType::Standard(8)),
-			"bright_red" => Ok(ColorType::Standard(9)),
-			"bright_green" => Ok(ColorType::Standard(10)),
-			"bright_yellow" => Ok(ColorType::Standard(11)),
-			"bright_blue" => Ok(ColorType::Standard(12)),
-			"bright_magenta" => Ok(ColorType::Standard(13)),
-			"bright_cyan" => Ok(ColorType::Standard(14)),
-			"bright_white" => Ok(ColorType::Standard(15)),
-			_ => Err(anyhow!("Value '{value}' is not a valid Color")),
-		}
-	}
-
-	pub fn from_array(array: [u8; 3]) -> ColorType {
-		ColorType::Rgb(format!("{};{};{}", array[0], array[1], array[2]))
-	}
-}
-
-impl fmt::Display for ColorType {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			ColorType::Standard(int) => write!(f, "{int}"),
-			ColorType::Rgb(string) => write!(f, "{string}"),
-		}
-	}
-}
-
-#[derive(Debug)]
-pub struct Theme {
-	style: Style,
-	color: ColorType,
-}
-
-impl Theme {
-	pub fn new(style: Style, color: ColorType) -> Self { Self { style, color } }
-
-	pub fn default(color: ColorType) -> Self {
-		Self {
-			style: Style::Bold,
-			color,
-		}
-	}
-}
-
-/// Color text based on Style and `ColorCodes`
-#[derive(Debug)]
-pub struct Color {
-	can_color: bool,
-	pub color_map: HashMap<&'static str, Theme>,
-}
-
-impl Default for Color {
-	fn default() -> Color {
-		let mut color_map: HashMap<&'static str, Theme> = HashMap::new();
-		for (color, code) in &*COLOR_MAP {
-			color_map.insert(color, Theme::default(ColorType::Standard(*code)));
-		}
-		Color {
-			can_color: true,
-			color_map,
-		}
-	}
-}
-
-impl Color {
-	/// Color a string based on a Theme
-	pub fn color<'a>(&self, theme: &Theme, string: &'a str) -> Cow<'a, str> {
-		if self.can_color {
-			let style = &theme.style;
-			match &theme.color {
-				ColorType::Standard(color) => {
-					return Cow::Owned(format!("\x1b[{style};38;5;{color}m{string}{RESET}"));
-				},
-				ColorType::Rgb(color) => {
-					return Cow::Owned(format!("\x1b[{style};38;2;{color}m{string}{RESET}"));
-				},
-			}
-		}
-		Cow::Borrowed(string)
-	}
-
-	pub fn style<'a>(&self, style: &Style, string: &'a str) -> Cow<'a, str> {
-		if self.can_color {
-			return Cow::Owned(format!("\x1b[{style}m{string}{RESET}"));
-		}
-		Cow::Borrowed(string)
-	}
-
-	// /// Color the text red with configured settings
-	// pub fn red<'a>(&self, string: &'a str) -> Cow<'a, str> {
-	// 	self.color(self.color_map.get("bright_red").unwrap(), string)
-	// }
-
-	/// Color the text red with configured settings
-	pub fn yellow<'a>(&self, string: &'a str) -> Cow<'a, str> {
-		self.color(self.color_map.get("bright_yellow").unwrap(), string)
-	}
-
-	pub fn blue<'a>(&self, string: &'a str) -> Cow<'a, str> {
-		self.color(self.color_map.get("bright_blue").unwrap(), string)
-	}
-
-	pub fn red<'a>(&self, string: &'a str) -> Cow<'a, str> {
-		self.color(self.color_map.get("bright_red").unwrap(), string)
-	}
-
-	/// Styles the text in bold only
-	pub fn bold<'a>(&self, string: &'a str) -> Cow<'a, str> { self.style(&Style::Bold, string) }
-
-	/// Color the package name according to configuration
-	pub fn package<'a>(&self, string: &'a str) -> Cow<'a, str> {
-		self.color(self.color_map.get("package").unwrap(), string)
-	}
-
-	/// Color the dependency, choosing if it's red or green
-	pub fn dependency<'a>(&self, string: &'a str, red: bool) -> Cow<'a, str> {
-		if red {
-			return self.color(self.color_map.get("bright_red").unwrap(), string);
-		}
-		self.color(self.color_map.get("package").unwrap(), string)
-	}
-
-	/// Color the version according to configuration
-	pub fn version<'a>(&self, string: &'a str) -> Cow<'a, str> {
-		let open = self.bold("(");
-		let close = self.bold(")");
-		let version = self.color(self.color_map.get("version").unwrap(), string);
-		Cow::Owned(format!("{open}{version}{close}"))
-	}
-
-	/// Print a notice to stderr
-	pub fn notice(&self, string: &str) {
-		eprintln!(
-			"{} {string}",
-			self.color(self.color_map.get("warning").unwrap(), "Notice:",)
-		);
-	}
-
-	/// Print a warning to stderr
-	pub fn warn(&self, string: &str) {
-		eprintln!(
-			"{} {string}",
-			self.color(self.color_map.get("warning").unwrap(), "Warning:",)
-		);
-	}
-
-	/// Print an error to stderr
-	pub fn error(&self, string: &str) {
-		eprintln!(
-			"{} {string}",
-			self.color(self.color_map.get("error").unwrap(), "Error:",)
-		);
+			format!("\x1b[{};{ansi_color}m", self.mod_string())
+		});
+		write!(f, "{string}")
 	}
 }

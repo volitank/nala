@@ -2,24 +2,29 @@ use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Layout, Rect};
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui::style::{Style, Styled, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{
 	Block, BorderType, List, ListItem, ListState, Padding, Paragraph, StatefulWidget, Widget,
 };
 use ratatui::Terminal;
 
+use crate::colors::Theme;
+use crate::config::Config;
+
 struct FetchItem {
 	url: String,
 	score: String,
 	selected: bool,
+	style: Style,
+	alt_style: Style,
 }
 
 impl FetchItem {
 	fn to_list_items(&self) -> (ListItem, ListItem) {
 		let (char, style) =
-			if self.selected { ('✓', Color::Cyan) } else { ('☐', Color::White) };
+			if self.selected { ('✓', self.style) } else { ('☐', self.alt_style) };
 		(
 			ListItem::new(Line::styled(format!("{char} {}", self.url), style)),
 			ListItem::new(Line::styled(&self.score, style)),
@@ -35,10 +40,14 @@ struct StatefulList {
 }
 
 impl StatefulList {
-	fn new(scored: Vec<(String, u128)>) -> StatefulList {
+	fn new(config: &Config, scored: Vec<(String, u128)>) -> StatefulList {
 		let mut items = vec![];
 		let mut align = 0;
 		let mut score_align = 0;
+
+		let style = config.rat_style(Theme::Primary);
+		let alt_style = config.rat_style(Theme::Regular);
+
 		for (url, u_score) in scored {
 			// Calculate alignment
 			if url.len() > align {
@@ -53,6 +62,8 @@ impl StatefulList {
 				url,
 				score,
 				selected: false,
+				style,
+				alt_style,
 			});
 		}
 
@@ -94,14 +105,16 @@ impl StatefulList {
 }
 
 /// The Struct that drives the Fetch TUI
-pub struct App {
+pub struct App<'a> {
+	config: &'a Config,
 	items: StatefulList,
 }
 
-impl App {
-	pub fn new(scored: Vec<(String, u128)>) -> Self {
+impl<'a> App<'a> {
+	pub fn new(config: &'a Config, scored: Vec<(String, u128)>) -> Self {
 		App {
-			items: StatefulList::new(scored),
+			config,
+			items: StatefulList::new(config, scored),
 		}
 	}
 
@@ -161,17 +174,19 @@ impl App {
 	}
 
 	fn render_lists(&mut self, area: Rect, buf: &mut Buffer) {
+		let header = format!("  {}  ", "Nala Fetch");
+
 		let outer_block = Block::bordered()
-			.title("  Nala Fetch  ".reset().bold())
+			.title(header.set_style(self.config.rat_style(Theme::Highlight)))
 			.title_alignment(Alignment::Center)
-			.bold()
 			.border_type(BorderType::Rounded)
-			.fg(Color::LightGreen);
+			.style(self.config.rat_style(Theme::Primary));
 
 		let [mirror_area, score_area] = Layout::horizontal([
 			Constraint::Length(self.items.align.0 as u16 + 4),
 			Constraint::Length(self.items.align.1 as u16),
 		])
+		.flex(Flex::Center)
 		.areas(outer_block.inner(area));
 
 		outer_block.render(area, buf);
@@ -187,14 +202,21 @@ impl App {
 			score_items.push(item.1);
 		}
 
+		let highlight = self.config.rat_style(Theme::Secondary).reversed();
+		let block = self.config.rat_style(Theme::Regular);
+
 		StatefulWidget::render(
-			item_list(fetch_block("Mirrors:"), mirror_items),
+			List::new(mirror_items)
+				.block(fetch_block(block, "Mirrors:"))
+				.highlight_style(highlight),
 			mirror_area,
 			buf,
 			&mut self.items.state,
 		);
 		StatefulWidget::render(
-			item_list(fetch_block("Score:"), score_items),
+			List::new(score_items)
+				.block(fetch_block(block, "Score:"))
+				.highlight_style(highlight),
 			score_area,
 			buf,
 			&mut self.items.state,
@@ -202,7 +224,7 @@ impl App {
 	}
 }
 
-impl Widget for &mut App {
+impl<'a> Widget for &mut App<'a> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 		// Create a space for header, todo list and the footer.
 		let [list_area, info_area, footer_area] = Layout::vertical([
@@ -228,15 +250,9 @@ impl Widget for &mut App {
 	}
 }
 
-fn item_list<'a>(block: Block<'a>, item_vec: Vec<ListItem<'a>>) -> List<'a> {
-	List::new(item_vec)
-		.block(block)
-		.highlight_style(Style::default().bold().reversed().fg(Color::Blue))
-}
-
-fn fetch_block(title: &str) -> Block {
+fn fetch_block(style: Style, title: &str) -> Block {
 	Block::default()
 		.title(title)
-		.fg(Color::White)
+		.style(style)
 		.padding(Padding::vertical(1))
 }

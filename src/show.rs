@@ -6,6 +6,7 @@ use rust_apt::records::RecordField;
 use rust_apt::util::NumSys;
 use rust_apt::{new_cache, BaseDep, DepType, Dependency, Package, PackageSort, Version};
 
+use crate::colors::Theme;
 use crate::config::Config;
 use crate::tui::progress::UnitStr;
 use crate::util::{glob_pkgs, virtual_filter};
@@ -14,14 +15,11 @@ pub fn build_regex(pattern: &str) -> Result<Regex> {
 	Ok(RegexBuilder::new(pattern).case_insensitive(true).build()?)
 }
 
-pub fn format_dependency(config: &Config, base_dep: &BaseDep, red: bool) -> String {
-	let open_paren = config.color.bold("(");
-	let close_paren = config.color.bold(")");
+pub fn format_dependency(config: &Config, base_dep: &BaseDep, theme: Theme) -> String {
+	let open_paren = config.highlight("(");
+	let close_paren = config.highlight(")");
 
-	let target_name = config
-		.color
-		.dependency(base_dep.target_package().name(), red)
-		.to_string();
+	let target_name = config.color(theme, base_dep.target_package().name());
 
 	if let Some(comp) = base_dep.comp_type() {
 		return format!(
@@ -29,7 +27,7 @@ pub fn format_dependency(config: &Config, base_dep: &BaseDep, red: bool) -> Stri
 			"{target_name} {open_paren}{comp} {}{close_paren}",
 			// There's a compare operator in the dependency.
 			// Dang better have a version smh my head.
-			config.color.blue(base_dep.version().unwrap())
+			config.color(Theme::Secondary, base_dep.version().unwrap())
 		);
 	}
 
@@ -49,7 +47,7 @@ pub fn dependency_footer(total_deps: usize, index: usize) -> &'static str {
 	" "
 }
 
-pub fn show_dependency(config: &Config, depends: &[&Dependency], red: bool) -> String {
+pub fn show_dependency(config: &Config, depends: &[&Dependency], theme: Theme) -> String {
 	let mut depends_string = String::new();
 	// Get total deps number to include Or Dependencies
 	let total_deps = depends.len();
@@ -63,7 +61,7 @@ pub fn show_dependency(config: &Config, depends: &[&Dependency], red: bool) -> S
 		// Or Deps need to be formatted slightly different.
 		if dep.is_or() {
 			for (j, base_dep) in dep.iter().enumerate() {
-				depends_string += &format_dependency(config, base_dep, red);
+				depends_string += &format_dependency(config, base_dep, theme);
 				if j + 1 != dep.len() {
 					depends_string += " | ";
 				}
@@ -73,7 +71,7 @@ pub fn show_dependency(config: &Config, depends: &[&Dependency], red: bool) -> S
 		}
 
 		// Regular dependencies are more simple than Or
-		depends_string += &format_dependency(config, dep.first(), red);
+		depends_string += &format_dependency(config, dep.first(), theme);
 		depends_string += dependency_footer(total_deps, i);
 	}
 	depends_string
@@ -101,7 +99,7 @@ pub fn format_local(pkg: &Package, config: &Config, pacstall_regex: &Regex) -> S
 		return "local install".to_string();
 	}
 
-	config.color.blue(&pac_repo).to_string()
+	config.color(Theme::Secondary, &pac_repo).to_string()
 }
 
 /// The show command
@@ -114,8 +112,8 @@ pub fn show_version<'a>(
 ) {
 	let unit = UnitStr::new(0, NumSys::Binary);
 	let mut version_map: Vec<(&str, String)> = vec![
-		("Package", config.color.package(&pkg.fullname(true)).into()),
-		("Version", config.color.blue(ver.version()).into()),
+		("Package", config.color(Theme::Primary, &pkg.fullname(true))),
+		("Version", config.color(Theme::Secondary, ver.version())),
 		("Architecture", pkg.arch().to_string()),
 		("Installed", ver.is_installed().to_string()),
 		("Priority", ver.priority_str().unwrap_or("Unknown").into()),
@@ -169,7 +167,7 @@ pub fn show_version<'a>(
 	// Package has it right now.
 	let providers: Vec<String> = ver
 		.provides()
-		.map(|p| config.color.package(p.name()).to_string())
+		.map(|p| config.color(Theme::Primary, p.name()))
 		.collect();
 
 	if !providers.is_empty() {
@@ -204,7 +202,11 @@ pub fn show_version<'a>(
 			}
 
 			// These Dependency types will be colored red
-			let red = matches!(deptype, DepType::Conflicts | DepType::DpkgBreaks);
+			let red = if matches!(deptype, DepType::Conflicts | DepType::DpkgBreaks) {
+				Theme::Error
+			} else {
+				Theme::Primary
+			};
 
 			version_map.push((
 				header,
@@ -220,9 +222,9 @@ pub fn show_version<'a>(
 		ver.description().unwrap_or_else(|| "Unknown".to_string()) + "\n",
 	));
 
-	let delimiter = config.color.bold(":");
+	let delimiter = config.highlight(":");
 	for (header, info) in version_map {
-		println!("{}{delimiter} {info}", config.color.bold(header))
+		println!("{}{delimiter} {info}", config.highlight(header))
 	}
 }
 
@@ -262,17 +264,19 @@ pub fn show(config: &Config) -> Result<()> {
 	}
 
 	for name in &not_found {
-		config
-			.color
-			.notice(&format!("'{}' was not found", config.color.package(name)));
+		config.color(
+			Theme::Notice,
+			&format!("'{}' was not found", config.color(Theme::Primary, name)),
+		);
 	}
 
 	if additional_records != 0 {
-		config.color.notice(
+		config.color(
+			Theme::Notice,
 			&format!(
 				"There are {} additional records. Please use the {} switch to see them.",
-				config.color.yellow(&additional_records.to_string()),
-				config.color.yellow("'-a'"),
+				config.color(Theme::Notice, &additional_records.to_string()),
+				config.color(Theme::Notice, "'-a'"),
 			)
 			.to_string(),
 		);

@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use anyhow::{bail, Result};
 use clap::{ArgMatches, CommandFactory, FromArgMatches};
+use colors::Theme;
 use history::history_test;
 use rust_apt::error::AptErrors;
 
@@ -22,7 +23,6 @@ mod util;
 
 use crate::clean::clean;
 use crate::cli::NalaParser;
-use crate::colors::Color;
 use crate::config::Config;
 use crate::downloader::download;
 use crate::fetch::fetch;
@@ -31,13 +31,10 @@ use crate::show::show;
 use crate::update::update;
 
 fn main() -> ExitCode {
-	// Setup default color to print pretty even if the config fails
-	let color = Color::default();
-
 	let (args, derived, mut config) = match get_config() {
 		Ok(conf) => conf,
 		Err(err) => {
-			color.error(&format!("{err:?}"));
+			eprintln!("\x1b[1;91mError:\x1b[0m {err:?}");
 			return ExitCode::FAILURE;
 		},
 	};
@@ -54,16 +51,17 @@ fn main() -> ExitCode {
 		// Guard clause in cause it is not AptErrors
 		// In this case just print it nicely
 		let Some(apt_errors) = err.downcast_ref::<AptErrors>() else {
-			config.color.error(&format!("{err:?}"));
+			config.stderr(Theme::Error, &format!("{err:?}"));
 			return ExitCode::FAILURE;
 		};
 
 		for error in apt_errors.iter() {
-			if error.is_error {
-				config.color.error(&error.msg.replace("E: ", ""));
+			let (theme, msg) = if error.is_error {
+				(Theme::Error, error.msg.replace("E: ", ""))
 			} else {
-				config.color.warn(&error.msg.replace("W: ", ""));
-			}
+				(Theme::Warning, error.msg.replace("W: ", ""))
+			};
+			config.stderr(theme, &msg);
 		}
 		return ExitCode::FAILURE;
 	}
@@ -90,7 +88,7 @@ fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -> Resu
 
 	if let Some((name, cmd)) = args.subcommand() {
 		config.command = name.to_string();
-		config.load_args(cmd, derived.command);
+		config.load_args(cmd);
 		match name {
 			"list" => list(config)?,
 			"search" => search(config)?,

@@ -8,14 +8,16 @@ macro_rules! dprint {
 		}
 	};
 }
+
+use std::cell::OnceCell;
 use std::collections::HashSet;
 
 use anyhow::{bail, Result};
 use globset::GlobBuilder;
-use once_cell::sync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use rust_apt::{Cache, Package, Version};
 
+use crate::colors::Theme;
 use crate::config::Config;
 
 pub struct NalaRegex {
@@ -35,29 +37,31 @@ impl NalaRegex {
 		}
 	}
 
-	fn build_regex(regex: &str) -> Result<Regex> {
-		Ok(RegexBuilder::new(regex).case_insensitive(true).build()?)
+	fn build_regex(regex: &str) -> Regex {
+		RegexBuilder::new(regex)
+			.case_insensitive(true)
+			.build()
+			.unwrap()
 	}
 
-	pub fn mirror(&self) -> Result<&Regex> {
-		self.mirror.get_or_try_init(|| {
-			Self::build_regex(r"(mirror://(.*?)/pool|mirror\+file:(/.*?)/pool)")
-		})
+	pub fn mirror(&self) -> &Regex {
+		self.mirror
+			.get_or_init(|| Self::build_regex(r"(mirror://(.*?)/pool|mirror\+file:(/.*?)/pool)"))
 	}
 
-	pub fn domain(&self) -> Result<&Regex> {
+	pub fn domain(&self) -> &Regex {
 		self.domain
-			.get_or_try_init(|| Self::build_regex(r"https?://([A-Za-z_0-9.-]+).*"))
+			.get_or_init(|| Self::build_regex(r"https?://([A-Za-z_0-9.-]+).*"))
 	}
 
-	pub fn ubuntu_url(&self) -> Result<&Regex> {
+	pub fn ubuntu_url(&self) -> &Regex {
 		self.ubuntu_url
-			.get_or_try_init(|| Self::build_regex(r"<link>(.*)</link>"))
+			.get_or_init(|| Self::build_regex(r"<link>(.*)</link>"))
 	}
 
-	pub fn ubuntu_country(&self) -> Result<&Regex> {
+	pub fn ubuntu_country(&self) -> &Regex {
 		self.ubuntu_country
-			.get_or_try_init(|| Self::build_regex(r"<mirror:countrycode>(.*)</mirror:countrycode>"))
+			.get_or_init(|| Self::build_regex(r"<mirror:countrycode>(.*)</mirror:countrycode>"))
 	}
 }
 
@@ -194,10 +198,13 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 		// There is nothing that can satisfy it. Referenced only by name
 		// At time of commit `python3-libmapper` is purely virtual
 		if !pkg.has_provides() {
-			config.color.warn(&format!(
-				"{} has no providers and is purely virutal",
-				config.color.package(pkg.name())
-			));
+			config.color(
+				Theme::Warning,
+				&format!(
+					"{} has no providers and is purely virutal",
+					config.color(Theme::Primary, pkg.name())
+				),
+			);
 			continue;
 		}
 
@@ -212,11 +219,14 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 		if providers.len() == 1 {
 			// Unwrap should be fine here, we know that there is 1 in the Vector.
 			let target = providers.into_iter().next().unwrap();
-			config.color.notice(&format!(
-				"Selecting {} instead of virtual package {}",
-				config.color.package(&target.fullname(false)),
-				config.color.package(pkg.name())
-			));
+			config.color(
+				Theme::Notice,
+				&format!(
+					"Selecting {} instead of virtual package {}",
+					config.color(Theme::Primary, &target.fullname(false)),
+					config.color(Theme::Primary, pkg.name())
+				),
+			);
 
 			// Unwrap should be fine here because we know the name.
 			// We have to grab the package from the cache again because
@@ -230,15 +240,15 @@ pub fn virtual_filter<'a, Container: IntoIterator<Item = Package<'a>>>(
 		if providers.len() > 1 {
 			println!(
 				"{} is a virtual package provided by:",
-				config.color.package(pkg.name())
+				config.color(Theme::Primary, pkg.name())
 			);
 			for target in &providers {
 				// If the version doesn't have a candidate no sense in showing it
 				if let Some(cand) = target.candidate() {
 					println!(
 						"    {} {}",
-						config.color.package(&target.fullname(true)),
-						config.color.version(cand.version()),
+						config.color(Theme::Primary, &target.fullname(true)),
+						config.color_ver(cand.version()),
 					);
 				}
 			}
