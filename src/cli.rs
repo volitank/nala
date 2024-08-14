@@ -24,6 +24,14 @@ pub struct NalaParser {
 	#[clap(short, long, value_parser, value_name = "FILE")]
 	pub config: Option<PathBuf>,
 
+	/// Turn on tui if it's disabled in the config.
+	#[clap(global = true, short, long, action)]
+	pub tui: bool,
+
+	/// Turn the tui off. Takes precedence over other options
+	#[clap(global = true, short, long, action)]
+	pub no_tui: bool,
+
 	#[clap(subcommand)]
 	pub command: Option<Commands>,
 }
@@ -38,6 +46,8 @@ pub enum Commands {
 	History(History),
 	Fetch(Fetch),
 	Update(Update),
+	Upgrade(Upgrade),
+	Install(Install),
 }
 
 #[derive(Args, Debug)]
@@ -122,7 +132,10 @@ pub struct Download {
 }
 
 #[derive(Args, Debug)]
-pub struct History {}
+pub struct History {
+	/// Package names to download
+	pub history_id: Option<u32>,
+}
 
 #[derive(Args, Debug)]
 pub struct Fetch {
@@ -154,6 +167,37 @@ pub struct Fetch {
 /// Update the package lists.
 #[derive(Args, Debug)]
 pub struct Update {
+	#[clap(short = 'o', long, action)]
+	pub dpkg_option: Vec<String>,
+}
+
+/// Upgrade packages.
+#[derive(Args, Debug)]
+pub struct Upgrade {
+	/// TODO: Copy from Python Nala and maybe reword.
+	#[clap(short = 'o', long, action)]
+	pub dpkg_option: Vec<String>,
+
+	/// Prints the URIs in json and does not perform an upgrade.
+	#[clap(long, action)]
+	pub print_uris: bool,
+
+	/// Perform a Full Upgrade.
+	#[clap(long, action)]
+	pub full: bool,
+
+	/// Do NOT perform a Full Upgrade.
+	#[clap(long, action)]
+	pub no_full: bool,
+
+	/// Perform a Safe Upgrade.
+	/// Takes precedence over other Upgrade options.
+	#[clap(long, action)]
+	pub safe: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct Install {
 	#[clap(short = 'o', long, action)]
 	pub dpkg_option: Vec<String>,
 }

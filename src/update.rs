@@ -31,7 +31,7 @@ pub async fn update(config: &Config) -> Result<()> {
 	let acquire = NalaAcquireProgress::new(config, tx);
 	let task = tokio::task::spawn(update_thread(acquire));
 
-	let mut progress = tui::NalaProgressBar::new(config)?;
+	let mut progress = tui::NalaProgressBar::new(config, false)?;
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
@@ -40,14 +40,14 @@ pub async fn update(config: &Config) -> Result<()> {
 				progress.indicatif.set_position(current);
 			},
 			Message::Print(msg) => {
-				progress.print(msg)?;
+				progress.print(&msg)?;
 			},
 			Message::Fetched((msg, file_size)) => {
-				progress.print(if file_size > 0 {
-					format!("{msg} [{}]", progress.unit.str(file_size))
+				if file_size > 0 {
+					progress.print(&format!("{msg} [{}]", progress.unit.str(file_size)))?
 				} else {
-					msg
-				})?;
+					progress.print(&msg)?
+				};
 			},
 			Message::Messages(msg) => {
 				progress.msg = msg;

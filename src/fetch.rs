@@ -100,7 +100,9 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 
 	// Parts could be either .list or .sources
 	let parts = config.get_path(&Paths::SourceParts);
-	for file in fs::read_dir(&parts).with_context(|| format!("Failed to read '{parts}'"))? {
+	for file in
+		fs::read_dir(&parts).with_context(|| format!("Failed to read '{}'", parts.display()))?
+	{
 		let path = file?.path();
 		if path.is_dir() {
 			continue;
@@ -247,7 +249,7 @@ async fn score_handler(
 	release: &str,
 ) -> Result<Vec<(String, u128)>> {
 	// Setup Progress Bar
-	let mut pb = tui::NalaProgressBar::new(config)?;
+	let mut pb = tui::NalaProgressBar::new(config, false)?;
 	pb.indicatif.set_length(mirror_strings.len() as u64);
 
 	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;

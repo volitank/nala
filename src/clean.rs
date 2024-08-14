@@ -1,10 +1,11 @@
 use std::fs::{read_dir, remove_file};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 
 use crate::config::{Config, Paths};
 
-fn remove_files(file_str: &str) -> Result<()> {
+fn remove_files(file_str: &Path) -> Result<()> {
 	// If the path doesn't exist just ignore it
 	if let Ok(paths) = read_dir(file_str) {
 		// Flatten the errors away!
@@ -22,9 +23,10 @@ fn remove_files(file_str: &str) -> Result<()> {
 
 pub fn clean(config: &Config) -> Result<()> {
 	if config.get_bool("lists", false) {
-		let lists_dir = config.get_path(&Paths::Lists);
+		let mut lists_dir = config.get_path(&Paths::Lists);
 		remove_files(&lists_dir)?;
-		return remove_files(&(lists_dir + "partial/"));
+		lists_dir.push("partial");
+		return remove_files(&lists_dir);
 	}
 
 	if config.get_bool("fetch", false) {
@@ -33,7 +35,8 @@ pub fn clean(config: &Config) -> Result<()> {
 			.with_context(|| format!("Failed to remove {nala_sources}"));
 	}
 
-	let archive = config.get_path(&Paths::Archive);
+	let mut archive = config.get_path(&Paths::Archive);
 	remove_files(&archive)?;
-	remove_files(&(archive + "partial/"))
+	archive.push("partial");
+	remove_files(&archive)
 }

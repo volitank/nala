@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::parser::ValueSource;
 use clap::ArgMatches;
 use crossterm::tty::IsTty;
 use rust_apt::config::Config as AptConfig;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::colors::{RatStyle, Style, Theme};
+use crate::tui::progress::{NumSys, UnitStr};
 
 /// Represents different file and directory paths
 pub enum Paths {
@@ -28,6 +29,8 @@ pub enum Paths {
 	/// Nala Sources file is generated from the `fetch` command.
 	/// Default file `/etc/apt/sources.list.d/nala-sources.list`
 	NalaSources,
+
+	History,
 }
 
 impl Paths {
@@ -38,6 +41,7 @@ impl Paths {
 			Paths::SourceList => "Dir::Etc::sourcelist",
 			Paths::SourceParts => "Dir::Etc::sourceparts",
 			Paths::NalaSources => "/etc/apt/sources.list.d/nala.sources",
+			Paths::History => "/var/lib/nala/history",
 		}
 	}
 
@@ -47,29 +51,34 @@ impl Paths {
 			Paths::Lists => "/var/lib/apt/lists/",
 			Paths::SourceList => "/etc/apt/sources.list",
 			Paths::SourceParts => "/etc/apt/sources.list.d/",
-			Paths::NalaSources => "/etc/apt/sources.list.d/nala.sources",
+			Paths::NalaSources => self.path(),
+			Paths::History => self.path(),
 		}
 	}
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Switch {
 	Always,
 	Never,
 	Auto,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum OptType {
 	Bool(bool),
 	Int(u8),
+	Int64(u64),
 	Switch(Switch),
+	UnitStr(UnitStr),
+	// Strings have to be last in the enum
+	// as almost anything will match them
 	String(String),
 	VecString(Vec<String>),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 /// Configuration struct
 pub struct Config {
 	#[serde(rename(deserialize = "Nala"), default)]
@@ -210,6 +219,11 @@ impl Config {
 
 			if let Ok(Some(value)) = args.try_get_one::<u8>(&key) {
 				self.map.insert(key, OptType::Int(*value));
+				continue;
+			}
+
+			if let Ok(Some(value)) = args.try_get_one::<u64>(&key) {
+				self.map.insert(key, OptType::Int64(*value));
 			}
 		}
 
@@ -263,18 +277,37 @@ impl Config {
 		match file {
 			// For now NalaSources is hard coded.
 			Paths::NalaSources => file.path().to_string(),
+			Paths::History => file.path().to_string(),
 			_ => self.apt.file(file.path(), file.default_path()),
 		}
 	}
 
 	/// Get a path from the configuration based on the Path enum.
-	pub fn get_path(&self, dir: &Paths) -> String {
-		match dir {
+	pub fn get_path(&self, dir: &Paths) -> PathBuf {
+		PathBuf::from(match dir {
 			// For now NalaSources is hard coded.
 			Paths::NalaSources => dir.path().to_string(),
+			Paths::History => dir.path().to_string(),
 			// Everything else should be an Apt Path
-			_ => self.apt.dir(dir.path(), dir.default_path()),
+			_ => self.apt.file(dir.path(), dir.default_path()),
+		})
+	}
+
+	// TODO: Combine these into a function
+
+	/// Should the TUI be shown?
+	pub fn show_tui(&self) -> bool {
+		if self.get_bool("no_tui", false) {
+			return false;
 		}
+		self.get_bool("tui", true)
+	}
+
+	pub fn full_upgrade(&self) -> bool {
+		if self.get_bool("no_full", false) {
+			return false;
+		}
+		self.get_bool("full", true)
 	}
 
 	/// Get the package names that were passed as arguments.
@@ -291,9 +324,37 @@ impl Config {
 		None
 	}
 
+	pub fn unit_str(&self, unit: u64) -> String {
+		if let Some(OptType::UnitStr(value)) = self.map.get("UnitStr") {
+			return value.str(unit);
+		}
+		UnitStr::new(0, NumSys::Binary).str(unit)
+	}
+
 	/// Return true if debug is enabled
 	pub fn debug(&self) -> bool { self.get_bool("debug", false) }
 
 	/// Return true if verbose or debug is enabled
 	pub fn verbose(&self) -> bool { self.get_bool("verbose", self.debug()) }
+}
+
+#[cfg(test)]
+mod test {
+	use crate::tui::progress::{NumSys, UnitStr};
+	use crate::Config;
+
+	#[test]
+	fn serialize_config() {
+		let mut config = Config::default();
+		config.set_default_theme();
+
+		config.map.insert(
+			"unit_str".to_string(),
+			super::OptType::UnitStr(UnitStr::new(0, NumSys::Binary)),
+		);
+
+		let toml = toml::to_string_pretty(&config).unwrap();
+
+		println!("{toml}")
+	}
 }

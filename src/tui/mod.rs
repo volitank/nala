@@ -9,10 +9,13 @@ use crossterm::ExecutableCommand;
 
 pub mod fetch;
 pub mod progress;
+pub mod summary;
 
 pub use progress::NalaProgressBar;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+
+pub type Term = Terminal<CrosstermBackend<std::io::Stdout>>;
 
 pub fn poll_exit_event() -> Result<bool> {
 	if crossterm::event::poll(Duration::from_millis(0))? {
@@ -29,7 +32,7 @@ pub fn poll_exit_event() -> Result<bool> {
 	Ok(false)
 }
 
-pub fn init_terminal() -> Result<Terminal<CrosstermBackend<std::io::Stdout>>> {
+pub fn init_terminal() -> Result<Term> {
 	enable_raw_mode()?;
 	let mut backend = CrosstermBackend::new(std::io::stdout());
 	backend.execute(EnterAlternateScreen)?;

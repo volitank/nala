@@ -1,7 +1,7 @@
 use core::fmt;
 use std::cell::OnceCell;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub type RatStyle = ratatui::style::Style;
 pub type RatColor = ratatui::style::Color;
@@ -10,7 +10,7 @@ pub type RatMod = ratatui::style::Modifier;
 /// Default Modifier for Serde
 fn bold() -> RatMod { RatMod::BOLD }
 
-#[derive(Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum Theme {
 	Primary,
 	Secondary,
@@ -41,7 +41,7 @@ impl Theme {
 	}
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Style {
 	fg: RatColor,
 	bg: Option<RatColor>,

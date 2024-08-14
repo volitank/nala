@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Write as FmtWrite;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -9,6 +9,7 @@ use digest::DynDigest;
 use regex::Regex;
 use rust_apt::records::RecordField;
 use rust_apt::{new_cache, Version};
+use serde::Serialize;
 use sha2::{Digest, Sha256, Sha512};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -16,26 +17,10 @@ use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinSet;
 
 use crate::colors::Theme;
-use crate::config::Config;
-use crate::tui;
-use crate::util::NalaRegex;
+use crate::config::{Config, Paths};
+use crate::util::{get_pkg_name, NalaRegex};
+use crate::{dprog, tui};
 
-/// Return the package name. Checks if epoch is needed.
-fn get_pkg_name(version: &Version) -> String {
-	let filename = version
-		.get_record(RecordField::Filename)
-		.expect("Record does not contain a filename!")
-		.split_terminator('/')
-		.last()
-		.expect("Filename is malformed!")
-		.to_string();
-
-	if let Some(index) = version.version().find(':') {
-		let epoch = format!("_{}%3a", &version.version()[..index]);
-		return filename.replacen('_', &epoch, 1);
-	}
-	filename
-}
 pub struct UriFilter {
 	mirrors: HashMap<String, String>,
 	regex: NalaRegex,
@@ -165,16 +150,18 @@ impl UriFilter {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Uri {
 	uris: VecDeque<String>,
 	size: u64,
-	partial: String,
-	archive: String,
+	archive: PathBuf,
+	partial: PathBuf,
 	hash_type: String,
 	hash_value: String,
 	filename: String,
+	#[serde(skip)]
 	client: reqwest::Client,
+	#[serde(skip)]
 	tx: mpsc::UnboundedSender<Message>,
 }
 
@@ -184,12 +171,14 @@ impl Uri {
 		config: &Config,
 		client: reqwest::Client,
 		filter: &mut UriFilter,
-		archive: &str,
+		archive: &Path,
 		tx: mpsc::UnboundedSender<Message>,
 	) -> Result<Uri> {
 		let filename = get_pkg_name(version);
-		let partial = format!("{archive}/partial/{filename}");
-		let archive = format!("{archive}/{filename}");
+		let mut partial = archive.join("partial");
+		let archive = archive.join(&filename);
+
+		partial.push(&filename);
 
 		let (hash_type, hash_value) = get_hash(config, version)?;
 		Ok(Uri {
@@ -209,19 +198,25 @@ impl Uri {
 	async fn open_file(&self) -> Result<File> {
 		fs::File::create(&self.partial)
 			.await
-			.with_context(|| format!("Could not create file '{}'", self.partial))
+			.with_context(|| format!("Could not create file '{}'", self.partial.display()))
 	}
 
 	async fn remove_file(&self) -> Result<()> {
 		fs::remove_file(&self.partial)
 			.await
-			.with_context(|| format!("Could not remove '{}'", self.partial))
+			.with_context(|| format!("Could not remove '{}'", self.partial.display()))
 	}
 
 	async fn move_to_archive(&self) -> Result<()> {
 		fs::rename(&self.partial, &self.archive)
 			.await
-			.with_context(|| format!("Could not move '{}' to '{}'", self.partial, self.archive))
+			.with_context(|| {
+				format!(
+					"Could not move '{}' to '{}'",
+					self.partial.display(),
+					self.archive.display()
+				)
+			})
 	}
 
 	fn get_hasher(&self) -> Box<dyn DynDigest + Send> {
@@ -232,6 +227,10 @@ impl Uri {
 	}
 
 	async fn check_hash(&self, other: &str) -> Result<()> {
+		self.tx.send(Message::Debug(format!(
+			"'{}':\n    Expected: {}\n    Downloaded: {other}",
+			self.filename, self.hash_value
+		)))?;
 		if other == self.hash_value {
 			return Ok(());
 		}
@@ -255,23 +254,18 @@ impl Uri {
 				continue;
 			};
 
-			self.tx.send(Message::Debug(format!(
-				"Selecting {domain} for {}",
-				self.filename
-			)))?;
-
 			// Lock the map so other threads can't mutate the data while this one does
 			if !add_domain(domain.to_string(), &mut domains).await {
-				self.tx.send(Message::Debug(format!(
-					"Adding '{domain}' back to queue for {}. Connections full",
-					self.filename
-				)))?;
-
 				// Too many connections to this domain.
 				// Add the URL back to the queue and move to the next.
 				self.uris.push_back(url);
 				continue;
 			}
+
+			self.tx.send(Message::Debug(format!(
+				"Selecting {domain} for {}",
+				self.filename
+			)))?;
 
 			self.tx.send(Message::Verbose(format!("Starting: {url}")))?;
 			match self.download_file(&url).await {
@@ -291,7 +285,7 @@ impl Uri {
 				},
 				Err(err) => {
 					// Non fatal errors can continue operation.
-					self.tx.send(Message::NonFatal(err))?;
+					self.tx.send(Message::NonFatal((err, self.size)))?;
 					remove_domain(domain, &mut domains).await;
 					continue;
 				},
@@ -304,14 +298,18 @@ impl Uri {
 	/// Downloads the file and returns the hash
 	pub async fn download_file(&self, url: &str) -> Result<String> {
 		// Initiate http(s) connection
-		let mut response = self.client.get(url).send().await?;
+		let mut response = self.client.get(url).send().await.context("Get")?;
 
 		// Get a mutable writer for our outfile.
 		let mut writer = BufWriter::new(self.open_file().await?);
 		let mut hasher = self.get_hasher();
 
 		// Iter over the response stream and update the hasher and progress bars
-		while let Some(chunk) = response.chunk().await? {
+		while let Some(chunk) = response
+			.chunk()
+			.await
+			.with_context(|| format!("Unable to stream data from '{url}'"))?
+		{
 			// Send message to add to total progress bar.
 			self.tx.send(Message::Update(chunk.len() as u64))?;
 			hasher.update(&chunk);
@@ -319,6 +317,7 @@ impl Uri {
 			// Write the data to file
 			writer.write_all(&chunk).await?;
 		}
+		writer.flush().await?;
 
 		// Build the hash string.
 		let mut download_hash = String::new();
@@ -337,7 +336,7 @@ pub enum Message {
 	Finished(String),
 	Debug(String),
 	Verbose(String),
-	NonFatal(Error),
+	NonFatal((Error, u64)),
 	Update(u64),
 }
 
@@ -478,34 +477,42 @@ pub struct Downloader {
 	client: reqwest::Client,
 	uris: Vec<Uri>,
 	filter: UriFilter,
-	partial_dir: String,
-	archive_dir: String,
+	archive_dir: PathBuf,
+	partial_dir: PathBuf,
 	/// Used to count how many connections are open to a domain.
 	/// Nala only allows 3 at a time per domain.
 	domains: Arc<Mutex<HashMap<String, u8>>>,
 	set: JoinSet<Result<Uri>>,
 	tx: mpsc::UnboundedSender<Message>,
+	rx: mpsc::UnboundedReceiver<Message>,
 }
 
 impl Downloader {
-	pub fn new(proxy: reqwest::Proxy, tx: mpsc::UnboundedSender<Message>) -> Result<Downloader> {
+	pub fn new(config: &Config) -> Result<Downloader> {
+		let archive_dir = config.get_path(&Paths::Archive);
+		let partial_dir = archive_dir.join("partial");
+
+		let (tx, rx) = mpsc::unbounded_channel();
+		let proxy = build_proxy(config, tx.clone())?;
+
 		Ok(Downloader {
 			client: reqwest::Client::builder()
-				.timeout(Duration::from_secs(3))
+				.timeout(Duration::from_secs(15))
 				.proxy(proxy)
 				.build()?,
 			uris: vec![],
 			// TODO: Make these directories configurable?
-			partial_dir: "./partial".to_string(),
-			archive_dir: ".".to_string(),
+			archive_dir,
+			partial_dir,
 			filter: UriFilter::new(),
 			domains: Arc::new(Mutex::new(HashMap::new())),
 			set: JoinSet::new(),
 			tx,
+			rx,
 		})
 	}
 
-	fn add_version<'a>(&mut self, version: &'a Version<'a>, config: &Config) -> Result<()> {
+	pub fn add_version<'a>(&mut self, version: &'a Version<'a>, config: &Config) -> Result<()> {
 		let uri = Uri::from_version(
 			version,
 			config,
@@ -517,6 +524,8 @@ impl Downloader {
 		self.uris.push(uri);
 		Ok(())
 	}
+
+	pub fn uris(&self) -> &Vec<Uri> { &self.uris }
 
 	pub async fn download(&mut self) -> Result<()> {
 		// Create the partial directory
@@ -530,9 +539,11 @@ impl Downloader {
 		Ok(())
 	}
 
-	pub async fn finish(mut self) -> Result<Vec<Uri>> {
+	pub async fn finish(mut self, rm_partial: bool) -> Result<Vec<Uri>> {
 		// Finally remove the partial directory
-		rmdir(&self.partial_dir).await?;
+		if rm_partial {
+			rmdir(&self.partial_dir).await?;
+		}
 
 		let mut finished = vec![];
 		while let Some(res) = self.set.join_next().await {
@@ -540,14 +551,89 @@ impl Downloader {
 		}
 		Ok(finished)
 	}
+
+	pub async fn run(mut self, config: &Config, rm_partial: bool) -> Result<Vec<Uri>> {
+		self.filter.maybe_untrusted_error(config)?;
+
+		let mut progress = tui::NalaProgressBar::new(config, false)?;
+		// Set the total downloads.
+		let mut total = 0;
+		for uri in &self.uris {
+			total += 1;
+			progress.indicatif.inc_length(uri.size)
+		}
+
+		// Start the downloads
+		self.download().await?;
+
+		let tick_rate = Duration::from_millis(250);
+		let mut tick = Instant::now();
+		let mut current = 0;
+		loop {
+			if current == total {
+				progress.clean_up()?;
+				break;
+			}
+
+			while let Ok(msg) = self.rx.try_recv() {
+				match msg {
+					Message::Update(bytes_downloaded) => progress.indicatif.inc(bytes_downloaded),
+					Message::Finished(filename) => {
+						current += 1;
+						progress.msg = vec![
+							"Total Packages:".to_string(),
+							format!(" {current}/{total}, "),
+							"Last Completed:".to_string(),
+							format!(" {filename}"),
+						];
+						progress.render()?;
+					},
+					Message::Exit => {
+						progress.clean_up()?;
+						return Ok(vec![]);
+					},
+					Message::Debug(msg) => {
+						dprog!(config, progress, "downloader", "{msg}");
+					},
+					Message::Verbose(msg) => {
+						if config.verbose() {
+							progress.print(&msg)?;
+						}
+					},
+					Message::NonFatal((err, size)) => {
+						progress.print(&format!("Error: {err:?}"))?;
+						progress.indicatif.set_position(progress.length() - size)
+					},
+				}
+			}
+
+			if tui::poll_exit_event()? {
+				progress.clean_up()?;
+				self.set.shutdown().await;
+				config.stderr(Theme::Notice, "Exiting at user request");
+				return Ok(vec![]);
+			}
+
+			if tick.elapsed() >= tick_rate {
+				progress.render()?;
+				tick = Instant::now();
+			}
+		}
+
+		let finished = self.finish(rm_partial).await?;
+		if finished.is_empty() {
+			bail!("Downloads Failed")
+		}
+		Ok(finished)
+	}
 }
 
 #[tokio::main]
 pub async fn download(config: &Config) -> Result<()> {
-	let (tx, mut rx) = mpsc::unbounded_channel();
+	// Set download directory to the cwd.
+	config.apt.set(Paths::Archive.path(), "./");
 
-	let proxy = build_proxy(config, tx.clone())?;
-	let mut downloader = Downloader::new(proxy, tx.clone())?;
+	let mut downloader = Downloader::new(config)?;
 
 	let mut not_found = vec![];
 	if let Some(pkg_names) = config.pkg_names() {
@@ -591,79 +677,14 @@ pub async fn download(config: &Config) -> Result<()> {
 		bail!("Some packages were not found.");
 	}
 
-	downloader.filter.maybe_untrusted_error(config)?;
-
-	let mut progress = tui::NalaProgressBar::new(config)?;
-	// Set the total downloads.
-	let mut total = 0;
-	for uri in &downloader.uris {
-		total += 1;
-		progress.indicatif.inc_length(uri.size)
-	}
-
-	// Start the downloads
-	downloader.download().await?;
-
-	let tick_rate = Duration::from_millis(250);
-	let mut tick = Instant::now();
-	let mut current = 0;
-	loop {
-		if current == total {
-			progress.clean_up()?;
-			break;
-		}
-
-		while let Ok(msg) = rx.try_recv() {
-			match msg {
-				Message::Update(bytes_downloaded) => progress.indicatif.inc(bytes_downloaded),
-				Message::Finished(filename) => {
-					current += 1;
-					progress.msg = vec![
-						"Total Packages:".to_string(),
-						format!(" {current}/{total}, "),
-						"Last Completed:".to_string(),
-						format!(" {filename}"),
-					];
-					progress.render()?;
-				},
-				Message::Exit => {
-					return progress.clean_up();
-				},
-				Message::Debug(msg) => {
-					progress.print(format!("DEBUG: {msg}"))?;
-				},
-				Message::Verbose(msg) => {
-					if config.verbose() {
-						progress.print(msg)?;
-					}
-				},
-				Message::NonFatal(err) => {
-					progress.print(format!("{err}"))?;
-				},
-			}
-		}
-
-		if tui::poll_exit_event()? {
-			progress.clean_up()?;
-			downloader.set.shutdown().await;
-			config.stderr(Theme::Notice, "Exiting at user request");
-			return Ok(());
-		}
-
-		if tick.elapsed() >= tick_rate {
-			progress.render()?;
-			tick = Instant::now();
-		}
-	}
-
-	let finished = downloader.finish().await?;
+	let finished = downloader.run(config, true).await?;
 
 	println!("Downloads Complete:");
 	for uri in finished {
 		println!(
 			"  {} was written to {}",
 			config.color(Theme::Primary, &uri.filename),
-			config.color(Theme::Primary, &uri.archive),
+			config.color(Theme::Primary, &uri.archive.display().to_string()),
 		)
 	}
 
@@ -711,18 +732,19 @@ pub async fn remove_domain(domain: &str, domains: &mut Arc<Mutex<HashMap<String,
 }
 
 // Like fs::create_dir_all but it has added context for failure.
-pub async fn mkdir<P: AsRef<Path> + ?Sized + std::fmt::Display>(path: &P) -> Result<()> {
+pub async fn mkdir<P: AsRef<Path> + ?Sized>(path: &P) -> Result<()> {
 	fs::create_dir_all(path)
 		.await
-		.with_context(|| format!("Failed to create '{path}'"))
+		.with_context(|| format!("Failed to create '{}'", path.as_ref().display()))
 }
 
-pub async fn rmdir<P: AsRef<Path> + ?Sized + std::fmt::Display>(path: &P) -> Result<()> {
+pub async fn rmdir<P: AsRef<Path> + ?Sized>(path: &P) -> Result<()> {
 	fs::remove_dir(path)
 		.await
-		.with_context(|| format!("Failed to remove '{path}'"))
+		.with_context(|| format!("Failed to remove '{}'", path.as_ref().display()))
 }
 
-pub fn read_to_string<P: AsRef<Path> + ?Sized + std::fmt::Display>(path: &P) -> Result<String> {
-	std::fs::read_to_string(path).with_context(|| format!("Failed to read '{path}'"))
+pub fn read_to_string<P: AsRef<Path> + ?Sized>(path: &P) -> Result<String> {
+	std::fs::read_to_string(path)
+		.with_context(|| format!("Failed to read '{}'", path.as_ref().display()))
 }
