@@ -299,7 +299,9 @@ def pkg_info(pkg: Package, version: int) -> str:
 		string += "> - " if version <= 2 else "> - - none "
 
 	if pkg.marked_install or pkg.marked_upgrade:
-		string += f"{file}\n" if file else "**ERROR**\n"
+		# It is not be able to reach this code without being `file ` assigned.
+		# pylint: disable=possibly-used-before-assignment
+		string += f"{file}\n" if file else "**ERROR**\n"  #
 	elif pkg.marked_delete:
 		string += "**REMOVE**\n"
 	elif pkg.has_config_files:

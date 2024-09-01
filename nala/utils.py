@@ -522,7 +522,8 @@ def vprint(msg: object) -> None:
 		print(msg)
 	if arguments.debug:
 		dprint(from_ansi(f"{msg}").plain, from_verbose=True)
-	sys.__stdout__.flush()
+	if (stdout := sys.stdout) is not None:
+		stdout.flush()
 
 
 def dprint(msg: object, from_verbose: bool = False) -> None:

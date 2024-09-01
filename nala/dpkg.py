@@ -653,7 +653,8 @@ class InstallProgress(base.InstallProgress):
 			self.live.scroll_bar(msg, update_spinner=True)
 		else:
 			self.live.scroll_bar(msg)
-		sys.__stdout__.flush()
+		if (stdout := sys.stdout) is not None:
+			stdout.flush()
 		self.set_last_line(rawline)
 
 	def rawline_handler(self, rawline: bytes) -> None:
