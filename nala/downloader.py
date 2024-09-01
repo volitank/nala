@@ -842,7 +842,11 @@ def filter_uris(
 		# Regex to check if we're using mirror+file:/
 		if regex := MIRROR_FILE_PATTERN.search(uri):
 			if regex.group(1) not in mirrors:
-				mirrors[regex.group(1)] = (
+				# There are some other options in the mirror file
+				# I don't believe it's necessary to implement them
+				# So I am just splitting on whitespace.
+				# See https://gitlab.com/volian/nala/-/issues/323
+				mirrors[regex.group(1)] = discard_after_whitespace(
 					Path(regex.group(1)).read_text(encoding="utf-8").splitlines()
 				)
 
@@ -855,12 +859,19 @@ def filter_uris(
 		yield uri
 
 
+def discard_after_whitespace(lines: list[str]) -> list[str]:
+	"""Split on whitespace and return the very first item."""
+	return [line.split(maxsplit=1)[0] for line in lines]
+
+
 def set_mirrors_txt(domain: str, mirrors: dict[str, list[str]]) -> None:
 	"""Check if user has mirrors:// and handle accordingly."""
 	if domain not in mirrors:
 		url = f"http://{domain}"
 		try:
-			mirrors[domain] = get(url, follow_redirects=True).text.splitlines()
+			mirrors[domain] = discard_after_whitespace(
+				get(url, follow_redirects=True).text.splitlines()
+			)
 		except HTTPError:
 			sys.exit(
 				_("{error} unable to connect to {url}").format(
