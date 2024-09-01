@@ -20,6 +20,9 @@ Install works similar to the way it does in **apt**.
 To install a specific version of a package you may use the *=* sign as below
 	**nala install** *tmux=3.3a-3~bpo11+1*
 
+Nala can also install packages directly from a URL such as:
+	**nala install** *https://example.org/path/to/pkg.deb*
+
 OPTIONS
 =======
 
