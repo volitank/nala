@@ -1,3 +1,14 @@
+nala (0.15.4) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Fix crash caused by unexpected fields in mirror file
+
+  [ Changes ]
+  * Update Turkish translations
+  * Add downloading from URL in man pages
+
+ -- Blake Lee <blake@volian.org>  Sun, 01 Sep 2024 23:32:18 +0000
+
 nala (0.15.3) unstable; urgency=medium
 
   [ Bug Fixes ]
