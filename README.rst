@@ -18,7 +18,7 @@ Nala is a front-end for ``libapt-pkg``. Specifically we interface using the ``py
 Especially for newer users it can be hard to understand what ``apt`` is trying to do when installing or upgrading.
 
 We aim to solve this by not showing some redundant messages, formatting the packages better, and using color to
-show specifically what will happen with a package during install, removal, or an upgrade.
+show specifically what will happen with a package during and install, removal, or upgrade.
 
 # Installation
 ==============
@@ -34,7 +34,7 @@ Nala will download 3 packages at a time per unique mirror in your ``sources.list
 This constraint is to limit how hard Nala hits mirrors.
 Opening multiple connections to the same mirror is great for speeding up downloading many small packages.
 
-Additionally we alternate downloads between the available mirrors to improve download speeds even further.
+Additionally, we alternate downloads between the available mirrors to improve download speeds even further.
 If a mirror fails for whatever reason, we just try the next until all defined mirrors are exhausted.
 
 `Note: Nala does not use APT for package downloading and verification`
@@ -50,7 +50,7 @@ Nala will then go get all the mirrors from the respective master list.
 Once done we test the latency and score each mirror.
 Nala will choose the fastest 3 mirrors (configurable) and write them to a file.
 
-`At the moment fetch will only work on Debian, Ubuntu and derivatives still tied to the main repos. Such as Pop!_OS`
+`At the moment fetch will only work on Debian, Ubuntu, and derivatives still tied to the main repos. Such as Pop!_OS`
 
 # History
 =========
@@ -58,25 +58,26 @@ Nala will choose the fastest 3 mirrors (configurable) and write them to a file.
 Our last big feature is the ``nala history`` command.
 
 If you're familiar with ``dnf`` this works much in the same way.
-Each Install, Remove or Upgrade we store in /var/lib/nala/history.json with a unique ``<ID>`` number.
+Each Install, Remove, or Upgrade we store in /var/lib/nala/history.json with a unique ``<ID>`` number.
 
 At any time you can call ``nala history`` to print a summary of every transaction ever made.
 You can then further manipulate this with commands such as ``nala history undo <ID>`` or ``nala history redo <ID>``.
 
 If there is something in the history file that you don't want you can use the ``nala history clear <ID>`` It will remove that entry.
-Alternatively for the ``clear`` command we accept ``--all`` which will remove the entire history.
+
+Alternatively, for the ``clear`` command, we accept ``--all`` which will remove the entire history.
 
 # Zsh/fish Completions
 ======================
 
-Nala's bash, Zsh and fish completions are now handled with ``typer``.
+Nala's bash, Zsh, and fish completions are now handled with ``typer``.
 
-There is nothing you need to do but install Nala and restart your shell for them to work
+There is nothing you need to do but install Nala and restart your shell for them to work.
 
 # Bug Reports or Feature Requests
 =================================
 
-Nala is mirrored to several sites such as GitHub and even Debian Salsa.
+Nala is mirrored on several sites such as GitHub and even Debian Salsa.
 
 The official repository is https://gitlab.com/volian/nala
 
