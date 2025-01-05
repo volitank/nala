@@ -19,10 +19,9 @@ use regex::RegexBuilder;
 use rust_apt::progress::{AcquireProgress, InstallProgress};
 use rust_apt::Cache;
 
-use crate::colors::Theme;
-use crate::config::Config;
+use crate::config::{color, Config, Theme};
 use crate::tui::NalaProgressBar;
-use crate::{dprint, dprog};
+use crate::{debug, dprog};
 
 // const CURSER_UP: &'static str = "\x1b[1A";
 // const CURSER_DOWN: &'static str = "\x1b[1B";
@@ -80,12 +79,12 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	config.apt.clear("DPkg::Post-Invoke");
 	config.apt.clear("DPkg::Pre-Install-Pkgs");
 
-	dprint!(config, "run_install");
+	debug!("run_install");
 
 	let (statusfd, writefd) = pipe()?;
 	fcntl(statusfd.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
 
-	dprint!(config, "forking");
+	debug!("forking");
 	let window_size = unsafe { get_winsize()? };
 	match unsafe { forkpty(&window_size, None)? } {
 		nix::pty::ForkptyResult::Child => {
@@ -120,6 +119,10 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			progress.indicatif.finish();
 			progress.render()?;
 			progress.clean_up()?;
+
+			// Forget the file descriptor, the child closes it.
+			// Not doing this causes Debug build to panic.
+			std::mem::forget(pty);
 		},
 	}
 
@@ -206,17 +209,6 @@ impl Pty {
 					dprog!(config, progress, "pty", "{string:?}");
 					write!(stdout(), "{string}")?;
 					stdout().flush()?;
-					// TODO: We may not need the following code, but I don't want to get rid of it
-					// just yet At least until we test specifically Dialog
-
-					// // After writing the line to the terminal check is we can leave raw mode.
-					// if (string.contains(RESTORE_TERM) | string.contains(DISABLE_ALT_SCREEN))
-					// 	// Fix for Dialog Debconf Frontend https://gitlab.com/volian/nala/-/issues/211
-					// 	&& !string.contains(ENABLE_ALT_SCREEN)
-					// {
-					// 	progress.unset_raw()?;
-					// 	self.raw = false;
-					// }
 
 					// Don't attempt to write anything if we already wrote rawline
 					return Ok(true);
@@ -239,7 +231,7 @@ impl Pty {
 						continue;
 					}
 
-					progress.print(&msg_formatter(config, line))?;
+					progress.print(&msg_formatter(line))?;
 				}
 				Ok(true)
 			},
@@ -356,7 +348,7 @@ impl Pty {
 	}
 }
 
-fn msg_formatter(config: &Config, line: &str) -> String {
+fn msg_formatter(line: &str) -> String {
 	let mut ret = String::new();
 
 	let replace = [
@@ -371,7 +363,7 @@ fn msg_formatter(config: &Config, line: &str) -> String {
 			continue;
 		}
 
-		ret = line.replace(header, &config.color(theme, change))
+		ret = line.replace(header, &color::color!(theme, change))
 	}
 
 	if ret.ends_with("...") {
@@ -388,10 +380,7 @@ fn msg_formatter(config: &Config, line: &str) -> String {
 		.unwrap();
 
 	regex
-		.replace_all(&ret, |caps: &regex::Captures| {
-			let version_string = &caps[1];
-			config.color_ver(version_string)
-		})
+		.replace_all(&ret, |caps: &regex::Captures| color::ver!(&caps[1]))
 		.trim()
 		.to_string()
 }

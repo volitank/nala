@@ -11,7 +11,7 @@ pub mod fetch;
 pub mod progress;
 pub mod summary;
 
-pub use progress::NalaProgressBar;
+pub use progress::{NalaProgressBar, UnitStr};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 

@@ -4,8 +4,7 @@ use rust_apt::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
 use rust_apt::{new_cache, PackageSort};
 use tokio::sync::mpsc;
 
-use crate::colors::Theme;
-use crate::config::Config;
+use crate::config::{color, Config, Theme};
 use crate::tui;
 
 pub enum Message {
@@ -23,12 +22,11 @@ pub async fn update_thread(acquire: NalaAcquireProgress) -> Result<()> {
 	Ok(())
 }
 
-#[tokio::main]
 pub async fn update(config: &Config) -> Result<()> {
 	// Setup channel to talk between threads
 	let (tx, mut rx) = mpsc::unbounded_channel();
 	// Setup the acquire struct and send it to the update thread
-	let acquire = NalaAcquireProgress::new(config, tx);
+	let acquire = NalaAcquireProgress::new(tx);
 	let task = tokio::task::spawn(update_thread(acquire));
 
 	let mut progress = tui::NalaProgressBar::new(config, false)?;
@@ -49,8 +47,19 @@ pub async fn update(config: &Config) -> Result<()> {
 					progress.print(&msg)?
 				};
 			},
-			Message::Messages(msg) => {
-				progress.msg = msg;
+			Message::Messages(msgs) => {
+				if !msgs.is_empty() {
+					let mut iter = msgs.into_iter();
+
+					// First string is the header and always there
+					let mut msg = tui::progress::Message::empty(iter.next().unwrap()).regular();
+
+					for line in iter {
+						msg.add(line);
+					}
+
+					progress.dg.clear().push(msg);
+				}
 				progress.render()?;
 			},
 		}
@@ -67,7 +76,7 @@ pub async fn update(config: &Config) -> Result<()> {
 
 	task.await??;
 
-	println!("{}", config.highlight(&progress.finished_string()));
+	println!("{}", color::highlight!(&progress.finished_string()));
 
 	let cache = new_cache!()?;
 	let sort = PackageSort::default().upgradable();
@@ -76,8 +85,8 @@ pub async fn update(config: &Config) -> Result<()> {
 	if !upgradable.is_empty() {
 		println!(
 			"{} packages can be upgraded. Run '{}' to see them.",
-			config.color(Theme::Notice, &format!("{}", upgradable.len())),
-			config.color(Theme::Primary, "nala list --upgradable")
+			color::color!(Theme::Notice, &format!("{}", upgradable.len())),
+			color::primary!("nala list --upgradable")
 		);
 	}
 
@@ -101,24 +110,15 @@ pub async fn update(config: &Config) -> Result<()> {
 pub struct NalaAcquireProgress {
 	apt_config: rust_apt::config::Config,
 	pulse_interval: usize,
-	ign: String,
-	hit: String,
-	get: String,
-	err: String,
 	tx: mpsc::UnboundedSender<Message>,
 }
 
 impl NalaAcquireProgress {
 	/// Returns a new default progress instance.
-	pub fn new(config: &Config, tx: mpsc::UnboundedSender<Message>) -> Self {
+	pub fn new(tx: mpsc::UnboundedSender<Message>) -> Self {
 		Self {
 			apt_config: rust_apt::config::Config::new(),
 			pulse_interval: 0,
-			// TODO: Maybe we should make it configurable.
-			ign: config.color(Theme::Notice, "Ignored"),
-			hit: config.color(Theme::Primary, "No Change"),
-			get: config.color(Theme::Secondary, "Updated"),
-			err: config.color(Theme::Error, "Error"),
 			tx,
 		}
 	}
@@ -145,7 +145,7 @@ impl DynAcquireProgress for NalaAcquireProgress {
 		self.tx
 			.send(Message::Print(format!(
 				"{}: {}",
-				self.hit,
+				color::primary!("No Change"),
 				item.description()
 			)))
 			.unwrap();
@@ -157,7 +157,7 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	fn fetch(&mut self, item: &ItemDesc) {
 		self.tx
 			.send(Message::Fetched((
-				format!("{}:   {}", self.get, item.description()),
+				format!("{}:   {}", color::secondary!("Updated"), item.description()),
 				item.owner().file_size(),
 			)))
 			.unwrap();
@@ -196,9 +196,9 @@ impl DynAcquireProgress for NalaAcquireProgress {
 				if error_text.is_empty() {
 					show_error = false;
 				}
-				&self.ign
+				color::color!(Theme::Notice, "Ignored")
 			},
-			_ => &self.err,
+			_ => color::color!(Theme::Error, "Error"),
 		};
 
 		self.tx

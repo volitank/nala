@@ -25,9 +25,8 @@ use rust_apt::util::DiskSpace;
 use rust_apt::Cache;
 
 use super::Term;
-use crate::colors::Theme;
-use crate::config::Config;
-use crate::history::{HistoryPackage, Operation};
+use crate::cmd::{HistoryPackage, Operation};
+use crate::config::{Config, Theme};
 
 #[derive(Debug)]
 pub struct Item {
@@ -69,6 +68,7 @@ impl Item {
 impl fmt::Display for Item {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.string) }
 }
+
 pub struct App<'a> {
 	state: TableState,
 	scroll_state: ScrollbarState,
@@ -151,7 +151,7 @@ impl<'a> App<'a> {
 			constraints,
 		)
 		.header(header)
-		.highlight_style(highlight)
+		.row_highlight_style(highlight)
 		.flex(Flex::SpaceAround)
 		.block(basic_block(self.config))
 		.highlight_spacing(HighlightSpacing::Never);
@@ -160,7 +160,7 @@ impl<'a> App<'a> {
 	}
 }
 
-impl<'a> StatefulWidget for &mut App<'a> {
+impl StatefulWidget for &mut App<'_> {
 	type State = u8;
 
 	fn render(self, area: Rect, buf: &mut Buffer, _: &mut Self::State) {
@@ -335,7 +335,7 @@ impl<'a> SummaryTab<'a> {
 
 		loop {
 			terminal
-				.draw(|frame| frame.render_stateful_widget(&mut *self, frame.size(), &mut 0))?;
+				.draw(|frame| frame.render_stateful_widget(&mut *self, frame.area(), &mut 0))?;
 
 			match event::read()? {
 				Event::Key(key) => {
@@ -398,7 +398,7 @@ impl<'a> SummaryTab<'a> {
 	}
 }
 
-impl<'a> StatefulWidget for &mut SummaryTab<'a> {
+impl StatefulWidget for &mut SummaryTab<'_> {
 	type State = u8;
 
 	fn render(self, area: Rect, buf: &mut Buffer, _: &mut Self::State) {

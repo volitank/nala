@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[clap(name = "nala-rs")]
+#[clap(name = "nala")]
 #[clap(author = "Blake Lee <blake@volian.org>")]
 #[clap(version = "0.1.0")]
 #[clap(about = "Commandline front-end for libapt-pkg", long_about = None)]
@@ -15,7 +15,6 @@ pub struct NalaParser {
 	/// Disable scrolling text and print extra information
 	#[clap(global = true, short, long, action)]
 	pub verbose: bool,
-
 	/// Print debug statements for solving issues
 	#[clap(global = true, short, long, action)]
 	pub debug: bool,
@@ -25,18 +24,43 @@ pub struct NalaParser {
 	pub config: Option<PathBuf>,
 
 	/// Turn on tui if it's disabled in the config.
-	#[clap(global = true, short, long, action)]
+	#[clap(global = true, long, action)]
 	pub tui: bool,
 
 	/// Turn the tui off. Takes precedence over other options
-	#[clap(global = true, short, long, action)]
+	#[clap(global = true, long, action)]
 	pub no_tui: bool,
+
+	/// Only download packages.
+	#[clap(global = true, long, action)]
+	pub download_only: bool,
+
+	/// Passthrough Apt configurations
+	#[clap(global = true, short = 'o', long, action)]
+	pub option: Vec<String>,
+
+	/// Allow Nala to install packages that can't be hashsum verified
+	#[clap(global = true, long, action)]
+	pub allow_unauthenticated: bool,
+
+	/// Additionally remove unnecessary packages.
+	#[clap(global = true, long, action)]
+	pub auto_remove: bool,
+
+	/// Do NOT remove unnecessary packages.
+	#[clap(global = true, long, action)]
+	pub no_auto_remove: bool,
+
+	/// Remove config files for any package set to be removed.
+	#[clap(global = true, long, action)]
+	pub purge: bool,
 
 	#[clap(subcommand)]
 	pub command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
+#[clap(rename_all = "lower")]
 pub enum Commands {
 	List(List),
 	Search(Search),
@@ -48,8 +72,12 @@ pub enum Commands {
 	Update(Update),
 	Upgrade(Upgrade),
 	Install(Install),
+	Remove(Remove),
+	AutoRemove(AutoRemove),
+	System(System),
 }
 
+/// List all packages or only packages based on the provided name
 #[derive(Args, Debug)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct List {
@@ -84,20 +112,24 @@ pub struct List {
 	/// Only include virtual packages
 	#[clap(short = 'V', long, action)]
 	pub r#virtual: bool,
+
+	#[clap(short = 'm', long, action)]
+	pub machine: bool,
 }
 
+/// Like `List`, but uses regex and searches package descriptions.
 #[derive(Args, Debug)]
 pub struct Search {
-	/// Search is basically list but with an added restriction
-	/// by allowing only searching pkg names
+	/// Search only using pkg names and not descriptions.
 	#[clap(long, action)]
-	pub names: bool,
+	pub names_only: bool,
 
 	// Flatten list commands args into search
 	#[clap(flatten)]
 	pub list_args: List,
 }
 
+/// Show information about one or more packages
 #[derive(Args, Debug)]
 pub struct Show {
 	/// Package names to show
@@ -106,6 +138,9 @@ pub struct Show {
 
 	#[clap(short = 'a', long, action)]
 	pub all_versions: bool,
+
+	#[clap(short = 'm', long, action)]
+	pub machine: bool,
 }
 
 /// Removes the local archive of downloaded package files.
@@ -120,7 +155,7 @@ pub struct Clean {
 	pub fetch: bool,
 }
 
-/// Removes the local archive of downloaded package files.
+/// Downloads a package to the current directory.
 #[derive(Args, Debug)]
 pub struct Download {
 	/// Package names to download
@@ -166,18 +201,12 @@ pub struct Fetch {
 
 /// Update the package lists.
 #[derive(Args, Debug)]
-pub struct Update {
-	#[clap(short = 'o', long, action)]
-	pub dpkg_option: Vec<String>,
-}
+pub struct Update {}
 
 /// Upgrade packages.
 #[derive(Args, Debug)]
+#[clap(visible_aliases = ["full-upgrade", "safe-upgrade"])]
 pub struct Upgrade {
-	/// TODO: Copy from Python Nala and maybe reword.
-	#[clap(short = 'o', long, action)]
-	pub dpkg_option: Vec<String>,
-
 	/// Prints the URIs in json and does not perform an upgrade.
 	#[clap(long, action)]
 	pub print_uris: bool,
@@ -197,7 +226,36 @@ pub struct Upgrade {
 }
 
 #[derive(Args, Debug)]
+/// Install Packages
 pub struct Install {
-	#[clap(short = 'o', long, action)]
-	pub dpkg_option: Vec<String>,
+	/// Package names to install
+	#[clap(required = false)]
+	pub pkg_names: Vec<String>,
 }
+
+#[derive(Args, Debug)]
+#[clap(visible_alias = "purge")]
+/// Remove Packages
+///
+/// Using the alias `purge` is the same as running
+/// `nala remove --purge`
+pub struct Remove {
+	/// Package names to install
+	pub pkg_names: Vec<String>,
+}
+
+#[derive(Args, Debug)]
+#[clap(visible_alias = "autopurge")]
+/// Automatically remove unnecessary packages
+///
+/// Using the alias `autopurge` is the same as running
+/// `nala autoremove --purge`
+pub struct AutoRemove {
+	/// Additionally, when purging, remove pkgs in config state
+	#[clap(long, action)]
+	pub remove_config: bool,
+}
+
+/// Experimental, use at own risk
+#[derive(Args, Debug)]
+pub struct System {}

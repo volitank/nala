@@ -1,13 +1,13 @@
 use comfy_table::Table;
 
-use crate::config::Config;
+use crate::config::color;
 
-pub fn get_table(config: &Config, headers: &[&str]) -> Table {
+pub fn get_table(headers: &[&str]) -> Table {
 	let mut table = Table::new();
 	table
 		.load_preset(comfy_table::presets::NOTHING)
 		.set_content_arrangement(comfy_table::ContentArrangement::DynamicFullWidth)
-		.set_header(headers.iter().map(|s| config.highlight(s)));
+		.set_header(headers.iter().map(|s| color::highlight!(*s)));
 
 	table
 		.column_mut(headers.len() - 1)

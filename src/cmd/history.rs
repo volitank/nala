@@ -16,10 +16,10 @@ use rust_apt::{new_cache, Cache, Package, Version};
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 
-use crate::colors::Theme;
-use crate::config::{Config, Paths};
-use crate::show::{build_regex, show_version};
-use crate::{dprint, table, tui, util};
+use crate::config::{color, Config, Paths, Theme};
+use crate::fs::AsyncFs;
+use super::{Operation, ShowVersion};
+use crate::{debug, error, table, tui, util};
 
 #[derive(Serialize, Deserialize)]
 pub struct HistoryFile {
@@ -99,6 +99,7 @@ impl HistoryPackage {
 		}
 	}
 
+	// TODO: Can probably use CliPackage here?
 	pub fn get_pkg<'a>(&self, cache: &'a Cache) -> Result<Package<'a>> {
 		if let Some(pkg) = cache.get(&self.name) {
 			return Ok(pkg);
@@ -128,17 +129,17 @@ impl HistoryPackage {
 
 	pub fn items(&self, config: &Config) -> &Vec<tui::summary::Item> {
 		self.items.get_or_init(|| {
-			let secondary = config.rat_style(self.operation.theme());
+			let secondary = config.rat_style(self.operation);
 			let primary = config.rat_style(Theme::Regular);
 
-			let colored = config.color(self.operation.theme(), &self.name);
+			let colored = color::color!(self.operation, &self.name).to_string();
 			let mut items = vec![tui::summary::Item::left(secondary, colored)];
 
 			if let Some(old) = &self.old_version {
 				items.push(tui::summary::Item::center(primary, old.to_string()));
 				items.push(tui::summary::Item::center(
 					primary,
-					util::version_diff(config, old, self.version.to_string()),
+					util::version_diff(old, self.version.to_string()),
 				));
 			} else {
 				items.push(tui::summary::Item::center(
@@ -194,25 +195,16 @@ impl HistoryPackage {
 		config: &Config,
 		terminal: &mut tui::Term,
 	) -> Result<()> {
-		let pkg = self.get_pkg(cache)?;
-		let pacstall_regex = build_regex(r#"_remoterepo="(.*?)""#)?;
-		let url_regex = build_regex("(https?://.*?/.*?/)")?;
 		// Maybe we will show both versions if available?
-		let show = show_version(
-			config,
-			&pkg,
-			&self.get_version(cache)?,
-			&pacstall_regex,
-			&url_regex,
-		);
+		let show = ShowVersion::new(self.get_version(cache)?);
 		terminal.clear()?;
 
 		let mut lines: Vec<Text> = vec![];
-		for (head, info) in &show {
+		for (head, info) in show.pretty_map() {
 			let mut split = info.split('\n');
 			if let Some(first) = split.next() {
 				lines.push(
-					format!("{}: {first}", config.color(Theme::Highlight, head)).into_text()?,
+					format!("{}: {first}", color::highlight!(head)).into_text()?,
 				);
 				for line in split {
 					let line = line.to_string();
@@ -225,16 +217,16 @@ impl HistoryPackage {
 			terminal.draw(|f| {
 				let block = tui::summary::header_block(config, "Nala Upgrade");
 
-				let inner = block.inner(f.size());
+				let inner = block.inner(f.area());
 
 				let constraints = lines
 					.iter()
 					.map(|line| Length((line.width() as f32 / inner.width as f32).ceil() as u16))
 					.collect::<Vec<_>>();
 
-				let layout = Layout::vertical(constraints).split(block.inner(f.size()));
+				let layout = Layout::vertical(constraints).split(block.inner(f.area()));
 
-				f.render_widget(block, f.size());
+				f.render_widget(block, f.area());
 				for (i, line) in lines.iter().enumerate() {
 					f.render_widget(
 						Paragraph::new(line.clone()).wrap(Wrap::default()),
@@ -255,67 +247,10 @@ impl HistoryPackage {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Operation {
-	Remove,
-	AutoRemove,
-	Purge,
-	AutoPurge,
-	Install,
-	Reinstall,
-	Upgrade,
-	Downgrade,
-	Held,
-}
-
-impl Operation {
-	pub fn to_vec() -> Vec<Operation> {
-		vec![
-			Self::Remove,
-			Self::AutoRemove,
-			Self::Purge,
-			Self::AutoPurge,
-			Self::Install,
-			Self::Reinstall,
-			Self::Upgrade,
-			Self::Downgrade,
-		]
-	}
-
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			Operation::Remove => "Remove",
-			Operation::AutoRemove => "AutoRemove",
-			Operation::Purge => "Purge",
-			Operation::AutoPurge => "AutoPurge",
-			Operation::Install => "Install",
-			Operation::Reinstall => "ReInstall",
-			Operation::Upgrade => "Upgrade",
-			Operation::Downgrade => "Downgrade",
-			Operation::Held => "Held",
-		}
-	}
-
-	pub fn theme(&self) -> Theme {
-		match self {
-			Self::Remove | Self::AutoRemove | Self::Purge | Self::AutoPurge => Theme::Error,
-			Self::Install | Self::Upgrade => Theme::Secondary,
-			Self::Reinstall | Self::Downgrade | Self::Held => Theme::Notice,
-		}
-	}
-}
-
-impl std::fmt::Display for Operation {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.as_str())
-	}
-}
-
-pub fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
+pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 	let history_db = config.get_path(&Paths::History);
 	if !history_db.exists() {
-		std::fs::create_dir_all(&history_db)
-			.with_context(|| format!("Could not create {}", history_db.display()))?;
+		history_db.mkdir().await?;
 	}
 
 	let mut history = std::fs::read_dir(&history_db)
@@ -328,13 +263,12 @@ pub fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 			}
 
 			let filename = path.file_name()?.to_str()?;
-			dprint!(config, "File '{filename}' found");
+			debug!("File '{filename}' found");
 			let id = match filename.split('.').next()?.parse::<u64>() {
 				Ok(num) => num,
 				Err(e) => {
-					config.stderr(
-						Theme::Error,
-						&format!("{:?}", anyhow!(e).context("Filename is not an int.")),
+					error!(
+						"{:?}", anyhow!(e).context("Filename is not an int.")
 					);
 					return None;
 				},
@@ -362,13 +296,11 @@ pub fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 	Ok(parsed)
 }
 
-#[tokio::main]
 pub async fn history(config: &Config) -> Result<()> {
-	let history_file = get_history(config)?;
+	let history_file = get_history(config).await?;
 	let cache = new_cache!()?;
 
 	let mut table = table::get_table(
-		config,
 		&["ID", "Command", "Date and Time", "Requested-By", "Altered"],
 	);
 
@@ -399,7 +331,7 @@ pub async fn history(config: &Config) -> Result<()> {
 		table.add_row(row);
 	}
 
-	if !config.show_tui() {
+	if !config.get_no_bool("tui", true) {
 		println!("{table}");
 		return Ok(());
 	}

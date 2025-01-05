@@ -3,7 +3,6 @@ use std::fs;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use regex::Regex;
 use reqwest::Client;
 use rust_apt::tagfile::{parse_tagfile, TagSection};
 use rust_apt::{new_cache, Package};
@@ -12,8 +11,8 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 
 use crate::config::{Config, Paths};
-use crate::util::{sudo_check, NalaRegex};
-use crate::{dprint, tui};
+use crate::util::{sudo_check, DOMAIN, UBUNTU_COUNTRY, UBUNTU_URL};
+use crate::{debug, tui};
 
 fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 	let pkg_file = pkg?.candidate()?.package_files().next()?;
@@ -27,7 +26,7 @@ fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 fn detect_release(config: &Config) -> Result<(String, String, String)> {
 	for distro in ["debian", "ubuntu", "devuan"] {
 		if let Some(value) = config.get_str(distro) {
-			dprint!(config, "Distro '{distro} {value}' passed on CLI");
+			debug!("Distro '{distro} {value}' passed on CLI");
 			let distro = distro.to_string();
 			let keyring = format!("/usr/share/keyrings/{distro}-archive-keyring.gpg");
 			return Ok((distro, value.to_lowercase(), keyring));
@@ -43,7 +42,7 @@ fn detect_release(config: &Config) -> Result<(String, String, String)> {
 		"apt",
 	] {
 		if let Some((origin, codename)) = get_origin_codename(cache.get(keyring)) {
-			dprint!(config, "Distro/Release Found on '{keyring}'");
+			debug!("Distro/Release Found on '{keyring}'");
 			// devuan-archive-keyring.gpg
 			// ubuntu-archive-keyring.gpg
 			// debian-archive-keyring.gpg
@@ -71,20 +70,18 @@ fn get_component(config: &Config, distro: &str) -> Result<String> {
 	bail!("{distro} is unsupported.")
 }
 
-fn domain_from_list(regex: &Regex, line: &str) -> Option<String> {
+fn domain_from_list(line: &str) -> Option<String> {
 	if line.starts_with('#') || line.is_empty() {
 		return None;
 	}
-	regex_string(regex, line)
+	regex_string(line)
 }
 
-fn regex_string(regex: &Regex, line: &str) -> Option<String> {
-	Some(regex.captures(line)?.get(1)?.as_str().to_string())
+fn regex_string(line: &str) -> Option<String> {
+	Some(DOMAIN.captures(line)?.get(1)?.as_str().to_string())
 }
 
 fn parse_sources(config: &Config) -> Result<HashSet<String>> {
-	let regex = crate::util::NalaRegex::new();
-
 	let mut sources = HashSet::new();
 
 	// Read and extract domains from the main sources.list file
@@ -93,7 +90,7 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 		.with_context(|| format!("Failed to read {main}"))?
 		.lines()
 	{
-		if let Some(domain) = domain_from_list(regex.domain(), line) {
+		if let Some(domain) = domain_from_list(line) {
 			sources.insert(domain);
 		}
 	}
@@ -141,7 +138,7 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 						continue;
 					}
 
-					if let Some(domain) = regex_string(regex.domain(), uri) {
+					if let Some(domain) = regex_string(uri) {
 						sources.insert(domain);
 					}
 				}
@@ -151,7 +148,7 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 
 		if filename.ends_with(".list") {
 			for line in data.as_str().lines() {
-				if let Some(domain) = domain_from_list(regex.domain(), line) {
+				if let Some(domain) = domain_from_list(line) {
 					sources.insert(domain);
 				}
 			}
@@ -183,10 +180,9 @@ fn fetch_mirrors(
 		let response =
 			reqwest::blocking::get("https://launchpad.net/ubuntu/+archivemirrors-rss")?.text()?;
 
-		let regex = NalaRegex::new();
 		let mirrors = response.split("<item>");
 		for mirror in mirrors {
-			if let Some(url) = ubuntu_url(config, countries, &regex, mirror) {
+			if let Some(url) = ubuntu_url(config, countries, mirror) {
 				net_select.insert(url);
 			}
 		}
@@ -272,7 +268,7 @@ async fn score_handler(
 	let mut score = vec![];
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
-			pb.msg = vec!["Finished: ".to_string(), response.0.to_string()];
+			pb.dg.push_str("Finished: ", response.0.to_string());
 			score.push(response)
 		}
 		pb.indicatif.inc(1);
@@ -361,7 +357,6 @@ fn debian_url(
 fn ubuntu_url(
 	config: &Config,
 	countries: &Option<HashSet<String>>,
-	regex: &NalaRegex,
 	mirror: &str,
 ) -> Option<String> {
 	if mirror.contains("<title>Ubuntu Archive Mirrors Status</title>") {
@@ -375,12 +370,12 @@ fn ubuntu_url(
 		.any(|arch| arch != "amd64" && arch != "i386");
 
 	if let Some(hash_set) = countries {
-		if !hash_set.contains(regex.ubuntu_country().captures(mirror)?.get(1)?.as_str()) {
+		if !hash_set.contains(UBUNTU_COUNTRY.captures(mirror)?.get(1)?.as_str()) {
 			return None;
 		}
 	}
 
-	let url = regex.ubuntu_url().captures(mirror)?.get(1)?.as_str();
+	let url = UBUNTU_URL.captures(mirror)?.get(1)?.as_str();
 	let is_ports = url.contains("ubuntu-ports");
 
 	// Don't return non ports if we only want ports
@@ -417,10 +412,10 @@ pub fn fetch(config: &Config) -> Result<()> {
 	sudo_check(config)?;
 
 	let (distro, release, keyring) = detect_release(config)?;
-	dprint!(config, "Detected '{distro}:{release}'");
+	debug!("Detected '{distro}:{release}'");
 
 	let component = get_component(config, &distro)?;
-	dprint!(config, "Initial component '{component}'");
+	debug!("Initial component '{component}'");
 
 	let countries: Option<HashSet<String>> = match config.countries() {
 		Some(values) => {
@@ -435,11 +430,11 @@ pub fn fetch(config: &Config) -> Result<()> {
 
 	// Get the current sources on disk to not create duplicates
 	let sources = parse_sources(config)?;
-	dprint!(config, "Sources on disk {sources:#?}");
+	debug!("Sources on disk {sources:#?}");
 
 	// Get the mirrors
 	let mut net_select = fetch_mirrors(config, &countries, &distro)?;
-	dprint!(config, "NetSelect initial size '{}'", net_select.len());
+	debug!("NetSelect size '{}'", net_select.len());
 
 	// Remove domains that are already defined on disk
 	let mut remove = HashSet::new();
@@ -451,15 +446,11 @@ pub fn fetch(config: &Config) -> Result<()> {
 		}
 	}
 	net_select.retain(|n| !remove.contains(n));
-	dprint!(
-		config,
-		"NetSelect size after deduplication '{}'",
-		net_select.len()
-	);
+	debug!("NetSelect Dedupe Size '{}'", net_select.len());
 
 	// Score the mirrors
 	let scored = score_handler(config, net_select, &release)?;
-	dprint!(config, "Scored Mirrors '{}'", scored.len());
+	debug!("Scored Mirrors '{}'", scored.len());
 
 	if scored.is_empty() {
 		bail!("Nala was unable to find any mirrors.")
@@ -467,10 +458,10 @@ pub fn fetch(config: &Config) -> Result<()> {
 
 	// Only run the TUI if --auto is not on
 	let chosen = if config.auto().is_some() {
-		dprint!(config, "Auto mode, not starting TUI");
+		debug!("Auto mode, not starting TUI");
 		scored.into_iter().map(|(s, _)| s).collect()
 	} else {
-		dprint!(config, "Interactive mode, starting TUI");
+		debug!("Interactive mode, starting TUI");
 		let terminal = tui::init_terminal()?;
 		let chosen = tui::fetch::App::new(config, scored).run(terminal)?;
 		tui::restore_terminal()?;
@@ -481,7 +472,7 @@ pub fn fetch(config: &Config) -> Result<()> {
 		bail!("No mirrors were selected.")
 	}
 
-	dprint!(config, "Building Nala sources file");
+	debug!("Building Nala sources file");
 	let mut nala_sources = "# Sources file built for nala\n\n".to_string();
 	// Types: deb deb-src
 	// URIs: https://deb.volian.org/volian/
@@ -511,11 +502,7 @@ pub fn fetch(config: &Config) -> Result<()> {
 	);
 	nala_sources += &format!("Signed-By: {keyring}\n");
 
-	dprint!(
-		config,
-		"Writing the following to file:\n\n{}",
-		&nala_sources
-	);
+	debug!("Writing the following to file:\n\n{nala_sources}");
 
 	let file = config.get_file(&Paths::NalaSources);
 	fs::write(&file, nala_sources)?;

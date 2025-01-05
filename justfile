@@ -34,6 +34,11 @@ build:
 release:
 	@RUSTFLAGS="-C target-cpu=native" cargo build --profile=lto
 
+# Build release and install the binary
+install:
+	cargo build --release
+	sudo mv target/release/nala /usr/bin/nala
+
 # Run the tests
 test +ARGS="":
 	@cargo test -- --test-threads 1 {{ARGS}}
@@ -48,6 +53,18 @@ leak:
 		-name "tests-*" \
 		-printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
 	) --test-threads 1
+
+rst_to_md:
+	#!/bin/sh
+
+	set -e
+
+	FILES=docs/*.rst
+	for f in $FILES; do
+		filename="${f%.*}"
+		echo "Converting $f to $filename.md"
+		`pandoc $f -f rst -t markdown -o $filename.md`
+	done
 
 # Lint the codebase
 clippy +ARGS="":

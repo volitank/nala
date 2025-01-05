@@ -2,35 +2,34 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::parser::ValueSource;
 use clap::ArgMatches;
-use crossterm::tty::IsTty;
+use ratatui::style::Styled;
 use rust_apt::config::Config as AptConfig;
 use serde::{Deserialize, Serialize};
 
-use crate::colors::{RatStyle, Style, Theme};
+use super::color::{setup_color, Color};
+use super::{OptType, Paths, Switch};
+use crate::config::color::{RatStyle, Style, Theme};
 use crate::tui::progress::{NumSys, UnitStr};
 
-/// Represents different file and directory paths
-pub enum Paths {
-	/// The Archive dir holds packages.
-	/// Default dir `/var/cache/apt/archives/`
-	Archive,
-	/// The Lists dir hold package lists from `update` command.
-	/// Default dir `/var/lib/apt/lists/`
-	Lists,
-	/// The main Source List.
-	/// Default file `/etc/apt/sources.list`
-	SourceList,
-	/// The Sources parts directory
-	/// Default dir `/etc/apt/sources.list.d/`
-	SourceParts,
-	/// Nala Sources file is generated from the `fetch` command.
-	/// Default file `/etc/apt/sources.list.d/nala-sources.list`
-	NalaSources,
+#[derive(Serialize, Deserialize, Debug)]
+/// Configuration struct
+pub struct Config {
+	#[serde(rename(deserialize = "Nala"), default)]
+	map: HashMap<String, OptType>,
 
-	History,
+	#[serde(rename(deserialize = "Theme"), default)]
+	pub(crate) theme: HashMap<Theme, Style>,
+
+	// The following fields are not used with serde
+	#[serde(skip)]
+	pub apt: AptConfig,
+
+	#[serde(skip)]
+	/// The command that is being run
+	pub command: String,
 }
 
 impl Paths {
@@ -55,45 +54,6 @@ impl Paths {
 			Paths::History => self.path(),
 		}
 	}
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub enum Switch {
-	Always,
-	Never,
-	Auto,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(untagged)]
-pub enum OptType {
-	Bool(bool),
-	Int(u8),
-	Int64(u64),
-	Switch(Switch),
-	UnitStr(UnitStr),
-	// Strings have to be last in the enum
-	// as almost anything will match them
-	String(String),
-	VecString(Vec<String>),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-/// Configuration struct
-pub struct Config {
-	#[serde(rename(deserialize = "Nala"), default)]
-	map: HashMap<String, OptType>,
-
-	#[serde(rename(deserialize = "Theme"), default)]
-	theme: HashMap<Theme, Style>,
-
-	// The following fields are not used with serde
-	#[serde(skip)]
-	pub apt: AptConfig,
-
-	#[serde(skip)]
-	/// The command that is being run
-	pub command: String,
 }
 
 impl Default for Config {
@@ -138,52 +98,15 @@ impl Config {
 		}
 	}
 
-	pub fn rat_style(&self, theme: Theme) -> RatStyle {
-		self.theme.get(&theme).unwrap_or(&Style::default()).to_rat()
+	pub fn rat_style<T: AsRef<Theme>>(&self, theme: T) -> RatStyle {
+		self.theme
+			.get(theme.as_ref())
+			.unwrap_or(&Style::default())
+			.to_rat()
 	}
 
-	pub fn can_color(&self) -> bool {
-		if let Some(OptType::Switch(switch)) = self.map.get("color") {
-			match switch {
-				Switch::Always => return true,
-				Switch::Never => return false,
-				Switch::Auto => return std::io::stdout().is_tty(),
-			}
-		}
-		false
-	}
-
-	pub fn color(&self, theme: Theme, string: &str) -> String {
-		if self.can_color() {
-			if let Some(theme) = self.theme.get(&theme) {
-				return format!("{theme}{string}\x1b[0m");
-			}
-		}
-		string.to_string()
-	}
-
-	/// Hightlights the string according to configuration.
-	pub fn highlight(&self, string: &str) -> String { self.color(Theme::Highlight, string) }
-
-	/// Color the version according to configuration.
-	pub fn color_ver(&self, string: &str) -> String {
-		format!(
-			"{}{}{}",
-			self.highlight("("),
-			self.color(Theme::Secondary, string),
-			self.highlight(")")
-		)
-	}
-
-	/// Print a notice to stderr
-	pub fn stderr(&self, theme: Theme, string: &str) {
-		let header = match theme {
-			Theme::Error => "Error:",
-			Theme::Warning => "Warning:",
-			Theme::Notice => "Notice:",
-			_ => panic!("'{theme:?}' is not a valid stderr!"),
-		};
-		eprintln!("{} {string}", self.color(theme, header));
+	pub fn rat_reset<T: AsRef<Theme>>(&self, theme: T) -> RatStyle {
+		RatStyle::reset().set_style(self.rat_style(theme))
 	}
 
 	/// Read and Return the entire toml configuration file
@@ -198,7 +121,18 @@ impl Config {
 	}
 
 	/// Load configuration with the command line arguments
-	pub fn load_args(&mut self, args: &ArgMatches) {
+	pub fn load_args(&mut self, args: &ArgMatches) -> Result<()> {
+		for alias in [
+			("full-upgrade", "full"),
+			("safe-upgrade", "safe"),
+			("autopurge", "purge"),
+			("purge", "purge"),
+		] {
+			if std::env::args().any(|arg| arg == alias.0) {
+				self.map.insert(alias.1.to_string(), OptType::Bool(true));
+			}
+		}
+
 		for id in args.ids() {
 			let key = id.as_str().to_string();
 			// Don't do anything if the option wasn't specifically passed
@@ -227,16 +161,31 @@ impl Config {
 			}
 		}
 
-		// Set the color option if it doesn't exist
-		if !self.map.contains_key("color") {
-			self.map
-				.insert("color".to_string(), OptType::Switch(Switch::Auto));
+		let switch = match self
+			.map
+			.get("color")
+			.unwrap_or(&OptType::Switch(Switch::Auto))
+		{
+			OptType::Switch(switch) => *switch,
+			_ => Switch::Auto,
+		};
+
+		setup_color(Color::new(switch, self.theme.clone()));
+
+		if let Some(options) = self.get_vec("option") {
+			for raw_opt in options {
+				let Some((key, value)) = raw_opt.split_once("=") else {
+					bail!("Option '{raw_opt}' is not supported");
+				};
+				self.apt.set(key, value);
+			}
 		}
 
 		// If Debug is there we can print the whole thing.
 		if self.debug() {
 			dbg!(&self);
 		}
+		Ok(())
 	}
 
 	/// Get a bool from the configuration.
@@ -272,6 +221,13 @@ impl Config {
 		None
 	}
 
+	pub fn get_mut_vec(&mut self, key: &str) -> Option<&mut Vec<String>> {
+		if let OptType::VecString(vec) = self.map.get_mut(key)? {
+			return Some(vec);
+		}
+		None
+	}
+
 	/// Get a file from the configuration based on the Path enum.
 	pub fn get_file(&self, file: &Paths) -> String {
 		match file {
@@ -293,28 +249,41 @@ impl Config {
 		})
 	}
 
-	// TODO: Combine these into a function
-
-	/// Should the TUI be shown?
-	pub fn show_tui(&self) -> bool {
-		if self.get_bool("no_tui", false) {
+	/// Retrieve the boolean value from the config
+	/// additionally taking into account if `--no-option`
+	/// has been passed on the cli to disable the feature.
+	pub fn get_no_bool(&self, key: &str, default: bool) -> bool {
+		let mut no_option = String::from("no_");
+		no_option += key;
+		if self.get_bool(&no_option, false) {
 			return false;
 		}
-		self.get_bool("tui", true)
-	}
-
-	pub fn full_upgrade(&self) -> bool {
-		if self.get_bool("no_full", false) {
-			return false;
-		}
-		self.get_bool("full", true)
+		self.get_bool(key, default)
 	}
 
 	/// Get the package names that were passed as arguments.
-	pub fn pkg_names(&self) -> Option<&Vec<String>> { self.get_vec("pkg_names") }
+	pub fn pkg_names(&self) -> Result<Vec<String>> {
+		let Some(pkg_names) = self.get_vec("pkg_names") else {
+			bail!("You must specify a package");
+		};
+
+		let mut deduped = pkg_names.clone();
+		deduped.dedup();
+		deduped.sort();
+
+		Ok(deduped)
+	}
+
+	pub fn arches(&self) -> Vec<String> {
+		if self.get_bool("all_arches", false) {
+			self.apt.get_architectures()
+		} else {
+			vec![self.apt.get_architectures().into_iter().next().unwrap()]
+		}
+	}
 
 	/// Get the countries that were passed as arguments.
-	pub fn countries(&self) -> Option<&Vec<String>> { self.get_vec("countries") }
+	pub fn countries(&self) -> Option<&Vec<String>> { self.get_vec("country") }
 
 	/// If fetch should be in auto mode and how many mirrors to get.
 	pub fn auto(&self) -> Option<u8> {
@@ -329,6 +298,11 @@ impl Config {
 			return value.str(unit);
 		}
 		UnitStr::new(0, NumSys::Binary).str(unit)
+	}
+
+	pub fn allow_unauthenticated(&self) -> bool {
+		self.get_bool("allow_unauthenticated", false)
+			|| self.apt.bool("APT::Get::AllowUnauthenticated", false)
 	}
 
 	/// Return true if debug is enabled
