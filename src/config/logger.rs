@@ -1,7 +1,5 @@
 use std::io::Write;
-// use tokio::sync::Mutex;
-use std::sync::Mutex;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use crate::config::{color, Theme};
 
@@ -52,6 +50,21 @@ macro_rules! error {
 	($($arg: tt)*) => {{
 		$crate::log!($crate::config::Level::Error, $($arg)*)
 	}};
+}
+
+#[macro_export]
+/// Print Debug information using NalaProgress.
+macro_rules! dprog {
+	($config:expr, $progress:expr, $context:expr, $(,)? $($arg:tt)*) => {
+		if $config.debug() {
+			let output = std::fmt::format(std::format_args!($($arg)*));
+			if $progress.hidden() {
+				eprintln!("DEBUG({}): {output}", $context);
+			} else {
+				$progress.print(&format!("DEBUG({}): {output}", $context))?;
+			}
+		}
+	};
 }
 
 type LogWriter = Box<dyn Write + Send + Sync>;

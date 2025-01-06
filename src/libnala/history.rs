@@ -1,31 +1,25 @@
-use std::collections::HashMap;
 use std::io::Write;
-use std::{fs, io};
 
 use ansi_to_tui::IntoText;
 use anyhow::{anyhow, bail, Context, Result};
-use chrono::{DateTime, Local, Utc};
 use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEventKind};
 use crossterm::execute;
 use crossterm::terminal::EnterAlternateScreen;
+use indexmap::IndexMap;
 use ratatui::layout::Constraint::Length;
 use ratatui::layout::Layout;
 use ratatui::text::Text;
 use ratatui::widgets::{Paragraph, Wrap};
-use rust_apt::{new_cache, Cache, Package, Version};
+use rust_apt::{Cache, Package, Version};
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 
+use super::system::get_user;
+use super::Operation;
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
-use super::{Operation, ShowVersion};
-use crate::{debug, error, table, tui, util};
-
-#[derive(Serialize, Deserialize)]
-pub struct HistoryFile {
-	entries: Vec<HistoryEntry>,
-	version: String,
-}
+use crate::libnala::ShowVersion;
+use crate::{debug, error, tui};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -33,41 +27,11 @@ pub struct HistoryEntry {
 	pub date: String,
 	pub requested_by: String,
 	pub command: String,
-	pkg_names: Vec<String>,
 	pub altered: usize,
 	packages: Vec<HistoryPackage>,
 }
 
-impl HistoryEntry {
-	pub fn new(id: u32, date: String, packages: Vec<HistoryPackage>) -> Self {
-		let (uid, username) = util::get_user();
-		Self {
-			id,
-			date,
-			requested_by: format!("{username} ({uid})"),
-			command: std::env::args().skip(1).collect::<Vec<String>>().join(" "),
-			pkg_names: vec!["I don't know if we need this".to_string()],
-			altered: packages.len(),
-			packages,
-		}
-	}
-
-	pub fn write_to_file(&self, config: &Config) -> Result<()> {
-		let mut filename = config.get_path(&Paths::History);
-		filename.push(format!("{}.bin", self.id));
-
-		fs::write(
-			&filename,
-			bincode::serialize(&self)
-				.with_context(|| format!("Unable to serialize HistoryEntry\n\n    {self:?}"))?,
-		)
-		.with_context(|| format!("Unable to write to '{}'", filename.display()))?;
-
-		Ok(())
-	}
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HistoryPackage {
 	pub name: String,
 	pub version: String,
@@ -76,9 +40,54 @@ pub struct HistoryPackage {
 	pub operation: Operation,
 	pub auto_installed: bool,
 	#[serde(skip)]
-	items: std::cell::OnceCell<Vec<tui::summary::Item>>,
+	items: std::cell::OnceCell<Vec<String>>,
 	#[serde(skip)]
 	changelog: OnceCell<String>,
+}
+
+impl HistoryEntry {
+	pub fn new(id: u32, date: String, packages: Vec<HistoryPackage>) -> Self {
+		let (uid, username) = get_user();
+		Self {
+			id,
+			date,
+			requested_by: format!("{username} ({uid})"),
+			command: std::env::args().skip(1).collect::<Vec<String>>().join(" "),
+			altered: packages.len(),
+			packages,
+		}
+	}
+
+	pub fn to_map(&self) -> IndexMap<Operation, Vec<&HistoryPackage>> {
+		let mut map: IndexMap<Operation, Vec<&HistoryPackage>> = IndexMap::new();
+		for op in Operation::to_vec() {
+			let pkgs = self
+				.packages
+				.as_slice()
+				.iter()
+				.filter(|p| p.operation == op)
+				.collect::<Vec<_>>();
+
+			if pkgs.is_empty() {
+				continue;
+			}
+
+			map.insert(op, pkgs);
+		}
+		map
+	}
+
+	pub async fn write_to_file(&self, config: &Config) -> Result<()> {
+		let mut filename = config.get_path(&Paths::History);
+		filename.push(format!("{}.bin", self.id));
+
+		filename
+			.write(
+				bincode::serialize(&self)
+					.with_context(|| format!("Unable to serialize HistoryEntry\n\n    {self:?}"))?,
+			)
+			.await
+	}
 }
 
 impl HistoryPackage {
@@ -99,7 +108,6 @@ impl HistoryPackage {
 		}
 	}
 
-	// TODO: Can probably use CliPackage here?
 	pub fn get_pkg<'a>(&self, cache: &'a Cache) -> Result<Package<'a>> {
 		if let Some(pkg) = cache.get(&self.name) {
 			return Ok(pkg);
@@ -127,30 +135,19 @@ impl HistoryPackage {
 			.await
 	}
 
-	pub fn items(&self, config: &Config) -> &Vec<tui::summary::Item> {
+	pub fn items(&self, config: &Config) -> &Vec<String> {
 		self.items.get_or_init(|| {
-			let secondary = config.rat_style(self.operation);
-			let primary = config.rat_style(Theme::Regular);
-
 			let colored = color::color!(self.operation, &self.name).to_string();
-			let mut items = vec![tui::summary::Item::left(secondary, colored)];
+			let mut items = vec![colored];
 
 			if let Some(old) = &self.old_version {
-				items.push(tui::summary::Item::center(primary, old.to_string()));
-				items.push(tui::summary::Item::center(
-					primary,
-					util::version_diff(old, self.version.to_string()),
-				));
+				items.push(old.to_string());
+				items.push(version_diff(old, &self.version));
 			} else {
-				items.push(tui::summary::Item::center(
-					primary,
-					self.version.to_string(),
-				));
+				items.push(self.version.to_string());
 			}
-			items.push(tui::summary::Item::right(
-				primary,
-				config.unit_str(self.size),
-			));
+
+			items.push(config.unit_str(self.size));
 			items
 		})
 	}
@@ -172,7 +169,7 @@ impl HistoryPackage {
 				match err.kind() {
 					// Broken Pipe if not all of the changelog is read.
 					// Happens on pager exit without reading the whole file.
-					io::ErrorKind::BrokenPipe => {},
+					std::io::ErrorKind::BrokenPipe => {},
 					_ => return Err(err.into()),
 				}
 			}
@@ -203,9 +200,7 @@ impl HistoryPackage {
 		for (head, info) in show.pretty_map() {
 			let mut split = info.split('\n');
 			if let Some(first) = split.next() {
-				lines.push(
-					format!("{}: {first}", color::highlight!(head)).into_text()?,
-				);
+				lines.push(format!("{}: {first}", color::highlight!(head)).into_text()?);
 				for line in split {
 					let line = line.to_string();
 					lines.push(line.into_text()?)
@@ -267,9 +262,7 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 			let id = match filename.split('.').next()?.parse::<u64>() {
 				Ok(num) => num,
 				Err(e) => {
-					error!(
-						"{:?}", anyhow!(e).context("Filename is not an int.")
-					);
+					error!("{:?}", anyhow!(e).context("Filename is not an int."));
 					return None;
 				},
 			};
@@ -296,62 +289,43 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 	Ok(parsed)
 }
 
-pub async fn history(config: &Config) -> Result<()> {
-	let history_file = get_history(config).await?;
-	let cache = new_cache!()?;
+pub fn version_diff(old: &str, new: &str) -> String {
+	// Check for just revision change first.
+	if let (Some(old_ver), Some(new_ver)) = (old.rsplit_once('-'), new.rsplit_once('-')) {
+		// If there isn't a revision these shouldn't ever match
+		// If they do match then only the revision has changed
+		if old_ver.0 == new_ver.0 {
+			return format!("{}-{}", new_ver.0, color::color!(Theme::Notice, new_ver.0));
+		}
+	}
 
-	let mut table = table::get_table(
-		&["ID", "Command", "Date and Time", "Requested-By", "Altered"],
+	let (old_ver, new_ver) = (
+		old.split('.').collect::<Vec<_>>(),
+		new.split('.').collect::<Vec<_>>(),
 	);
 
-	// TODO: Make it configurable which timezones you want.
+	let mut start_color = 0;
+	for (i, section) in old_ver.iter().enumerate() {
+		if i > new_ver.len() - 1 {
+			break;
+		}
 
-	// Convert Stored UTC into the local time zone
-	let date_times = history_file
+		if section != &new_ver[i] {
+			start_color = i;
+			break;
+		}
+	}
+
+	new_ver
 		.iter()
-		.filter_map(|e| {
-			Some(
-				e.date
-					.parse::<DateTime<Utc>>()
-					.ok()?
-					.with_timezone(&Local)
-					.format("%Y-%m-%d %H:%M:%S %Z"),
-			)
+		.enumerate()
+		.map(|(i, str)| {
+			if i >= start_color {
+				color::color!(Theme::Notice, str).to_string()
+			} else {
+				str.to_string()
+			}
 		})
-		.collect::<Vec<_>>();
-
-	for (i, entry) in history_file.iter().enumerate() {
-		let row: Vec<&dyn std::fmt::Display> = vec![
-			&entry.id,
-			&entry.command,
-			&date_times[i],
-			&entry.requested_by,
-			&entry.altered,
-		];
-		table.add_row(row);
-	}
-
-	if !config.get_no_bool("tui", true) {
-		println!("{table}");
-		return Ok(());
-	}
-
-	// This will actually be the `history info` command.
-	let mut pkg_set: HashMap<Operation, Vec<HistoryPackage>> = HashMap::new();
-
-	let num = 2;
-
-	let Some(entry) = history_file.into_iter().nth(num - 1) else {
-		bail!("History entry with ID '{num}' does not exist")
-	};
-
-	for pkg in entry.packages {
-		pkg_set.entry(pkg.operation).or_default().push(pkg)
-	}
-
-	tui::summary::SummaryTab::new(&cache, config, &pkg_set)
-		.run()
-		.await?;
-
-	Ok(())
+		.collect::<Vec<_>>()
+		.join(".")
 }

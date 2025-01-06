@@ -2,12 +2,11 @@ use anyhow::{bail, Result};
 use rust_apt::new_cache;
 use rust_apt::util::show_broken_pkg;
 
-use crate::cmd::Operation;
 use crate::config::Config;
 use crate::deb::DebFile;
 use crate::download::Downloader;
 use crate::glob::CliPackage;
-use crate::util::sudo_check;
+use crate::libnala::{sudo_check, Operation};
 use crate::{debug, glob, info};
 
 /// Sort command line pkgs and download http pkgs
@@ -79,7 +78,7 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 			)
 		};
 		ver.set_candidate();
-		packages.push(CliPackage::new_glob(pkg.name().to_string())?.with_pkg(pkg, ver))
+		packages.push(CliPackage::new_glob(pkg.name().to_string())?.with_pkg(pkg))
 	}
 
 	packages.mark(&cache, operation, config.get_bool("purge", false))?;

@@ -1,32 +1,51 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use std::io::Write;
 
 use anyhow::{bail, Result};
 use chrono::Utc;
 use rust_apt::util::DiskSpace;
 use rust_apt::{Cache, Package};
 
-use crate::cmd::{
-	self, apt_hook_with_pkgs, ask, run_scripts, HistoryEntry, HistoryPackage, Operation,
-};
 use crate::config::{color, Config, Paths, Theme};
 use crate::download::Downloader;
-use crate::libnala::NalaCache;
+use crate::libnala::{apt_hook_with_pkgs, get_history, run_scripts, HistoryEntry, NalaCache};
 use crate::{dpkg, error, table, tui, warn};
+
+/// Ask the user a question and let them decide Y or N
+pub fn ask(msg: &str) -> Result<()> {
+	print!("{msg} [Y/n] ");
+	std::io::stdout().flush()?;
+
+	let mut response = String::new();
+	std::io::stdin().read_line(&mut response)?;
+
+	let resp = response.to_lowercase();
+	if resp.starts_with('y') {
+		return Ok(());
+	}
+
+	if resp.starts_with('n') {
+		bail!("User refused confirmation")
+	}
+
+	bail!("'{}' is not a valid response", response.trim())
+}
 
 /// TODO: Implement a simple summary that is very short for serial/console users
 pub async fn display_summary(
 	cache: &Cache,
 	config: &Config,
-	pkg_set: &HashMap<Operation, Vec<HistoryPackage>>,
+	history: &HistoryEntry,
 ) -> Result<bool> {
 	if config.get_no_bool("tui", true) {
 		// App returns true if we should continue.
-		tui::summary::SummaryTab::new(cache, config, pkg_set)
+		tui::summary::SummaryTab::new(cache, config, history)
 			.run()
 			.await
 	} else {
 		let mut tables = vec![];
-		for (op, pkgs) in pkg_set {
+		let map = history.to_map();
+		for (op, pkgs) in map.iter() {
 			let mut table = table::get_table(if pkgs[0].items(config).len() > 3 {
 				&["Package:", "Old Version:", "New Version:", "Size:"]
 			} else {
@@ -51,7 +70,7 @@ pub async fn display_summary(
 		println!(" Summary");
 		println!("{sep}");
 
-		for (op, pkgs) in pkg_set {
+		for (op, pkgs) in map {
 			println!(" {op} {}", pkgs.len())
 		}
 
@@ -148,7 +167,19 @@ pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
 		return Ok(());
 	};
 
-	if !crate::summary::display_summary(&cache, config, &pkg_set).await? {
+	let history_entry = HistoryEntry::new(
+		get_history(config)
+			.await?
+			.iter()
+			.map(|entry| entry.id)
+			.max()
+			.unwrap_or_default()
+			+ 1,
+		Utc::now().to_rfc3339(),
+		pkg_set.into_values().flatten().collect(),
+	);
+
+	if !crate::summary::display_summary(&cache, config, &history_entry).await? {
 		return Ok(());
 	};
 
@@ -163,19 +194,7 @@ pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
 		return Ok(());
 	}
 
-	let history_entry = HistoryEntry::new(
-		cmd::get_history(config)
-			.await?
-			.iter()
-			.map(|entry| entry.id)
-			.max()
-			.unwrap_or_default()
-			+ 1,
-		Utc::now().to_rfc3339(),
-		pkg_set.into_values().flatten().collect(),
-	);
-
-	history_entry.write_to_file(config)?;
+	history_entry.write_to_file(config).await?;
 
 	// TODO: There should likely be a field in the history
 	// to mark that it was a transaction that failed.

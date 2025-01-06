@@ -1,5 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
-use std::{fmt, io};
+use std::io;
 
 use ansi_to_tui::IntoText;
 use anyhow::Result;
@@ -10,11 +9,12 @@ use crossterm::execute;
 use crossterm::terminal::{
 	disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use indexmap::IndexMap;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint::{Length, Max, Min};
 use ratatui::layout::{Alignment, Flex, Layout, Margin, Rect};
 use ratatui::prelude::CrosstermBackend;
-use ratatui::style::{Style, Styled};
+use ratatui::style::Styled;
 use ratatui::text::Text;
 use ratatui::widgets::{
 	Block, BorderType, Cell, HighlightSpacing, Padding, Paragraph, Row, Scrollbar,
@@ -25,59 +25,18 @@ use rust_apt::util::DiskSpace;
 use rust_apt::Cache;
 
 use super::Term;
-use crate::cmd::{HistoryPackage, Operation};
 use crate::config::{Config, Theme};
-
-#[derive(Debug)]
-pub struct Item {
-	align: Alignment,
-	style: Style,
-	pub string: String,
-}
-
-impl Item {
-	fn new(align: Alignment, style: Style, string: String) -> Self {
-		Self {
-			align,
-			style,
-			string,
-		}
-	}
-
-	pub fn center(style: Style, string: String) -> Self {
-		Self::new(Alignment::Center, style, string)
-	}
-
-	pub fn right(style: Style, string: String) -> Self {
-		Self::new(Alignment::Right, style, string)
-	}
-
-	pub fn left(style: Style, string: String) -> Self { Self::new(Alignment::Left, style, string) }
-
-	fn get_cell(&self) -> Cell {
-		Cell::from(
-			self.string
-				.into_text()
-				.unwrap()
-				.style(self.style)
-				.alignment(self.align),
-		)
-	}
-}
-
-impl fmt::Display for Item {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.string) }
-}
+use crate::libnala::{HistoryEntry, HistoryPackage, Operation};
 
 pub struct App<'a> {
 	state: TableState,
 	scroll_state: ScrollbarState,
 	config: &'a Config,
-	items: &'a Vec<HistoryPackage>,
+	items: Vec<&'a HistoryPackage>,
 }
 
 impl<'a> App<'a> {
-	fn new(config: &'a Config, items: &'a Vec<HistoryPackage>) -> Self {
+	fn new(config: &'a Config, items: Vec<&'a HistoryPackage>) -> Self {
 		let scroll_state = ScrollbarState::new(items.len() - 1);
 		Self {
 			state: TableState::default().with_selected(0),
@@ -117,36 +76,61 @@ impl<'a> App<'a> {
 		let white = self.config.rat_style(Theme::Regular);
 
 		// Choose which headers based on the inner items of the SummaryPkg
-		let headers = if self.items[0].items(self.config).len() > 3 {
+		let cols = self.items[0].items(self.config).len();
+		let headers = if cols > 3 {
 			vec!["Package:", "Old Version:", "New Version:", "Size:"]
 		} else {
 			vec!["Package:", "Version:", "Size:"]
 		};
+
+		// Setup alignment. First is Left, Last is Right.
+		let mut alignment = Vec::with_capacity(cols);
+		for i in 0..cols {
+			if i == 0 {
+				alignment.push(Alignment::Left);
+			} else if i + 1 == cols {
+				alignment.push(Alignment::Right);
+			} else {
+				alignment.push(Alignment::Center);
+			}
+		}
+
 		// Get max length of the headers incase they are the longest in the columns
 		let header_max = headers.iter().map(|h| h.len()).max().unwrap_or_default();
 
 		// Build the headers into Cells
 		let header = headers
 			.into_iter()
-			.zip(self.items[0].items(self.config).iter())
-			.map(|(str, i)| Cell::from(Text::from(str).alignment(i.align)))
+			.enumerate()
+			.map(|(i, str)| Cell::from(Text::from(str).alignment(alignment[i])))
 			.collect::<Row>()
 			.style(white);
 
 		let mut constraints = vec![];
-		for i in 0..self.items[0].items(self.config).len() {
+		for i in 0..cols {
 			constraints.push(
 				self.items
 					.iter()
-					.map(|item| item.items(self.config)[i].string.len().max(header_max))
+					.map(|item| item.items(self.config)[i].len().max(header_max))
 					.max()
 					.unwrap_or_default() as u16,
 			)
 		}
 
 		let t = Table::new(
-			self.items.iter().map(|vec| {
-				Row::from_iter(vec.items(self.config).iter().map(|item| item.get_cell()))
+			self.items.iter().map(|pkg| {
+				Row::from_iter(pkg.items(self.config).iter().enumerate().map(|(i, item)| {
+					Cell::from(
+						item.into_text()
+							.unwrap()
+							.style(if i == 0 {
+								self.config.rat_style(pkg.operation)
+							} else {
+								white
+							})
+							.alignment(alignment[i]),
+					)
+				}))
 			}),
 			constraints,
 		)
@@ -190,48 +174,23 @@ impl StatefulWidget for &mut App<'_> {
 pub struct SummaryTab<'a> {
 	cache: &'a Cache,
 	config: &'a Config,
-	pkg_set: BTreeMap<Operation, App<'a>>,
-	// Array first is the header, second is string.
-	download_size: Option<Vec<String>>,
-	disk_space: Vec<String>,
+	pkg_set: IndexMap<Operation, App<'a>>,
 	i: usize,
 	tabs: Vec<Operation>,
 }
 
 impl<'a> SummaryTab<'a> {
-	pub fn new(
-		cache: &'a Cache,
-		config: &'a Config,
-		pkg_set: &'a HashMap<Operation, Vec<HistoryPackage>>,
-	) -> Self {
-		let pkg_set = pkg_set
+	pub fn new(cache: &'a Cache, config: &'a Config, history: &'a HistoryEntry) -> Self {
+		let pkg_set = history
+			.to_map()
 			.iter()
-			.map(|(op, set)| (*op, App::new(config, set)))
+			.map(|(op, set)| (*op, App::new(config, set.to_vec())))
 			.collect();
-
-		let size = cache.depcache().download_size();
-		let download_size = if size > 0 {
-			Some(vec![
-				"Total download size:".to_string(),
-				config.unit_str(size),
-			])
-		} else {
-			None
-		};
-
-		let disk_space = match cache.depcache().disk_size() {
-			DiskSpace::Require(num) => {
-				vec!["Disk space required:".to_string(), config.unit_str(num)]
-			},
-			DiskSpace::Free(num) => vec!["Disk space to free:".to_string(), config.unit_str(num)],
-		};
 
 		let mut tabs = Self {
 			cache,
 			config,
 			pkg_set,
-			download_size,
-			disk_space,
 			i: 0,
 			tabs: Operation::to_vec(),
 		};
@@ -414,10 +373,25 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 		}
 
 		summary.push(vec![]);
-		if let Some(array) = &self.download_size {
-			summary.push(array.clone());
+		let size = self.cache.depcache().download_size();
+		if size > 0 {
+			summary.push(vec![
+				"Total download size:".to_string(),
+				self.config.unit_str(size),
+			])
 		}
-		summary.push(self.disk_space.clone());
+
+		summary.push(match self.cache.depcache().disk_size() {
+			DiskSpace::Require(num) => {
+				vec![
+					"Disk space required:".to_string(),
+					self.config.unit_str(num),
+				]
+			},
+			DiskSpace::Free(num) => {
+				vec!["Disk space to free:".to_string(), self.config.unit_str(num)]
+			},
+		});
 
 		let mut header_len = 0;
 		let mut size_len = 0;

@@ -1,111 +1,19 @@
-macro_rules! define_modules {
-	($($module:ident),*) => {
-		$(
-			mod $module;
-			pub use $module::$module;
-		)*
-	};
-}
-
-define_modules!(show, update, upgrade, history, fetch, clean);
-
-pub mod install;
-mod list;
-pub mod traits;
-
 use anyhow::Result;
-// TODO: These should maybe be part of like a libnala?
-pub use history::{get_history, HistoryEntry, HistoryPackage};
-use indexmap::IndexMap;
-pub use install::mark_cli_pkgs;
-pub use list::list_packages;
+use indexmap::{IndexMap, IndexSet};
 use rust_apt::records::RecordField;
-use rust_apt::{DepType, Version};
-use serde::{Deserialize, Serialize};
-use show::format_local;
-use traits::ShowFormat;
-pub use upgrade::{apt_hook_with_pkgs, ask, run_scripts};
+use rust_apt::{BaseDep, DepType, Dependency, PackageFile, Provider, Version};
 
 use crate::config::{color, Config, Theme};
-use crate::util::URL;
+use crate::libnala::{PACSTALL, URL};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Operation {
-	Remove,
-	AutoRemove,
-	Purge,
-	AutoPurge,
-	Install,
-	Reinstall,
-	Upgrade,
-	Downgrade,
-	Held,
+pub trait ShowFormat {
+	fn format(&self) -> String;
 }
 
-impl Operation {
-	pub fn to_vec() -> Vec<Operation> {
-		vec![
-			Self::Remove,
-			Self::AutoRemove,
-			Self::Purge,
-			Self::AutoPurge,
-			Self::Install,
-			Self::Reinstall,
-			Self::Upgrade,
-			Self::Downgrade,
-		]
-	}
+pub struct ShowVersion<'a> {
+	ver: Version<'a>,
+	records: IndexMap<&'static str, String>,
 }
-
-impl Operation {
-	pub fn as_str(&self) -> &str { self.as_ref() }
-}
-
-impl std::fmt::Display for Operation {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", AsRef::<str>::as_ref(self))
-	}
-}
-
-impl AsRef<str> for Operation {
-	fn as_ref(&self) -> &str {
-		match self {
-			Operation::Remove => "Remove",
-			Operation::AutoRemove => "AutoRemove",
-			Operation::Purge => "Purge",
-			Operation::AutoPurge => "AutoPurge",
-			Operation::Install => "Install",
-			Operation::Reinstall => "ReInstall",
-			Operation::Upgrade => "Upgrade",
-			Operation::Downgrade => "Downgrade",
-			Operation::Held => "Held",
-		}
-	}
-}
-
-impl AsRef<Theme> for Operation {
-	fn as_ref(&self) -> &Theme {
-		match self {
-			Self::Remove | Self::AutoRemove | Self::Purge | Self::AutoPurge => &Theme::Error,
-			Self::Install | Self::Upgrade => &Theme::Secondary,
-			Self::Reinstall | Self::Downgrade | Self::Held => &Theme::Notice,
-		}
-	}
-}
-
-const DEP_ITER: &[DepType] = {
-	&[
-		DepType::Depends,
-		DepType::PreDepends,
-		DepType::Suggests,
-		DepType::Recommends,
-		DepType::Conflicts,
-		DepType::Replaces,
-		DepType::Obsoletes,
-		DepType::DpkgBreaks,
-		DepType::Enhances,
-	]
-};
 
 const RECORDS: [&str; 13] = [
 	RecordField::Package,
@@ -123,16 +31,19 @@ const RECORDS: [&str; 13] = [
 	RecordField::SHA256,
 ];
 
-fn print_info(header: &str, value: &str) {
-	let sep = color::highlight!(":");
-	let header = color::highlight!(header);
-	println!("{header}{sep} {value}")
-}
-
-struct ShowVersion<'a> {
-	ver: Version<'a>,
-	records: IndexMap<&'static str, String>,
-}
+const DEP_ITER: &[DepType] = {
+	&[
+		DepType::Depends,
+		DepType::PreDepends,
+		DepType::Suggests,
+		DepType::Recommends,
+		DepType::Conflicts,
+		DepType::Replaces,
+		DepType::Obsoletes,
+		DepType::DpkgBreaks,
+		DepType::Enhances,
+	]
+};
 
 impl ShowVersion<'_> {
 	pub fn new(ver: Version) -> ShowVersion {
@@ -294,4 +205,153 @@ impl ShowVersion<'_> {
 	}
 
 	pub fn to_json(&self) -> Result<String> { Ok(serde_json::to_string_pretty(&self.ver)?) }
+}
+
+impl ShowFormat for BaseDep<'_> {
+	fn format(&self) -> String {
+		// These Dependency types will be colored red
+		let theme = if matches!(self.dep_type(), DepType::Conflicts | DepType::DpkgBreaks) {
+			Theme::Error
+		} else {
+			Theme::Primary
+		};
+
+		if let Some(comp) = self.comp_type() {
+			return format!(
+				// libgnutls30 (>= 3.7.5)
+				"{} {}{comp} {}{}",
+				// There's a compare operator in the dependency.
+				// Dang better have a version smh my head.
+				color::color!(theme, self.target_package().name()),
+				color::highlight!("("),
+				color::color!(Theme::Secondary, self.version().unwrap()),
+				color::highlight!(")"),
+			);
+		}
+		color::color!(theme, self.target_package().name()).into()
+	}
+}
+
+const DEP_BUFFER: &str = "\n    ";
+const DEP_SEP: &str = " | ";
+impl ShowFormat for &Vec<Dependency<'_>> {
+	fn format(&self) -> String {
+		let mut depends_string = String::new();
+		// Get total deps number to include Or Dependencies
+		let total_deps = self.len();
+
+		// If there are more than 4 deps format with multiple lines
+		if total_deps > 3 {
+			depends_string += DEP_BUFFER;
+		}
+
+		let mut inner = IndexSet::new();
+		for (i, dep) in self.iter().enumerate() {
+			let target = dep.first().target_package().name();
+			if inner.contains(target) {
+				continue;
+			}
+			inner.insert(target);
+
+			// Or Deps need to be formatted slightly different.
+			if dep.is_or() {
+				for (j, base_dep) in dep.iter().enumerate() {
+					depends_string += &base_dep.format();
+					if j + 1 != dep.len() {
+						depends_string += DEP_SEP;
+					}
+				}
+			} else {
+				// Regular dependencies are more simple than Or
+				depends_string += &dep.first().format();
+			}
+
+			depends_string += if total_deps > 3 {
+				DEP_BUFFER
+			// Only add the comma if it isn't the last.
+			} else if i + 1 != total_deps {
+				", "
+			} else {
+				" "
+			};
+		}
+		depends_string.trim_end().to_string()
+	}
+}
+
+impl ShowFormat for PackageFile<'_> {
+	fn format(&self) -> String {
+		let mut string = String::new();
+
+		let Some(archive) = self.archive() else {
+			return "ERROR:?".into();
+		};
+
+		if archive == "now" {
+			return " [now]".into();
+		}
+
+		string += " [";
+		for (key, postfix) in [
+			(self.origin(), "/"),
+			(self.codename(), " "),
+			(self.component(), "] "),
+		] {
+			if let Some(value) = key {
+				string += value;
+			}
+			string += postfix;
+		}
+		string
+	}
+}
+
+impl ShowFormat for Vec<Provider<'_>> {
+	fn format(&self) -> String {
+		format!(
+			"[{}]",
+			self.iter()
+				.map(|p| p.name())
+				.collect::<Vec<&str>>()
+				.join(", ")
+		)
+	}
+}
+
+impl ShowFormat for Version<'_> {
+	fn format(&self) -> String {
+		format!(
+			"{} {}",
+			color::primary!(&self.parent().fullname(true)),
+			color::ver!(self.version()),
+		)
+	}
+}
+
+pub fn format_local(pkg_name: &str) -> String {
+	// Check if this could potentially be a Pacstall Package.
+	let mut pac_repo = String::new();
+	let postfixes = ["", "-deb", "-git", "-bin", "-app"];
+	for postfix in postfixes {
+		if let Ok(metadata) =
+			std::fs::read_to_string(format!("/var/log/pacstall/metadata/{pkg_name}{postfix}"))
+		{
+			if let Some(repo) = PACSTALL.captures(&metadata) {
+				pac_repo += repo.get(1).unwrap().as_str();
+			} else {
+				pac_repo += "https://github.com/pacstall/pacstall-programs";
+			}
+		}
+	}
+	if pac_repo.is_empty() {
+		return "local install".to_string();
+	}
+
+	color::secondary!(pac_repo).into()
+}
+
+fn print_info(header: &str, value: &str) {
+	let sep = color::highlight!(":");
+	let header = color::highlight!(header);
+	println!("{header}{sep} {value}")
 }

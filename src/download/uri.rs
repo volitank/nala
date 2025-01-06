@@ -14,7 +14,7 @@ use super::Downloader;
 use crate::config::{color, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::{self, HashSum};
-use crate::util::{get_pkg_name, DOMAIN, MIRROR};
+use crate::libnala::{NalaVersion, DOMAIN, MIRROR};
 
 pub async fn add_domain(domain: String, domains: &mut Arc<Mutex<HashMap<String, u8>>>) -> bool {
 	let mut lock = domains.lock().await;
@@ -58,7 +58,7 @@ impl Uri {
 	) -> Result<Uri> {
 		let uris = downloader.filter.uris(version, archive).await?;
 		let size = version.size() as usize;
-		let filename = get_pkg_name(version);
+		let filename = version.get_filename();
 		let hash = hashsum::get_hash(version)?;
 		Ok(Self::new(downloader, uris, size, filename, Some(hash)))
 	}

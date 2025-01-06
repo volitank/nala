@@ -1,14 +1,11 @@
-use std::marker::PhantomData;
-
 use anyhow::{bail, Result};
 use globset::{GlobBuilder, GlobMatcher};
 use regex::{Regex, RegexBuilder};
 use rust_apt::raw::IntoRawIter;
-use rust_apt::{Cache, Package, PackageSort, Version};
+use rust_apt::{Cache, Package, PackageSort};
 
-use crate::cmd::Operation;
 use crate::config::{color, Config, Theme};
-use crate::libnala::NalaPkg;
+use crate::libnala::{NalaPkg, Operation};
 use crate::{debug, error, info};
 
 #[derive(Debug)]
@@ -27,16 +24,7 @@ pub struct CliPackage<'a> {
 	version: Option<String>,
 	pub modifier: Option<Operation>,
 	matcher: Matcher,
-	pub pkgs: Vec<FoundPackage<'a>>,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct FoundPackage<'a> {
-	pub pkg: Package<'a>,
-	// I suspect we will want the selected version at some point
-	pub _version: Version<'a>,
-	pub modifier: Option<Operation>,
-	_marker: PhantomData<&'a Cache>,
+	pub pkgs: Vec<Package<'a>>,
 }
 
 impl<'a> FromIterator<CliPackage<'a>> for CliPackages<'a> {
@@ -56,24 +44,17 @@ impl<'a> CliPackages<'a> {
 
 	pub fn sort_by_name(&mut self) {
 		self.0
-			.sort_by_cached_key(|c| c.pkgs.first().unwrap().pkg.name().to_string());
+			.sort_by_cached_key(|c| c.pkgs.first().unwrap().name().to_string());
 	}
 
-	pub fn only_pkgs(self) -> Vec<Package<'a>> { self.found().map(|p| p.pkg).collect() }
-
 	/// Consume the iterator and retrieve all the pkgs found
-	pub fn found(self) -> impl Iterator<Item = FoundPackage<'a>> {
+	pub fn found(self) -> impl Iterator<Item = Package<'a>> {
 		self.0.into_iter().flat_map(|p| p.pkgs)
 	}
 
-	pub fn found_as_ref(&self) -> Vec<&FoundPackage<'a>> {
-		self.iter().flat_map(|p| &p.pkgs).collect()
-	}
-
-	pub fn iter(&self) -> impl Iterator<Item = &CliPackage<'a>> { self.0.iter() }
-
 	pub fn check_not_found(&self) -> Result<()> {
-		debug!("{:#?}", self.found_as_ref());
+		let as_ref: Vec<&Package<'a>> = self.0.iter().flat_map(|p| &p.pkgs).collect();
+		debug!("{as_ref:#?}");
 		let mut bail = false;
 		for cli in &self.0 {
 			if !cli.pkgs.is_empty() {
@@ -95,45 +76,46 @@ impl<'a> CliPackages<'a> {
 
 	pub fn mark(self, cache: &Cache, operation: Operation, purge: bool) -> Result<()> {
 		let _ = unsafe { cache.depcache().action_group() };
-		for found in self.found() {
-			let pkg = &found.pkg;
-			match found.modifier.unwrap_or(operation) {
-				Operation::Install => {
-					let Some(cand) = pkg.candidate() else {
-						bail!("{} has no install candidate", pkg.name())
-					};
+		for cli in self.0 {
+			for pkg in cli.pkgs {
+				match cli.modifier.unwrap_or(operation) {
+					Operation::Install => {
+						let Some(cand) = pkg.candidate() else {
+							bail!("{} has no install candidate", pkg.name())
+						};
 
-					if let Some(inst) = pkg.installed() {
-						if inst == cand {
-							info!(
-								"{}{} is already installed and at the latest version",
-								color::primary!(pkg.name()),
-								color::ver!(cand.version())
-							);
-							continue;
+						if let Some(inst) = pkg.installed() {
+							if inst == cand {
+								info!(
+									"{}{} is already installed and at the latest version",
+									color::primary!(pkg.name()),
+									color::ver!(cand.version())
+								);
+								continue;
+							}
 						}
-					}
-					cache.resolver().clear(pkg);
-					cache.resolver().protect(pkg);
-					pkg.mark_install(true, true);
-				},
-				Operation::Remove => {
-					let Some(_inst) = pkg.installed() else {
-						info!("{} is not installed", pkg.name());
-						continue;
-					};
+						cache.resolver().clear(&pkg);
+						cache.resolver().protect(&pkg);
+						pkg.mark_install(true, true);
+					},
+					Operation::Remove => {
+						let Some(_inst) = pkg.installed() else {
+							info!("{} is not installed", pkg.name());
+							continue;
+						};
 
-					// TODO: Apt has this, I think we need to bind this in rust-apt though
-					// Potentially can call it pkg.mark_hold()?
-					//
-					// MarkInstall refuses to install packages on hold
-					// Pkg->SelectedState = pkgCache::State::Hold;
-					debug!("Mark Delete: {pkg}");
-					cache.resolver().clear(pkg);
-					cache.resolver().protect(pkg);
-					pkg.mark_delete(purge);
-				},
-				_ => todo!(),
+						// TODO: Apt has this, I think we need to bind this in rust-apt though
+						// Potentially can call it pkg.mark_hold()?
+						//
+						// MarkInstall refuses to install packages on hold
+						// Pkg->SelectedState = pkgCache::State::Hold;
+						debug!("Mark Delete: {pkg}");
+						cache.resolver().clear(&pkg);
+						cache.resolver().protect(&pkg);
+						pkg.mark_delete(purge);
+					},
+					_ => todo!(),
+				}
 			}
 		}
 
@@ -172,31 +154,25 @@ impl<'a> CliPackage<'a> {
 		self
 	}
 
-	pub fn with_pkg(mut self, pkg: Package<'a>, ver: Version<'a>) -> Self {
-		self.add_no_op(pkg, ver);
+	pub fn with_pkg(mut self, pkg: Package<'a>) -> Self {
+		self.add_pkg(pkg);
 		self
 	}
 
-	pub fn add_pkg(&mut self, pkg: Package<'a>, ver: Version<'a>, op: Option<Operation>) {
-		self.pkgs.push(FoundPackage::new(pkg, ver, op))
-	}
-
-	pub fn add_no_op(&mut self, pkg: Package<'a>, version: Version<'a>) {
-		self.add_pkg(pkg, version, None);
-	}
+	pub fn add_pkg(&mut self, pkg: Package<'a>) { self.pkgs.push(pkg) }
 
 	pub fn set_ver(&mut self, ver_str: String) { self.version = Some(ver_str); }
 
-	pub fn get_version(&self, pkg: &Package<'a>) -> Result<Version<'a>> {
+	pub fn set_cand(&self, pkg: &Package<'a>) -> Result<()> {
 		if let Some(ver_str) = &self.version {
 			if let Some(ver) = pkg.get_version(ver_str) {
-				return Ok(ver);
+				ver.set_candidate();
 			}
 			bail!("Unable to find version '{ver_str}' for '{}'", pkg.name());
 		};
 
-		if let Some(ver) = pkg.versions().next() {
-			return Ok(ver);
+		if pkg.has_versions() {
+			return Ok(());
 		}
 
 		bail!("Unable to find any versions for '{}'", pkg.name());
@@ -206,21 +182,6 @@ impl<'a> CliPackage<'a> {
 		match &self.matcher {
 			Matcher::Glob(glob) => glob.is_match(other),
 			Matcher::Regex(regex) => regex.is_match(other),
-		}
-	}
-}
-
-impl<'a> FoundPackage<'a> {
-	pub fn new(
-		pkg: Package<'a>,
-		_version: Version<'a>,
-		modifier: Option<Operation>,
-	) -> FoundPackage<'a> {
-		Self {
-			pkg,
-			_version,
-			modifier,
-			_marker: PhantomData,
 		}
 	}
 }
@@ -287,8 +248,8 @@ pub fn pkgs_with_modifiers<'a>(
 		};
 
 		let pkg = pkg.filter_virtual()?;
-		let version = cli.get_version(&pkg)?;
-		cli.add_pkg(pkg, version, cli.modifier);
+		cli.set_cand(&pkg)?;
+		cli.add_pkg(pkg);
 	}
 
 	globs.check_not_found()?;
@@ -317,15 +278,15 @@ pub fn regex_pkgs<'a>(config: &Config, cache: &'a Cache) -> Result<CliPackages<'
 			}
 			let version = pkg.versions().next()?;
 			let desc = unsafe { version.translated_desc().make_safe() };
-			Some((pkg, version, desc))
+			Some((pkg, desc))
 		})
 		.collect::<Vec<_>>();
 
 	// Some versions may not have descriptions
-	filtered_pkgs.sort_by_cached_key(|p| if let Some(desc) = &p.2 { desc.index() } else { 0 });
-	for (pkg, version, desc) in filtered_pkgs {
+	filtered_pkgs.sort_by_cached_key(|p| if let Some(desc) = &p.1 { desc.index() } else { 0 });
+	for (pkg, desc) in filtered_pkgs {
 		if let Some(cli) = cli_pkgs.find_mut(pkg.name()) {
-			cli.add_no_op(pkg, version);
+			cli.add_pkg(pkg);
 			continue;
 		}
 
@@ -339,7 +300,7 @@ pub fn regex_pkgs<'a>(config: &Config, cache: &'a Cache) -> Result<CliPackages<'
 		};
 
 		if let Some(cli) = cli_pkgs.find_mut(&desc) {
-			cli.add_no_op(pkg, version);
+			cli.add_pkg(pkg);
 		}
 	}
 

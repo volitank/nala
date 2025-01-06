@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Error, Result};
-use rust_apt::{new_cache, Version};
+use rust_apt::Version;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinSet;
 
@@ -13,56 +13,6 @@ use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
 use crate::{debug, dprog, info, tui, warn};
-
-pub async fn download(config: &Config) -> Result<()> {
-	// Set download directory to the cwd.
-	config.apt.set(Paths::Archive.path(), "./");
-
-	let mut downloader = Downloader::new(config)?;
-	let mut not_found = vec![];
-
-	let cache = new_cache!()?;
-	let pkg_names = config.pkg_names()?;
-	let archive = config.get_path(&Paths::Archive);
-	for name in &pkg_names {
-		if let Some(pkg) = cache.get(name) {
-			let versions: Vec<Version> = pkg.versions().collect();
-			for version in &versions {
-				if version.is_downloadable() {
-					downloader.add_version(version, &archive).await?;
-					break;
-				}
-				warn!(
-					"Can't find a source to download version '{}' of '{}'",
-					version.version(),
-					pkg.fullname(false)
-				);
-			}
-		} else {
-			not_found.push(color::color!(Theme::Notice, name).to_string());
-		}
-	}
-
-	if !not_found.is_empty() {
-		for pkg in &not_found {
-			color::color!(Theme::Error, &format!("{pkg} not found"));
-		}
-		bail!("Some packages were not found.");
-	}
-
-	let finished = downloader.run(config, true).await?;
-
-	println!("Downloads Complete:");
-	for uri in finished {
-		println!(
-			"  {} was written to {}",
-			color::primary!(&uri.filename),
-			color::primary!(&uri.archive.to_string_lossy()),
-		)
-	}
-
-	Ok(())
-}
 
 /// If there are any untrusted URIs,
 /// check if we're allowed to fetch them and error otherwise.

@@ -9,38 +9,13 @@ use std::process::Command;
 use anyhow::{bail, Result};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{close, dup2, execv, fork, pipe, ForkResult};
-use rust_apt::cache::Upgrade;
 use rust_apt::raw::quote_string;
-use rust_apt::{new_cache, Package, PkgCurrentState, Version};
+use rust_apt::{Package, PkgCurrentState, Version};
 
-use crate::config::Paths;
-use crate::util::{get_pkg_name, sudo_check};
-use crate::{debug, Config};
-
-pub async fn upgrade(config: &Config, upgrade_type: Upgrade) -> Result<()> {
-	sudo_check(config)?;
-	let cache = new_cache!()?;
-
-	debug!("Running Upgrade: {upgrade_type:?}");
-	cache.upgrade(upgrade_type)?;
-
-	crate::summary::commit(cache, config).await
-}
-
-pub fn run_scripts(config: &Config, key: &str) -> Result<()> {
-	for hook in config.apt.find_vector(key) {
-		debug!("Running {hook}");
-		let mut child = Command::new("sh").arg("-c").arg(hook).spawn()?;
-
-		let exit = child.wait()?;
-		if !exit.success() {
-			// TODO: Figure out how to return the ExitStatus from main.
-			std::process::exit(exit.code().unwrap());
-		}
-	}
-	config.apt.clear(key);
-	Ok(())
-}
+use super::NalaPkg;
+use crate::config::{Config, Paths};
+use crate::debug;
+use crate::libnala::NalaVersion;
 
 /// Set the compare string.
 fn set_comp<'a>(current: &Option<Version<'a>>, cand: &Version<'a>) -> &'static str {
@@ -64,23 +39,10 @@ fn set_multi_arch(version: &Version, hook_ver: i32) -> String {
 	format!("{} {} ", version.arch(), version.multi_arch_type())
 }
 
-fn get_now_version<'a>(pkg: &Package<'a>) -> Option<Version<'a>> {
-	for ver in pkg.versions() {
-		for pkg_file in ver.package_files() {
-			if let Some(archive) = pkg_file.archive() {
-				if archive == "now" {
-					return Some(ver);
-				}
-			}
-		}
-	}
-	None
-}
-
-pub fn pkg_info(pkg: &Package, hook_ver: i32, archive: &Path) -> String {
+fn pkg_info(pkg: &Package, hook_ver: i32, archive: &Path) -> String {
 	let mut string = String::new();
 
-	let current_version = pkg.installed().or_else(|| get_now_version(pkg));
+	let current_version = pkg.installed().or_else(|| pkg.now_version());
 
 	string.push_str(pkg.name());
 	string.push(' ');
@@ -107,7 +69,7 @@ pub fn pkg_info(pkg: &Package, hook_ver: i32, archive: &Path) -> String {
 			.candidate()
 			.as_ref()
 			.or(current_version.as_ref())
-			.map(get_pkg_name)
+			.map(|v| v.get_filename())
 			.map_or("**ERROR**\n".to_string(), |filename| {
 				format!("{}\n", archive.join(filename).display())
 			});
@@ -163,6 +125,21 @@ fn write_config_info<W: Write>(w: &mut W, config: &Config, hook_ver: i32) -> Res
 	Ok(())
 }
 
+pub fn run_scripts(config: &Config, key: &str) -> Result<()> {
+	for hook in config.apt.find_vector(key) {
+		debug!("Running {hook}");
+		let mut child = Command::new("sh").arg("-c").arg(hook).spawn()?;
+
+		let exit = child.wait()?;
+		if !exit.success() {
+			// TODO: Figure out how to return the ExitStatus from main.
+			std::process::exit(exit.code().unwrap());
+		}
+	}
+	config.apt.clear(key);
+	Ok(())
+}
+
 pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Result<()> {
 	let archive = config.get_path(&Paths::Archive);
 	for hook in config.apt.find_vector(key) {
@@ -196,7 +173,7 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 				continue;
 			};
 
-			let filename = archive.join(get_pkg_name(&cand));
+			let filename = archive.join(cand.get_filename());
 			if !filename.exists() {
 				continue;
 			}
@@ -256,24 +233,4 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 
 	config.apt.clear(key);
 	Ok(())
-}
-
-/// Ask the user a question and let them decide Y or N
-pub fn ask(msg: &str) -> Result<()> {
-	print!("{msg} [Y/n] ");
-	std::io::stdout().flush()?;
-
-	let mut response = String::new();
-	std::io::stdin().read_line(&mut response)?;
-
-	let resp = response.to_lowercase();
-	if resp.starts_with('y') {
-		return Ok(());
-	}
-
-	if resp.starts_with('n') {
-		bail!("User refused confirmation")
-	}
-
-	bail!("'{}' is not a valid response", response.trim())
 }

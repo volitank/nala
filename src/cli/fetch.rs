@@ -11,7 +11,7 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 
 use crate::config::{Config, Paths};
-use crate::util::{sudo_check, DOMAIN, UBUNTU_COUNTRY, UBUNTU_URL};
+use crate::libnala::{sudo_check, DOMAIN, UBUNTU_COUNTRY, UBUNTU_URL};
 use crate::{debug, tui};
 
 fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
@@ -34,7 +34,6 @@ fn detect_release(config: &Config) -> Result<(String, String, String)> {
 	}
 
 	let cache = new_cache!()?;
-
 	for keyring in [
 		"devuan-keyring",
 		"debian-archive-keyring",
@@ -157,7 +156,9 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 	Ok(sources)
 }
 
-fn fetch_mirrors(
+async fn request_text(url: &str) -> Result<String> { Ok(reqwest::get(url).await?.text().await?) }
+
+async fn fetch_mirrors(
 	config: &Config,
 	countries: &Option<HashSet<String>>,
 	distro: &str,
@@ -165,9 +166,7 @@ fn fetch_mirrors(
 	let mut net_select = HashSet::new();
 	if distro == "debian" {
 		let response =
-			reqwest::blocking::get("https://mirror-master.debian.org/status/Mirrors.masterlist")?
-				.text()?;
-
+			request_text("https://mirror-master.debian.org/status/Mirrors.masterlist").await?;
 		let tagfile = rust_apt::tagfile::parse_tagfile(&response).unwrap();
 		let arches = config.apt.get_architectures();
 
@@ -177,8 +176,7 @@ fn fetch_mirrors(
 			}
 		}
 	} else if distro == "ubuntu" {
-		let response =
-			reqwest::blocking::get("https://launchpad.net/ubuntu/+archivemirrors-rss")?.text()?;
+		let response = request_text("https://launchpad.net/ubuntu/+archivemirrors-rss").await?;
 
 		let mirrors = response.split("<item>");
 		for mirror in mirrors {
@@ -187,8 +185,7 @@ fn fetch_mirrors(
 			}
 		}
 	} else if distro == "devuan" {
-		let response =
-			reqwest::blocking::get("https://pkgmaster.devuan.org/mirror_list.txt")?.text()?;
+		let response = request_text("https://pkgmaster.devuan.org/mirror_list.txt").await?;
 
 		let tagfile = rust_apt::tagfile::parse_tagfile(&response).unwrap();
 		for section in tagfile {
@@ -200,7 +197,6 @@ fn fetch_mirrors(
 	Ok(net_select)
 }
 
-#[tokio::main]
 async fn check_non_free(
 	config: &Config,
 	chosen: &[String],
@@ -237,7 +233,6 @@ async fn check_non_free(
 	Ok(component)
 }
 
-#[tokio::main]
 /// Score the mirrors and provide a progress bar.
 async fn score_handler(
 	config: &Config,
@@ -249,7 +244,7 @@ async fn score_handler(
 	pb.indicatif.set_length(mirror_strings.len() as u64);
 
 	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
-	let semp = Arc::new(Semaphore::new(30));
+	let semp = Arc::new(Semaphore::new(10));
 	// If we decide we want more information during this portion
 	// for something like verbose/debug we probably need an mpsc
 	// let (tx, mut rx) = mpsc::unbounded_channel();
@@ -408,7 +403,7 @@ fn devuan_url(countries: &Option<HashSet<String>>, section: &TagSection) -> Opti
 }
 
 /// The entry point for the `fetch` command.
-pub fn fetch(config: &Config) -> Result<()> {
+pub async fn fetch(config: &Config) -> Result<()> {
 	sudo_check(config)?;
 
 	let (distro, release, keyring) = detect_release(config)?;
@@ -433,7 +428,7 @@ pub fn fetch(config: &Config) -> Result<()> {
 	debug!("Sources on disk {sources:#?}");
 
 	// Get the mirrors
-	let mut net_select = fetch_mirrors(config, &countries, &distro)?;
+	let mut net_select = fetch_mirrors(config, &countries, &distro).await?;
 	debug!("NetSelect size '{}'", net_select.len());
 
 	// Remove domains that are already defined on disk
@@ -449,7 +444,7 @@ pub fn fetch(config: &Config) -> Result<()> {
 	debug!("NetSelect Dedupe Size '{}'", net_select.len());
 
 	// Score the mirrors
-	let scored = score_handler(config, net_select, &release)?;
+	let scored = score_handler(config, net_select, &release).await?;
 	debug!("Scored Mirrors '{}'", scored.len());
 
 	if scored.is_empty() {
@@ -498,7 +493,7 @@ pub fn fetch(config: &Config) -> Result<()> {
 	nala_sources += &format!("Suites: {release}\n");
 	nala_sources += &format!(
 		"Components: {}\n",
-		check_non_free(config, &chosen, component, &release)?
+		check_non_free(config, &chosen, component, &release).await?
 	);
 	nala_sources += &format!("Signed-By: {keyring}\n");
 

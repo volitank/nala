@@ -36,6 +36,15 @@ macro_rules! fs_method {
 			))
 		}
 	};
+
+	($name:ident, { $func:path, contents }) => {
+		async fn $name<T: AsRef<[u8]>>(&self, other: T) -> Result<()> {
+			$func(self, &other).await.with_context(|| format!(
+				"Failed to {} {self:?}",
+				stringify!($name)
+			))
+		}
+	};
 }
 
 macro_rules! async_fs {
@@ -54,6 +63,7 @@ macro_rules! async_fs {
 
 			async fn cp<T: AsyncPath>(&self, other: T) -> Result<u64>;
 			async fn rename<T: AsyncPath>(&self, other: T) -> Result<()>;
+			async fn write<T: AsRef<[u8]>>(&self, contents: T) -> Result<()>;
 		}
 
 		impl<P: AsyncPath> AsyncFs for P {
@@ -74,5 +84,6 @@ async_fs!(
 	remove_recurse { fs::remove_dir_all },
 	mkdir { fs::create_dir_all },
 	cp { fs::copy => u64, with_arg },
-	rename { fs::rename, with_arg }
+	rename { fs::rename, with_arg },
+	 write { fs::write, contents }
 );
