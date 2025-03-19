@@ -14,7 +14,7 @@ Build-Depends:
   python3-apt,
   python3-debian,
   python3-pexpect,
-  python3-httpx,
+  python3-httpx (>= 0.17.0),
   python3-rich,
   python3-socksio,
   python3-typer,
