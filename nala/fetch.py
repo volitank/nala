@@ -54,6 +54,7 @@ from nala.constants import (
 	ERROR_PREFIX,
 	NALA_SOURCES,
 	NOTICE_PREFIX,
+	OLD_NALA_SOURCES,
 	SOURCELIST,
 	SOURCEPARTS,
 )
@@ -564,6 +565,7 @@ def detect_release(
 	cache = Cache()
 	for keyring in (
 		"devuan-keyring",
+		"devuan-archive-keyring",
 		"debian-archive-keyring",
 		"ubuntu-keyring",
 		"apt",
@@ -703,24 +705,8 @@ def range_from_str(string: str, count: int) -> Iterable[int]:
 	return {int(num) for num in re.split(r",|\s", string) if num}
 
 
-def format_component(url: str, component: str, release: str, non_free: bool) -> str:
-	"""Add non-free-firmware repository if applicable."""
-	# Starting with bookworm there is an additional component, non-free-firmware.
-	# The best way to do this is just check if it exists for the mirror.
-	if not non_free:
-		return component
-	try:
-		get(
-			f"{url}/dists/{release}/non-free-firmware/",
-			timeout=15,
-			follow_redirects=True,
-		).raise_for_status()
-	except HTTPError:
-		return component
-	return f"{component} non-free-firmware"
-
-
 def build_sources(  # pylint: disable=too-many-arguments
+	distro: str,
 	release: str,
 	component: str,
 	sources: list[str],
@@ -733,6 +719,12 @@ def build_sources(  # pylint: disable=too-many-arguments
 	"""Build the sources file and return it as a string."""
 	source = "# Sources file built for nala\n\n"
 	num = 0
+
+	source += "Types: deb"
+	if check_sources:
+		source += " deb-src"
+	source += "\nURIs:\n"
+
 	for line in netselect_scored:
 		# This splits off the score '030 http://mirror.steadfast.net/debian/'
 		line = line[line.index("h") :]
@@ -740,22 +732,38 @@ def build_sources(  # pylint: disable=too-many-arguments
 		if any(line.rstrip("/") in mirror and release in mirror for mirror in sources):
 			continue
 
-		deb_entry = (
-			f"{line} {release} {format_component(line, component, release, non_free)}"
-		)
-		source += f"deb {deb_entry}\n"
-		if check_sources:
-			source += f"deb-src {deb_entry}\n"
-		source += "\n"
+		if non_free:
+			try:
+				get(
+					f"{line}/dists/{release}/non-free-firmware/",
+					timeout=15,
+					follow_redirects=True,
+				).raise_for_status()
+			except HTTPError:
+				continue
+
+		source += f"  {line}\n"
 		num += 1
-		if not live and num == fetches:
+
+		if num == fetches:
 			break
+
 	if not live and num != fetches:
 		eprint(
 			_("{notice} Nala was unable to fetch {num} mirrors.").format(
 				notice=NOTICE_PREFIX, num=fetches
 			)
 		)
+
+	source += f"Suites: {release}\n"
+
+	source += f"Components: {component}"
+	if non_free:
+		source += " non-free-firmware"
+	source += "\n"
+
+	source += f"Signed-By: /usr/share/keyrings/{distro.lower()}-archive-keyring.gpg\n"
+
 	return source
 
 
@@ -764,6 +772,9 @@ def write_sources(source: str) -> None:
 	with open(NALA_SOURCES, "w", encoding="utf-8") as file:
 		file.write(source)
 	print(_("Sources have been written to {file}").format(file=NALA_SOURCES))
+
+	if OLD_NALA_SOURCES.exists():
+		OLD_NALA_SOURCES.unlink()
 
 
 def check_supported(
@@ -886,6 +897,7 @@ def fetch(
 
 	if auto:
 		source = build_sources(
+			distro,
 			release,
 			component,
 			parse_sources(),
@@ -894,14 +906,6 @@ def fetch(
 			fetches=fetches,
 			check_sources=sources,
 		)
-
-		print(source, end="")
-		if NALA_SOURCES.exists() and not ask(
-			_("{file} already exists.\nContinue and overwrite it?").format(
-				file=color(NALA_SOURCES, "YELLOW")
-			)
-		):
-			sys.exit(_("Abort."))
 		write_sources(source)
 		return
 
@@ -917,6 +921,7 @@ def fetch(
 			fetch_live.clear(2)
 			fetch_live.live.start()
 		source = build_sources(
+			distro,
 			release,
 			component,
 			sources_list,

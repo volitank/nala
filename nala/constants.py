@@ -38,8 +38,10 @@ from nala import ROOT, USR, _, color
 # File Constants
 GPL3_LICENSE = Path(f"{USR}/share/common-licenses/GPL-3")
 """/usr/share/common-licenses/GPL-3"""
-NALA_SOURCES = Path(f"{ROOT}/etc/apt/sources.list.d/nala-sources.list")
+OLD_NALA_SOURCES = Path(f"{ROOT}/etc/apt/sources.list.d/nala-sources.list")
 """/etc/apt/sources.list.d/nala-sources.list"""
+NALA_SOURCES = Path(f"{ROOT}/etc/apt/sources.list.d/fetch.sources")
+"""/etc/apt/sources.list.d/fetch.sources"""
 NALA_DIR = Path(f"{ROOT}/var/lib/nala")
 """/var/lib/nala"""
 NALA_LOGDIR = Path(f"{ROOT}/var/log/nala")
