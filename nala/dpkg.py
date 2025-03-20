@@ -950,7 +950,7 @@ def fork() -> tuple[int, int]:
 	return (os.fork(), 0) if arguments.raw_dpkg else pty.fork()
 
 
-class AptExpect(fdspawn):  # type: ignore[misc]
+class AptExpect(fdspawn):  # type: ignore[misc,type-arg,arg-type]
 	"""Subclass of fdspawn to add the interact method."""
 
 	def interact(self, install_progress: InstallProgress) -> None:
@@ -967,7 +967,7 @@ class AptExpect(fdspawn):  # type: ignore[misc]
 		# Flush the buffer.
 		self.write_to_stdout(self.buffer)
 		self.stdout.flush()
-		self._buffer = self.buffer_type()
+		self._buffer = self.buffer_type()  # type: ignore[operator]
 
 		_setwinsize(self.child_fd, term.lines, term.columns)
 

@@ -44,25 +44,25 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
-httpx = "~0.23.0"
-rich = "^12.4.4"
-pexpect = "^4.8.0"
-anyio = "^3.6.1"
-typer = "^0.4.1"
-tomli = "^2.0.1"
-typing-extensions = "^4.3.0"
-socksio = {version = "^1.0.0", optional = true}
+python = "^3.9"
+httpx = "0.28.1"
+rich = "^13.9.4"
+pexpect = "^4.9.0"
+anyio = "^4.9.0"
+typer = "^0.15.2"
+tomli = "^2.2.1"
+typing-extensions = "^4.12.2"
+socksio = {version = "1.0.0", optional = true}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = { git = "https://github.com/volitank/black.git", branch = "black-tabs" }
-codespell = "*"
-isort = "*"
-mypy = "*"
-pre-commit = "*"
-pyupgrade = "*"
-pydocstyle = "*"
-pylint = "*"
+codespell = "2.4.1"
+isort = "6.0.1"
+mypy = "1.15.0"
+pre-commit = "4.2.0"
+pyupgrade = "3.19.1"
+pydocstyle = "6.3.0"
+pylint = "3.3.5"
 
 [tool.poetry.extras]
 socks = ["socksio"]

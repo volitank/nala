@@ -403,7 +403,7 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 		with Live(get_renderable=self._gen_table, refresh_per_second=10) as self.live:
 			async with AsyncClient(
 				timeout=20,
-				mounts=self.proxy,
+				mounts=self.proxy,  # type: ignore[arg-type]
 				follow_redirects=True,
 				# Custom user agent fixes some downloading issues
 				# Caused by httpx default agent sometimes being blocked.

@@ -88,7 +88,8 @@ disable=raw-checker-failed,
 		use-symbolic-message-instead,
 		logging-fstring-interpolation,
 		protected-access,
-		duplicate-code
+		duplicate-code,
+		too-many-positional-arguments
 
 
 # Enable the message, report, category or checker with the given id(s). You can
