@@ -46,13 +46,12 @@ from anyio import open_file
 from apt.package import Package, Version
 from apt_pkg import Configuration, config
 from httpx import (
-	URL as HttpxUrl,
 	AsyncClient,
+	AsyncHTTPTransport,
 	ConnectError,
 	ConnectTimeout,
 	HTTPError,
 	HTTPStatusError,
-	Proxy,
 	RemoteProtocolError,
 	RequestError,
 	get,
@@ -271,7 +270,7 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 		self.count: int = 0
 		self.live: Live
 		self.last_completed: str = ""
-		self.proxy: dict[HttpxUrl | str, HttpxUrl | str | Proxy | None] = {}
+		self.proxy: dict[str, AsyncHTTPTransport] = {}
 		self.failed: list[str] = []
 		self.current: Counter[str] = Counter()
 		self.fatal: bool = False
@@ -304,7 +303,7 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 			if common_proxy := config.find(f"Acquire::{proto}::Proxy"):
 				# If the proxy is set to direct or false we disable it
 				if common_proxy.lower() not in ("direct", "false"):
-					self.proxy[f"{proto}://"] = common_proxy
+					self.proxy[f"{proto}://"] = AsyncHTTPTransport(proxy=common_proxy)  # type: ignore[arg-type]
 
 			# The remainder of code is for proxying specific repos. Such a configuration may look like
 			# Acquire::http::Proxy::deb.volian.org "xxx:8087"
@@ -338,7 +337,7 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 				# If direct or false, disable the proxy
 				if value.lower() in ("direct", "false"):
 					value = None
-				self.proxy[f"{proto}://{key}"] = value
+				self.proxy[f"{proto}://{key}"] = AsyncHTTPTransport(proxy=value)  # type: ignore[arg-type]
 
 	async def _check_count(self, url: str) -> str:
 		"""Check the url count and return if Nala should continue."""
@@ -403,7 +402,7 @@ class Downloader:  # pylint: disable=too-many-instance-attributes
 		with Live(get_renderable=self._gen_table, refresh_per_second=10) as self.live:
 			async with AsyncClient(
 				timeout=20,
-				mounts=self.proxy,  # type: ignore[arg-type]
+				mounts=self.proxy,
 				follow_redirects=True,
 				# Custom user agent fixes some downloading issues
 				# Caused by httpx default agent sometimes being blocked.
