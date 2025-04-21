@@ -1221,7 +1221,7 @@ def check_term_ask() -> None:
 
 	if not ask(_("Do you want to continue?")):
 		eprint(_("Abort."))
-		sys.exit(0)
+		sys.exit(1)
 
 
 def check_work(pkgs: list[Package], nala_pkgs: PackageHandler, operation: str) -> None:
