@@ -776,7 +776,8 @@ def filter_local_repo(pkgs: Iterable[Package]) -> list[URLSet]:
 		if not (cand := pkg.candidate) or pkg.marked_delete:
 			continue
 
-		uris = filter_uris(cand, mirrors)
+		uris = list(filter_uris(cand, mirrors))
+		dprint(f"Filtered URIs: {uris}")
 		# Check trust of all potentially used sources
 		for uri in uris:
 			if not check_trusted(uri, cand):
@@ -797,13 +798,14 @@ def filter_local_repo(pkgs: Iterable[Package]) -> list[URLSet]:
 				continue
 
 			url = URL.new(uri, cand)
-			if pre_download_check(url):
+			if not pre_download_check(url):
 				url_set.append(url)
 
 		if len(url_set) > 0:
 			urls.append(url_set)
 
 	# Return the list of packages that should be downloaded
+	dprint(urls)
 	return urls
 
 
@@ -812,8 +814,6 @@ def filter_uris(
 ) -> Generator[str, None, None]:
 	"""Filter uris into usable urls."""
 	for uri in candidate.uris:
-		if uri.startswith("file:"):
-			continue
 		# Regex to check if we're using mirror://
 		if regex := MIRROR_PATTERN.search(uri):
 			set_mirrors_txt(domain := regex.group(1), mirrors)
