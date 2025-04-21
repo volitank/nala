@@ -1,3 +1,14 @@
+nala (0.16.0) unstable; urgency=medium
+
+  [ Bug Fixes ]
+  * Fix local repositories not working
+  * Fix nala returning 0 when not continuing (closes: #1073575)
+
+  [ Changes ]
+  * Modernize apt sources
+
+ -- Blake Lee <blake@volian.org>  Mon, 21 Apr 2025 02:40:54 +0000
+
 nala (0.15.4) unstable; urgency=medium
 
   [ Bug Fixes ]
