@@ -1,0 +1,79 @@
+#!/bin/sh
+# -*- sh -*- vim:ft=sh
+
+_name="$(basename $0)"
+
+exec_python='
+from os import environ
+import time
+date = time.strftime(
+    "%d %b %Y",
+    time.gmtime(int(environ.get("SOURCE_DATE_EPOCH", time.time())))
+)
+print(date)
+'
+_date="$(python -c "${exec_python}")"
+_version="$(grep __version__ nala/__init__.py | cut -d'"' -f2)"
+
+if ! command -v pandoc >/dev/null 2>&1
+then
+	echo "pandoc is needed to build the manual pages"
+	echo "try: (sudo) apt install pandoc"
+	exit 1
+fi
+
+do_clean()
+{
+	rm -vf docs/*.8
+}
+
+do_build()
+{
+	local destdir="docs"
+	if [ -n "${1}" ]
+	then
+		destdir="${1}"
+	fi
+
+	for page in docs/*.rst
+	do
+		local outfile="$(basename ${page} | sed 's/.rst//')"
+		echo -e "building \e[1;32m${outfile}\e[0m"
+		pandoc "${page}" \
+			--output="${destdir}/${outfile}" \
+			--standalone \
+			--variable=header:'Nala User Manual' \
+			--variable=footer:"${_version}" \
+			--variable=date:"${_date}" \
+			--variable=section:8 \
+			--from rst \
+			--to man
+	done
+}
+
+usage()
+{
+	echo -e "\e[1;32m${_name}\e[0m:"
+	echo -e "\e[1;34m\t[b]uild\e[0m - build man-pages from docs/*.rst"
+	echo -e "\e[1;34m\t[c]lean\e[0m - clean built pages in docs/*.8"
+	echo -e "\tpass a path to [build] to adjust output directory"
+}
+
+case "${1}" in
+	"b"|"build")
+		if [ -n "${2}" ]
+		then
+			do_build "${2}"
+		else
+			do_build
+		fi
+		exit 0
+		;;
+	"c"|"clean")
+		do_clean
+		;;
+	*)
+		usage
+		exit 1
+		;;
+esac
