@@ -47,3 +47,4 @@ nala-cli.bin
 
 # Pyinstaller
 /nala-cli.spec
+debian/nala

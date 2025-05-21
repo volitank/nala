@@ -1,0 +1,85 @@
+#!/bin/sh
+# -*- sh -*- vim:ft=sh
+
+_name="$(basename $0)"
+
+if ! command -v pybabel >/dev/null 2>&1
+then
+	echo "pybabel is needed for translation handling"
+	echo "try: (sudo) python3 -m pip install babel"
+	exit 1
+fi
+
+do_extract()
+{
+	local wd="$(pwd)"
+	local version="$(grep __version__ ${wd}/nala/__init__.py | cut -d'"' -f2)"
+	local url="https://gitlab.com/volian/nala/-/issues"
+
+	pybabel extract                    \
+		--add-comments=NOTE:           \
+		--strip-comments               \
+		--project=nala                 \
+		--copyright-holder="Blake Lee" \
+		--version="${version}"         \
+		--msgid-bugs-address="${url}"  \
+		--no-wrap                      \
+		nala/*.py -o po/nala.pot
+
+}
+
+do_update()
+{
+	for po in po/*.po
+	do
+		local language="$(echo ${po} | xargs -r basename | sed 's/.po//')"
+		pybabel update --no-wrap -i po/nala.pot -o "${po}" -l "${language}"
+	done
+}
+
+do_compile()
+{
+	local destdir="$(pwd)/out"
+	if [ -n "$1" ]
+	then
+		destdir="$1"
+	fi
+
+
+	for locale in po/*.po
+	do
+		local lang="$(echo ${locale} | xargs -r basename | sed 's/.po//')"
+		install -vd "${destdir}/${lang}/LC_MESSAGES"
+		pybabel compile -d "${destdir}" --domain=nala --use-fuzzy \
+			--input-file="${locale}" --locale="${lang}"
+	done
+}
+
+usage()
+{
+	echo -e "\e[1;32m${_name}\e[0m:"
+	echo -e "\e[1;34m\t[u]pdate\e[0m - update po/*.po from po/nala.pot"
+	echo -e "\e[1;34m\t[c]ompile\e[0m - compile po/*.po to out/*.mo"
+	echo -e "\tpass a path to [compile] to adjust output directory"
+}
+
+case "${1}" in
+	"u"|"update")
+		do_extract
+		do_update
+		exit 0
+		;;
+	"c"|"compile")
+		if [ -n "${2}" ]
+		then
+			do_compile "${2}"
+		else
+			do_compile
+		fi
+		exit 0
+		;;
+	*)
+		usage
+		exit 1
+		;;
+esac
