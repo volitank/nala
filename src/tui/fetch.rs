@@ -10,6 +10,7 @@ use ratatui::widgets::{
 };
 use ratatui::Terminal;
 
+use super::Term;
 use crate::config::{Config, Theme};
 
 struct FetchItem {
@@ -44,8 +45,8 @@ impl StatefulList {
 		let mut align = 0;
 		let mut score_align = 0;
 
-		let style = config.rat_style(Theme::Primary);
-		let alt_style = config.rat_style(Theme::Regular);
+		let style = config.color.rat_style(Theme::Primary);
+		let alt_style = config.color.rat_style(Theme::Regular);
 
 		for (url, u_score) in scored {
 			// Calculate alignment
@@ -131,9 +132,9 @@ impl<'a> App<'a> {
 
 	fn go_bottom(&mut self) { self.items.state.select(Some(self.items.items.len() - 1)); }
 
-	pub fn run(mut self, mut terminal: Terminal<impl Backend>) -> Result<Vec<String>> {
+	pub fn run(mut self, term: &mut Term) -> Result<Vec<String>> {
 		loop {
-			self.draw(&mut terminal)?;
+			self.draw(term)?;
 
 			if let Event::Key(key) = event::read()? {
 				if key.kind == KeyEventKind::Press {
@@ -176,10 +177,10 @@ impl<'a> App<'a> {
 		let header = format!("  {}  ", "Nala Fetch");
 
 		let outer_block = Block::bordered()
-			.title(header.set_style(self.config.rat_style(Theme::Highlight)))
+			.title(header.set_style(self.config.color.rat_style(Theme::Highlight)))
 			.title_alignment(Alignment::Center)
 			.border_type(BorderType::Rounded)
-			.style(self.config.rat_style(Theme::Primary));
+			.style(self.config.color.rat_style(Theme::Primary));
 
 		let [mirror_area, score_area] = Layout::horizontal([
 			Constraint::Length(self.items.align.0 as u16 + 4),
@@ -201,8 +202,8 @@ impl<'a> App<'a> {
 			score_items.push(item.1);
 		}
 
-		let highlight = self.config.rat_style(Theme::Secondary).reversed();
-		let block = self.config.rat_style(Theme::Regular);
+		let highlight = self.config.color.rat_style(Theme::Secondary).reversed();
+		let block = self.config.color.rat_style(Theme::Regular);
 
 		StatefulWidget::render(
 			List::new(mirror_items)

@@ -9,7 +9,7 @@ use rust_apt::{Cache, Package};
 use crate::config::{color, Config, Paths, Theme};
 use crate::download::Downloader;
 use crate::libnala::{apt_hook_with_pkgs, get_history, run_scripts, HistoryEntry, NalaCache};
-use crate::{dpkg, error, table, tui, warn};
+use crate::{dpkg, table, tui};
 
 /// Ask the user a question and let them decide Y or N
 pub fn ask(msg: &str) -> Result<()> {
@@ -108,7 +108,7 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 		return Ok(());
 	}
 
-	warn!("The following packages are essential!");
+	crate::warning!("The following packages are essential!");
 	eprintln!(
 		"  {}",
 		essential
@@ -122,7 +122,7 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 		return Ok(());
 	}
 
-	error!("You have attempted to remove essential packages");
+	crate::error!("You have attempted to remove essential packages");
 
 	let switch = color::color!(Theme::Warning, "--remove-essential");
 	bail!("Use '{switch}' if you are sure.")

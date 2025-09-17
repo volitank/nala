@@ -2,33 +2,43 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use clap::parser::ValueSource;
 use clap::ArgMatches;
-use ratatui::style::Styled;
 use rust_apt::config::Config as AptConfig;
-use serde::{Deserialize, Serialize};
 
-use super::color::{setup_color, Color};
-use super::{OptType, Paths, Switch};
-use crate::config::color::{RatStyle, Style, Theme};
+use super::color::Color;
+use super::logger::{Logger, Writer};
+use super::{Opt, Paths};
 use crate::tui::progress::{NumSys, UnitStr};
 
-#[derive(Serialize, Deserialize, Debug)]
+macro_rules! take_arg {
+	($map:expr, $args:expr, $key:ident -> $ty:ty) => {
+		if let Ok(Some(value)) = $args.try_get_one::<$ty>(&$key) {
+			$map.insert($key, value.into());
+			continue;
+		}
+	};
+}
+
+macro_rules! vec_arg {
+	($map:expr, $args:expr, $key:ident -> $ty:ty) => {
+		if let Ok(Some(value)) = $args.try_get_occurrences::<$ty>(&$key) {
+			$map.insert($key, Opt::from_iter(value.flatten().cloned()));
+			continue;
+		}
+	};
+}
+
+#[derive(Debug)]
 /// Configuration struct
 pub struct Config {
-	#[serde(rename(deserialize = "Nala"), default)]
-	map: HashMap<String, OptType>,
+	pub color: Color,
 
-	#[serde(rename(deserialize = "Theme"), default)]
-	pub(crate) theme: HashMap<Theme, Style>,
+	map: HashMap<String, Opt>,
 
-	// The following fields are not used with serde
-	#[serde(skip)]
 	pub apt: AptConfig,
 
-	#[serde(skip)]
-	/// The command that is being run
 	pub command: String,
 }
 
@@ -58,66 +68,32 @@ impl Paths {
 
 impl Default for Config {
 	/// The default configuration for Nala.
-	fn default() -> Config {
-		let mut config = Config {
-			map: HashMap::new(),
-			theme: HashMap::new(),
-			apt: AptConfig::new(),
-			command: "Command Not Given Yet".to_string(),
-		};
-		config.set_default_theme();
-		config
-	}
+	fn default() -> Config { Config::new(Color::default(), HashMap::new()) }
 }
 
 impl Config {
-	pub fn new(conf_file: &Path) -> Result<Config> {
-		// Try to read the entire config file and map it.
-		// Return an empty config and print a warning on failure.
-		let mut map = Self::read_config(conf_file)?;
-		map.set_default_theme();
-		Ok(map)
-	}
-
-	pub fn set_default_theme(&mut self) {
-		for theme in [
-			Theme::Primary,
-			Theme::Secondary,
-			Theme::Regular,
-			Theme::Highlight,
-			Theme::ProgressFilled,
-			Theme::ProgressUnfilled,
-			Theme::Notice,
-			Theme::Warning,
-			Theme::Error,
-		] {
-			if self.theme.contains_key(&theme) {
-				continue;
-			}
-			self.theme.insert(theme, theme.default_style());
+	fn new(color: Color, map: HashMap<String, Opt>) -> Config {
+		Config {
+			color,
+			map,
+			apt: AptConfig::new(),
+			command: "Command Not Given Yet".to_string(),
 		}
 	}
 
-	pub fn rat_style<T: AsRef<Theme>>(&self, theme: T) -> RatStyle {
-		self.theme
-			.get(theme.as_ref())
-			.unwrap_or(&Style::default())
-			.to_rat()
-	}
-
-	pub fn rat_reset<T: AsRef<Theme>>(&self, theme: T) -> RatStyle {
-		RatStyle::reset().set_style(self.rat_style(theme))
-	}
-
 	/// Read and Return the entire toml configuration file
-	fn read_config(conf_file: &Path) -> Result<Config> {
-		let conf = fs::read_to_string(conf_file)
-			.with_context(|| format!("Failed to read {}, using defaults", conf_file.display()))?;
+	pub fn read_config(conf_file: &Path) -> Config {
+		let color = Color::from_config();
+		let _ = Logger::new(color, Writer::default()).init();
 
-		let config: Config = toml::from_str(&conf)
-			.with_context(|| format!("Failed to parse {}, using defaults", conf_file.display()))?;
+		let Ok(file) = fs::read_to_string(conf_file) else {
+			return Config::default();
+		};
 
-		Ok(config)
+		Config::new(
+			Color::from_config(),
+			toml::from_str(&file).unwrap_or_default(),
+		)
 	}
 
 	/// Load configuration with the command line arguments
@@ -129,7 +105,7 @@ impl Config {
 			("purge", "purge"),
 		] {
 			if std::env::args().any(|arg| arg == alias.0) {
-				self.map.insert(alias.1.to_string(), OptType::Bool(true));
+				self.map.insert(alias.1.to_string(), Opt::Bool(true));
 			}
 		}
 
@@ -140,37 +116,11 @@ impl Config {
 				continue;
 			}
 
-			if let Ok(Some(value)) = args.try_get_one::<bool>(&key) {
-				self.map.insert(key, OptType::Bool(*value));
-				continue;
-			}
-
-			if let Ok(Some(value)) = args.try_get_occurrences::<String>(&key) {
-				self.map
-					.insert(key, OptType::VecString(value.flatten().cloned().collect()));
-				continue;
-			}
-
-			if let Ok(Some(value)) = args.try_get_one::<u8>(&key) {
-				self.map.insert(key, OptType::Int(*value));
-				continue;
-			}
-
-			if let Ok(Some(value)) = args.try_get_one::<u64>(&key) {
-				self.map.insert(key, OptType::Int64(*value));
-			}
+			take_arg!(self.map, args, key -> bool);
+			vec_arg!(self.map, args, key -> String);
+			take_arg!(self.map, args, key -> u8);
+			take_arg!(self.map, args, key -> u64);
 		}
-
-		let switch = match self
-			.map
-			.get("color")
-			.unwrap_or(&OptType::Switch(Switch::Auto))
-		{
-			OptType::Switch(switch) => *switch,
-			_ => Switch::Auto,
-		};
-
-		setup_color(Color::new(switch, self.theme.clone()));
 
 		if let Some(options) = self.get_vec("option") {
 			for raw_opt in options {
@@ -183,14 +133,14 @@ impl Config {
 
 		// If Debug is there we can print the whole thing.
 		if self.debug() {
-			dbg!(&self);
+			crate::debug!("{self:?}");
 		}
 		Ok(())
 	}
 
 	/// Get a bool from the configuration.
 	pub fn get_bool(&self, key: &str, default: bool) -> bool {
-		if let Some(OptType::Bool(bool)) = self.map.get(key) {
+		if let Some(Opt::Bool(bool)) = self.map.get(key) {
 			return *bool;
 		}
 		default
@@ -198,16 +148,16 @@ impl Config {
 
 	/// Set a bool in the configuration.
 	pub fn set_bool(&mut self, key: &str, value: bool) {
-		self.map.insert(key.to_string(), OptType::Bool(value));
+		self.map.insert(key.to_string(), Opt::Bool(value));
 	}
 
 	/// Get a single str from the configuration.
 	pub fn get_str(&self, key: &str) -> Option<&str> {
-		if let OptType::VecString(vec) = self.map.get(key)? {
+		if let Opt::VecString(vec) = self.map.get(key)? {
 			return vec.first().map(|x| x.as_str());
 		}
 
-		if let OptType::String(str) = self.map.get(key)? {
+		if let Opt::String(str) = self.map.get(key)? {
 			return Some(str);
 		}
 		None
@@ -215,14 +165,14 @@ impl Config {
 
 	/// Get a Vec of Strings from the configuration.
 	pub fn get_vec(&self, key: &str) -> Option<&Vec<String>> {
-		if let OptType::VecString(vec) = self.map.get(key)? {
+		if let Opt::VecString(vec) = self.map.get(key)? {
 			return Some(vec);
 		}
 		None
 	}
 
 	pub fn get_mut_vec(&mut self, key: &str) -> Option<&mut Vec<String>> {
-		if let OptType::VecString(vec) = self.map.get_mut(key)? {
+		if let Opt::VecString(vec) = self.map.get_mut(key)? {
 			return Some(vec);
 		}
 		None
@@ -287,14 +237,14 @@ impl Config {
 
 	/// If fetch should be in auto mode and how many mirrors to get.
 	pub fn auto(&self) -> Option<u8> {
-		if let OptType::Int(value) = self.map.get("auto")? {
+		if let Opt::Int(value) = self.map.get("auto")? {
 			return Some(*value);
 		}
 		None
 	}
 
 	pub fn unit_str(&self, unit: u64) -> String {
-		if let Some(OptType::UnitStr(value)) = self.map.get("UnitStr") {
+		if let Some(Opt::UnitStr(value)) = self.map.get("UnitStr") {
 			return value.str(unit);
 		}
 		UnitStr::new(0, NumSys::Binary).str(unit)
@@ -312,22 +262,37 @@ impl Config {
 	pub fn verbose(&self) -> bool { self.get_bool("verbose", self.debug()) }
 }
 
+// fn from_user(opt: Option<ValueSource>) -> bool {
+// 	// Don't do anything if the option wasn't specifically passed
+// 	if Some(ValueSource::CommandLine) == opt {
+// 		return true;
+// 	}
+// 	false
+// }
+
 #[cfg(test)]
 mod test {
+	use std::collections::HashMap;
+
+	use crate::config::Theme;
 	use crate::tui::progress::{NumSys, UnitStr};
-	use crate::Config;
 
 	#[test]
 	fn serialize_config() {
-		let mut config = Config::default();
-		config.set_default_theme();
-
-		config.map.insert(
+		let mut config = HashMap::new();
+		config.insert(
 			"unit_str".to_string(),
-			super::OptType::UnitStr(UnitStr::new(0, NumSys::Binary)),
+			super::Opt::UnitStr(UnitStr::new(0, NumSys::Binary)),
 		);
 
 		let toml = toml::to_string_pretty(&config).unwrap();
+		println!("{toml}")
+	}
+
+	#[test]
+	fn serialize_theme() {
+		let theme = Theme::style_map();
+		let toml = toml::to_string_pretty(&theme).unwrap();
 
 		println!("{toml}")
 	}

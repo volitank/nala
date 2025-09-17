@@ -6,7 +6,6 @@ use rust_apt::{Cache, Package, PackageSort};
 
 use crate::config::{color, Config, Theme};
 use crate::libnala::{NalaPkg, Operation};
-use crate::{debug, error, info};
 
 #[derive(Debug)]
 pub enum Matcher {
@@ -53,14 +52,12 @@ impl<'a> CliPackages<'a> {
 	}
 
 	pub fn check_not_found(&self) -> Result<()> {
-		let as_ref: Vec<&Package<'a>> = self.0.iter().flat_map(|p| &p.pkgs).collect();
-		debug!("{as_ref:#?}");
 		let mut bail = false;
 		for cli in &self.0 {
 			if !cli.pkgs.is_empty() {
 				continue;
 			}
-			error!(
+			crate::error!(
 				"'{}' was not found",
 				color::color!(Theme::Notice, &cli.name)
 			);
@@ -74,7 +71,13 @@ impl<'a> CliPackages<'a> {
 		Ok(())
 	}
 
-	pub fn mark(self, cache: &Cache, operation: Operation, purge: bool) -> Result<()> {
+	pub fn mark(
+		self,
+		cache: &Cache,
+		operation: Operation,
+		purge: bool,
+		reinstall: bool,
+	) -> Result<()> {
 		let _ = unsafe { cache.depcache().action_group() };
 		for cli in self.0 {
 			for pkg in cli.pkgs {
@@ -86,11 +89,15 @@ impl<'a> CliPackages<'a> {
 
 						if let Some(inst) = pkg.installed() {
 							if inst == cand {
-								info!(
-									"{}{} is already installed and at the latest version",
-									color::primary!(pkg.name()),
-									color::ver!(cand.version())
-								);
+								if reinstall {
+									pkg.mark_reinstall(reinstall);
+								} else {
+									crate::notice!(
+										"{}{} is already installed and at the latest version",
+										color::primary!(pkg.name()),
+										color::ver!(cand.version())
+									);
+								}
 								continue;
 							}
 						}
@@ -100,7 +107,7 @@ impl<'a> CliPackages<'a> {
 					},
 					Operation::Remove => {
 						let Some(_inst) = pkg.installed() else {
-							info!("{} is not installed", pkg.name());
+							crate::notice!("{} is not installed", pkg.name());
 							continue;
 						};
 
@@ -109,7 +116,7 @@ impl<'a> CliPackages<'a> {
 						//
 						// MarkInstall refuses to install packages on hold
 						// Pkg->SelectedState = pkgCache::State::Hold;
-						debug!("Mark Delete: {pkg}");
+						crate::debug!("Mark Delete: {pkg}");
 						cache.resolver().clear(&pkg);
 						cache.resolver().protect(&pkg);
 						pkg.mark_delete(purge);
@@ -214,7 +221,7 @@ pub fn pkgs_with_modifiers<'a>(
 	config: &Config,
 	cache: &'a Cache,
 ) -> Result<CliPackages<'a>> {
-	debug!("Start Globbing cli_pkgs {cli_pkgs:#?}");
+	crate::debug!("Start Globbing cli_pkgs {cli_pkgs:?}");
 	let mut globs = CliPackages::new();
 	for mut pkg in cli_pkgs {
 		let mut modifier = None;
@@ -226,7 +233,7 @@ pub fn pkgs_with_modifiers<'a>(
 		}
 
 		let (name, version) = split_version(pkg.to_string());
-		debug!("split_version: '{name}' '{version:?}'");
+		crate::debug!("split_version: '{name}' '{version:?}'");
 		let mut glob = CliPackage::new_glob(name)?.modifier(modifier);
 		if let Some(ver_str) = version {
 			glob.set_ver(ver_str);
@@ -234,7 +241,7 @@ pub fn pkgs_with_modifiers<'a>(
 		globs.push(glob);
 	}
 
-	debug!("{globs:#?}");
+	crate::debug!("{globs:?}");
 
 	let arches = config.arches();
 	for pkg in cache.packages(&get_sorter(config)) {

@@ -20,11 +20,12 @@ pub use show::show;
 pub use update::update;
 pub use upgrade::upgrade;
 
+use crate::cli::history::NALA;
 use crate::config::{Config, Paths, Theme};
 use crate::deb::DebFile;
 use crate::download::Downloader;
 use crate::libnala::{sudo_check, Operation};
-use crate::{color, glob, primary, tui, warn};
+use crate::{color, glob, primary, tui};
 
 impl Commands {
 	pub async fn run(&self, config: &mut Config) -> Result<()> {
@@ -64,7 +65,7 @@ impl Commands {
 								downloader.add_version(version, &archive).await?;
 								break;
 							}
-							warn!(
+							crate::warning!(
 								"Can't find a source to download version '{}' of '{}'",
 								version.version(),
 								pkg.fullname(false)
@@ -92,7 +93,7 @@ impl Commands {
 					)
 				}
 			},
-			Commands::History(_) => history(config).await?,
+			Commands::History(hist) => history(config, hist).await?,
 			Commands::Fetch(_) => fetch(config).await?,
 			Commands::Update(_) => update(config).await?,
 			Commands::Upgrade(_) => {
@@ -178,17 +179,20 @@ impl Commands {
 					})
 					.collect::<Vec<_>>();
 
-				let mut pb = tui::NalaProgressBar::new(config, true)?;
+				let mut term = tui::Term::init_viewport(3)?;
+				let mut pb = tui::NalaProgressBar::new(config)?;
 				let mut set = tokio::task::JoinSet::new();
+
 				for (_, file) in filtered_pkgs {
 					set.spawn(DebFile::new(file));
 				}
 
-				let files = pb.join(set).await?;
+				let files = pb.join(&mut term, set).await?;
 				for file in files {
 					file.store().await?;
 				}
 			},
+			Commands::Moo => println!("{NALA}"),
 		}
 		Ok(())
 	}

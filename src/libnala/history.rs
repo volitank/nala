@@ -2,6 +2,8 @@ use std::io::Write;
 
 use ansi_to_tui::IntoText;
 use anyhow::{anyhow, bail, Context, Result};
+use chrono::format::{DelayedFormat, StrftimeItems};
+use chrono::{DateTime, Local, Utc};
 use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEventKind};
 use crossterm::execute;
 use crossterm::terminal::EnterAlternateScreen;
@@ -19,7 +21,37 @@ use super::Operation;
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::libnala::ShowVersion;
-use crate::{debug, error, tui};
+use crate::{table, tui};
+
+pub struct HistoryFile(Vec<HistoryEntry>);
+
+impl HistoryFile {
+	pub async fn from_config(config: &Config) -> Result<HistoryFile> {
+		Ok(HistoryFile(get_history(config).await?))
+	}
+
+	pub fn get(&self, id: &str) -> Result<&HistoryEntry> {
+		let id = if id == "last" {
+			self.0.len()
+		} else {
+			id.parse::<usize>().with_context(|| {
+				format!("'{id}' is not valid. Use 'last' or the number of the entry.")
+			})?
+		};
+
+		if let Some(entry) = self.iter().nth(id - 1) {
+			return Ok(entry);
+		};
+
+		bail!("History entry with ID '{id}' does not exist")
+	}
+
+	pub fn iter(&self) -> impl Iterator<Item = &HistoryEntry> { self.0.iter() }
+
+	pub fn table(&self) -> comfy_table::Table {
+		table::get_table(&["ID", "Command", "Date and Time", "Requested-By", "Altered"])
+	}
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -30,6 +62,25 @@ pub struct HistoryEntry {
 	pub altered: usize,
 	packages: Vec<HistoryPackage>,
 }
+
+// Package: zstd
+// Status: install ok installed
+// Priority: optional
+// Section: utils
+// Installed-Size: 2247
+// Maintainer: RPM packaging team <team+pkg-rpm@tracker.debian.org>
+// Architecture: amd64
+// Multi-Arch: foreign
+// Source: libzstd
+// Version: 1.5.6+dfsg-1
+// Depends: libc6 (>= 2.34), libgcc-s1 (>= 3.0), liblz4-1 (>= 1.8.0), liblzma5
+// (>= 5.1.1alpha+20120614), libstdc++6 (>= 12), zlib1g (>= 1:1.1.4)
+// Description: fast lossless compression algorithm -- CLI tool
+//  Zstd, short for Zstandard, is a fast lossless compression algorithm,
+// targeting  real-time compression scenarios at zlib-level compression ratio.
+//  .
+//  This package contains the CLI program implementing zstd.
+// Homepage: https://github.com/facebook/zstd
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HistoryPackage {
@@ -58,6 +109,8 @@ impl HistoryEntry {
 		}
 	}
 
+	pub fn pkgs(&self) -> &Vec<HistoryPackage> { &self.packages }
+
 	pub fn to_map(&self) -> IndexMap<Operation, Vec<&HistoryPackage>> {
 		let mut map: IndexMap<Operation, Vec<&HistoryPackage>> = IndexMap::new();
 		for op in Operation::to_vec() {
@@ -81,12 +134,33 @@ impl HistoryEntry {
 		let mut filename = config.get_path(&Paths::History);
 		filename.push(format!("{}.bin", self.id));
 
-		filename
-			.write(
-				bincode::serialize(&self)
-					.with_context(|| format!("Unable to serialize HistoryEntry\n\n    {self:?}"))?,
-			)
-			.await
+		let data = serde_json::to_string_pretty(self)
+			// let data = bincode::serialize(&self)
+			.with_context(|| format!("Unable to serialize HistoryEntry\n\n    {self:?}"))?;
+
+		filename.write(data).await
+	}
+
+	pub fn date(&self) -> Option<DelayedFormat<StrftimeItems<'_>>> {
+		Some(
+			self.date
+				.parse::<DateTime<Utc>>()
+				.ok()?
+				.with_timezone(&Local)
+				.format("%Y-%m-%d %H:%M:%S %Z"),
+		)
+	}
+
+	pub fn as_row(&self) -> comfy_table::Row {
+		let display: &[&dyn std::fmt::Display; 5] = &[
+			&self.id,
+			&self.command,
+			&self.date().unwrap(),
+			&self.requested_by,
+			&self.altered,
+		];
+		// display.iter().map(|f| f.to_string()).collect();
+		comfy_table::Row::from(display)
 	}
 }
 
@@ -137,7 +211,7 @@ impl HistoryPackage {
 
 	pub fn items(&self, config: &Config) -> &Vec<String> {
 		self.items.get_or_init(|| {
-			let colored = color::color!(self.operation, &self.name).to_string();
+			let colored = color::color!(self.operation.into(), &self.name).to_string();
 			let mut items = vec![colored];
 
 			if let Some(old) = &self.old_version {
@@ -209,7 +283,7 @@ impl HistoryPackage {
 		}
 
 		loop {
-			terminal.draw(|f| {
+			terminal.term.draw(|f| {
 				let block = tui::summary::header_block(config, "Nala Upgrade");
 
 				let inner = block.inner(f.area());
@@ -258,11 +332,11 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 			}
 
 			let filename = path.file_name()?.to_str()?;
-			debug!("File '{filename}' found");
+			crate::debug!("File '{filename}' found");
 			let id = match filename.split('.').next()?.parse::<u64>() {
 				Ok(num) => num,
 				Err(e) => {
-					error!("{:?}", anyhow!(e).context("Filename is not an int."));
+					crate::error!("{:?}", anyhow!(e).context("Filename is not an int."));
 					return None;
 				},
 			};
@@ -277,12 +351,9 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 
 	for (_, path) in history {
 		parsed.push(
-			// serde_json::from_slice::<HistoryEntry>(
-			bincode::deserialize::<HistoryEntry>(
-				&std::fs::read(&path)
-					.with_context(|| format!("Unable to read '{}'", path.display()))?,
-			)
-			.with_context(|| format!("Unable to deserialize '{}'", path.display()))?,
+			serde_json::from_slice::<HistoryEntry>(path.read_string().await?.as_bytes())
+				// bincode::deserialize::<HistoryEntry>(path.read_string().await?.as_bytes())
+				.with_context(|| format!("Unable to deserialize '{}'", path.display()))?,
 		);
 	}
 

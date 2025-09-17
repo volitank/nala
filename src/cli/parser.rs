@@ -55,6 +55,10 @@ pub struct NalaParser {
 	#[clap(global = true, long, action)]
 	pub purge: bool,
 
+	/// Allow the reinstallation of packages.
+	#[clap(global = true, long, action)]
+	pub reinstall: bool,
+
 	#[clap(subcommand)]
 	pub command: Option<Commands>,
 }
@@ -75,6 +79,7 @@ pub enum Commands {
 	Remove(Remove),
 	AutoRemove(AutoRemove),
 	System(System),
+	Moo,
 }
 
 /// List all packages or only packages based on the provided name
@@ -115,6 +120,9 @@ pub struct List {
 
 	#[clap(short = 'm', long, action)]
 	pub machine: bool,
+
+	#[clap(long, action)]
+	pub download_only: bool,
 }
 
 /// Like `List`, but uses regex and searches package descriptions.
@@ -168,8 +176,16 @@ pub struct Download {
 
 #[derive(Args, Debug)]
 pub struct History {
-	/// Package names to download
-	pub history_id: Option<u32>,
+	#[clap(subcommand)]
+	pub hist_command: Option<HistoryCmd>,
+}
+
+#[derive(Subcommand, Debug)]
+#[clap(rename_all = "lower")]
+pub enum HistoryCmd {
+	Info { id: String },
+	Redo { id: String },
+	Undo { id: String },
 }
 
 #[derive(Args, Debug)]

@@ -29,22 +29,27 @@ pub async fn update(config: &Config) -> Result<()> {
 	let acquire = NalaAcquireProgress::new(tx);
 	let task = tokio::task::spawn(update_thread(acquire));
 
-	let mut progress = tui::NalaProgressBar::new(config, false)?;
+	let mut term = tui::Term::init_viewport(5)?;
+	let mut progress = tui::NalaProgressBar::new(config)?;
+	let mut dg = tui::progress::DisplayGroup::new();
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
 			Message::UpdatePosition((total, current)) => {
-				progress.indicatif.set_length(total);
-				progress.indicatif.set_position(current);
+				progress.set_length(total);
+				progress.set_position(current);
 			},
 			Message::Print(msg) => {
-				progress.print(&msg)?;
+				progress.print(&mut term, &msg)?;
 			},
 			Message::Fetched((msg, file_size)) => {
 				if file_size > 0 {
-					progress.print(&format!("{msg} [{}]", progress.unit.str(file_size)))?
+					progress.print(
+						&mut term,
+						&format!("{msg} [{}]", progress.unit.str(file_size)),
+					)?
 				} else {
-					progress.print(&msg)?
+					progress.print(&mut term, &msg)?
 				};
 			},
 			Message::Messages(msgs) => {
@@ -52,27 +57,27 @@ pub async fn update(config: &Config) -> Result<()> {
 					let mut iter = msgs.into_iter();
 
 					// First string is the header and always there
-					let mut msg = tui::progress::Message::empty(iter.next().unwrap()).regular();
+					let mut msg = tui::progress::PkgProgress::new(iter.next().unwrap()).regular();
 
 					for line in iter {
-						msg.add(line);
+						msg.add_msg(line);
 					}
 
-					progress.dg.clear().push(msg);
+					dg.push(msg);
 				}
-				progress.render()?;
+				term.draw(&[&progress])?;
 			},
 		}
 
 		// Exit immedately.
 		// This is the only way to stop apt's update
 		if tui::poll_exit_event()? {
-			progress.clean_up()?;
+			progress.clean_up(&mut term)?;
 			std::process::exit(1);
 		}
 	}
 
-	progress.clean_up()?;
+	progress.clean_up(&mut term)?;
 
 	task.await??;
 
@@ -216,12 +221,14 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	/// Each line has an overall percent meter and a per active item status
 	/// meter along with an overall bandwidth and ETA indicator.
 	fn pulse(&mut self, status: &AcqTextStatus, owner: &PkgAcquire) {
-		self.tx
-			.send(Message::UpdatePosition((
+		let pos = Message::UpdatePosition((
 				status.total_bytes(),
 				status.current_bytes(),
-			)))
-			.unwrap();
+			));
+
+		if let Err(err) = self.tx.send(pos) {
+			crate::error!("{err}");
+		};
 
 		let mut string: Vec<String> = vec![];
 

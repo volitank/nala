@@ -4,7 +4,6 @@ use anyhow::{bail, Result};
 use rust_apt::{Cache, Marked, Package};
 
 use super::{HistoryPackage, Operation};
-use crate::debug;
 use crate::libnala::NalaPkg;
 
 type SortedChanges<'a> = (Vec<Package<'a>>, HashMap<Operation, Vec<HistoryPackage>>);
@@ -22,15 +21,15 @@ impl NalaCache for Cache {
 		let mut pkg_set: HashMap<Operation, Vec<HistoryPackage>> = HashMap::new();
 		let mut pkgs: Vec<Package> = vec![];
 
-		debug!("Calculating changes");
+		crate::debug!("Calculating changes");
 		let changed = self.get_changes(true).collect::<Vec<_>>();
 		if changed.is_empty() {
 			return Ok((vec![], pkg_set));
 		}
 
 		for pkg in changed {
-			debug!("{pkg}:");
-			debug!("  Marked::{:?}", pkg.marked());
+			crate::debug!("{pkg}:");
+			crate::debug!("  Marked::{:?}", pkg.marked());
 
 			let (op, ver) = match pkg.marked() {
 				mark @ (Marked::NewInstall | Marked::Install | Marked::ReInstall) => {
@@ -84,7 +83,7 @@ impl NalaCache for Cache {
 							_ => Operation::Downgrade,
 						};
 
-						debug!("  Operation::{op:?}");
+						crate::debug!("  Operation::{op:?}");
 						pkg_set
 							.entry(op)
 							.or_default()
@@ -107,7 +106,7 @@ impl NalaCache for Cache {
 				Marked::None => bail!("{pkg} not marked, this should be impossible"),
 			};
 
-			debug!("  Operation::{op:?}");
+			crate::debug!("  Operation::{op:?}");
 			pkg_set
 				.entry(op)
 				.or_default()
@@ -123,7 +122,7 @@ impl NalaCache for Cache {
 		// Package is not really mutable in the way clippy thinks.
 		#[allow(clippy::mutable_key_type)]
 		let mut set = HashSet::new();
-		debug!("Auto Remover:");
+		crate::debug!("Auto Remover:");
 		let _ = unsafe { self.depcache().action_group() };
 		for pkg in self.iter() {
 			// TODO: Should we have --remove-config, or just do it like apt does and match

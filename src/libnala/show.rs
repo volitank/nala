@@ -16,6 +16,22 @@ pub struct ShowVersion<'a> {
 }
 
 const RECORDS: [&str; 13] = [
+	// Status: install ok installed
+	// Priority: optional
+	// Section: utils
+	// Installed-Size: 2247
+	// Maintainer: RPM packaging team <team+pkg-rpm@tracker.debian.org>
+	// Architecture: amd64
+	// Multi-Arch: foreign
+	// Source: libzstd
+	// Version: 1.5.6+dfsg-1
+	// Depends: libc6 (>= 2.34), libgcc-s1 (>= 3.0), liblz4-1 (>= 1.8.0), liblzma5 (>=
+	// 5.1.1alpha+20120614), libstdc++6 (>= 12), zlib1g (>= 1:1.1.4) Description: fast lossless
+	// compression algorithm -- CLI tool  Zstd, short for Zstandard, is a fast lossless
+	// compression algorithm, targeting  real-time compression scenarios at zlib-level compression
+	// ratio.  .
+	//  This package contains the CLI program implementing zstd.
+	// Homepage: https://github.com/facebook/zstd
 	RecordField::Package,
 	RecordField::Version,
 	RecordField::Architecture,

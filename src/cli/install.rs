@@ -5,9 +5,9 @@ use rust_apt::util::show_broken_pkg;
 use crate::config::Config;
 use crate::deb::DebFile;
 use crate::download::Downloader;
+use crate::glob;
 use crate::glob::CliPackage;
 use crate::libnala::{sudo_check, Operation};
-use crate::{debug, glob, info};
 
 /// Sort command line pkgs and download http pkgs
 ///
@@ -64,7 +64,7 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 			continue;
 		};
 
-		info!(
+		crate::notice!(
 			"Selecting Package '{}' instead of '{}'",
 			pkg.name(),
 			deb.path
@@ -81,10 +81,15 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 		packages.push(CliPackage::new_glob(pkg.name().to_string())?.with_pkg(pkg))
 	}
 
-	packages.mark(&cache, operation, config.get_bool("purge", false))?;
+	packages.mark(
+		&cache,
+		operation,
+		config.get_bool("purge", false),
+		config.get_bool("reinstall", false),
+	)?;
 
 	if let Err(err) = cache.resolve(false) {
-		debug!("Broken Count: {}", cache.depcache().broken_count());
+		crate::debug!("Broken Count: {}", cache.depcache().broken_count());
 		for pkg in cache.iter() {
 			if let Some(broken) = show_broken_pkg(&cache, &pkg, false) {
 				eprintln!("{broken}");

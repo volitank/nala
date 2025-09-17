@@ -20,8 +20,8 @@ use rust_apt::progress::{AcquireProgress, InstallProgress};
 use rust_apt::Cache;
 
 use crate::config::{color, Config, Theme};
-use crate::tui::NalaProgressBar;
-use crate::{debug, dprog};
+use crate::tui::{NalaProgressBar, Term};
+use crate::{dprog, tui};
 
 // const CURSER_UP: &'static str = "\x1b[1A";
 // const CURSER_DOWN: &'static str = "\x1b[1B";
@@ -79,23 +79,23 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	config.apt.clear("DPkg::Post-Invoke");
 	config.apt.clear("DPkg::Pre-Install-Pkgs");
 
-	debug!("run_install");
+	crate::debug!("run_install");
 
 	let (statusfd, writefd) = pipe()?;
-	fcntl(statusfd.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
+	fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
 
-	debug!("forking");
+	crate::debug!("forking");
 	let window_size = unsafe { get_winsize()? };
 	match unsafe { forkpty(&window_size, None)? } {
 		nix::pty::ForkptyResult::Child => {
-			close(statusfd.as_raw_fd())?;
+			close(statusfd)?;
 
 			let mut progress = AcquireProgress::apt();
 
 			let mut inst_progress = InstallProgress::fd(writefd.as_raw_fd());
 
 			cache.commit(&mut progress, &mut inst_progress)?;
-			close(writefd.into_raw_fd())?;
+			close(writefd)?;
 
 			// Flush all stdio for the child before we leave.
 			for fd in [STDIN_FD, STDOUT_FD, STDERR_FD] {
@@ -110,15 +110,16 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 				master.as_raw_fd(),
 			)?;
 
-			let mut progress = NalaProgressBar::new(config, true)?;
-			progress.indicatif.set_position(0);
-			progress.indicatif.set_length(100);
+			let mut term = tui::Term::init_viewport(3)?;
+			let mut progress = NalaProgressBar::new(config)?;
+			progress.set_position(0);
+			progress.set_length(100);
 
-			while pty.listen_to_child(config, &mut progress, child)? {}
+			while pty.listen_to_child(config, &mut term, &mut progress, child)? {}
 
-			progress.indicatif.finish();
-			progress.render()?;
-			progress.clean_up()?;
+			progress.finish();
+			term.draw(&[&progress])?;
+			progress.clean_up(&mut term)?;
 
 			// Forget the file descriptor, the child closes it.
 			// Not doing this causes Debug build to panic.
@@ -193,7 +194,12 @@ impl Pty {
 		}
 	}
 
-	fn read_master(&mut self, config: &Config, progress: &mut NalaProgressBar) -> Result<bool> {
+	fn read_master(
+		&mut self,
+		config: &Config,
+		term: &mut Term,
+		progress: &mut NalaProgressBar,
+	) -> Result<bool> {
 		match read_fd(&mut self.pty, &mut self.pty_buf)? {
 			PtyStr::Str(string) => {
 				if !progress.hidden()
@@ -202,11 +208,11 @@ impl Pty {
 					.iter()
 					.any(|code| string.contains(code))
 				{
-					progress.hide()?;
+					progress.hide(term)?;
 				}
 
 				if progress.hidden() {
-					dprog!(config, progress, "pty", "{string:?}");
+					dprog!(config, term, progress, "pty", "{string:?}");
 					write!(stdout(), "{string}")?;
 					stdout().flush()?;
 
@@ -215,7 +221,7 @@ impl Pty {
 				}
 
 				for line in string.lines() {
-					dprog!(config, progress, "pty", "{line:?}");
+					dprog!(config, term, progress, "pty", "{line:?}");
 
 					if line.trim().is_empty() || check_spam(line) {
 						continue;
@@ -231,7 +237,7 @@ impl Pty {
 						continue;
 					}
 
-					progress.print(&msg_formatter(line))?;
+					progress.print(term, &msg_formatter(line))?;
 				}
 				Ok(true)
 			},
@@ -240,21 +246,26 @@ impl Pty {
 		}
 	}
 
-	fn read_status(&mut self, config: &Config, progress: &mut NalaProgressBar) -> Result<bool> {
+	fn read_status(
+		&mut self,
+		config: &Config,
+		term: &mut Term,
+		progress: &mut NalaProgressBar,
+	) -> Result<bool> {
 		match read_fd(&mut self.status, &mut self.status_buf)? {
 			PtyStr::Str(string) => {
 				for line in string.lines() {
 					let status = DpkgStatus::try_from(line)?;
-					dprog!(config, progress, "statusfd", "{status:?}");
+					dprog!(config, term, progress, "statusfd", "{status:?}");
 
 					// For ConfFile specifically, set raw
 					if let DpkgStatusType::ConfFile = status.status_type {
-						progress.hide()?;
+						progress.hide(term)?;
 					// For all other status unset raw
 					} else if progress.hidden() {
-						progress.unhide()?;
+						progress.unhide(term)?;
 					}
-					progress.indicatif.set_position(status.percent);
+					progress.set_position(status.percent);
 				}
 				Ok(true)
 			},
@@ -320,6 +331,7 @@ impl Pty {
 	fn listen_to_child(
 		&mut self,
 		config: &Config,
+		term: &mut Term,
 		progress: &mut NalaProgressBar,
 		child: Pid,
 	) -> Result<bool> {
@@ -327,16 +339,16 @@ impl Pty {
 			return Ok(false);
 		}
 
-		dprog!(config, progress, "pty", "{self:?}");
+		dprog!(config, term, progress, "pty", "{self:?}");
 
 		let context = "Unable to read Status Fd";
-		if self.status_ready() && !self.read_status(config, progress).context(context)? {
+		if self.status_ready() && !self.read_status(config, term, progress).context(context)? {
 			return Ok(false);
 		}
 
 		if self.ready() {
 			return self
-				.read_master(config, progress)
+				.read_master(config, term, progress)
 				.context("Unable to read from pty");
 		}
 

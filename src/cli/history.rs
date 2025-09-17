@@ -1,57 +1,54 @@
-use anyhow::{bail, Result};
-use chrono::{DateTime, Local, Utc};
+use anyhow::Result;
 use rust_apt::new_cache;
 
 use crate::config::Config;
-use crate::libnala::get_history;
-use crate::{table, tui};
+use crate::libnala::HistoryFile;
+use crate::summary::display_summary;
 
-pub async fn history(config: &Config) -> Result<()> {
-	let history_file = get_history(config).await?;
-	let cache = new_cache!()?;
+pub async fn history(config: &Config, cmd: &crate::cli::parser::History) -> Result<()> {
+	let history_file = HistoryFile::from_config(config).await?;
 
-	let mut table =
-		table::get_table(&["ID", "Command", "Date and Time", "Requested-By", "Altered"]);
+	if let Some(hist) = &cmd.hist_command {
+		match hist {
+			crate::cli::parser::HistoryCmd::Info { id } => {
+				let cache = new_cache!()?;
+				display_summary(&cache, config, history_file.get(id)?).await?;
+			},
+			crate::cli::parser::HistoryCmd::Redo { id: _ } => todo!(),
+			crate::cli::parser::HistoryCmd::Undo { id } => {
+				// let cache = new_cache!()?;
+				let entry = history_file.get(id)?;
+				let mut table = history_file.table();
 
-	// TODO: Make it configurable which timezones you want.
-	// Convert Stored UTC into the local time zone
-	let date_times = history_file
-		.iter()
-		.filter_map(|e| {
-			Some(
-				e.date
-					.parse::<DateTime<Utc>>()
-					.ok()?
-					.with_timezone(&Local)
-					.format("%Y-%m-%d %H:%M:%S %Z"),
-			)
-		})
-		.collect::<Vec<_>>();
+				table.add_row(history_file.get(id)?.as_row());
+				println!("{table}");
 
-	for (i, entry) in history_file.iter().enumerate() {
-		let row: Vec<&dyn std::fmt::Display> = vec![
-			&entry.id,
-			&entry.command,
-			&date_times[i],
-			&entry.requested_by,
-			&entry.altered,
-		];
-		table.add_row(row);
-	}
+				println!("Packages:");
+				for pkg in entry.pkgs() {
+					println!("{pkg:?}")
+				}
+			},
+		}
+	} else {
+		let mut table = history_file.table();
+		for entry in history_file.iter() {
+			table.add_row(entry.as_row());
+		}
 
-	if !config.get_no_bool("tui", true) {
 		println!("{table}");
-		return Ok(());
 	}
-
-	let num = 2;
-	let Some(entry) = history_file.into_iter().nth(num - 1) else {
-		bail!("History entry with ID '{num}' does not exist")
-	};
-
-	tui::summary::SummaryTab::new(&cache, config, &entry)
-		.run()
-		.await?;
-
 	Ok(())
 }
+
+pub static NALA: &str = r"
+//       /\     /\
+//      {  `---'  }
+//      {  O   O  }
+//      ~~>  V  <~~
+//        `-----'____
+//        /     \    \_
+//       {       }\  )_\_   _
+//       |  \_/  |/ /  \_\_/ )
+//        \__/  /(_/     \__/
+//          (__/
+";

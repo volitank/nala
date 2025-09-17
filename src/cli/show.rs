@@ -2,8 +2,8 @@ use anyhow::Result;
 use rust_apt::new_cache;
 
 use crate::config::{color, Config, Theme};
+use crate::glob;
 use crate::libnala::ShowVersion;
-use crate::{glob, info};
 
 /// The show command
 pub fn show(config: &Config) -> Result<()> {
@@ -29,7 +29,7 @@ pub fn show(config: &Config) -> Result<()> {
 	}
 
 	if additional_records != 0 {
-		info!(
+		crate::notice!(
 			"There are {} additional records. Please use the {} switch to see them.",
 			color::color!(Theme::Notice, &additional_records.to_string()),
 			color::color!(Theme::Notice, "'-a'"),

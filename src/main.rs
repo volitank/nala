@@ -3,8 +3,8 @@ use std::process::ExitCode;
 
 use anyhow::{bail, Result};
 use clap::{ArgMatches, CommandFactory, FromArgMatches};
-use config::logger::LogOptions;
-use config::Level;
+use config::color::{self};
+use config::logger;
 use rust_apt::error::AptErrors;
 
 mod cli;
@@ -23,14 +23,24 @@ mod tui;
 use crate::cli::NalaParser;
 use crate::config::Config;
 
-fn main() -> ExitCode {
-	let (args, derived, mut config) = match get_config() {
-		Ok(conf) => conf,
-		Err(err) => {
-			eprintln!("\x1b[1;91mError:\x1b[0m {err:?}");
-			return ExitCode::FAILURE;
-		},
+// This is basically the error handling prior to
+// configuring the logger and such.
+macro_rules! rip {
+	($result:expr) => {
+		match $result {
+			Ok(ok) => ok,
+			Err(err) => {
+				eprintln!("\x1b[1;91mError:\x1b[0m {err:?}");
+				return ExitCode::FAILURE;
+			},
+		}
 	};
+}
+
+fn main() -> ExitCode {
+	// dbg!(color::get_color().as_ref());
+	rip!(logger::Logger::default().init());
+	let (args, derived, mut config) = rip!(get_config());
 
 	// TODO: We should probably have a notification system
 	// to pipe messages that aren't critical back to here
@@ -46,13 +56,13 @@ fn main() -> ExitCode {
 		if let Some(apt_errors) = err.downcast_ref::<AptErrors>() {
 			for error in apt_errors.iter() {
 				if error.is_error {
-					error!("{}", error.msg.replace("E: ", ""));
+					crate::error!("{}", error.msg.replace("E: ", ""));
 				} else {
-					warn!("{}", error.msg.replace("W: ", ""));
+					crate::warning!("{}", error.msg.replace("W: ", ""));
 				};
 			}
 		} else {
-			error!("{err:?}");
+			crate::error!("{err:?}");
 		}
 		return ExitCode::FAILURE;
 	}
@@ -61,20 +71,13 @@ fn main() -> ExitCode {
 
 fn get_config() -> Result<(ArgMatches, NalaParser, Config)> {
 	let args = NalaParser::command().get_matches();
+
 	let derived = NalaParser::from_arg_matches(&args)?;
 
-	let config_file = match derived.config {
-		Some(ref conf_file) => conf_file,
+	let config = Config::read_config(match &derived.config {
+		Some(conf_file) => conf_file,
 		None => Path::new("/etc/nala/nala.conf"),
-	};
-
-	let config = match Config::new(config_file) {
-		Ok(config) => config,
-		Err(err) => {
-			eprintln!("Warning: {err}");
-			Config::default()
-		},
-	};
+	});
 
 	Ok((args, derived, config))
 }
@@ -86,21 +89,18 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 		return Ok(());
 	}
 
-	let options = LogOptions::new(Level::Info, Box::new(std::io::stderr()));
-	let logger = crate::config::setup_logger(options);
-
 	if let (Some((name, cmd)), Some(command)) = (args.subcommand(), derived.command) {
 		config.command = name.to_string();
 		config.load_args(cmd)?;
 
-		for (config, level) in [
-			(config.verbose(), crate::config::Level::Verbose),
-			(config.debug(), crate::config::Level::Debug),
-		] {
-			if config {
-				logger.lock().unwrap().set_level(level);
-			}
-		}
+		// for (config, level) in [
+		// 	(config.verbose(), log::Level::Trace),
+		// 	(config.debug(), log::Level::Debug),
+		// ] {
+		// 	if config {
+		// 		let logger = Logger::default().init();
+		// 	}
+		// }
 		command.run(config).await?;
 	} else {
 		NalaParser::command().print_help()?;

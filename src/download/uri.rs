@@ -110,6 +110,8 @@ impl Uri {
 	}
 
 	pub async fn download(mut self, mut domains: Arc<Mutex<HashMap<String, u8>>>) -> Result<Uri> {
+		self.tx
+			.send(Message::Start((self.filename.to_string(), self.size)))?;
 		// First check if the file already exists on disk.
 		if self.archive.exists() {
 			if let Some(hash) = &self.hash {
@@ -119,8 +121,10 @@ impl Uri {
 				)))?;
 
 				if hash == &HashSum::from_path(&self.archive, hash.str_type()).await? {
-					self.tx.send(Message::Update(self.size))?;
-					self.tx.send(Message::Finished)?;
+					let name = self.filename.to_string();
+
+					self.tx.send(Message::Update((name.clone(), self.size)))?;
+					self.tx.send(Message::Finished(name))?;
 					return Ok(self);
 				}
 			}
@@ -169,7 +173,7 @@ impl Uri {
 						self.tx.send(Message::Verbose(format!("Finished: {url}")))?;
 
 						remove_domain(domain, &mut domains).await;
-						self.tx.send(Message::Finished)?;
+						self.tx.send(Message::Finished(self.filename.to_string()))?;
 						return Ok(self);
 					},
 					Err(err) => {
@@ -205,7 +209,8 @@ impl Uri {
 			.with_context(|| format!("Unable to stream data from '{url}'"))?
 		{
 			// Send message to add to total progress bar.
-			self.tx.send(Message::Update(chunk.len()))?;
+			self.tx
+				.send(Message::Update((self.filename.to_string(), chunk.len())))?;
 			hasher.update(&chunk);
 
 			// Write the data to file

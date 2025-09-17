@@ -5,7 +5,6 @@ use rust_apt::records::RecordField;
 use rust_apt::{Package, PkgCurrentState, Version};
 
 use crate::config::color;
-use crate::{info, warn};
 
 pub trait NalaPkg<'a> {
 	fn filter_virtual(self) -> Result<Package<'a>>;
@@ -53,7 +52,7 @@ impl<'a> NalaPkg<'a> for Package<'a> {
 		// There is nothing that can satisfy it. Referenced only by name
 		// At time of commit `python3-libmapper` is purely virtual
 		if providers.is_empty() {
-			warn!(
+			crate::warning!(
 				"{} has no providers and is purely virutal",
 				color::primary!(self.name())
 			);
@@ -65,7 +64,7 @@ impl<'a> NalaPkg<'a> for Package<'a> {
 		if providers.len() == 1 {
 			// Unwrap should be fine here, we know that there is 1 in the Vector.
 			let target = providers.into_iter().next().unwrap();
-			info!(
+			crate::notice!(
 				"Selecting {} instead of virtual package {}",
 				color::primary!(target.fullname(false)),
 				color::primary!(self.name())
@@ -75,7 +74,7 @@ impl<'a> NalaPkg<'a> for Package<'a> {
 
 		// If there are multiple providers then we will error out
 		// and show the packages the user could select instead.
-		info!(
+		crate::notice!(
 			"{} is a virtual package provided by:",
 			color::primary!(self.name())
 		);

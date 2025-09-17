@@ -60,6 +60,7 @@ impl ProgressItem for DebFile {
 impl DebFile {
 	pub async fn new(path: String) -> Result<DebFile> {
 		let data = tokio::fs::read(&path).await?;
+
 		let mut ar = Archive::new(data.as_slice());
 		let hash = format!("{:x}", Sha256::digest(&data));
 
@@ -110,12 +111,16 @@ impl DebFile {
 			}
 		}
 
-		Ok(DebFile {
+		let file = DebFile {
 			path,
 			map,
 			control,
 			hash,
-		})
+		};
+
+		crate::debug!("{file:?}");
+
+		Ok(file)
 	}
 
 	// pub fn path(&self) -> &Path { Path::new(&self.path) }

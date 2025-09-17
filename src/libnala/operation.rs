@@ -32,6 +32,19 @@ impl Operation {
 
 impl Operation {
 	pub fn as_str(&self) -> &str { self.as_ref() }
+
+	pub fn undo(&self) -> Operation {
+		match self {
+			Operation::Remove | Operation::Purge | Operation::AutoRemove | Operation::AutoPurge => {
+				Operation::Install
+			},
+			Operation::Install => Operation::Remove,
+			Operation::Reinstall => Operation::Reinstall,
+			Operation::Upgrade => Operation::Downgrade,
+			Operation::Downgrade => Operation::Upgrade,
+			Operation::Held => Operation::Held,
+		}
+	}
 }
 
 impl std::fmt::Display for Operation {

@@ -12,7 +12,7 @@ use tokio::time::Duration;
 
 use crate::config::{Config, Paths};
 use crate::libnala::{sudo_check, DOMAIN, UBUNTU_COUNTRY, UBUNTU_URL};
-use crate::{debug, tui};
+use crate::tui;
 
 fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 	let pkg_file = pkg?.candidate()?.package_files().next()?;
@@ -26,7 +26,7 @@ fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 fn detect_release(config: &Config) -> Result<(String, String, String)> {
 	for distro in ["debian", "ubuntu", "devuan"] {
 		if let Some(value) = config.get_str(distro) {
-			debug!("Distro '{distro} {value}' passed on CLI");
+			crate::debug!("Distro '{distro} {value}' passed on CLI");
 			let distro = distro.to_string();
 			let keyring = format!("/usr/share/keyrings/{distro}-archive-keyring.gpg");
 			return Ok((distro, value.to_lowercase(), keyring));
@@ -41,7 +41,7 @@ fn detect_release(config: &Config) -> Result<(String, String, String)> {
 		"apt",
 	] {
 		if let Some((origin, codename)) = get_origin_codename(cache.get(keyring)) {
-			debug!("Distro/Release Found on '{keyring}'");
+			crate::debug!("Distro/Release Found on '{keyring}'");
 			// devuan-archive-keyring.gpg
 			// ubuntu-archive-keyring.gpg
 			// debian-archive-keyring.gpg
@@ -85,13 +85,18 @@ fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 
 	// Read and extract domains from the main sources.list file
 	let main = config.get_file(&Paths::SourceList);
-	for line in fs::read_to_string(&main)
-		.with_context(|| format!("Failed to read {main}"))?
-		.lines()
-	{
-		if let Some(domain) = domain_from_list(line) {
-			sources.insert(domain);
-		}
+
+	match fs::read_to_string(&main) {
+		Ok(file) => {
+			for line in file.lines() {
+				if let Some(domain) = domain_from_list(line) {
+					sources.insert(domain);
+				}
+			}
+		},
+		Err(_) => {
+			// Silent in the night, I shall stalk my prey.
+		},
 	}
 
 	// Parts could be either .list or .sources
@@ -240,8 +245,11 @@ async fn score_handler(
 	release: &str,
 ) -> Result<Vec<(String, u128)>> {
 	// Setup Progress Bar
-	let mut pb = tui::NalaProgressBar::new(config, false)?;
-	pb.indicatif.set_length(mirror_strings.len() as u64);
+	let mut term = tui::Term::init_viewport(5)?;
+	let mut pb = tui::NalaProgressBar::new(config)?;
+	let mut dg = tui::progress::DisplayGroup::new();
+
+	pb.set_length(mirror_strings.len() as u64);
 
 	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 	let semp = Arc::new(Semaphore::new(10));
@@ -263,17 +271,18 @@ async fn score_handler(
 	let mut score = vec![];
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
-			pb.dg.push_str("Finished: ", response.0.to_string());
+			dg.push_str("Finished: ".to_string(), response.0.to_string());
 			score.push(response)
 		}
-		pb.indicatif.inc(1);
-		pb.render()?;
+		pb.inc(1);
+		term.draw(&[&pb])?;
+
 		if tui::poll_exit_event()? {
-			pb.clean_up()?;
+			pb.clean_up(&mut term)?;
 			std::process::exit(1);
 		}
 	}
-	pb.clean_up()?;
+	pb.clean_up(&mut term)?;
 
 	// Move FetchScore out of its Arc and then return the final vec.
 	score.sort_by_key(|k| k.1);
@@ -407,10 +416,10 @@ pub async fn fetch(config: &Config) -> Result<()> {
 	sudo_check(config)?;
 
 	let (distro, release, keyring) = detect_release(config)?;
-	debug!("Detected '{distro}:{release}'");
+	crate::debug!("Detected '{distro}:{release}'");
 
 	let component = get_component(config, &distro)?;
-	debug!("Initial component '{component}'");
+	crate::debug!("Initial component '{component}'");
 
 	let countries: Option<HashSet<String>> = match config.countries() {
 		Some(values) => {
@@ -425,11 +434,11 @@ pub async fn fetch(config: &Config) -> Result<()> {
 
 	// Get the current sources on disk to not create duplicates
 	let sources = parse_sources(config)?;
-	debug!("Sources on disk {sources:#?}");
+	crate::debug!("Sources on disk {sources:#?}");
 
 	// Get the mirrors
 	let mut net_select = fetch_mirrors(config, &countries, &distro).await?;
-	debug!("NetSelect size '{}'", net_select.len());
+	crate::debug!("NetSelect size '{}'", net_select.len());
 
 	// Remove domains that are already defined on disk
 	let mut remove = HashSet::new();
@@ -441,11 +450,11 @@ pub async fn fetch(config: &Config) -> Result<()> {
 		}
 	}
 	net_select.retain(|n| !remove.contains(n));
-	debug!("NetSelect Dedupe Size '{}'", net_select.len());
+	crate::debug!("NetSelect Dedupe Size '{}'", net_select.len());
 
 	// Score the mirrors
 	let scored = score_handler(config, net_select, &release).await?;
-	debug!("Scored Mirrors '{}'", scored.len());
+	crate::debug!("Scored Mirrors '{}'", scored.len());
 
 	if scored.is_empty() {
 		bail!("Nala was unable to find any mirrors.")
@@ -453,13 +462,13 @@ pub async fn fetch(config: &Config) -> Result<()> {
 
 	// Only run the TUI if --auto is not on
 	let chosen = if config.auto().is_some() {
-		debug!("Auto mode, not starting TUI");
+		crate::debug!("Auto mode, not starting TUI");
 		scored.into_iter().map(|(s, _)| s).collect()
 	} else {
-		debug!("Interactive mode, starting TUI");
-		let terminal = tui::init_terminal()?;
-		let chosen = tui::fetch::App::new(config, scored).run(terminal)?;
-		tui::restore_terminal()?;
+		crate::debug!("Interactive mode, starting TUI");
+		let mut term = tui::Term::new()?;
+		let chosen = tui::fetch::App::new(config, scored).run(&mut term)?;
+		term.restore()?;
 		chosen
 	};
 
@@ -467,7 +476,7 @@ pub async fn fetch(config: &Config) -> Result<()> {
 		bail!("No mirrors were selected.")
 	}
 
-	debug!("Building Nala sources file");
+	crate::debug!("Building Nala sources file");
 	let mut nala_sources = "# Sources file built for nala\n\n".to_string();
 	// Types: deb deb-src
 	// URIs: https://deb.volian.org/volian/
@@ -497,7 +506,7 @@ pub async fn fetch(config: &Config) -> Result<()> {
 	);
 	nala_sources += &format!("Signed-By: {keyring}\n");
 
-	debug!("Writing the following to file:\n\n{nala_sources}");
+	crate::debug!("Writing the following to file:\n\n{nala_sources}");
 
 	let file = config.get_file(&Paths::NalaSources);
 	fs::write(&file, nala_sources)?;

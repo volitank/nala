@@ -1,23 +1,24 @@
 use std::io::{stdout, Write};
+use std::ops::Deref;
 
 use anyhow::Result;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::terminal::disable_raw_mode;
+use indexmap::IndexMap;
 use indicatif::ProgressBar;
-use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::symbols;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, LineGauge, Padding, Paragraph, Widget, Wrap};
-use ratatui::{symbols, Terminal, TerminalOptions, Viewport};
+use ratatui::widgets::{LineGauge, Paragraph, Widget, Wrap};
 use regex::Regex;
 use rust_apt::util::time_str;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
-use super::Term;
+use super::{Drawable, Term};
 use crate::config::{Config, Theme};
-use crate::tui;
+use crate::{color, tui};
 
 /// Numeral System for unit conversion.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -66,79 +67,80 @@ pub trait ProgressItem {
 	fn msg(&self) -> String;
 }
 
-#[derive(Debug)]
-pub struct Progress<'a> {
-	dpkg: bool,
-	percentage: String,
-	current_total: String,
-	per_sec: String,
-	bar: LineGauge<'a>,
-	spans: Vec<Line<'a>>,
-	themes: (Style, Style),
-}
+// #[derive(Debug)]
+// pub struct Progress<'a> {
+// 	dpkg: bool,
+// 	percentage: String,
+// 	current_total: String,
+// 	per_sec: String,
+// 	bar: LineGauge<'a>,
+// 	spans: DisplayGroup,
+// 	themes: (Style, Style),
+// }
 
-impl Widget for Progress<'_> {
-	fn render(self, area: Rect, buf: &mut Buffer) {
-		let block = Block::bordered()
-			.border_type(BorderType::Rounded)
-			.padding(Padding::horizontal(1))
-			.style(self.themes.0);
+// impl Widget for Progress<'_> {
+// 	fn render(mut self, area: Rect, buf: &mut Buffer) {
+// 		let block = Block::bordered()
+// 			.border_type(BorderType::Rounded)
+// 			.padding(Padding::horizontal(1))
+// 			.style(self.themes.0);
 
-		let inner = Layout::vertical([Constraint::Fill(100), Constraint::Length(1)])
-			.split(block.inner(*buf.area()));
+// 		let [remainder, bar] =
+// 			Layout::vertical([Constraint::Min(0),
+// Constraint::Length(1)]).areas(block.inner(area));
 
-		let mut constraints = vec![
-			Constraint::Fill(100),
-			Constraint::Length(self.percentage.len() as u16 + 2),
-			Constraint::Length(self.current_total.len() as u16 + 2),
-		];
+// 		let mut constraints = vec![
+// 			Constraint::Min(0),
+// 			Constraint::Length(self.percentage.len() as u16 + 2),
+// 			Constraint::Length(self.current_total.len() as u16 + 2),
+// 		];
 
-		let bar_block = if self.dpkg {
-			Layout::horizontal(constraints).split(block.inner(*buf.area()))
-		} else {
-			constraints.push(Constraint::Length(self.per_sec.len() as u16 + 2));
-			Layout::horizontal(constraints).split(inner[1])
-		};
+// 		let bar_block = if self.dpkg {
+// 			Layout::horizontal(constraints).split(block.inner(area))
+// 		} else {
+// 			constraints.push(Constraint::Length(self.per_sec.len() as u16 + 2));
+// 			Layout::horizontal(constraints)
+// 				.flex(Flex::SpaceBetween)
+// 				.split(bar)
+// 		};
 
-		block.render(area, buf);
-		if !self.dpkg {
-			Paragraph::new(self.spans).render(inner[0], buf);
+// 		block.render(area, buf);
+// 		if !self.dpkg {
+// 			self.spans.render(remainder, buf);
 
-			get_paragraph(&self.per_sec)
-				.style(self.themes.1)
-				.render(bar_block[3], buf);
-		}
+// 			paragraph(&self.per_sec)
+// 				.style(self.themes.1)
+// 				.render(bar_block[2], buf);
+// 		}
 
-		self.bar.render(bar_block[0], buf);
-		get_paragraph(&self.percentage)
-			.style(self.themes.1)
-			.render(bar_block[1], buf);
+// 		self.bar.render(bar_block[0], buf);
+// 		paragraph(&self.percentage)
+// 			.style(self.themes.1)
+// 			.render(bar_block[0], buf);
 
-		if !self.dpkg {
-			get_paragraph(&self.current_total)
-				.style(self.themes.0)
-				.render(bar_block[2], buf);
-		}
-	}
-}
+// 		if !self.dpkg {
+// 			paragraph(&self.current_total)
+// 				.style(self.themes.0)
+// 				.render(bar_block[2], buf);
+// 		}
+// 	}
+// }
 
-#[derive(Clone)]
-pub struct Message {
+#[derive(Clone, Debug)]
+pub struct PkgProgress {
 	header: String,
 	theme: Theme,
-	msg: Vec<String>,
+	lines: Vec<String>,
 }
 
-impl Message {
-	pub fn new<T: ToString>(header: T, msg: Vec<String>) -> Message {
+impl PkgProgress {
+	pub fn new(header: String) -> PkgProgress {
 		Self {
 			header: header.to_string(),
 			theme: Theme::Primary,
-			msg,
+			lines: vec![],
 		}
 	}
-
-	pub fn empty<T: ToString>(header: T) -> Message { Self::new(header, vec![]) }
 
 	pub fn theme(mut self, theme: Theme) -> Self {
 		self.theme = theme;
@@ -147,120 +149,154 @@ impl Message {
 
 	pub fn regular(self) -> Self { self.theme(Theme::Regular) }
 
-	pub fn add(&mut self, value: String) { self.msg.push(value) }
+	pub fn add_msg(&mut self, value: String) { self.lines.push(value) }
 
 	pub fn into_line(self, config: &Config) -> Line<'static> {
 		let mut line = Line::default();
-		line.push_span(Span::from(self.header).style(config.rat_reset(self.theme)));
+		line.push_span(Span::from(self.header.clone()).style(config.color.rat_reset(self.theme)));
 
-		for msg in self.msg {
-			line.push_span(Span::from(msg).style(config.rat_reset(Theme::Regular)));
+		let style = config.color.rat_reset(Theme::Regular);
+		for msg in self.lines {
+			line.push_span(Span::from(msg).style(style));
 		}
 		line
 	}
 }
 
-#[derive(Clone)]
-pub struct DisplayGroup(Vec<Message>);
+impl Widget for &PkgProgress {
+	fn render(self, area: Rect, buf: &mut Buffer) {
+		let theme = color::Style::default().to_rat();
+
+		let mut line = Line::default();
+		line.push_span(Span::from(&self.header).style(theme));
+
+		for msg in &self.lines {
+			line.push_span(Span::from(msg).style(theme));
+		}
+
+		Paragraph::new(line).render(area, buf);
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct DisplayGroup {
+	map: IndexMap<String, PkgProgress>,
+}
 
 impl DisplayGroup {
-	pub fn new() -> DisplayGroup { Self(vec![]) }
+	pub fn new() -> DisplayGroup {
+		Self {
+			map: IndexMap::new(),
+		}
+	}
 
-	pub fn clear(&mut self) -> &mut Self {
-		self.0.clear();
+	pub fn push(&mut self, value: PkgProgress) -> &mut Self {
+		self.map.insert(value.header.clone(), value);
 		self
 	}
 
-	pub fn push(&mut self, value: Message) -> &mut Self {
-		self.0.push(value);
+	pub fn push_str(&mut self, key: String, value: String) -> &mut Self {
+		if let Some(pkg) = self.map.get_mut(&key) {
+			pkg.lines = vec![value];
+			return self;
+		}
+
+		let mut pkg = PkgProgress::new(key);
+		pkg.add_msg(value);
+		self.push(pkg);
 		self
 	}
+}
 
-	pub fn push_str<T: ToString>(&mut self, header: T, value: String) -> &mut Self {
-		self.push(Message::new(header.to_string(), vec![value]));
-		self
-	}
+impl Deref for DisplayGroup {
+	type Target = IndexMap<String, PkgProgress>;
 
-	pub fn into_lines(self, config: &Config) -> Vec<Line<'static>> {
-		if self.0.is_empty() {
-			vec![Line::from("Working...")]
-		} else {
-			self.0
-				.into_iter()
-				.map(|msg| msg.into_line(config))
-				.collect()
+	fn deref(&self) -> &Self::Target { &self.map }
+}
+
+impl Default for DisplayGroup {
+	fn default() -> DisplayGroup { Self::new() }
+}
+
+impl Widget for &mut DisplayGroup {
+	fn render(self, area: Rect, buf: &mut Buffer) {
+		let stop = self.map.len();
+
+		let mut con: Vec<Constraint> = (0..stop).map(|_| Constraint::Length(1)).collect();
+		con.push(Constraint::Min(0));
+
+		let inner = Layout::vertical(con).flex(Flex::Center).split(area);
+
+		for (i, pkg) in self.values().enumerate() {
+			if i >= stop {
+				break;
+			}
+			pkg.render(inner[i], buf);
 		}
 	}
 }
 
+impl Deref for NalaProgressBar<'_> {
+	type Target = ProgressBar;
+
+	fn deref(&self) -> &Self::Target { &self.pb }
+}
+
 pub struct NalaProgressBar<'a> {
-	pub terminal: Term,
-	config: &'a Config,
-	pub indicatif: ProgressBar,
+	pub config: &'a Config,
+	pub pb: ProgressBar,
 	pub unit: UnitStr,
-	pub dg: DisplayGroup,
 	ansi: Regex,
 	pub disabled: bool,
-	dpkg: bool,
 }
 
 impl<'a> NalaProgressBar<'a> {
-	pub fn new(config: &'a Config, dpkg: bool) -> Result<Self> {
-		let indicatif = ProgressBar::hidden();
-		indicatif.set_length(0);
+	pub fn new(config: &'a Config) -> Result<Self> {
+		let pb = ProgressBar::hidden();
+		pb.set_length(0);
 
-		enable_raw_mode()?;
-
-		let terminal = Terminal::with_options(
-			CrosstermBackend::new(std::io::stdout()),
-			TerminalOptions {
-				viewport: Viewport::Inline(if dpkg { 3 } else { 5 }),
-			},
-		)?;
-
-		Ok(Self {
-			terminal,
+		let ret = Self {
 			config,
-			indicatif,
+			pb,
 			unit: UnitStr::new(1, NumSys::Binary),
-			dg: DisplayGroup::new(),
 			ansi: Regex::new(r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])")?,
 			disabled: false,
-			dpkg,
-		})
+		};
+
+		Ok(ret)
 	}
 
 	pub async fn join<P: ProgressItem + 'static>(
 		&mut self,
+		term: &mut Term,
 		mut set: JoinSet<Result<P>>,
 	) -> Result<Vec<P>> {
-		self.indicatif.set_length(set.len() as u64);
-
+		self.pb.set_length(set.len() as u64);
 		let mut ret = vec![];
 		while let Some(res) = set.join_next().await {
 			let item = res??;
-			self.dg.push_str(item.header(), item.msg());
-			self.indicatif.inc(1);
+			// self.dg.push_str(item.header(), item.msg());
+			self.inc(1);
 
-			self.render()?;
+			term.term.draw(|f| self.draw(f))?;
 			if tui::poll_exit_event()? {
-				self.clean_up()?;
+				self.clean_up(term)?;
 				std::process::exit(1);
 			}
 			ret.push(item);
 		}
 
-		self.clean_up()?;
+		self.clean_up(term)?;
 		Ok(ret)
 	}
 
-	pub fn length(&self) -> u64 { self.indicatif.length().unwrap_or_default() }
+	pub fn length(&self) -> u64 { self.pb.length().unwrap_or_default() }
 
 	// f64 as ceil incase it's less than 1 second we round up to that.
-	fn elapsed(&self) -> u64 { self.indicatif.elapsed().as_secs_f64().ceil() as u64 }
+	fn elapsed(&self) -> u64 { self.pb.elapsed().as_secs_f64().ceil() as u64 }
 
-	fn ratio(&self) -> f64 {
-		let ratio = self.indicatif.position() as f64 / self.length() as f64;
+	pub fn ratio(&self) -> f64 {
+		let ratio = self.pb.position() as f64 / self.length() as f64;
 		if ratio > 1.0 {
 			return 1.0;
 		}
@@ -269,50 +305,51 @@ impl<'a> NalaProgressBar<'a> {
 
 	pub fn hidden(&self) -> bool { self.disabled }
 
-	pub fn hide(&mut self) -> Result<()> {
-		self.terminal.clear()?;
-		self.terminal.show_cursor()?;
+	pub fn hide(&mut self, term: &mut Term) -> Result<()> {
+		term.clear()?;
+		term.show_cursor()?;
 		self.disabled = true;
 		Ok(())
 	}
 
-	pub fn unhide(&mut self) -> Result<()> {
+	pub fn unhide(&mut self, term: &mut Term) -> Result<()> {
 		writeln!(stdout(), "\n\n\n")?;
-		self.terminal.hide_cursor()?;
+		term.hide_cursor()?;
 		self.disabled = false;
 		Ok(())
 	}
 
-	pub fn clean_up(&mut self) -> Result<()> {
-		self.terminal.clear()?;
+	pub fn clean_up(&mut self, term: &mut Term) -> Result<()> {
+		term.clear()?;
 		disable_raw_mode()?;
-		self.terminal.show_cursor()?;
+		term.show_cursor()?;
 		Ok(())
 	}
 
-	pub fn print(&mut self, msg: &str) -> Result<()> {
+	pub fn print(&mut self, term: &mut Term, msg: &str) -> Result<()> {
 		if self.disabled {
 			return Ok(());
 		}
 
 		// Strip ansi escape codes to get the correct size of the message
-		let height = self.ansi.replace_all(msg, "").len() as f32
-			/ self.terminal.backend().size()?.width as f32;
+		let height =
+			self.ansi.replace_all(msg, "").len() as f32 / term.backend().size()?.width as f32;
 
 		// Check how many new lines as well
 		let lines = (height.ceil() as u16).max(msg.lines().count() as u16);
 
 		// Artifacts come into play if the viewport isn't cleared
-		self.terminal.clear()?;
-		self.terminal.insert_before(lines, |buf| {
+		term.clear()?;
+		term.insert_before(lines, |buf| {
 			Paragraph::new(msg)
 				.left_aligned()
 				.wrap(Wrap::default())
-				.style(self.config.rat_style(Theme::Regular))
+				.style(self.config.color.rat_style(Theme::Regular))
 				.render(buf.area, buf);
 		})?;
 		// Must redraw the terminal after printing
-		self.render()
+		term.draw(&[self])?;
+		Ok(())
 	}
 
 	pub fn finished_string(&self) -> String {
@@ -330,54 +367,46 @@ impl<'a> NalaProgressBar<'a> {
 	}
 
 	/// TODO: Turn this into a trait!!!
-	pub fn label(&self) -> Message {
-		let mut msg = Message::empty("Remaining: ");
-		if self.indicatif.position() < self.length() {
-			msg.add(rust_apt::util::time_str(self.indicatif.eta().as_secs()));
+	pub fn label(&self) -> PkgProgress {
+		let mut msg = PkgProgress::new("Remaining: ".to_string());
+		if self.pb.position() < self.length() {
+			msg.add_msg(rust_apt::util::time_str(self.pb.eta().as_secs()));
 		}
 		msg
 	}
 
 	pub fn current_total(&self) -> String {
-		if self.dpkg {
-			format!("{}/{}", self.indicatif.position(), self.length())
-		} else {
-			format!(
-				"{}/{}",
-				self.unit.str(self.indicatif.position()),
-				self.unit.str(self.length()),
-			)
-		}
-	}
-
-	pub fn render(&mut self) -> Result<()> {
-		if self.disabled {
-			return Ok(());
-		}
-
-		let progress = Progress {
-			dpkg: self.dpkg,
-			percentage: format!("{:.1}%", self.ratio() * 100.0),
-			current_total: self.current_total(),
-			per_sec: format!("{}/s", self.unit.str(self.indicatif.per_sec() as u64)),
-			bar: LineGauge::default()
-				.line_set(symbols::line::THICK)
-				.ratio(self.ratio())
-				.label(self.label().into_line(self.config))
-				.filled_style(self.config.rat_style(Theme::ProgressFilled))
-				.unfilled_style(self.config.rat_style(Theme::ProgressUnfilled)),
-			spans: self.dg.clone().into_lines(self.config),
-			themes: (
-				self.config.rat_style(Theme::Primary),
-				self.config.rat_style(Theme::Secondary),
-			),
-		};
-
-		self.terminal
-			.draw(|f| progress.render(f.area(), f.buffer_mut()))?;
-
-		Ok(())
+		format!(
+			" {}/{}",
+			self.unit.str(self.pb.position()),
+			self.unit.str(self.length()),
+		)
 	}
 }
 
-pub fn get_paragraph(text: &str) -> Paragraph { Paragraph::new(text).right_aligned() }
+impl Widget for &NalaProgressBar<'_> {
+	fn render(self, area: Rect, buf: &mut Buffer) {
+		if self.disabled {
+			return;
+		}
+		let block = tui::vblock(&self.config.color);
+
+		let prog_bar = LineGauge::default()
+			.line_set(symbols::line::THICK)
+			.ratio(self.ratio())
+			.label(self.label().into_line(self.config))
+			.filled_style(self.config.color.rat_style(Theme::ProgressFilled))
+			.unfilled_style(self.config.color.rat_style(Theme::ProgressUnfilled));
+
+		let [_buffer, bar_area, percent_area] =
+			Layout::horizontal([Constraint::Min(0); 3]).areas(block.inner(area));
+		block.render(area, buf);
+
+		prog_bar.render(bar_area, buf);
+
+		let percent = format!(" {:.1}%", self.ratio() * 100.0);
+		tui::paragraph(&percent)
+			.style(self.config.color.rat_style(Theme::Primary))
+			.render(percent_area, buf);
+	}
+}

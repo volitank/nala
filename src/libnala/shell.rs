@@ -14,7 +14,6 @@ use rust_apt::{Package, PkgCurrentState, Version};
 
 use super::NalaPkg;
 use crate::config::{Config, Paths};
-use crate::debug;
 use crate::libnala::NalaVersion;
 
 /// Set the compare string.
@@ -114,7 +113,7 @@ fn write_config_info<W: Write>(w: &mut W, config: &Config, hook_ver: i32) -> Res
 					quote_string(&tag, "=\"\n".to_string()),
 					quote_string(&value, "\n".to_string())
 				);
-				debug!("{tag_value}");
+				crate::debug!("{tag_value}");
 				writeln!(w, "{tag_value}",)?;
 				w.flush()?;
 			}
@@ -127,7 +126,7 @@ fn write_config_info<W: Write>(w: &mut W, config: &Config, hook_ver: i32) -> Res
 
 pub fn run_scripts(config: &Config, key: &str) -> Result<()> {
 	for hook in config.apt.find_vector(key) {
-		debug!("Running {hook}");
+		crate::debug!("Running {hook}");
 		let mut child = Command::new("sh").arg("-c").arg(hook).spawn()?;
 
 		let exit = child.wait()?;
@@ -155,7 +154,7 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 			.apt
 			.int(&format!("DPkg::Tools::Options::{prog}::InfoFD"), 0);
 
-		debug!("{prog} is version {hook_ver} on fd {info_fd}");
+		crate::debug!("{prog} is version {hook_ver} on fd {info_fd}");
 
 		let mut hook_strings: Vec<String> = vec![];
 
@@ -180,22 +179,23 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 			hook_strings.push(format!("{}\n", filename.display()))
 		}
 
-		debug!("Forking Child for '{hook}'");
+		crate::debug!("Forking Child for '{hook}'");
 		let (statusfd, writefd) = pipe()?;
 
 		match unsafe { fork()? } {
 			ForkResult::Child => {
-				close(writefd.as_raw_fd())?;
-				dup2(statusfd.as_raw_fd(), info_fd)?;
+				close(writefd)?;
+				let mut info = unsafe { std::os::fd::OwnedFd::from_raw_fd(info_fd) };
+				dup2(statusfd, &mut info)?;
 
-				debug!("From Child");
+				crate::debug!("From Child");
 				env::set_var("APT_HOOK_INFO_FD", info_fd.to_string());
 
 				let mut args_cstr: Vec<CString> = vec![];
 				for arg in ["/bin/sh", "-c", &hook] {
 					args_cstr.push(CString::new(arg)?)
 				}
-				debug!("Exec {args_cstr:?}");
+				crate::debug!("Exec {args_cstr:?}");
 				execv(&args_cstr[0], &args_cstr)?;
 
 				// Ensure exit after execv if it fails
@@ -208,9 +208,9 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 					write_config_info(&mut w, config, hook_ver)?;
 				}
 
-				debug!("Writing data into child");
+				crate::debug!("Writing data into child");
 				for pkg in hook_strings {
-					debug!("{pkg}");
+					crate::debug!("{pkg}");
 					write!(w, "{pkg}")?;
 					w.flush()?;
 				}
@@ -218,7 +218,7 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 				drop(w);
 				// Forget the file descriptor as we just closed it with drop
 				std::mem::forget(writefd);
-				debug!("Waiting for Child");
+				crate::debug!("Waiting for Child");
 
 				// Wait for the child process to finish and get its exit code
 				let wait_status = waitpid(child, None)?;

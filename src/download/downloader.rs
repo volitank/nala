@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Error, Result};
+use ratatui::layout::{Constraint, Layout};
 use rust_apt::Version;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinSet;
@@ -12,7 +13,7 @@ use super::{proxy, Uri, UriFilter};
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
-use crate::{debug, dprog, info, tui, warn};
+use crate::{dprog, tui};
 
 /// If there are any untrusted URIs,
 /// check if we're allowed to fetch them and error otherwise.
@@ -23,7 +24,7 @@ pub fn untrusted_error(config: &Config, untrusted: Vec<String>) -> Result<()> {
 	if untrusted.is_empty() {
 		return Ok(());
 	}
-	warn!("The Following packages cannot be authenticated!");
+	crate::warning!("The Following packages cannot be authenticated!");
 	eprintln!("  {}", untrusted.join(", "));
 
 	if !config.allow_unauthenticated() {
@@ -33,7 +34,7 @@ pub fn untrusted_error(config: &Config, untrusted: Vec<String>) -> Result<()> {
 		));
 	}
 
-	info!("Configuration is set to allow installation of unauthenticated packages.");
+	crate::notice!("Configuration is set to allow installation of unauthenticated packages.");
 	Ok(())
 }
 
@@ -41,12 +42,13 @@ pub fn untrusted_error(config: &Config, untrusted: Vec<String>) -> Result<()> {
 // There may be one other thing or something.
 #[derive(Debug)]
 pub enum Message {
+	Start((String, usize)),
 	Exit,
-	Finished,
+	Finished(String),
 	Debug(String),
 	Verbose(String),
 	NonFatal((Error, usize)),
-	Update(usize),
+	Update((String, usize)),
 }
 
 pub struct Downloader {
@@ -57,7 +59,7 @@ pub struct Downloader {
 	pub(crate) partial_dir: PathBuf,
 	/// Used to count how many connections are open to a domain.
 	/// Nala only allows 3 at a time per domain.
-	domains: Arc<Mutex<HashMap<String, u8>>>,
+	pub(crate) domains: Arc<Mutex<HashMap<String, u8>>>,
 	set: JoinSet<Result<Uri>>,
 	pub(crate) tx: mpsc::UnboundedSender<Message>,
 	rx: mpsc::UnboundedReceiver<Message>,
@@ -120,7 +122,7 @@ impl Downloader {
 		let hash = if let Some(hashsum) = parser.next() {
 			Some(HashSum::from_str_len(hashsum.len(), hashsum.to_string())?)
 		} else {
-			warn!("No Hash Found for '{uri}'");
+			crate::warning!("No Hash Found for '{uri}'");
 			None
 		};
 
@@ -129,7 +131,7 @@ impl Downloader {
 		// Check headers for the size of the download
 		let headers = response.headers();
 
-		debug!("URL Headers for {uri} {headers:#?}");
+		crate::debug!("URL Headers for {uri} {headers:#?}");
 		let Some(content_len) = response.headers().get("content-length") else {
 			bail!("content-length does not exist in {headers:#?}");
 		};
@@ -179,7 +181,7 @@ impl Downloader {
 	pub async fn run(mut self, config: &Config, rm_partial: bool) -> Result<Vec<Uri>> {
 		if config.debug() {
 			for uri in self.uris() {
-				debug!("{}", uri.to_json()?);
+				crate::debug!("{}", uri.to_json()?);
 			}
 		}
 		// TODO: This is correct, but it is also likely very inefficient.
@@ -200,70 +202,103 @@ impl Downloader {
 			untrusted_error(config, self.filter.untrusted.iter().cloned().collect())?;
 		}
 
-		let mut progress = tui::NalaProgressBar::new(config, false)?;
-		// Set the total downloads.
-		let mut total = 0;
+		let mut term = tui::Term::init_viewport(16)?;
+		let mut progress = tui::NalaProgressBar::new(config)?;
+		let mut dg = tui::progress::DisplayGroup::new();
+
+		// Set the total bytes to download.
 		for uri in &self.uris {
-			total += 1;
-			progress.indicatif.inc_length(uri.size as u64)
+			progress.inc_length(uri.size as u64)
 		}
+
+		let total: u16 = self.uris().len().try_into().unwrap();
 
 		// Start the downloads
 		self.download().await?;
 
-		let tick_rate = Duration::from_millis(150);
+		let tick_rate = Duration::from_millis(250);
 		let mut tick = Instant::now();
+
 		let mut current = 0;
+
 		'outer: loop {
 			if current == total {
-				progress.clean_up()?;
+				progress.clean_up(&mut term)?;
 				break;
 			}
 
 			while let Ok(msg) = self.rx.try_recv() {
 				match msg {
-					Message::Update(bytes_downloaded) => {
-						progress.indicatif.inc(bytes_downloaded as u64)
+					Message::Start((name, total)) => {
+						// progress.dg.push(PkgProgress::new(name, total as
+						// u64));
 					},
-					Message::Finished => {
+					Message::Update((name, inc)) => {
+						// progress.dg.update(&name, inc as u64);
+						progress.pb.inc(inc as u64)
+					},
+					Message::Finished(filename) => {
+						// progress.dg.remove(&filename);
 						current += 1;
 					},
 					Message::Exit => {
-						progress.clean_up()?;
+						progress.clean_up(&mut term)?;
 						break 'outer;
 					},
 					Message::Debug(msg) => {
-						dprog!(config, progress, "downloader", "{msg}");
+						dprog!(config, &mut term, progress, "downloader", "{msg}");
 					},
 					Message::Verbose(msg) => {
 						if config.verbose() {
-							progress.print(&msg)?;
+							progress.print(&mut term, &msg)?;
 						}
 					},
 					Message::NonFatal((err, size)) => {
-						progress.print(&format!("Error: {err:?}"))?;
-						progress
-							.indicatif
-							.set_position(progress.length() - size as u64)
+						progress.print(&mut term, &format!("Error: {err:?}"))?;
+						progress.pb.set_position(progress.length() - size as u64)
 					},
 				}
 			}
 
 			if tui::poll_exit_event()? {
-				progress.clean_up()?;
+				progress.clean_up(&mut term)?;
 				self.set.shutdown().await;
-				info!("Exiting at user request");
+				crate::notice!("Exiting at user request");
 				return Ok(vec![]);
 			}
 
 			if tick.elapsed() >= tick_rate {
-				progress
-					.dg
-					.clear()
-					.push_str("Packages:", format!(" {current}/{total}"))
-					.push_str("Connections:", format!(" {:?}", self.domains.lock().await));
+				if progress.disabled {
+					continue;
+				}
 
-				progress.render()?;
+				for (k, v) in [
+					("Packages:", format!(" {current}/{total}")),
+					("Connections:", format!(" {:?}", self.domains.lock().await)),
+					("Total:", progress.current_total()),
+					(
+						"PerSec:",
+						format!(" {}/s", progress.unit.str(progress.per_sec() as u64)),
+					),
+				] {
+					dg.push_str(k.to_string(), v);
+				}
+
+				let _ = term.term.draw(|f| {
+					let block = crate::tui::vblock(&config.color);
+					let [_, info, bar] = Layout::vertical([
+						Constraint::Fill(100),
+						Constraint::Min(0),
+						Constraint::Length(1),
+					])
+					.areas(block.inner(f.area()));
+
+					f.render_widget(block, f.area());
+					f.render_widget(&mut dg, info);
+					f.render_widget(&progress, bar);
+				})?;
+
+				// self.draw(&mut term, &config.color, &mut progress, &mut dg)?;
 				tick = Instant::now();
 			}
 		}

@@ -9,7 +9,7 @@ mod system;
 use std::sync::LazyLock;
 
 pub use cache::NalaCache;
-pub use history::{get_history, HistoryEntry, HistoryPackage};
+pub use history::{get_history, HistoryEntry, HistoryFile, HistoryPackage};
 pub use operation::Operation;
 pub use package::{NalaPkg, NalaVersion};
 use regex::{Regex, RegexBuilder};

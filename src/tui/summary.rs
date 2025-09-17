@@ -1,30 +1,19 @@
-use std::io;
-
 use ansi_to_tui::IntoText;
 use anyhow::Result;
-use crossterm::event::{
-	self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
-};
-use crossterm::execute;
-use crossterm::terminal::{
-	disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseEventKind};
 use indexmap::IndexMap;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint::{Length, Max, Min};
 use ratatui::layout::{Alignment, Flex, Layout, Margin, Rect};
-use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Styled;
 use ratatui::text::Text;
 use ratatui::widgets::{
 	Block, BorderType, Cell, HighlightSpacing, Padding, Paragraph, Row, Scrollbar,
 	ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Tabs, Widget, Wrap,
 };
-use ratatui::Terminal;
 use rust_apt::util::DiskSpace;
 use rust_apt::Cache;
 
-use super::Term;
 use crate::config::{Config, Theme};
 use crate::libnala::{HistoryEntry, HistoryPackage, Operation};
 
@@ -72,8 +61,8 @@ impl<'a> App<'a> {
 	}
 
 	fn render_table(&mut self, area: Rect, buf: &mut Buffer) {
-		let highlight = self.config.rat_style(Theme::Primary);
-		let white = self.config.rat_style(Theme::Regular);
+		let highlight = self.config.color.rat_style(Theme::Primary);
+		let white = self.config.color.rat_style(Theme::Regular);
 
 		// Choose which headers based on the inner items of the SummaryPkg
 		let cols = self.items[0].items(self.config).len();
@@ -124,7 +113,7 @@ impl<'a> App<'a> {
 						item.into_text()
 							.unwrap()
 							.style(if i == 0 {
-								self.config.rat_style(pkg.operation)
+								self.config.color.rat_style(pkg.operation)
 							} else {
 								white
 							})
@@ -157,8 +146,8 @@ impl StatefulWidget for &mut App<'_> {
 		StatefulWidget::render(
 			Scrollbar::default()
 				.orientation(ScrollbarOrientation::VerticalRight)
-				.thumb_style(self.config.rat_style(Theme::Primary))
-				.track_style(self.config.rat_style(Theme::Secondary))
+				.thumb_style(self.config.color.rat_style(Theme::Primary))
+				.track_style(self.config.color.rat_style(Theme::Secondary))
 				.begin_symbol(None)
 				.end_symbol(None),
 			table_area[1].inner(Margin {
@@ -278,7 +267,7 @@ impl<'a> SummaryTab<'a> {
 			.unwrap();
 
 		Tabs::new(titles)
-			.highlight_style(self.config.rat_style(Theme::Primary))
+			.highlight_style(self.config.color.rat_style(Theme::Primary))
 			.select(position)
 			.padding("", "")
 			.divider(" ")
@@ -286,14 +275,9 @@ impl<'a> SummaryTab<'a> {
 	}
 
 	pub async fn run(&mut self) -> Result<bool> {
-		enable_raw_mode()?;
-		let mut stdout = io::stdout();
-		execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-		let backend = CrosstermBackend::new(stdout);
-		let mut terminal = Terminal::new(backend)?;
-
+		let mut term = crate::tui::Term::new()?;
 		loop {
-			terminal
+			term.term
 				.draw(|frame| frame.render_stateful_widget(&mut *self, frame.area(), &mut 0))?;
 
 			match event::read()? {
@@ -301,11 +285,11 @@ impl<'a> SummaryTab<'a> {
 					if key.kind == KeyEventKind::Press {
 						match key.code {
 							KeyCode::Char('q') | KeyCode::Esc => {
-								restore_terminal(&mut terminal)?;
+								term.restore()?;
 								return Ok(false);
 							},
 							KeyCode::Char('y') => {
-								restore_terminal(&mut terminal)?;
+								term.restore()?;
 								return Ok(true);
 							},
 							KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
@@ -327,19 +311,13 @@ impl<'a> SummaryTab<'a> {
 							KeyCode::Enter => {
 								let app = self.current();
 								if let Some(i) = app.state.selected() {
-									app.items[i]
-										.render_changelog(self.cache, &mut terminal)
-										.await?;
+									app.items[i].render_changelog(self.cache, &mut term).await?;
 								}
 							},
 							KeyCode::Char('s') => {
 								let app = self.current();
 								if let Some(i) = app.state.selected() {
-									app.items[i].render_show(
-										self.cache,
-										self.config,
-										&mut terminal,
-									)?;
+									app.items[i].render_show(self.cache, self.config, &mut term)?;
 								}
 							},
 							_ => {},
@@ -452,27 +430,15 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 
 		Paragraph::new(Text::from_iter(text))
 			.centered()
-			.style(self.config.rat_style(Theme::Secondary))
+			.style(self.config.color.rat_style(Theme::Secondary))
 			.wrap(Wrap::default())
 			.render(info_area, buf);
 	}
 }
 
-/// Restore the terminal
-pub fn restore_terminal(terminal: &mut Term) -> Result<()> {
-	disable_raw_mode()?;
-	execute!(
-		terminal.backend_mut(),
-		LeaveAlternateScreen,
-		DisableMouseCapture
-	)?;
-	terminal.show_cursor()?;
-	Ok(())
-}
-
 pub fn header_block<'a>(config: &'a Config, title: &'a str) -> Block<'a> {
 	basic_block(config)
-		.title(format!("  {title}  ").set_style(config.rat_style(Theme::Highlight)))
+		.title(format!("  {title}  ").set_style(config.color.rat_style(Theme::Highlight)))
 		.title_alignment(Alignment::Center)
 		.padding(Padding::horizontal(1))
 }
@@ -480,5 +446,5 @@ pub fn header_block<'a>(config: &'a Config, title: &'a str) -> Block<'a> {
 pub fn basic_block(config: &Config) -> Block {
 	Block::bordered()
 		.border_type(BorderType::Thick)
-		.border_style(config.rat_style(Theme::Primary))
+		.border_style(config.color.rat_style(Theme::Primary))
 }
