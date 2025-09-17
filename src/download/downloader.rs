@@ -13,6 +13,7 @@ use super::{proxy, Uri, UriFilter};
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
+use crate::tui::Drawable;
 use crate::{dprog, tui};
 
 /// If there are any untrusted URIs,
@@ -204,7 +205,7 @@ impl Downloader {
 
 		let mut term = tui::Term::init_viewport(16)?;
 		let mut progress = tui::NalaProgressBar::new(config)?;
-		let mut dg = tui::progress::DisplayGroup::new();
+		let mut dg = tui::progress::DisplayGroup::new(config);
 
 		// Set the total bytes to download.
 		for uri in &self.uris {

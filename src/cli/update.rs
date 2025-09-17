@@ -5,7 +5,7 @@ use rust_apt::{new_cache, PackageSort};
 use tokio::sync::mpsc;
 
 use crate::config::{color, Config, Theme};
-use crate::tui;
+use crate::tui::{self, Drawable};
 
 pub enum Message {
 	Print(String),
@@ -31,7 +31,7 @@ pub async fn update(config: &Config) -> Result<()> {
 
 	let mut term = tui::Term::init_viewport(5)?;
 	let mut progress = tui::NalaProgressBar::new(config)?;
-	let mut dg = tui::progress::DisplayGroup::new();
+	let mut dg = tui::progress::DisplayGroup::new(config);
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
@@ -57,7 +57,7 @@ pub async fn update(config: &Config) -> Result<()> {
 					let mut iter = msgs.into_iter();
 
 					// First string is the header and always there
-					let mut msg = tui::progress::PkgProgress::new(iter.next().unwrap()).regular();
+					let mut msg = tui::progress::PkgProgress::new(config, iter.next().unwrap());
 
 					for line in iter {
 						msg.add_msg(line);
@@ -65,7 +65,7 @@ pub async fn update(config: &Config) -> Result<()> {
 
 					dg.push(msg);
 				}
-				term.draw(&[&progress])?;
+				term.draw(config, &[&dg, &progress])?;
 			},
 		}
 
@@ -221,11 +221,9 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	/// Each line has an overall percent meter and a per active item status
 	/// meter along with an overall bandwidth and ETA indicator.
 	fn pulse(&mut self, status: &AcqTextStatus, owner: &PkgAcquire) {
-		let pos = Message::UpdatePosition((
-				status.total_bytes(),
-				status.current_bytes(),
-			));
+		let pos = Message::UpdatePosition((status.total_bytes(), status.current_bytes()));
 
+		// Uhh, this was an unwrap but this isn't really much better I guess.
 		if let Err(err) = self.tx.send(pos) {
 			crate::error!("{err}");
 		};

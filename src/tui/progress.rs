@@ -8,9 +8,9 @@ use indicatif::ProgressBar;
 use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::symbols;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{LineGauge, Paragraph, Widget, Wrap};
+use ratatui::widgets::{Block, LineGauge, Paragraph, Widget, Wrap};
+use ratatui::{symbols, Frame};
 use regex::Regex;
 use rust_apt::util::time_str;
 use serde::{Deserialize, Serialize};
@@ -127,19 +127,25 @@ pub trait ProgressItem {
 // }
 
 #[derive(Clone, Debug)]
-pub struct PkgProgress {
+pub struct PkgProgress<'a> {
+	config: &'a Config,
 	header: String,
 	theme: Theme,
 	lines: Vec<String>,
 }
 
-impl PkgProgress {
-	pub fn new(header: String) -> PkgProgress {
+impl<'a> PkgProgress<'a> {
+	pub fn new(config: &'a Config, header: String) -> PkgProgress<'a> {
 		Self {
-			header: header.to_string(),
+			config,
+			header,
 			theme: Theme::Primary,
 			lines: vec![],
 		}
+	}
+
+	pub fn lite_clone(&self) -> PkgProgress<'a> {
+		PkgProgress::new(self.config, self.header.to_string())
 	}
 
 	pub fn theme(mut self, theme: Theme) -> Self {
@@ -147,31 +153,26 @@ impl PkgProgress {
 		self
 	}
 
-	pub fn regular(self) -> Self { self.theme(Theme::Regular) }
-
 	pub fn add_msg(&mut self, value: String) { self.lines.push(value) }
 
-	pub fn into_line(self, config: &Config) -> Line<'static> {
+	pub fn into_line(self) -> Line<'static> {
 		let mut line = Line::default();
-		line.push_span(Span::from(self.header.clone()).style(config.color.rat_reset(self.theme)));
+		line.push_span(Span::from(self.header).style(self.config.color.rat_reset(Theme::Primary)));
 
-		let style = config.color.rat_reset(Theme::Regular);
 		for msg in self.lines {
-			line.push_span(Span::from(msg).style(style));
+			line.push_span(Span::from(msg).style(self.config.color.rat_reset(Theme::Regular)));
 		}
 		line
 	}
 }
 
-impl Widget for &PkgProgress {
+impl<'a> Widget for &PkgProgress<'a> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
-		let theme = color::Style::default().to_rat();
-
 		let mut line = Line::default();
-		line.push_span(Span::from(&self.header).style(theme));
+		line.push_span(Span::from(&self.header).style(self.config.color.rat_reset(Theme::Primary)));
 
 		for msg in &self.lines {
-			line.push_span(Span::from(msg).style(theme));
+			line.push_span(Span::from(msg).style(self.config.color.rat_reset(Theme::Regular)));
 		}
 
 		Paragraph::new(line).render(area, buf);
@@ -179,18 +180,20 @@ impl Widget for &PkgProgress {
 }
 
 #[derive(Clone, Debug)]
-pub struct DisplayGroup {
-	map: IndexMap<String, PkgProgress>,
+pub struct DisplayGroup<'a> {
+	config: &'a Config,
+	map: IndexMap<String, PkgProgress<'a>>,
 }
 
-impl DisplayGroup {
-	pub fn new() -> DisplayGroup {
+impl<'a> DisplayGroup<'a> {
+	pub fn new(config: &'a Config) -> DisplayGroup<'a> {
 		Self {
+			config,
 			map: IndexMap::new(),
 		}
 	}
 
-	pub fn push(&mut self, value: PkgProgress) -> &mut Self {
+	pub fn push(&mut self, value: PkgProgress<'a>) -> &mut Self {
 		self.map.insert(value.header.clone(), value);
 		self
 	}
@@ -201,24 +204,20 @@ impl DisplayGroup {
 			return self;
 		}
 
-		let mut pkg = PkgProgress::new(key);
+		let mut pkg = PkgProgress::new(self.config, key);
 		pkg.add_msg(value);
 		self.push(pkg);
 		self
 	}
 }
 
-impl Deref for DisplayGroup {
-	type Target = IndexMap<String, PkgProgress>;
+impl<'a> Deref for DisplayGroup<'a> {
+	type Target = IndexMap<String, PkgProgress<'a>>;
 
 	fn deref(&self) -> &Self::Target { &self.map }
 }
 
-impl Default for DisplayGroup {
-	fn default() -> DisplayGroup { Self::new() }
-}
-
-impl Widget for &mut DisplayGroup {
+impl<'a> Widget for &mut DisplayGroup<'a> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 		let stop = self.map.len();
 
@@ -232,6 +231,24 @@ impl Widget for &mut DisplayGroup {
 				break;
 			}
 			pkg.render(inner[i], buf);
+		}
+	}
+}
+
+impl<'a> Drawable for DisplayGroup<'a> {
+	fn draw(&self, f: &mut Frame, area: Rect) {
+		let stop = self.map.len();
+
+		let mut con: Vec<Constraint> = (0..stop).map(|_| Constraint::Length(1)).collect();
+		con.push(Constraint::Min(0));
+
+		let inner = Layout::vertical(con).flex(Flex::Center).split(area);
+
+		for (i, pkg) in self.values().enumerate() {
+			if i >= stop {
+				break;
+			}
+			pkg.render(inner[i], f.buffer_mut());
 		}
 	}
 }
@@ -278,7 +295,7 @@ impl<'a> NalaProgressBar<'a> {
 			// self.dg.push_str(item.header(), item.msg());
 			self.inc(1);
 
-			term.term.draw(|f| self.draw(f))?;
+			term.term.draw(|f| self.draw(f, f.area()))?;
 			if tui::poll_exit_event()? {
 				self.clean_up(term)?;
 				std::process::exit(1);
@@ -326,6 +343,19 @@ impl<'a> NalaProgressBar<'a> {
 		Ok(())
 	}
 
+	pub fn bar(&self) -> LineGauge<'_> {
+		LineGauge::default()
+			.line_set(symbols::line::THICK)
+			.ratio(self.ratio())
+			.label(self.label().into_line())
+			.filled_style(self.config.color.rat_style(Theme::ProgressFilled))
+			.unfilled_style(self.config.color.rat_style(Theme::ProgressUnfilled))
+	}
+
+	pub fn constraints(&self, block: &Block<'static>, area: Rect) -> [Rect; 2] {
+		Layout::horizontal([Constraint::Fill(100), Constraint::Min(6)]).areas(block.inner(area))
+	}
+
 	pub fn print(&mut self, term: &mut Term, msg: &str) -> Result<()> {
 		if self.disabled {
 			return Ok(());
@@ -348,7 +378,7 @@ impl<'a> NalaProgressBar<'a> {
 				.render(buf.area, buf);
 		})?;
 		// Must redraw the terminal after printing
-		term.draw(&[self])?;
+		term.draw(self.config, &[self])?;
 		Ok(())
 	}
 
@@ -368,7 +398,7 @@ impl<'a> NalaProgressBar<'a> {
 
 	/// TODO: Turn this into a trait!!!
 	pub fn label(&self) -> PkgProgress {
-		let mut msg = PkgProgress::new("Remaining: ".to_string());
+		let mut msg = PkgProgress::new(self.config, "Remaining: ".to_string());
 		if self.pb.position() < self.length() {
 			msg.add_msg(rust_apt::util::time_str(self.pb.eta().as_secs()));
 		}
@@ -390,16 +420,10 @@ impl Widget for &NalaProgressBar<'_> {
 			return;
 		}
 		let block = tui::vblock(&self.config.color);
+		let prog_bar = self.bar();
 
-		let prog_bar = LineGauge::default()
-			.line_set(symbols::line::THICK)
-			.ratio(self.ratio())
-			.label(self.label().into_line(self.config))
-			.filled_style(self.config.color.rat_style(Theme::ProgressFilled))
-			.unfilled_style(self.config.color.rat_style(Theme::ProgressUnfilled));
+		let [bar_area, percent_area] = self.constraints(&block, area);
 
-		let [_buffer, bar_area, percent_area] =
-			Layout::horizontal([Constraint::Min(0); 3]).areas(block.inner(area));
 		block.render(area, buf);
 
 		prog_bar.render(bar_area, buf);

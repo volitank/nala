@@ -247,7 +247,7 @@ async fn score_handler(
 	// Setup Progress Bar
 	let mut term = tui::Term::init_viewport(5)?;
 	let mut pb = tui::NalaProgressBar::new(config)?;
-	let mut dg = tui::progress::DisplayGroup::new();
+	let mut dg = tui::progress::DisplayGroup::new(config);
 
 	pb.set_length(mirror_strings.len() as u64);
 
@@ -275,7 +275,7 @@ async fn score_handler(
 			score.push(response)
 		}
 		pb.inc(1);
-		term.draw(&[&pb])?;
+		term.draw(config, &[&pb])?;
 
 		if tui::poll_exit_event()? {
 			pb.clean_up(&mut term)?;

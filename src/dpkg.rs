@@ -118,7 +118,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			while pty.listen_to_child(config, &mut term, &mut progress, child)? {}
 
 			progress.finish();
-			term.draw(&[&progress])?;
+			term.draw(config, &[&progress])?;
 			progress.clean_up(&mut term)?;
 
 			// Forget the file descriptor, the child closes it.
