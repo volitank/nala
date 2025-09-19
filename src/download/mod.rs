@@ -3,28 +3,47 @@ pub mod proxy;
 pub mod uri;
 
 pub use downloader::Downloader;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::LineGauge;
-use ratatui::{symbols, Frame};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::Frame;
 pub use uri::{Uri, UriFilter};
 
 use crate::config::Theme;
-use crate::tui::{paragraph, vblock, Drawable, NalaProgressBar};
+use crate::tui::progress::DisplayGroup;
+use crate::tui::{paragraph, borderless_area, Drawable, NalaProgressBar};
+
+
 
 impl Drawable for NalaProgressBar<'_> {
 	fn draw(&self, f: &mut Frame, area: Rect) {
-		// let block = vblock(&self.config.color);
+		// let inner = borderless_area(f, area, "Progress:");
+		let [info_area, progress] = ratatui::layout::Layout::default()
+			.direction(ratatui::layout::Direction::Vertical)
+			.constraints([
+				ratatui::layout::Constraint::Length(3),
+				ratatui::layout::Constraint::Length(1),
+			])
+			.areas(area);
+
+		let mut dg = DisplayGroup::new_str(self.config, "Progress:");
+		dg.insert("Total:".to_string(), self.current_total());
+		dg.insert("Speed:".to_string(), format!("{}/s", self.unit.str(self.per_sec() as u64)));
+
+
 		let prog_bar = self.bar();
-
-		// let [bar_area, percent_area] = self.constraints(&block, block.inner(area));
-		let [bar_area, percent_area] =
-			Layout::horizontal([Constraint::Fill(100), Constraint::Min(6)]).areas(area);
-		// f.render_widget(block, area);
-		f.render_widget(prog_bar, bar_area);
-
 		let percent = format!(" {:.1}%", self.ratio() * 100.0);
+
+		let [bar_area, percent_area, _buffer] = Layout::horizontal([
+			Constraint::Max(32),
+			Constraint::Length(percent.len() as u16 + 1),
+			Constraint::Min(0),
+		])
+		.flex(Flex::Legacy)
+		.areas(progress);
+
+		dg.draw(f, info_area);
+		f.render_widget(prog_bar, bar_area);
 		f.render_widget(
-			paragraph(&percent).style(self.config.color.rat_style(Theme::Primary)),
+			paragraph(&percent).style(self.config.color.rat_style(Theme::Regular)),
 			percent_area,
 		);
 	}

@@ -5,7 +5,7 @@ use rust_apt::{new_cache, PackageSort};
 use tokio::sync::mpsc;
 
 use crate::config::{color, Config, Theme};
-use crate::tui::{self, Drawable};
+use crate::tui;
 
 pub enum Message {
 	Print(String),
@@ -29,9 +29,9 @@ pub async fn update(config: &Config) -> Result<()> {
 	let acquire = NalaAcquireProgress::new(tx);
 	let task = tokio::task::spawn(update_thread(acquire));
 
-	let mut term = tui::Term::init_viewport(5)?;
+	let mut term = tui::Term::init_viewport(10)?;
 	let mut progress = tui::NalaProgressBar::new(config)?;
-	let mut dg = tui::progress::DisplayGroup::new(config);
+	let mut dg = tui::progress::DisplayGroup::new(config, None);
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
@@ -53,18 +53,14 @@ pub async fn update(config: &Config) -> Result<()> {
 				};
 			},
 			Message::Messages(msgs) => {
-				if !msgs.is_empty() {
-					let mut iter = msgs.into_iter();
+				let mut iter = msgs.into_iter();
+				let Some(header) = iter.next() else {
+					continue;
+				};
 
-					// First string is the header and always there
-					let mut msg = tui::progress::PkgProgress::new(config, iter.next().unwrap());
+				let msg = iter.collect::<Vec<_>>().join(", ");
 
-					for line in iter {
-						msg.add_msg(line);
-					}
-
-					dg.push(msg);
-				}
+				dg.insert(header, msg);
 				term.draw(config, &[&dg, &progress])?;
 			},
 		}

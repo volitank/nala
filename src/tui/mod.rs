@@ -15,7 +15,7 @@ pub mod summary;
 
 pub use progress::{NalaProgressBar, UnitStr};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout, Margin, Rect};
+use ratatui::layout::Rect;
 use ratatui::widgets::{Block, BorderType, Padding, Paragraph};
 use ratatui::{CompletedFrame, Frame, Terminal, TerminalOptions, Viewport};
 
@@ -98,7 +98,7 @@ impl Term {
 					.direction(ratatui::layout::Direction::Vertical)
 					.constraints([
 						ratatui::layout::Constraint::Min(0),
-						ratatui::layout::Constraint::Length(1),
+						ratatui::layout::Constraint::Length(4),
 					])
 					.split(inner);
 
@@ -172,7 +172,17 @@ pub fn vblock(color: &Color) -> Block<'static> {
 		.style(color.rat_style(Theme::Primary))
 }
 
-pub fn paragraph(text: &str) -> Paragraph { Paragraph::new(text).right_aligned() }
+pub fn paragraph(text: &str) -> Paragraph<'_> { Paragraph::new(text).right_aligned() }
+
+pub fn borderless_area(f: &mut Frame, area: Rect, title: &str) -> Rect {
+	let block = Block::new()
+		.title(title)
+		.padding(Padding::horizontal(2));
+
+	let inner = block.inner(area);
+	f.render_widget(block, area);
+	inner
+}
 
 pub trait Drawable {
 	fn draw(&self, f: &mut Frame, area: Rect);

@@ -22,7 +22,7 @@ struct FetchItem {
 }
 
 impl FetchItem {
-	fn to_list_items(&self) -> (ListItem, ListItem) {
+	fn to_list_items(&self) -> (ListItem<'_>, ListItem<'_>) {
 		let (char, style) =
 			if self.selected { ('✓', self.style) } else { ('☐', self.alt_style) };
 		(
@@ -250,7 +250,7 @@ impl Widget for &mut App<'_> {
 	}
 }
 
-fn fetch_block(style: Style, title: &str) -> Block {
+fn fetch_block(style: Style, title: &str) -> Block<'_> {
 	Block::default()
 		.title(title)
 		.style(style)

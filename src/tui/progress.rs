@@ -1,5 +1,5 @@
 use std::io::{stdout, Write};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use anyhow::Result;
 use crossterm::terminal::disable_raw_mode;
@@ -8,6 +8,7 @@ use indicatif::ProgressBar;
 use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::symbols::{block, border};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, LineGauge, Paragraph, Widget, Wrap};
 use ratatui::{symbols, Frame};
@@ -18,7 +19,7 @@ use tokio::task::JoinSet;
 
 use super::{Drawable, Term};
 use crate::config::{Config, Theme};
-use crate::{color, tui};
+use crate::tui::{self, borderless_area};
 
 /// Numeral System for unit conversion.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -67,188 +68,82 @@ pub trait ProgressItem {
 	fn msg(&self) -> String;
 }
 
-// #[derive(Debug)]
-// pub struct Progress<'a> {
-// 	dpkg: bool,
-// 	percentage: String,
-// 	current_total: String,
-// 	per_sec: String,
-// 	bar: LineGauge<'a>,
-// 	spans: DisplayGroup,
-// 	themes: (Style, Style),
-// }
+// impl<'a> Widget for &PkgProgress<'a> {
+// 	fn render(self, area: Rect, buf: &mut Buffer) {
+// 		let mut line = Line::default();
+// 		line.push_span(Span::from(&self.header).style(self.config.color.rat_reset(Theme::Primary)));
 
-// impl Widget for Progress<'_> {
-// 	fn render(mut self, area: Rect, buf: &mut Buffer) {
-// 		let block = Block::bordered()
-// 			.border_type(BorderType::Rounded)
-// 			.padding(Padding::horizontal(1))
-// 			.style(self.themes.0);
+// 		line.push_span(Span::raw(" "));
 
-// 		let [remainder, bar] =
-// 			Layout::vertical([Constraint::Min(0),
-// Constraint::Length(1)]).areas(block.inner(area));
-
-// 		let mut constraints = vec![
-// 			Constraint::Min(0),
-// 			Constraint::Length(self.percentage.len() as u16 + 2),
-// 			Constraint::Length(self.current_total.len() as u16 + 2),
-// 		];
-
-// 		let bar_block = if self.dpkg {
-// 			Layout::horizontal(constraints).split(block.inner(area))
-// 		} else {
-// 			constraints.push(Constraint::Length(self.per_sec.len() as u16 + 2));
-// 			Layout::horizontal(constraints)
-// 				.flex(Flex::SpaceBetween)
-// 				.split(bar)
-// 		};
-
-// 		block.render(area, buf);
-// 		if !self.dpkg {
-// 			self.spans.render(remainder, buf);
-
-// 			paragraph(&self.per_sec)
-// 				.style(self.themes.1)
-// 				.render(bar_block[2], buf);
+// 		for msg in &self.lines {
+// 			line.push_span(Span::from(msg).style(self.config.color.rat_reset(Theme::Regular)));
 // 		}
 
-// 		self.bar.render(bar_block[0], buf);
-// 		paragraph(&self.percentage)
-// 			.style(self.themes.1)
-// 			.render(bar_block[0], buf);
-
-// 		if !self.dpkg {
-// 			paragraph(&self.current_total)
-// 				.style(self.themes.0)
-// 				.render(bar_block[2], buf);
-// 		}
+// 		Paragraph::new(line).wrap(Wrap { trim: false }).render(area, buf);
 // 	}
 // }
 
 #[derive(Clone, Debug)]
-pub struct PkgProgress<'a> {
-	config: &'a Config,
-	header: String,
-	theme: Theme,
-	lines: Vec<String>,
-}
-
-impl<'a> PkgProgress<'a> {
-	pub fn new(config: &'a Config, header: String) -> PkgProgress<'a> {
-		Self {
-			config,
-			header,
-			theme: Theme::Primary,
-			lines: vec![],
-		}
-	}
-
-	pub fn lite_clone(&self) -> PkgProgress<'a> {
-		PkgProgress::new(self.config, self.header.to_string())
-	}
-
-	pub fn theme(mut self, theme: Theme) -> Self {
-		self.theme = theme;
-		self
-	}
-
-	pub fn add_msg(&mut self, value: String) { self.lines.push(value) }
-
-	pub fn into_line(self) -> Line<'static> {
-		let mut line = Line::default();
-		line.push_span(Span::from(self.header).style(self.config.color.rat_reset(Theme::Primary)));
-
-		for msg in self.lines {
-			line.push_span(Span::from(msg).style(self.config.color.rat_reset(Theme::Regular)));
-		}
-		line
-	}
-}
-
-impl<'a> Widget for &PkgProgress<'a> {
-	fn render(self, area: Rect, buf: &mut Buffer) {
-		let mut line = Line::default();
-		line.push_span(Span::from(&self.header).style(self.config.color.rat_reset(Theme::Primary)));
-
-		for msg in &self.lines {
-			line.push_span(Span::from(msg).style(self.config.color.rat_reset(Theme::Regular)));
-		}
-
-		Paragraph::new(line).render(area, buf);
-	}
-}
-
-#[derive(Clone, Debug)]
 pub struct DisplayGroup<'a> {
 	config: &'a Config,
-	map: IndexMap<String, PkgProgress<'a>>,
+	title: Option<String>,
+	map: IndexMap<String, String>,
 }
 
 impl<'a> DisplayGroup<'a> {
-	pub fn new(config: &'a Config) -> DisplayGroup<'a> {
+	pub fn new(config: &'a Config, title: Option<String>) -> DisplayGroup<'a> {
 		Self {
 			config,
+			title,
 			map: IndexMap::new(),
 		}
 	}
 
-	pub fn push(&mut self, value: PkgProgress<'a>) -> &mut Self {
-		self.map.insert(value.header.clone(), value);
-		self
-	}
-
-	pub fn push_str(&mut self, key: String, value: String) -> &mut Self {
-		if let Some(pkg) = self.map.get_mut(&key) {
-			pkg.lines = vec![value];
-			return self;
-		}
-
-		let mut pkg = PkgProgress::new(self.config, key);
-		pkg.add_msg(value);
-		self.push(pkg);
-		self
+	pub fn new_str(config: &'a Config, title: &str) -> Self {
+		Self::new(config, Some(title.to_string()))
 	}
 }
 
 impl<'a> Deref for DisplayGroup<'a> {
-	type Target = IndexMap<String, PkgProgress<'a>>;
+	type Target = IndexMap<String, String>;
 
 	fn deref(&self) -> &Self::Target { &self.map }
 }
 
-impl<'a> Widget for &mut DisplayGroup<'a> {
-	fn render(self, area: Rect, buf: &mut Buffer) {
-		let stop = self.map.len();
 
-		let mut con: Vec<Constraint> = (0..stop).map(|_| Constraint::Length(1)).collect();
-		con.push(Constraint::Min(0));
-
-		let inner = Layout::vertical(con).flex(Flex::Center).split(area);
-
-		for (i, pkg) in self.values().enumerate() {
-			if i >= stop {
-				break;
-			}
-			pkg.render(inner[i], buf);
-		}
+impl<'a> DerefMut for DisplayGroup<'a> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.map
 	}
 }
 
 impl<'a> Drawable for DisplayGroup<'a> {
 	fn draw(&self, f: &mut Frame, area: Rect) {
+		let inner = if let Some(title) = self.title.as_ref() {
+			borderless_area(f, area, title)
+		} else {
+			area
+		};
+
 		let stop = self.map.len();
-
 		let mut con: Vec<Constraint> = (0..stop).map(|_| Constraint::Length(1)).collect();
-		con.push(Constraint::Min(0));
+		// con.push(Constraint::Min(0));
 
-		let inner = Layout::vertical(con).flex(Flex::Center).split(area);
+		let info = Layout::vertical(con).split(inner);
 
-		for (i, pkg) in self.values().enumerate() {
+		let col_size = self.map.keys().map(|s| s.len()).max().unwrap_or(6);
+
+		for (i, (key, value)) in self.iter().enumerate() {
 			if i >= stop {
 				break;
 			}
-			pkg.render(inner[i], f.buffer_mut());
+
+			let mut line = Line::default();
+			line.push_span(Span::from(key).style(self.config.color.rat_reset(Theme::Primary)));
+			line.push_span(Span::raw(" "));
+			line.push_span(Span::from(value).style(self.config.color.rat_reset(Theme::Regular)));
+
+			Paragraph::new(line).wrap(Wrap { trim: false }).render(info[i], f.buffer_mut());
 		}
 	}
 }
@@ -347,13 +242,9 @@ impl<'a> NalaProgressBar<'a> {
 		LineGauge::default()
 			.line_set(symbols::line::THICK)
 			.ratio(self.ratio())
-			.label(self.label().into_line())
+			.label(self.label())
 			.filled_style(self.config.color.rat_style(Theme::ProgressFilled))
 			.unfilled_style(self.config.color.rat_style(Theme::ProgressUnfilled))
-	}
-
-	pub fn constraints(&self, block: &Block<'static>, area: Rect) -> [Rect; 2] {
-		Layout::horizontal([Constraint::Fill(100), Constraint::Min(6)]).areas(block.inner(area))
 	}
 
 	pub fn print(&mut self, term: &mut Term, msg: &str) -> Result<()> {
@@ -397,40 +288,17 @@ impl<'a> NalaProgressBar<'a> {
 	}
 
 	/// TODO: Turn this into a trait!!!
-	pub fn label(&self) -> PkgProgress {
-		let mut msg = PkgProgress::new(self.config, "Remaining: ".to_string());
-		if self.pb.position() < self.length() {
-			msg.add_msg(rust_apt::util::time_str(self.pb.eta().as_secs()));
-		}
-		msg
+	pub fn label(&self) -> Line<'_> {
+		Line::from(rust_apt::util::time_str(self.pb.eta().as_secs())).style(
+			self.config.color.rat_style(Theme::Regular)
+		)
 	}
 
 	pub fn current_total(&self) -> String {
 		format!(
-			" {}/{}",
+			"{}/{}",
 			self.unit.str(self.pb.position()),
 			self.unit.str(self.length()),
 		)
-	}
-}
-
-impl Widget for &NalaProgressBar<'_> {
-	fn render(self, area: Rect, buf: &mut Buffer) {
-		if self.disabled {
-			return;
-		}
-		let block = tui::vblock(&self.config.color);
-		let prog_bar = self.bar();
-
-		let [bar_area, percent_area] = self.constraints(&block, area);
-
-		block.render(area, buf);
-
-		prog_bar.render(bar_area, buf);
-
-		let percent = format!(" {:.1}%", self.ratio() * 100.0);
-		tui::paragraph(&percent)
-			.style(self.config.color.rat_style(Theme::Primary))
-			.render(percent_area, buf);
 	}
 }

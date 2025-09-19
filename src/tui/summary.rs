@@ -443,7 +443,7 @@ pub fn header_block<'a>(config: &'a Config, title: &'a str) -> Block<'a> {
 		.padding(Padding::horizontal(1))
 }
 
-pub fn basic_block(config: &Config) -> Block {
+pub fn basic_block(config: &Config) -> Block<'_> {
 	Block::bordered()
 		.border_type(BorderType::Thick)
 		.border_style(config.color.rat_style(Theme::Primary))

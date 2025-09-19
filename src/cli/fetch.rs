@@ -247,7 +247,7 @@ async fn score_handler(
 	// Setup Progress Bar
 	let mut term = tui::Term::init_viewport(5)?;
 	let mut pb = tui::NalaProgressBar::new(config)?;
-	let mut dg = tui::progress::DisplayGroup::new(config);
+	let mut dg = tui::progress::DisplayGroup::new_str(config, "Fetch:");
 
 	pb.set_length(mirror_strings.len() as u64);
 
@@ -271,7 +271,7 @@ async fn score_handler(
 	let mut score = vec![];
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
-			dg.push_str("Finished: ".to_string(), response.0.to_string());
+			dg.insert("Finished: ".to_string(), response.0.to_string());
 			score.push(response)
 		}
 		pb.inc(1);

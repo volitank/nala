@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Error, Result};
-use ratatui::layout::{Constraint, Layout};
 use rust_apt::Version;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinSet;
@@ -13,7 +12,7 @@ use super::{proxy, Uri, UriFilter};
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
-use crate::tui::Drawable;
+use crate::tui::progress::DisplayGroup;
 use crate::{dprog, tui};
 
 /// If there are any untrusted URIs,
@@ -43,13 +42,13 @@ pub fn untrusted_error(config: &Config, untrusted: Vec<String>) -> Result<()> {
 // There may be one other thing or something.
 #[derive(Debug)]
 pub enum Message {
-	Start((String, usize)),
+	Start(String),
 	Exit,
 	Finished(String),
 	Debug(String),
 	Verbose(String),
 	NonFatal((Error, usize)),
-	Update((String, usize)),
+	Update(usize),
 }
 
 pub struct Downloader {
@@ -185,9 +184,8 @@ impl Downloader {
 				crate::debug!("{}", uri.to_json()?);
 			}
 		}
-		// TODO: This is correct, but it is also likely very inefficient.
-		// Decide if it's worth refactoring.
-		// I don't believe we'll have many perf issues here
+
+		// Check for any untrusted URIs
 		self.uris()
 			.iter()
 			// Iterate uris and get the filenames of all the ones who do not have hashes
@@ -205,7 +203,6 @@ impl Downloader {
 
 		let mut term = tui::Term::init_viewport(16)?;
 		let mut progress = tui::NalaProgressBar::new(config)?;
-		let mut dg = tui::progress::DisplayGroup::new(config);
 
 		// Set the total bytes to download.
 		for uri in &self.uris {
@@ -221,6 +218,7 @@ impl Downloader {
 		let mut tick = Instant::now();
 
 		let mut current = 0;
+		let mut downloading = vec![];
 
 		'outer: loop {
 			if current == total {
@@ -230,16 +228,14 @@ impl Downloader {
 
 			while let Ok(msg) = self.rx.try_recv() {
 				match msg {
-					Message::Start((name, total)) => {
-						// progress.dg.push(PkgProgress::new(name, total as
-						// u64));
+					Message::Start(name) => {
+						downloading.push(name);
 					},
-					Message::Update((name, inc)) => {
-						// progress.dg.update(&name, inc as u64);
-						progress.pb.inc(inc as u64)
-					},
+					Message::Update(inc) => progress.pb.inc(inc as u64),
 					Message::Finished(filename) => {
-						// progress.dg.remove(&filename);
+						if let Some(i) = downloading.iter().position(|x| x == &filename) {
+							downloading.remove(i);
+						};
 						current += 1;
 					},
 					Message::Exit => {
@@ -273,33 +269,33 @@ impl Downloader {
 					continue;
 				}
 
-				for (k, v) in [
-					("Packages:", format!(" {current}/{total}")),
-					("Connections:", format!(" {:?}", self.domains.lock().await)),
-					("Total:", progress.current_total()),
-					(
-						"PerSec:",
-						format!(" {}/s", progress.unit.str(progress.per_sec() as u64)),
-					),
-				] {
-					dg.push_str(k.to_string(), v);
+				// let mut mirrors = DisplayGroup::new(config);
+				// for (domain, connections) in self.domains.lock().await.iter() {
+				// 	mirrors.insert(domain.to_string(), format!(" {connections}"));
+				// }
+
+				let mut pkgs = tui::progress::DisplayGroup::new_str(config, "Packages");
+				let mut mirrors = tui::progress::DisplayGroup::new_str(config, "Connections");
+
+				for (domain, num) in self.domains.lock().await.iter() {
+					mirrors.insert(domain.to_string(), format!("{num}"));
 				}
 
-				let _ = term.term.draw(|f| {
-					let block = crate::tui::vblock(&config.color);
-					let [_, info, bar] = Layout::vertical([
-						Constraint::Fill(100),
-						Constraint::Min(0),
-						Constraint::Length(1),
-					])
-					.areas(block.inner(f.area()));
+				pkgs.insert("Total".to_string(), format!(" {current}/{total}"));
+				pkgs.insert("Downloading:".to_string(), downloading.join(", "));
+					// if downloading.len() > 3 {
+						// 	downloading
+						// 		.split_at(3)
+						// 		.0
+						// 		.into_iter()
+						// 		.cloned()
+						// 		.collect::<Vec<_>>()
+						// 		.join(", ")
+						// } else {
+						// 	downloading.join(", ")
+						// },
 
-					f.render_widget(block, f.area());
-					f.render_widget(&mut dg, info);
-					f.render_widget(&progress, bar);
-				})?;
-
-				// self.draw(&mut term, &config.color, &mut progress, &mut dg)?;
+				term.draw(config, &[&pkgs, &mirrors, &progress])?;
 				tick = Instant::now();
 			}
 		}

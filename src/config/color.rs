@@ -28,13 +28,6 @@ pub fn set(color: Color) -> Result<(), Color> { REF.set(color) }
 #[macro_export]
 macro_rules! color {
 	($theme:expr, $string:expr) => {{
-		// if true {
-		// 	if let Some(style) = self.map.get(&$theme) {
-		// 		return Cow::Owned(format!("{style}{string}\x1b[0m"));
-		// 	}
-		// }
-
-		// Cow::Borrowed(string)
 		$crate::config::color::get().color($theme, &$string)
 	}};
 }
