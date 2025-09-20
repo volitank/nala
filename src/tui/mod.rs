@@ -15,8 +15,8 @@ pub mod summary;
 
 pub use progress::{NalaProgressBar, UnitStr};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Flex, Rect};
-use ratatui::widgets::{Block, BorderType, Padding, Paragraph};
+use ratatui::layout::{Flex, Rect};
+use ratatui::widgets::{Block, BorderType, Padding};
 use ratatui::{CompletedFrame, Frame, Terminal, TerminalOptions, Viewport};
 
 use crate::config::color::Color;
@@ -139,8 +139,6 @@ pub fn vblock(color: &Color) -> Block<'static> {
 		.padding(Padding::horizontal(1))
 		.style(color.rat_style(Theme::Primary))
 }
-
-pub fn paragraph(text: &str) -> Paragraph<'_> { Paragraph::new(text).right_aligned() }
 
 pub fn borderless_area(f: &mut Frame, area: Rect, title: &str) -> Rect {
 	let block = Block::new().title(title).padding(Padding::horizontal(2));

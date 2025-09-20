@@ -23,7 +23,7 @@ fn bold() -> RatMod { RatMod::BOLD }
 static REF: OnceLock<Color> = OnceLock::new();
 
 pub fn get() -> &'static Color { REF.get_or_init(Color::default) }
-pub fn set(color: Color) -> Result<(), Color> { REF.set(color) }
+pub fn _set(color: Color) -> Result<(), Color> { REF.set(color) }
 
 #[macro_export]
 macro_rules! color {

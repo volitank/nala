@@ -11,7 +11,6 @@ use tokio::io::AsyncWriteExt;
 
 use super::{Decompress, Reader};
 use crate::fs::AsyncFs;
-use crate::tui::progress::ProgressItem;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum FileType {
@@ -49,12 +48,6 @@ pub struct DebFile {
 	pub map: HashMap<String, Vec<File>>,
 	pub control: Vec<HashMap<String, String>>,
 	pub hash: String,
-}
-
-impl ProgressItem for DebFile {
-	fn header(&self) -> String { "Hashing: ".to_string() }
-
-	fn msg(&self) -> String { self.name().to_string() }
 }
 
 impl DebFile {

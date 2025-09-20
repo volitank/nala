@@ -1,11 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Error, Result};
 use rust_apt::Version;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
 use super::{proxy, Uri, UriFilter};
@@ -13,7 +12,6 @@ use crate::config::{color, Config, Paths, Theme};
 use crate::download::{DomainMap, DomainWidget};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
-use crate::tui::progress::DisplayGroup;
 use crate::tui::Drawable;
 use crate::{dprog, tui};
 

@@ -1,14 +1,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use indexmap::IndexSet;
 use rust_apt::records::RecordField;
 use rust_apt::Version;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
 use super::downloader::Message;
 use super::Downloader;

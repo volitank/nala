@@ -4,79 +4,18 @@ pub mod uri;
 
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub use downloader::Downloader;
 use indexmap::IndexSet;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::Widget;
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::Frame;
-use rust_apt::util::time_str;
 use tokio::sync::RwLock;
 pub use uri::{Uri, UriFilter};
 
-use crate::config::{Config, Theme};
+use crate::config::Config;
 use crate::tui::progress::DisplayGroup;
-use crate::tui::{borderless_area, paragraph, Drawable, NalaProgressBar};
-
-pub fn split_horizontal(area: Rect) -> Rc<[Rect]> {
-	Layout::horizontal([Constraint::Max(32), Constraint::Max(32), Constraint::Min(0)]).split(area)
-}
-
-impl Drawable for NalaProgressBar {
-	fn draw(&self, config: &Config, f: &mut Frame, area: Rect) {
-		let [bar_area, info_area] =
-			Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
-
-		let pb = self.bar(config);
-		// Draw Progress Bar
-		let half_bar = split_horizontal(bar_area);
-		pb.render(half_bar[0], f.buffer_mut());
-
-		let dg_area = split_horizontal(info_area);
-
-		let mut dg1 = DisplayGroup::default();
-		let mut dg2 = DisplayGroup::default();
-
-		for (dg, items) in [
-			(
-				&mut dg1,
-				vec![
-					("Total", self.current_total()),
-					(
-						"Speed",
-						format!("{}/s", self.unit.str(self.per_sec() as u64)),
-					),
-				],
-			),
-			(
-				&mut dg2,
-				vec![
-					("Elapsed", time_str(self.elapsed())),
-					("Remaining", time_str(self.pb.eta().as_secs())),
-				],
-			),
-		] {
-			for (k, v) in items {
-				dg.insert(format!("  {k}:"), v);
-			}
-		}
-
-		for (i, (k, v)) in self.extra_info.clone().into_iter().enumerate() {
-			if i % 2 == 0 {
-				dg1.insert(format!("  {k}:"), v);
-			} else {
-				dg2.insert(format!("  {k}:"), v);
-			}
-		}
-
-		dg1.draw(config, f, dg_area[0]);
-		dg2.draw(config, f, dg_area[1]);
-	}
-
-	fn height(&self) -> u16 { 4 }
-}
+use crate::tui::{borderless_area, Drawable};
 
 pub struct DomainMap {
 	map: Arc<RwLock<HashMap<String, IndexSet<String>>>>,

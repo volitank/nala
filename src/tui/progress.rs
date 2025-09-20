@@ -1,16 +1,15 @@
 use std::io::{stdout, Write};
 use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 
 use anyhow::Result;
 use crossterm::terminal::disable_raw_mode;
 use indexmap::IndexMap;
 use indicatif::ProgressBar;
 use ratatui::backend::Backend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::symbols::{block, border};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, LineGauge, Paragraph, Widget, Wrap};
+use ratatui::widgets::{LineGauge, Paragraph, Widget, Wrap};
 use ratatui::{symbols, Frame};
 use regex::Regex;
 use rust_apt::util::time_str;
@@ -19,6 +18,7 @@ use tokio::task::JoinSet;
 
 use super::{Drawable, Term};
 use crate::config::{Config, Theme};
+use crate::deb::DebFile;
 use crate::tui::{self, borderless_area};
 
 /// Numeral System for unit conversion.
@@ -63,51 +63,30 @@ impl UnitStr {
 	}
 }
 
-pub trait ProgressItem {
-	fn header(&self) -> String;
-	fn msg(&self) -> String;
-}
-
-// impl<'a> Widget for &PkgProgress<'a> {
-// 	fn render(self, area: Rect, buf: &mut Buffer) {
-// 		let mut line = Line::default();
-// 		line.push_span(Span::from(&self.header).style(self.config.color.
-// rat_reset(Theme::Primary)));
-
-// 		line.push_span(Span::raw(" "));
-
-// 		for msg in &self.lines {
-// 			line.push_span(Span::from(msg).style(self.config.color.
-// rat_reset(Theme::Regular))); 		}
-
-// 		Paragraph::new(line).wrap(Wrap { trim: false }).render(area, buf);
-// 	}
-// }
-
 #[derive(Clone)]
 pub struct DisplayGroup<'a> {
 	title: Option<String>,
-	value: Option<&'a dyn Widget>,
+	_value: Option<&'a dyn Widget>,
 	map: IndexMap<String, String>,
 }
 
 impl<'a> DisplayGroup<'a> {
-	pub fn new(title: Option<String>, value: Option<&'a dyn Widget>) -> DisplayGroup<'a> {
+	pub fn new(title: Option<String>, _value: Option<&'a dyn Widget>) -> DisplayGroup<'a> {
 		Self {
 			title,
-			value,
+			_value,
 			map: IndexMap::new(),
 		}
 	}
 
-	pub fn new_value(title: String, value: &'a dyn Widget) -> DisplayGroup<'a> {
+	pub fn new_no_value(title: &str) -> Self { Self::new(Some(title.to_string()), None) }
+
+	pub fn _new_value(title: String, value: &'a dyn Widget) -> DisplayGroup<'a> {
 		Self::new(Some(title), Some(value))
 	}
 
-	pub fn new_no_value(title: &str) -> Self { Self::new(Some(title.to_string()), None) }
-
 	/// Prints just a single string
-	pub fn single_string(header: &str, msg: String) -> DisplayGroup {
+	pub fn _single_string(header: &str, msg: String) -> DisplayGroup<'_> {
 		// TODO: Now that we have value field, I think this can be different
 		let mut dg = DisplayGroup::default();
 		dg.insert(header.to_string(), msg);
@@ -193,20 +172,15 @@ impl NalaProgressBar {
 
 	pub fn set_info(&mut self, info: Vec<(String, String)>) { self.extra_info = info; }
 
-	pub fn take_info(&mut self, vec: &mut Vec<(String, String)>) {
-		while let Some(info) = self.extra_info.pop() {
-			vec.push(info);
-		}
-	}
-
-	pub async fn join<P: ProgressItem + 'static>(
+	pub async fn join(
 		&mut self,
 		config: &Config,
 		term: &mut Term,
-		mut set: JoinSet<Result<P>>,
-	) -> Result<Vec<P>> {
+		mut set: JoinSet<Result<DebFile>>,
+	) -> Result<Vec<DebFile>> {
 		self.pb.set_length(set.len() as u64);
 		let mut ret = vec![];
+
 		while let Some(res) = set.join_next().await {
 			let item = res??;
 			self.inc(1);
@@ -318,4 +292,62 @@ impl NalaProgressBar {
 			self.unit.str(self.length()),
 		)
 	}
+}
+
+pub fn split_horizontal(area: Rect) -> Rc<[Rect]> {
+	Layout::horizontal([Constraint::Max(32), Constraint::Max(32), Constraint::Min(0)]).split(area)
+}
+
+impl Drawable for NalaProgressBar {
+	fn draw(&self, config: &Config, f: &mut Frame, area: Rect) {
+		let [bar_area, info_area] =
+			Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+
+		let pb = self.bar(config);
+		// Draw Progress Bar
+		let half_bar = split_horizontal(bar_area);
+		pb.render(half_bar[0], f.buffer_mut());
+
+		let dg_area = split_horizontal(info_area);
+
+		let mut dg1 = DisplayGroup::default();
+		let mut dg2 = DisplayGroup::default();
+
+		for (dg, items) in [
+			(
+				&mut dg1,
+				vec![
+					("Total", self.current_total()),
+					(
+						"Speed",
+						format!("{}/s", self.unit.str(self.per_sec() as u64)),
+					),
+				],
+			),
+			(
+				&mut dg2,
+				vec![
+					("Elapsed", time_str(self.elapsed())),
+					("Remaining", time_str(self.pb.eta().as_secs())),
+				],
+			),
+		] {
+			for (k, v) in items {
+				dg.insert(format!("  {k}:"), v);
+			}
+		}
+
+		for (i, (k, v)) in self.extra_info.clone().into_iter().enumerate() {
+			if i % 2 == 0 {
+				dg1.insert(format!("  {k}:"), v);
+			} else {
+				dg2.insert(format!("  {k}:"), v);
+			}
+		}
+
+		dg1.draw(config, f, dg_area[0]);
+		dg2.draw(config, f, dg_area[1]);
+	}
+
+	fn height(&self) -> u16 { 4 }
 }
