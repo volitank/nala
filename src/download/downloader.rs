@@ -10,9 +10,11 @@ use tokio::task::JoinSet;
 
 use super::{proxy, Uri, UriFilter};
 use crate::config::{color, Config, Paths, Theme};
+use crate::download::{DomainMap, DomainWidget};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
 use crate::tui::progress::DisplayGroup;
+use crate::tui::Drawable;
 use crate::{dprog, tui};
 
 /// If there are any untrusted URIs,
@@ -59,7 +61,7 @@ pub struct Downloader {
 	pub(crate) partial_dir: PathBuf,
 	/// Used to count how many connections are open to a domain.
 	/// Nala only allows 3 at a time per domain.
-	pub(crate) domains: Arc<Mutex<HashMap<String, u8>>>,
+	pub(crate) domains: DomainMap,
 	set: JoinSet<Result<Uri>>,
 	pub(crate) tx: mpsc::UnboundedSender<Message>,
 	rx: mpsc::UnboundedReceiver<Message>,
@@ -83,7 +85,7 @@ impl Downloader {
 			archive_dir,
 			partial_dir,
 			filter: UriFilter::new(),
-			domains: Arc::new(Mutex::new(HashMap::new())),
+			domains: DomainMap::new(),
 			set: JoinSet::new(),
 			tx,
 			rx,
@@ -202,7 +204,7 @@ impl Downloader {
 		}
 
 		let mut term = tui::Term::init_viewport(16)?;
-		let mut progress = tui::NalaProgressBar::new(config)?;
+		let mut progress = tui::NalaProgressBar::new()?;
 
 		// Set the total bytes to download.
 		for uri in &self.uris {
@@ -247,11 +249,11 @@ impl Downloader {
 					},
 					Message::Verbose(msg) => {
 						if config.verbose() {
-							progress.print(&mut term, &msg)?;
+							progress.print(config, &mut term, &msg)?;
 						}
 					},
 					Message::NonFatal((err, size)) => {
-						progress.print(&mut term, &format!("Error: {err:?}"))?;
+						progress.print(config, &mut term, &format!("Error: {err:?}"))?;
 						progress.pb.set_position(progress.length() - size as u64)
 					},
 				}
@@ -269,33 +271,12 @@ impl Downloader {
 					continue;
 				}
 
-				// let mut mirrors = DisplayGroup::new(config);
-				// for (domain, connections) in self.domains.lock().await.iter() {
-				// 	mirrors.insert(domain.to_string(), format!(" {connections}"));
-				// }
+				progress.set_info(vec![("Items".to_string(), format!("{current}/{total}"))]);
 
-				let mut pkgs = tui::progress::DisplayGroup::new_str(config, "Packages");
-				let mut mirrors = tui::progress::DisplayGroup::new_str(config, "Connections");
+				let domain_dg = DomainWidget::new(&self.domains).await;
+				let display: Vec<&dyn Drawable> = vec![&domain_dg, &progress];
 
-				for (domain, num) in self.domains.lock().await.iter() {
-					mirrors.insert(domain.to_string(), format!("{num}"));
-				}
-
-				pkgs.insert("Total".to_string(), format!(" {current}/{total}"));
-				pkgs.insert("Downloading:".to_string(), downloading.join(", "));
-					// if downloading.len() > 3 {
-						// 	downloading
-						// 		.split_at(3)
-						// 		.0
-						// 		.into_iter()
-						// 		.cloned()
-						// 		.collect::<Vec<_>>()
-						// 		.join(", ")
-						// } else {
-						// 	downloading.join(", ")
-						// },
-
-				term.draw(config, &[&pkgs, &mirrors, &progress])?;
+				term.draw(config, &display)?;
 				tick = Instant::now();
 			}
 		}

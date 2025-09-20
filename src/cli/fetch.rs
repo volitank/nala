@@ -246,8 +246,8 @@ async fn score_handler(
 ) -> Result<Vec<(String, u128)>> {
 	// Setup Progress Bar
 	let mut term = tui::Term::init_viewport(5)?;
-	let mut pb = tui::NalaProgressBar::new(config)?;
-	let mut dg = tui::progress::DisplayGroup::new_str(config, "Fetch:");
+	let mut pb = tui::NalaProgressBar::new()?;
+	let mut dg = tui::progress::DisplayGroup::new_no_value("Fetch:");
 
 	pb.set_length(mirror_strings.len() as u64);
 

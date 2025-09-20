@@ -30,8 +30,8 @@ pub async fn update(config: &Config) -> Result<()> {
 	let task = tokio::task::spawn(update_thread(acquire));
 
 	let mut term = tui::Term::init_viewport(10)?;
-	let mut progress = tui::NalaProgressBar::new(config)?;
-	let mut dg = tui::progress::DisplayGroup::new(config, None);
+	let mut progress = tui::NalaProgressBar::new()?;
+	let mut dg = tui::progress::DisplayGroup::default();
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
@@ -40,16 +40,17 @@ pub async fn update(config: &Config) -> Result<()> {
 				progress.set_position(current);
 			},
 			Message::Print(msg) => {
-				progress.print(&mut term, &msg)?;
+				progress.print(config, &mut term, &msg)?;
 			},
 			Message::Fetched((msg, file_size)) => {
 				if file_size > 0 {
 					progress.print(
+						config,
 						&mut term,
 						&format!("{msg} [{}]", progress.unit.str(file_size)),
 					)?
 				} else {
-					progress.print(&mut term, &msg)?
+					progress.print(config, &mut term, &msg)?
 				};
 			},
 			Message::Messages(msgs) => {

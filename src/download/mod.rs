@@ -2,49 +2,184 @@ pub mod downloader;
 pub mod proxy;
 pub mod uri;
 
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::sync::Arc;
+
 pub use downloader::Downloader;
+use indexmap::IndexSet;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::widgets::Widget;
 use ratatui::Frame;
+use rust_apt::util::time_str;
+use tokio::sync::RwLock;
 pub use uri::{Uri, UriFilter};
 
-use crate::config::Theme;
+use crate::config::{Config, Theme};
 use crate::tui::progress::DisplayGroup;
-use crate::tui::{paragraph, borderless_area, Drawable, NalaProgressBar};
+use crate::tui::{borderless_area, paragraph, Drawable, NalaProgressBar};
 
+pub fn split_horizontal(area: Rect) -> Rc<[Rect]> {
+	Layout::horizontal([Constraint::Max(32), Constraint::Max(32), Constraint::Min(0)]).split(area)
+}
 
+impl Drawable for NalaProgressBar {
+	fn draw(&self, config: &Config, f: &mut Frame, area: Rect) {
+		let [bar_area, info_area] =
+			Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
 
-impl Drawable for NalaProgressBar<'_> {
-	fn draw(&self, f: &mut Frame, area: Rect) {
-		// let inner = borderless_area(f, area, "Progress:");
-		let [info_area, progress] = ratatui::layout::Layout::default()
-			.direction(ratatui::layout::Direction::Vertical)
-			.constraints([
-				ratatui::layout::Constraint::Length(3),
-				ratatui::layout::Constraint::Length(1),
-			])
-			.areas(area);
+		let pb = self.bar(config);
+		// Draw Progress Bar
+		let half_bar = split_horizontal(bar_area);
+		pb.render(half_bar[0], f.buffer_mut());
 
-		let mut dg = DisplayGroup::new_str(self.config, "Progress:");
-		dg.insert("Total:".to_string(), self.current_total());
-		dg.insert("Speed:".to_string(), format!("{}/s", self.unit.str(self.per_sec() as u64)));
+		let dg_area = split_horizontal(info_area);
 
+		let mut dg1 = DisplayGroup::default();
+		let mut dg2 = DisplayGroup::default();
 
-		let prog_bar = self.bar();
-		let percent = format!(" {:.1}%", self.ratio() * 100.0);
+		for (dg, items) in [
+			(
+				&mut dg1,
+				vec![
+					("Total", self.current_total()),
+					(
+						"Speed",
+						format!("{}/s", self.unit.str(self.per_sec() as u64)),
+					),
+				],
+			),
+			(
+				&mut dg2,
+				vec![
+					("Elapsed", time_str(self.elapsed())),
+					("Remaining", time_str(self.pb.eta().as_secs())),
+				],
+			),
+		] {
+			for (k, v) in items {
+				dg.insert(format!("  {k}:"), v);
+			}
+		}
 
-		let [bar_area, percent_area, _buffer] = Layout::horizontal([
-			Constraint::Max(32),
-			Constraint::Length(percent.len() as u16 + 1),
-			Constraint::Min(0),
-		])
-		.flex(Flex::Legacy)
-		.areas(progress);
+		for (i, (k, v)) in self.extra_info.clone().into_iter().enumerate() {
+			if i % 2 == 0 {
+				dg1.insert(format!("  {k}:"), v);
+			} else {
+				dg2.insert(format!("  {k}:"), v);
+			}
+		}
 
-		dg.draw(f, info_area);
-		f.render_widget(prog_bar, bar_area);
-		f.render_widget(
-			paragraph(&percent).style(self.config.color.rat_style(Theme::Regular)),
-			percent_area,
-		);
+		dg1.draw(config, f, dg_area[0]);
+		dg2.draw(config, f, dg_area[1]);
+	}
+
+	fn height(&self) -> u16 { 4 }
+}
+
+pub struct DomainMap {
+	map: Arc<RwLock<HashMap<String, IndexSet<String>>>>,
+	cache: HashMap<String, IndexSet<String>>,
+}
+
+impl DomainMap {
+	pub fn new() -> Self {
+		Self {
+			map: Arc::new(RwLock::new(HashMap::new())),
+			cache: HashMap::new(),
+		}
+	}
+
+	pub fn inner(&self) -> Arc<RwLock<HashMap<String, IndexSet<String>>>> { Arc::clone(&self.map) }
+
+	pub async fn add(&self, domain: &str, pkg: &str) -> bool {
+		let mut lock = self.map.write().await;
+
+		let entry = lock.entry(domain.to_string()).or_default();
+
+		if entry.len() < 3 {
+			entry.insert(pkg.to_string());
+			return true;
+		}
+		return false;
+	}
+
+	pub async fn remove(&self, domain: &str, pkg: &str) {
+		let mut lock = self.map.write().await;
+		if let Some(pkgs) = lock.get_mut(domain) {
+			pkgs.shift_remove(pkg);
+			if pkgs.is_empty() {
+				lock.remove(domain);
+			}
+		}
+	}
+}
+
+impl Clone for DomainMap {
+	fn clone(&self) -> Self {
+		Self {
+			map: self.inner(),
+			cache: self.cache.clone(),
+		}
+	}
+}
+
+impl Deref for DomainMap {
+	type Target = Arc<RwLock<HashMap<String, IndexSet<String>>>>;
+
+	fn deref(&self) -> &Self::Target { &self.map }
+}
+
+pub struct DomainWidget {
+	snapshot: HashMap<String, IndexSet<String>>,
+}
+
+impl DomainWidget {
+	pub async fn new(map: &RwLock<HashMap<String, IndexSet<String>>>) -> Self {
+		let guard = map.read().await;
+		let snapshot = guard.clone();
+		drop(guard);
+		Self { snapshot }
+	}
+}
+
+impl Drawable for DomainWidget {
+	fn draw(&self, config: &Config, f: &mut Frame, area: Rect) {
+		let inner = borderless_area(f, area, "Mirrors:");
+		// if inner.width == 0 || inner.height == 0 {
+		//     return;
+		// }
+
+		let mut groups: Vec<DisplayGroup> = Vec::with_capacity(self.snapshot.len() + 1);
+		for (domain, downloads) in self.snapshot.iter() {
+			let mut dg = DisplayGroup::new_no_value(domain);
+			for (i, pkg) in downloads.iter().enumerate() {
+				dg.insert((i + 1).to_string(), pkg.clone());
+			}
+			groups.push(dg);
+		}
+
+		if groups.is_empty() {
+			return;
+		}
+
+		let constraints: Vec<Constraint> = vec![Constraint::Min(1); groups.len()];
+
+		let slots = Layout::vertical(constraints).split(inner);
+		for (dg, slot) in groups.iter().zip(slots.iter()) {
+			dg.draw(config, f, *slot);
+		}
+	}
+
+	fn height(&self) -> u16 {
+		// One for Title
+		let mut height = 1;
+		for (_domain, pkgs) in self.snapshot.iter() {
+			// One for Domain
+			height += 1;
+			height += pkgs.len()
+		}
+		height as u16
 	}
 }

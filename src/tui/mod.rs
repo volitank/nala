@@ -15,7 +15,7 @@ pub mod summary;
 
 pub use progress::{NalaProgressBar, UnitStr};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Flex, Rect};
 use ratatui::widgets::{Block, BorderType, Padding, Paragraph};
 use ratatui::{CompletedFrame, Frame, Terminal, TerminalOptions, Viewport};
 
@@ -85,52 +85,20 @@ impl Term {
 			// Draw the border
 			f.render_widget(block, f.area());
 
-			// If there is more than one item, treat the last as the progress bar
-			let (body_items, progress_item) = if items.len() > 1 {
-				(&items[..items.len() - 1], Some(items[items.len() - 1]))
-			} else {
-				(&items[..], None)
-			};
+			let hints: Vec<u16> = items.iter().map(|w| w.height()).collect();
+			let cons: Vec<ratatui::layout::Constraint> = hints
+				.iter()
+				.map(|h| ratatui::layout::Constraint::Length(*h))
+				.collect();
 
-			if let Some(pb) = progress_item {
-				// Split inner into [body][progress=1 row]
-				let outer_chunks = ratatui::layout::Layout::default()
-					.direction(ratatui::layout::Direction::Vertical)
-					.constraints([
-						ratatui::layout::Constraint::Min(0),
-						ratatui::layout::Constraint::Length(4),
-					])
-					.split(inner);
+			let slots = ratatui::layout::Layout::default()
+				.direction(ratatui::layout::Direction::Vertical)
+				.flex(Flex::SpaceBetween)
+				.constraints(cons)
+				.split(inner);
 
-				let body_area = outer_chunks[0];
-				let progress_area = outer_chunks[1];
-
-				// Now split the body among the non-progress items
-				if !body_items.is_empty() {
-					let n = body_items.len() as u32;
-					let body_chunks = ratatui::layout::Layout::default()
-						.direction(ratatui::layout::Direction::Vertical)
-						.constraints(vec![ratatui::layout::Constraint::Ratio(1, n); n as usize])
-						.split(body_area);
-
-					for (w, area) in body_items.iter().zip(body_chunks.into_iter()) {
-						w.draw(f, *area);
-					}
-				}
-
-				// Progress bar anchored to the bottom row
-				pb.draw(f, progress_area);
-			} else {
-				// No progress bar, split inner equally among all items
-				let n = items.len() as u32;
-				let chunks = ratatui::layout::Layout::default()
-					.direction(ratatui::layout::Direction::Vertical)
-					.constraints(vec![ratatui::layout::Constraint::Ratio(1, n); n as usize])
-					.split(inner);
-
-				for (w, area) in items.iter().zip(chunks.into_iter()) {
-					w.draw(f, *area);
-				}
+			for (w, area) in items.iter().zip(slots.iter()) {
+				w.draw(config, f, *area);
 			}
 		})?;
 
@@ -175,9 +143,7 @@ pub fn vblock(color: &Color) -> Block<'static> {
 pub fn paragraph(text: &str) -> Paragraph<'_> { Paragraph::new(text).right_aligned() }
 
 pub fn borderless_area(f: &mut Frame, area: Rect, title: &str) -> Rect {
-	let block = Block::new()
-		.title(title)
-		.padding(Padding::horizontal(2));
+	let block = Block::new().title(title).padding(Padding::horizontal(2));
 
 	let inner = block.inner(area);
 	f.render_widget(block, area);
@@ -185,7 +151,6 @@ pub fn borderless_area(f: &mut Frame, area: Rect, title: &str) -> Rect {
 }
 
 pub trait Drawable {
-	fn draw(&self, f: &mut Frame, area: Rect);
-	// Optional: let a widget hint a fixed height in rows
-	fn height_hint(&self) -> Option<u16> { None }
+	fn draw(&self, config: &Config, f: &mut Frame, area: Rect);
+	fn height(&self) -> u16;
 }

@@ -180,14 +180,14 @@ impl Commands {
 					.collect::<Vec<_>>();
 
 				let mut term = tui::Term::init_viewport(3)?;
-				let mut pb = tui::NalaProgressBar::new(config)?;
+				let mut pb = tui::NalaProgressBar::new()?;
 				let mut set = tokio::task::JoinSet::new();
 
 				for (_, file) in filtered_pkgs {
 					set.spawn(DebFile::new(file));
 				}
 
-				let files = pb.join(&mut term, set).await?;
+				let files = pb.join(config, &mut term, set).await?;
 				for file in files {
 					file.store().await?;
 				}

@@ -111,7 +111,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			)?;
 
 			let mut term = tui::Term::init_viewport(3)?;
-			let mut progress = NalaProgressBar::new(config)?;
+			let mut progress = NalaProgressBar::new()?;
 			progress.set_position(0);
 			progress.set_length(100);
 
@@ -237,7 +237,7 @@ impl Pty {
 						continue;
 					}
 
-					progress.print(term, &msg_formatter(line))?;
+					progress.print(config, term, &msg_formatter(line))?;
 				}
 				Ok(true)
 			},

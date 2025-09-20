@@ -21,7 +21,7 @@ macro_rules! dprog {
 			if $progress.hidden() {
 				eprintln!("DEBUG({}): {output}", $context);
 			} else {
-				$progress.print($term, &format!("DEBUG({}): {output}", $context))?;
+				$progress.print($config, $term, &format!("DEBUG({}): {output}", $context))?;
 			}
 		}
 	};
