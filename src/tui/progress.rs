@@ -13,11 +13,9 @@ use ratatui::{symbols, Terminal, TerminalOptions, Viewport};
 use regex::Regex;
 use rust_apt::util::time_str;
 use serde::{Deserialize, Serialize};
-use tokio::task::JoinSet;
 
 use super::Term;
 use crate::config::{Config, Theme};
-use crate::tui;
 
 /// Numeral System for unit conversion.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -59,11 +57,6 @@ impl UnitStr {
 		}
 		format!("{val} B")
 	}
-}
-
-pub trait ProgressItem {
-	fn header(&self) -> String;
-	fn msg(&self) -> String;
 }
 
 #[derive(Debug)]
@@ -228,30 +221,6 @@ impl<'a> NalaProgressBar<'a> {
 			disabled: false,
 			dpkg,
 		})
-	}
-
-	pub async fn join<P: ProgressItem + 'static>(
-		&mut self,
-		mut set: JoinSet<Result<P>>,
-	) -> Result<Vec<P>> {
-		self.indicatif.set_length(set.len() as u64);
-
-		let mut ret = vec![];
-		while let Some(res) = set.join_next().await {
-			let item = res??;
-			self.dg.push_str(item.header(), item.msg());
-			self.indicatif.inc(1);
-
-			self.render()?;
-			if tui::poll_exit_event()? {
-				self.clean_up()?;
-				std::process::exit(1);
-			}
-			ret.push(item);
-		}
-
-		self.clean_up()?;
-		Ok(ret)
 	}
 
 	pub fn length(&self) -> u64 { self.indicatif.length().unwrap_or_default() }

@@ -74,7 +74,6 @@ pub enum Commands {
 	Install(Install),
 	Remove(Remove),
 	AutoRemove(AutoRemove),
-	System(System),
 }
 
 /// List all packages or only packages based on the provided name
@@ -255,7 +254,3 @@ pub struct AutoRemove {
 	#[clap(long, action)]
 	pub remove_config: bool,
 }
-
-/// Experimental, use at own risk
-#[derive(Args, Debug)]
-pub struct System {}
