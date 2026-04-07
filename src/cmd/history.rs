@@ -5,9 +5,7 @@ use std::{fs, io};
 use ansi_to_tui::IntoText;
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Local, Utc};
-use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEventKind};
-use crossterm::execute;
-use crossterm::terminal::EnterAlternateScreen;
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::Constraint::Length;
 use ratatui::layout::Layout;
 use ratatui::text::Text;
@@ -18,9 +16,12 @@ use tokio::sync::OnceCell;
 
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
+use crate::terminal::{use_tui, TerminalGuard};
+use crate::tui::style as tui_style;
 use super::{Operation, ShowVersion};
 use crate::{debug, error, table, tui, util};
 
+#[expect(dead_code, reason = "reserved for a future history index container")]
 #[derive(Serialize, Deserialize)]
 pub struct HistoryFile {
 	entries: Vec<HistoryEntry>,
@@ -129,8 +130,8 @@ impl HistoryPackage {
 
 	pub fn items(&self, config: &Config) -> &Vec<tui::summary::Item> {
 		self.items.get_or_init(|| {
-			let secondary = config.rat_style(self.operation);
-			let primary = config.rat_style(Theme::Regular);
+			let secondary = tui_style::style(config, self.operation);
+			let primary = tui_style::style(config, Theme::Regular);
 
 			let colored = color::color!(self.operation, &self.name).to_string();
 			let mut items = vec![tui::summary::Item::left(secondary, colored)];
@@ -155,48 +156,53 @@ impl HistoryPackage {
 		})
 	}
 
-	pub async fn render_changelog(&self, cache: &Cache, terminal: &mut tui::Term) -> Result<()> {
+	pub(crate) async fn render_changelog(
+		&self,
+		cache: &Cache,
+		terminal: &mut TerminalGuard,
+	) -> Result<()> {
 		let changelog = match self.get_changelog(cache).await {
 			Ok(log) => log,
 			Err(e) => &format!("{e:?}"),
 		};
 
-		let mut pager = std::process::Command::new("less")
-			.arg("--raw-control-chars")
-			.arg("--clear-screen")
-			.stdin(std::process::Stdio::piped())
-			.spawn()?;
+		terminal.suspend()?;
 
-		if let Some(stdin) = pager.stdin.as_mut() {
-			if let Err(err) = stdin.write_all(changelog.as_bytes()) {
-				match err.kind() {
-					// Broken Pipe if not all of the changelog is read.
-					// Happens on pager exit without reading the whole file.
-					io::ErrorKind::BrokenPipe => {},
-					_ => return Err(err.into()),
+		let result: Result<()> = (|| {
+			let mut pager = std::process::Command::new("less")
+				.arg("--raw-control-chars")
+				.arg("--clear-screen")
+				.stdin(std::process::Stdio::piped())
+				.spawn()?;
+
+			if let Some(stdin) = pager.stdin.as_mut() {
+				if let Err(err) = stdin.write_all(changelog.as_bytes()) {
+					match err.kind() {
+						// Broken Pipe if not all of the changelog is read.
+						// Happens on pager exit without reading the whole file.
+						io::ErrorKind::BrokenPipe => {},
+						_ => return Err(err.into()),
+					}
 				}
 			}
-		}
 
-		pager.wait()?;
-		execute!(
-			terminal.backend_mut(),
-			EnterAlternateScreen,
-			EnableMouseCapture
-		)?;
-		terminal.clear()?;
+			pager.wait()?;
+			Ok(())
+		})();
 
-		Ok(())
+		terminal.resume()?;
+		result
 	}
 
-	pub fn render_show(
+	pub(crate) fn render_show(
 		&self,
 		cache: &Cache,
 		config: &Config,
-		terminal: &mut tui::Term,
+		terminal: &mut TerminalGuard,
 	) -> Result<()> {
 		// Maybe we will show both versions if available?
 		let show = ShowVersion::new(self.get_version(cache)?);
+		let terminal = terminal.terminal_mut();
 		terminal.clear()?;
 
 		let mut lines: Vec<Text> = vec![];
@@ -331,7 +337,7 @@ pub async fn history(config: &Config) -> Result<()> {
 		table.add_row(row);
 	}
 
-	if !config.get_no_bool("tui", true) {
+	if !use_tui(config) {
 		println!("{table}");
 		return Ok(());
 	}
@@ -349,8 +355,9 @@ pub async fn history(config: &Config) -> Result<()> {
 		pkg_set.entry(pkg.operation).or_default().push(pkg)
 	}
 
+	let mut terminal = TerminalGuard::new()?;
 	tui::summary::SummaryTab::new(&cache, config, &pkg_set)
-		.run()
+		.run(&mut terminal)
 		.await?;
 
 	Ok(())

@@ -11,6 +11,7 @@ use crate::cmd::{
 use crate::config::{color, Config, Paths, Theme};
 use crate::download::Downloader;
 use crate::libnala::NalaCache;
+use crate::terminal::{use_tui, TerminalGuard};
 use crate::{dpkg, error, table, tui, warn};
 
 /// TODO: Implement a simple summary that is very short for serial/console users
@@ -19,10 +20,11 @@ pub async fn display_summary(
 	config: &Config,
 	pkg_set: &HashMap<Operation, Vec<HistoryPackage>>,
 ) -> Result<bool> {
-	if config.get_no_bool("tui", true) {
+	if use_tui(config) {
 		// App returns true if we should continue.
+		let mut terminal = TerminalGuard::new()?;
 		tui::summary::SummaryTab::new(cache, config, pkg_set)
-			.run()
+			.run(&mut terminal)
 			.await
 	} else {
 		let mut tables = vec![];

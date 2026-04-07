@@ -5,7 +5,8 @@ use rust_apt::{new_cache, PackageSort};
 use tokio::sync::mpsc;
 
 use crate::config::{color, Config, Theme};
-use crate::tui;
+use crate::progress::{Progress, ProgressMessage};
+use crate::terminal::poll_exit_event;
 
 pub enum Message {
 	Print(String),
@@ -29,20 +30,20 @@ pub async fn update(config: &Config) -> Result<()> {
 	let acquire = NalaAcquireProgress::new(tx);
 	let task = tokio::task::spawn(update_thread(acquire));
 
-	let mut progress = tui::NalaProgressBar::new(config, false)?;
+	let mut progress = Progress::new(config, false)?;
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
 			Message::UpdatePosition((total, current)) => {
-				progress.indicatif.set_length(total);
-				progress.indicatif.set_position(current);
+				progress.set_length(total);
+				progress.set_position(current);
 			},
 			Message::Print(msg) => {
 				progress.print(&msg)?;
 			},
 			Message::Fetched((msg, file_size)) => {
 				if file_size > 0 {
-					progress.print(&format!("{msg} [{}]", progress.unit.str(file_size)))?
+					progress.print(&format!("{msg} [{}]", progress.unit_str(file_size)))?
 				} else {
 					progress.print(&msg)?
 				};
@@ -52,13 +53,14 @@ pub async fn update(config: &Config) -> Result<()> {
 					let mut iter = msgs.into_iter();
 
 					// First string is the header and always there
-					let mut msg = tui::progress::Message::empty(iter.next().unwrap()).regular();
+					let mut msg =
+						ProgressMessage::empty(iter.next().unwrap()).regular();
 
 					for line in iter {
 						msg.add(line);
 					}
 
-					progress.dg.clear().push(msg);
+					progress.display_mut().clear().push(msg);
 				}
 				progress.render()?;
 			},
@@ -66,7 +68,7 @@ pub async fn update(config: &Config) -> Result<()> {
 
 		// Exit immedately.
 		// This is the only way to stop apt's update
-		if tui::poll_exit_event()? {
+		if poll_exit_event()? {
 			progress.clean_up()?;
 			std::process::exit(1);
 		}
@@ -243,7 +245,7 @@ impl DynAcquireProgress for NalaAcquireProgress {
 			}
 			work_string += ": ";
 
-			if let Some(dest_file) = owner.dest_file().split_terminator('/').last() {
+			if let Some(dest_file) = owner.dest_file().split_terminator('/').next_back() {
 				// Decide on protocol.
 				let proto = if item.uri().starts_with("https") { "https://" } else { "http://" };
 				// Build the correct URI by destination file.

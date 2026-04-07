@@ -28,7 +28,7 @@ impl ShowFormat for BaseDep<'_> {
 				color::highlight!(")"),
 			);
 		}
-		color::color!(theme, self.target_package().name()).into()
+		color::color!(theme, self.target_package().name())
 	}
 }
 

@@ -28,7 +28,7 @@ pub fn format_local(pkg_name: &str) -> String {
 		return "local install".to_string();
 	}
 
-	color::secondary!(pac_repo).into()
+	color::secondary!(pac_repo)
 }
 
 /// The show command

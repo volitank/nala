@@ -12,7 +12,9 @@ use super::{proxy, Uri, UriFilter};
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
-use crate::{debug, dprog, info, tui, warn};
+use crate::progress::Progress;
+use crate::terminal::poll_exit_event;
+use crate::{debug, dprog, info, warn};
 
 pub async fn download(config: &Config) -> Result<()> {
 	// Set download directory to the cwd.
@@ -250,12 +252,12 @@ impl Downloader {
 			untrusted_error(config, self.filter.untrusted.iter().cloned().collect())?;
 		}
 
-		let mut progress = tui::NalaProgressBar::new(config, false)?;
+		let mut progress = Progress::new(config, false)?;
 		// Set the total downloads.
 		let mut total = 0;
 		for uri in &self.uris {
 			total += 1;
-			progress.indicatif.inc_length(uri.size as u64)
+			progress.inc_length(uri.size as u64)
 		}
 
 		// Start the downloads
@@ -272,9 +274,7 @@ impl Downloader {
 
 			while let Ok(msg) = self.rx.try_recv() {
 				match msg {
-					Message::Update(bytes_downloaded) => {
-						progress.indicatif.inc(bytes_downloaded as u64)
-					},
+					Message::Update(bytes_downloaded) => progress.inc(bytes_downloaded as u64),
 					Message::Finished => {
 						current += 1;
 					},
@@ -292,14 +292,12 @@ impl Downloader {
 					},
 					Message::NonFatal((err, size)) => {
 						progress.print(&format!("Error: {err:?}"))?;
-						progress
-							.indicatif
-							.set_position(progress.length() - size as u64)
+						progress.set_position(progress.length() - size as u64)
 					},
 				}
 			}
 
-			if tui::poll_exit_event()? {
+			if poll_exit_event()? {
 				progress.clean_up()?;
 				self.set.shutdown().await;
 				info!("Exiting at user request");
@@ -308,7 +306,7 @@ impl Downloader {
 
 			if tick.elapsed() >= tick_rate {
 				progress
-					.dg
+					.display_mut()
 					.clear()
 					.push_str("Packages:", format!(" {current}/{total}"))
 					.push_str("Connections:", format!(" {:?}", self.domains.lock().await));

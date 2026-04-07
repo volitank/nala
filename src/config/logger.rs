@@ -1,17 +1,20 @@
 use std::io::Write;
-// use tokio::sync::Mutex;
 use std::sync::Mutex;
-use std::sync::OnceLock;
 
+use crate::config::color::Target;
 use crate::config::{color, Theme};
 
-static LOG: OnceLock<Mutex<Logger>> = OnceLock::new();
+static LOG: std::sync::LazyLock<Mutex<Logger>> =
+	std::sync::LazyLock::new(|| Mutex::new(Logger::new(LogOptions::default())));
 
 pub fn setup_logger(options: LogOptions) -> &'static Mutex<Logger> {
-	LOG.get_or_init(|| Mutex::new(Logger::new(options)))
+	let mut logger = LOG.lock().unwrap();
+	*logger = Logger::new(options);
+	drop(logger);
+	&LOG
 }
 
-pub fn get_logger() -> &'static Mutex<Logger> { LOG.get().unwrap() }
+pub fn get_logger() -> &'static Mutex<Logger> { &LOG }
 
 #[macro_export]
 macro_rules! log {
@@ -143,7 +146,7 @@ impl Logger {
 		writeln!(
 			self.0.out,
 			"{} {msg}",
-			color::color!(level.as_theme(), level.as_str())
+			color::color_str_with_target(level.as_theme(), level.as_str(), Target::Stderr)
 		)
 		.unwrap();
 	}
@@ -158,11 +161,16 @@ mod tests {
 	use std::fs::File;
 	use std::io::Read;
 	use std::os::fd::AsRawFd;
+	use std::sync::{LazyLock, Mutex, MutexGuard};
 
 	use nix::fcntl::{fcntl, FcntlArg, OFlag};
 
 	use super::Level;
 	use crate::config::logger::*;
+
+	static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+	fn test_lock() -> MutexGuard<'static, ()> { TEST_LOCK.lock().unwrap() }
 
 	fn read_write() -> (File, File) {
 		let (statusfd, writefd) = nix::unistd::pipe().unwrap();
@@ -183,32 +191,37 @@ mod tests {
 
 	#[test]
 	fn info() {
+		let _guard = test_lock();
 		let (mut reader, writer) = read_write();
 		setup_logger(LogOptions::new(Level::Info, Box::new(writer)));
 
 		info!("Test");
 
-		let output = read_exact(&mut reader, 11).unwrap();
+		let expected = "Notice: Test\n";
+		let output = read_exact(&mut reader, expected.len()).unwrap();
 
-		assert_eq!(std::str::from_utf8(&output).unwrap(), "Info: Test\n");
+		assert_eq!(std::str::from_utf8(&output).unwrap(), expected);
 
 		// Test that debug does not work
 		debug!("Test");
-		assert!(read_exact(&mut reader, 11).is_err());
+		assert!(read_exact(&mut reader, "Debug: Test\n".len()).is_err());
 	}
 
 	#[test]
 	fn debug() {
+		let _guard = test_lock();
 		let (mut reader, writer) = read_write();
 		setup_logger(LogOptions::new(Level::Debug, Box::new(writer)));
 
 		debug!("Test");
-		let output = read_exact(&mut reader, 12).unwrap();
-		assert_eq!(std::str::from_utf8(&output).unwrap(), "Debug: Test\n");
+		let debug_expected = "Debug: Test\n";
+		let output = read_exact(&mut reader, debug_expected.len()).unwrap();
+		assert_eq!(std::str::from_utf8(&output).unwrap(), debug_expected);
 
 		// Test that info during debug does work
 		info!("Test");
-		let output = read_exact(&mut reader, 11).unwrap();
-		assert_eq!(std::str::from_utf8(&output).unwrap(), "Info: Test\n");
+		let notice_expected = "Notice: Test\n";
+		let output = read_exact(&mut reader, notice_expected.len()).unwrap();
+		assert_eq!(std::str::from_utf8(&output).unwrap(), notice_expected);
 	}
 }

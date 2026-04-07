@@ -10,6 +10,7 @@ use ratatui::widgets::{
 };
 use ratatui::Terminal;
 
+use super::style as tui_style;
 use crate::config::{Config, Theme};
 
 struct FetchItem {
@@ -21,7 +22,7 @@ struct FetchItem {
 }
 
 impl FetchItem {
-	fn to_list_items(&self) -> (ListItem, ListItem) {
+	fn to_list_items(&self) -> (ListItem<'_>, ListItem<'_>) {
 		let (char, style) =
 			if self.selected { ('✓', self.style) } else { ('☐', self.alt_style) };
 		(
@@ -44,8 +45,8 @@ impl StatefulList {
 		let mut align = 0;
 		let mut score_align = 0;
 
-		let style = config.rat_style(Theme::Primary);
-		let alt_style = config.rat_style(Theme::Regular);
+		let style = tui_style::style(config, Theme::Primary);
+		let alt_style = tui_style::style(config, Theme::Regular);
 
 		for (url, u_score) in scored {
 			// Calculate alignment
@@ -131,9 +132,9 @@ impl<'a> App<'a> {
 
 	fn go_bottom(&mut self) { self.items.state.select(Some(self.items.items.len() - 1)); }
 
-	pub fn run(mut self, mut terminal: Terminal<impl Backend>) -> Result<Vec<String>> {
+	pub fn run(mut self, terminal: &mut Terminal<impl Backend>) -> Result<Vec<String>> {
 		loop {
-			self.draw(&mut terminal)?;
+			self.draw(terminal)?;
 
 			if let Event::Key(key) = event::read()? {
 				if key.kind == KeyEventKind::Press {
@@ -176,10 +177,10 @@ impl<'a> App<'a> {
 		let header = format!("  {}  ", "Nala Fetch");
 
 		let outer_block = Block::bordered()
-			.title(header.set_style(self.config.rat_style(Theme::Highlight)))
+			.title(header.set_style(tui_style::style(self.config, Theme::Highlight)))
 			.title_alignment(Alignment::Center)
 			.border_type(BorderType::Rounded)
-			.style(self.config.rat_style(Theme::Primary));
+			.style(tui_style::style(self.config, Theme::Primary));
 
 		let [mirror_area, score_area] = Layout::horizontal([
 			Constraint::Length(self.items.align.0 as u16 + 4),
@@ -201,8 +202,8 @@ impl<'a> App<'a> {
 			score_items.push(item.1);
 		}
 
-		let highlight = self.config.rat_style(Theme::Secondary).reversed();
-		let block = self.config.rat_style(Theme::Regular);
+		let highlight = tui_style::style(self.config, Theme::Secondary).reversed();
+		let block = tui_style::style(self.config, Theme::Regular);
 
 		StatefulWidget::render(
 			List::new(mirror_items)
@@ -249,7 +250,7 @@ impl Widget for &mut App<'_> {
 	}
 }
 
-fn fetch_block(style: Style, title: &str) -> Block {
+fn fetch_block(style: Style, title: &str) -> Block<'_> {
 	Block::default()
 		.title(title)
 		.style(style)

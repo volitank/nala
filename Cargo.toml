@@ -20,12 +20,11 @@ ratatui = { version = "0.29", features = ["serde"] }
 comfy-table = { version = "7", features = ["tty", "custom_styling"] }
 mio = { version = "1", features = ["os-ext"] }
 indexmap = { version = "2", features = ["serde"] }
-toml = "0.8"
+hcl = { package = "hcl-rs", version = "0.19" }
 anyhow = "1"
 regex = "1"
 globset = "0.4"
 serde_json = "1"
-indicatif = "0.17"
 crossterm = "0.28"
 sha2 = "0.10"
 chrono = "0.4"

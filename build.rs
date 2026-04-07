@@ -1,5 +1,6 @@
 use clap::CommandFactory;
-use {clap_complete as completion, clap_mangen as man};
+use clap_complete as completion;
+use clap_mangen as man;
 
 include!("src/cli/parser.rs");
 

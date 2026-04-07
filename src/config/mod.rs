@@ -1,5 +1,7 @@
 pub mod color;
 pub mod configuration;
+pub mod file;
+pub mod keys;
 pub mod logger;
 pub mod paths;
 
@@ -13,12 +15,13 @@ pub use logger::{setup_logger, Level};
 pub use paths::Paths;
 use serde::{Deserialize, Serialize};
 
-use crate::tui::UnitStr;
+use crate::util::UnitStr;
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, Default)]
 pub enum Switch {
 	Always,
 	Never,
+	#[default]
 	Auto,
 }
 
@@ -34,6 +37,43 @@ pub enum OptType {
 	// as almost anything will match them
 	String(String),
 	VecString(Vec<String>),
+}
+
+impl OptType {
+	pub fn as_bool(&self) -> Option<bool> {
+		if let Self::Bool(value) = self {
+			return Some(*value);
+		}
+		None
+	}
+
+	pub fn as_int(&self) -> Option<u8> {
+		if let Self::Int(value) = self {
+			return Some(*value);
+		}
+		None
+	}
+
+	pub fn as_switch(&self) -> Option<Switch> {
+		if let Self::Switch(value) = self {
+			return Some(*value);
+		}
+		None
+	}
+
+	pub fn as_string(&self) -> Option<&str> {
+		if let Self::String(value) = self {
+			return Some(value);
+		}
+		None
+	}
+
+	pub fn as_vec_string(&self) -> Option<&Vec<String>> {
+		if let Self::VecString(value) = self {
+			return Some(value);
+		}
+		None
+	}
 }
 
 /// Parse CLI, resolve config path, and load configuration with fallback to

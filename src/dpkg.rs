@@ -20,7 +20,7 @@ use rust_apt::progress::{AcquireProgress, InstallProgress};
 use rust_apt::Cache;
 
 use crate::config::{color, Config, Theme};
-use crate::tui::NalaProgressBar;
+use crate::progress::Progress;
 use crate::{debug, dprog};
 
 // const CURSER_UP: &'static str = "\x1b[1A";
@@ -110,13 +110,13 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 				master.as_raw_fd(),
 			)?;
 
-			let mut progress = NalaProgressBar::new(config, true)?;
-			progress.indicatif.set_position(0);
-			progress.indicatif.set_length(100);
+			let mut progress = Progress::new(config, true)?;
+			progress.set_position(0);
+			progress.set_length(100);
 
 			while pty.listen_to_child(config, &mut progress, child)? {}
 
-			progress.indicatif.finish();
+			progress.finish();
 			progress.render()?;
 			progress.clean_up()?;
 
@@ -193,7 +193,7 @@ impl Pty {
 		}
 	}
 
-	fn read_master(&mut self, config: &Config, progress: &mut NalaProgressBar) -> Result<bool> {
+	fn read_master(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
 		match read_fd(&mut self.pty, &mut self.pty_buf)? {
 			PtyStr::Str(string) => {
 				if !progress.hidden()
@@ -240,7 +240,7 @@ impl Pty {
 		}
 	}
 
-	fn read_status(&mut self, config: &Config, progress: &mut NalaProgressBar) -> Result<bool> {
+	fn read_status(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
 		match read_fd(&mut self.status, &mut self.status_buf)? {
 			PtyStr::Str(string) => {
 				for line in string.lines() {
@@ -254,7 +254,7 @@ impl Pty {
 					} else if progress.hidden() {
 						progress.unhide()?;
 					}
-					progress.indicatif.set_position(status.percent);
+					progress.set_position(status.percent);
 				}
 				Ok(true)
 			},
@@ -320,7 +320,7 @@ impl Pty {
 	fn listen_to_child(
 		&mut self,
 		config: &Config,
-		progress: &mut NalaProgressBar,
+		progress: &mut Progress,
 		child: Pid,
 	) -> Result<bool> {
 		if !self.poll(child).context("Unable to poll child")? {

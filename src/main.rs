@@ -21,8 +21,10 @@ mod fs;
 mod glob;
 mod hashsum;
 mod libnala;
+mod progress;
 mod summary;
 mod table;
+mod terminal;
 mod tui;
 mod util;
 

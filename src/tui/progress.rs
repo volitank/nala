@@ -1,66 +1,23 @@
 use std::io::{stdout, Write};
 
 use anyhow::Result;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use indicatif::ProgressBar;
-use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
+use ratatui::symbols;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, LineGauge, Padding, Paragraph, Widget, Wrap};
-use ratatui::{symbols, Terminal, TerminalOptions, Viewport};
 use regex::Regex;
 use rust_apt::util::time_str;
-use serde::{Deserialize, Serialize};
 
-use super::Term;
+use super::style as tui_style;
 use crate::config::{Config, Theme};
-
-/// Numeral System for unit conversion.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub enum NumSys {
-	/// Base 2 | 1024 | KibiByte (KiB)
-	Binary,
-	/// Base 10 | 1000 | KiloByte (KB)
-	Decimal,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct UnitStr {
-	#[serde(default)]
-	precision: usize,
-	base: NumSys,
-}
-
-impl UnitStr {
-	pub fn new(precision: usize, base: NumSys) -> UnitStr { UnitStr { precision, base } }
-
-	pub fn str(&self, val: u64) -> String {
-		let val = val as f64;
-		let (num, tera, giga, mega, kilo) = match self.base {
-			NumSys::Binary => (1024.0_f64, "TiB", "GiB", "MiB", "KiB"),
-			NumSys::Decimal => (1000.0_f64, "TB", "GB", "MB", "KB"),
-		};
-
-		let powers = [
-			(num.powi(4), tera),
-			(num.powi(3), giga),
-			(num.powi(2), mega),
-			(num, kilo),
-		];
-
-		for (divisor, unit) in powers {
-			if val > divisor {
-				return format!("{:.1$} {unit}", val / divisor, self.precision);
-			}
-		}
-		format!("{val} B")
-	}
-}
+use crate::progress::{DisplayGroup, ProgressMessage, ProgressState};
+use crate::terminal::Term;
 
 #[derive(Debug)]
-pub struct Progress<'a> {
+struct ProgressWidget<'a> {
 	dpkg: bool,
 	percentage: String,
 	current_total: String,
@@ -70,7 +27,7 @@ pub struct Progress<'a> {
 	themes: (Style, Style),
 }
 
-impl Widget for Progress<'_> {
+impl Widget for ProgressWidget<'_> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 		let block = Block::bordered()
 			.border_type(BorderType::Rounded)
@@ -115,152 +72,41 @@ impl Widget for Progress<'_> {
 	}
 }
 
-#[derive(Clone)]
-pub struct Message {
-	header: String,
-	theme: Theme,
-	msg: Vec<String>,
-}
-
-impl Message {
-	pub fn new<T: ToString>(header: T, msg: Vec<String>) -> Message {
-		Self {
-			header: header.to_string(),
-			theme: Theme::Primary,
-			msg,
-		}
-	}
-
-	pub fn empty<T: ToString>(header: T) -> Message { Self::new(header, vec![]) }
-
-	pub fn theme(mut self, theme: Theme) -> Self {
-		self.theme = theme;
-		self
-	}
-
-	pub fn regular(self) -> Self { self.theme(Theme::Regular) }
-
-	pub fn add(&mut self, value: String) { self.msg.push(value) }
-
-	pub fn into_line(self, config: &Config) -> Line<'static> {
-		let mut line = Line::default();
-		line.push_span(Span::from(self.header).style(config.rat_reset(self.theme)));
-
-		for msg in self.msg {
-			line.push_span(Span::from(msg).style(config.rat_reset(Theme::Regular)));
-		}
-		line
-	}
-}
-
-#[derive(Clone)]
-pub struct DisplayGroup(Vec<Message>);
-
-impl DisplayGroup {
-	pub fn new() -> DisplayGroup { Self(vec![]) }
-
-	pub fn clear(&mut self) -> &mut Self {
-		self.0.clear();
-		self
-	}
-
-	pub fn push(&mut self, value: Message) -> &mut Self {
-		self.0.push(value);
-		self
-	}
-
-	pub fn push_str<T: ToString>(&mut self, header: T, value: String) -> &mut Self {
-		self.push(Message::new(header.to_string(), vec![value]));
-		self
-	}
-
-	pub fn into_lines(self, config: &Config) -> Vec<Line<'static>> {
-		if self.0.is_empty() {
-			vec![Line::from("Working...")]
-		} else {
-			self.0
-				.into_iter()
-				.map(|msg| msg.into_line(config))
-				.collect()
-		}
-	}
-}
-
-pub struct NalaProgressBar<'a> {
-	pub terminal: Term,
+pub(crate) struct TuiProgressRenderer<'a> {
+	terminal: Term,
 	config: &'a Config,
-	pub indicatif: ProgressBar,
-	pub unit: UnitStr,
-	pub dg: DisplayGroup,
 	ansi: Regex,
-	pub disabled: bool,
-	dpkg: bool,
 }
 
-impl<'a> NalaProgressBar<'a> {
-	pub fn new(config: &'a Config, dpkg: bool) -> Result<Self> {
-		let indicatif = ProgressBar::hidden();
-		indicatif.set_length(0);
-
-		enable_raw_mode()?;
-
-		let terminal = Terminal::with_options(
-			CrosstermBackend::new(std::io::stdout()),
-			TerminalOptions {
-				viewport: Viewport::Inline(if dpkg { 3 } else { 5 }),
-			},
-		)?;
-
+impl<'a> TuiProgressRenderer<'a> {
+	pub(crate) fn new(config: &'a Config, terminal: Term) -> Result<Self> {
 		Ok(Self {
 			terminal,
 			config,
-			indicatif,
-			unit: UnitStr::new(1, NumSys::Binary),
-			dg: DisplayGroup::new(),
 			ansi: Regex::new(r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])")?,
-			disabled: false,
-			dpkg,
 		})
 	}
 
-	pub fn length(&self) -> u64 { self.indicatif.length().unwrap_or_default() }
-
-	// f64 as ceil incase it's less than 1 second we round up to that.
-	fn elapsed(&self) -> u64 { self.indicatif.elapsed().as_secs_f64().ceil() as u64 }
-
-	fn ratio(&self) -> f64 {
-		let ratio = self.indicatif.position() as f64 / self.length() as f64;
-		if ratio > 1.0 {
-			return 1.0;
-		}
-		ratio
-	}
-
-	pub fn hidden(&self) -> bool { self.disabled }
-
-	pub fn hide(&mut self) -> Result<()> {
+	pub(crate) fn hide(&mut self) -> Result<()> {
 		self.terminal.clear()?;
 		self.terminal.show_cursor()?;
-		self.disabled = true;
 		Ok(())
 	}
 
-	pub fn unhide(&mut self) -> Result<()> {
+	pub(crate) fn unhide(&mut self) -> Result<()> {
 		writeln!(stdout(), "\n\n\n")?;
 		self.terminal.hide_cursor()?;
-		self.disabled = false;
 		Ok(())
 	}
 
-	pub fn clean_up(&mut self) -> Result<()> {
+	pub(crate) fn clean_up(&mut self) -> Result<()> {
 		self.terminal.clear()?;
-		disable_raw_mode()?;
 		self.terminal.show_cursor()?;
 		Ok(())
 	}
 
-	pub fn print(&mut self, msg: &str) -> Result<()> {
-		if self.disabled {
+	pub(crate) fn print(&mut self, state: &ProgressState, msg: &str) -> Result<()> {
+		if state.hidden() {
 			return Ok(());
 		}
 
@@ -277,68 +123,41 @@ impl<'a> NalaProgressBar<'a> {
 			Paragraph::new(msg)
 				.left_aligned()
 				.wrap(Wrap::default())
-				.style(self.config.rat_style(Theme::Regular))
+				.style(tui_style::style(self.config, Theme::Regular))
 				.render(buf.area, buf);
 		})?;
 		// Must redraw the terminal after printing
-		self.render()
+		self.render(state)
 	}
 
-	pub fn finished_string(&self) -> String {
-		// I've seen this erroneously as 1 before.
-		if self.length() > 1 {
-			format!(
-				"Fetched {} in {} ({}/s)",
-				self.unit.str(self.length()),
-				time_str(self.elapsed()),
-				self.unit.str(self.length() / self.elapsed())
-			)
-		} else {
-			"Nothing to fetch".to_string()
-		}
-	}
-
-	/// TODO: Turn this into a trait!!!
-	pub fn label(&self) -> Message {
-		let mut msg = Message::empty("Remaining: ");
-		if self.indicatif.position() < self.length() {
-			msg.add(rust_apt::util::time_str(self.indicatif.eta().as_secs()));
+	fn remaining_label(&self, state: &ProgressState) -> ProgressMessage {
+		let mut msg = ProgressMessage::empty("Remaining: ");
+		if let Some(eta) = state.eta() {
+			msg.add(time_str(eta));
 		}
 		msg
 	}
 
-	pub fn current_total(&self) -> String {
-		if self.dpkg {
-			format!("{}/{}", self.indicatif.position(), self.length())
-		} else {
-			format!(
-				"{}/{}",
-				self.unit.str(self.indicatif.position()),
-				self.unit.str(self.length()),
-			)
-		}
-	}
-
-	pub fn render(&mut self) -> Result<()> {
-		if self.disabled {
+	pub(crate) fn render(&mut self, state: &ProgressState) -> Result<()> {
+		if state.hidden() {
 			return Ok(());
 		}
 
-		let progress = Progress {
-			dpkg: self.dpkg,
-			percentage: format!("{:.1}%", self.ratio() * 100.0),
-			current_total: self.current_total(),
-			per_sec: format!("{}/s", self.unit.str(self.indicatif.per_sec() as u64)),
+		let progress = ProgressWidget {
+			dpkg: state.is_dpkg(),
+			percentage: format!("{:.1}%", state.ratio() * 100.0),
+			current_total: state.current_total(),
+			per_sec: format!("{}/s", state.unit_str(state.rate())),
 			bar: LineGauge::default()
 				.line_set(symbols::line::THICK)
-				.ratio(self.ratio())
-				.label(self.label().into_line(self.config))
-				.filled_style(self.config.rat_style(Theme::ProgressFilled))
-				.unfilled_style(self.config.rat_style(Theme::ProgressUnfilled)),
-			spans: self.dg.clone().into_lines(self.config),
+				.ratio(state.ratio())
+				.label(progress_line(&self.remaining_label(state), self.config))
+				.filled_style(tui_style::style(self.config, Theme::ProgressFilled))
+				.unfilled_style(tui_style::style(self.config, Theme::ProgressUnfilled)),
+			spans: display_lines(state.display(), self.config),
 			themes: (
-				self.config.rat_style(Theme::Primary),
-				self.config.rat_style(Theme::Secondary),
+				tui_style::style(self.config, Theme::Primary),
+				tui_style::style(self.config, Theme::Secondary),
 			),
 		};
 
@@ -349,4 +168,31 @@ impl<'a> NalaProgressBar<'a> {
 	}
 }
 
-pub fn get_paragraph(text: &str) -> Paragraph { Paragraph::new(text).right_aligned() }
+fn get_paragraph(text: &str) -> Paragraph<'_> { Paragraph::new(text).right_aligned() }
+
+fn progress_line(msg: &ProgressMessage, config: &Config) -> Line<'static> {
+	let mut line = Line::default();
+	line.push_span(
+		Span::from(msg.header().to_string()).style(tui_style::reset(config, msg.theme_value())),
+	);
+
+	for segment in msg.segments() {
+		line.push_span(
+			Span::from(segment.to_string()).style(tui_style::reset(config, Theme::Regular)),
+		);
+	}
+
+	line
+}
+
+fn display_lines(display: &DisplayGroup, config: &Config) -> Vec<Line<'static>> {
+	if display.messages().is_empty() {
+		return vec![Line::from("Working...")];
+	}
+
+	display
+		.messages()
+		.iter()
+		.map(|msg| progress_line(msg, config))
+		.collect()
+}

@@ -11,6 +11,8 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 
 use crate::config::{Config, Paths};
+use crate::progress::Progress;
+use crate::terminal::{poll_exit_event, use_tui, TerminalGuard};
 use crate::util::{sudo_check, DOMAIN, UBUNTU_COUNTRY, UBUNTU_URL};
 use crate::{debug, tui};
 
@@ -245,8 +247,8 @@ async fn score_handler(
 	release: &str,
 ) -> Result<Vec<(String, u128)>> {
 	// Setup Progress Bar
-	let mut pb = tui::NalaProgressBar::new(config, false)?;
-	pb.indicatif.set_length(mirror_strings.len() as u64);
+	let mut pb = Progress::new(config, false)?;
+	pb.set_length(mirror_strings.len() as u64);
 
 	let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 	let semp = Arc::new(Semaphore::new(30));
@@ -268,12 +270,12 @@ async fn score_handler(
 	let mut score = vec![];
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
-			pb.dg.push_str("Finished: ", response.0.to_string());
+			pb.display_mut().push_str("Finished: ", response.0.to_string());
 			score.push(response)
 		}
-		pb.indicatif.inc(1);
+		pb.inc(1);
 		pb.render()?;
-		if tui::poll_exit_event()? {
+		if poll_exit_event()? {
 			pb.clean_up()?;
 			std::process::exit(1);
 		}
@@ -462,10 +464,13 @@ pub fn fetch(config: &Config) -> Result<()> {
 		scored.into_iter().map(|(s, _)| s).collect()
 	} else {
 		debug!("Interactive mode, starting TUI");
-		let terminal = tui::init_terminal()?;
-		let chosen = tui::fetch::App::new(config, scored).run(terminal)?;
-		tui::restore_terminal()?;
-		chosen
+		if !use_tui(config) {
+			scored.into_iter().map(|(s, _)| s).collect()
+		} else {
+			let mut terminal = TerminalGuard::new()?;
+			let app = tui::fetch::App::new(config, scored);
+			app.run(terminal.terminal_mut())?
+		}
 	};
 
 	if chosen.is_empty() {

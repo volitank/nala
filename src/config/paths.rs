@@ -1,3 +1,15 @@
+const HISTORY_DEFAULT: &str = "/var/lib/nala/history";
+const NALA_SOURCES_PATH: &str = "/etc/apt/sources.list.d/nala.sources";
+
+#[derive(Clone, Copy)]
+pub enum PathSpec {
+	Apt {
+		key: &'static str,
+		default: &'static str,
+	},
+	Fixed(&'static str),
+}
+
 /// Represents different file and directory paths
 pub enum Paths {
 	/// The Archive dir holds packages.
@@ -17,4 +29,43 @@ pub enum Paths {
 	NalaSources,
 
 	History,
+}
+
+impl Paths {
+	pub fn spec(&self) -> PathSpec {
+		match self {
+			Paths::Archive => PathSpec::Apt {
+				key: "Dir::Cache::Archives",
+				default: "/var/cache/apt/archives/",
+			},
+			Paths::Lists => PathSpec::Apt {
+				key: "Dir::State::Lists",
+				default: "/var/lib/apt/lists/",
+			},
+			Paths::SourceList => PathSpec::Apt {
+				key: "Dir::Etc::sourcelist",
+				default: "/etc/apt/sources.list",
+			},
+			Paths::SourceParts => PathSpec::Apt {
+				key: "Dir::Etc::sourceparts",
+				default: "/etc/apt/sources.list.d/",
+			},
+			Paths::NalaSources => PathSpec::Fixed(NALA_SOURCES_PATH),
+			Paths::History => PathSpec::Fixed(HISTORY_DEFAULT),
+		}
+	}
+
+	pub fn path(&self) -> &'static str {
+		match self.spec() {
+			PathSpec::Apt { key, .. } => key,
+			PathSpec::Fixed(path) => path,
+		}
+	}
+
+	pub fn default_path(&self) -> &'static str {
+		match self.spec() {
+			PathSpec::Apt { default, .. } => default,
+			PathSpec::Fixed(path) => path,
+		}
+	}
 }
