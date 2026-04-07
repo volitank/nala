@@ -213,7 +213,7 @@ impl Uri {
 		}
 		writer.flush().await?;
 
-		HashSum::from_str(hash_type, hashsum::bytes_to_hex_string(&hasher.finalize()))
+		Ok(hasher.finalize_hashsum())
 	}
 }
 

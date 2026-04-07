@@ -31,15 +31,47 @@ pub fn get_hash(version: &Version) -> Result<HashSum> {
 	);
 }
 
-pub fn get_hasher(hash_type: &str) -> Result<Box<dyn digest::DynDigest + Send>> {
+pub enum Hasher {
+	Sha512(Sha512),
+	Sha256(Sha256),
+}
+
+impl Hasher {
+	pub fn update(&mut self, data: &[u8]) {
+		match self {
+			Self::Sha512(inner) => inner.update(data),
+			Self::Sha256(inner) => inner.update(data),
+		}
+	}
+
+	pub fn finalize_hashsum(self) -> HashSum {
+		match self {
+			Self::Sha512(inner) => {
+				let digest = inner.finalize();
+				HashSum::Sha512(bytes_to_hex_string(&digest))
+			},
+			Self::Sha256(inner) => {
+				let digest = inner.finalize();
+				HashSum::Sha256(bytes_to_hex_string(&digest))
+			},
+		}
+	}
+}
+
+pub fn get_hasher(hash_type: &str) -> Result<Hasher> {
 	Ok(match hash_type {
-		"sha512" => Box::new(Sha512::new()),
-		"sha256" => Box::new(Sha256::new()),
+		"sha512" => Hasher::Sha512(Sha512::new()),
+		"sha256" => Hasher::Sha256(Sha256::new()),
 		anything_else => bail!("Hash Type: {anything_else} is not supported"),
 	})
 }
 
-pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
+pub fn sha256_hex(bytes: &[u8]) -> String {
+	let digest = Sha256::digest(bytes);
+	bytes_to_hex_string(&digest)
+}
+
+fn bytes_to_hex_string(bytes: &[u8]) -> String {
 	let mut hash = String::new();
 	for byte in bytes {
 		write!(&mut hash, "{:02x}", byte).expect("Unable to write hash to string");
@@ -85,7 +117,7 @@ impl HashSum {
 			hasher.update(&buffer[..bytes_read]);
 		}
 
-		Self::from_str(hash_type, bytes_to_hex_string(&hasher.finalize()))
+		Ok(hasher.finalize_hashsum())
 	}
 
 	pub fn str_type(&self) -> &'static str {

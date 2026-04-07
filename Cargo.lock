@@ -1416,7 +1416,6 @@ dependencies = [
  "clap_mangen",
  "comfy-table",
  "crossterm",
- "digest",
  "globset",
  "indexmap",
  "indicatif",

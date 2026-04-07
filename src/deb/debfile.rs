@@ -5,11 +5,11 @@ use anyhow::{anyhow, Result};
 use ar::Archive;
 use rust_apt::tagfile;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use tar::Archive as Tarchive;
 use tokio::fs;
 
 use super::{Decompress, Reader};
+use crate::hashsum;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DebFile {
@@ -24,7 +24,7 @@ impl DebFile {
 	pub async fn new(path: String) -> Result<DebFile> {
 		let data = fs::read(&path).await?;
 		let mut ar = Archive::new(data.as_slice());
-		let hash = format!("{:x}", Sha256::digest(&data));
+		let hash = hashsum::sha256_hex(&data);
 
 		let mut control: Option<HashMap<String, String>> = None;
 		while let Some(res) = ar.next_entry() {
