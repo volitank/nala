@@ -100,16 +100,24 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 		match command {
 			Commands::List(_) | Commands::Search(_) => {
 				let cache = new_cache!()?;
+				let mut missing = Vec::new();
 				let packages = if config.command == "search" {
-					glob::regex_pkgs(config, &cache)?.only_pkgs()
+					glob::regex_pkgs(config, &cache)?
 				} else {
 					match config.pkg_names() {
-						Ok(names) => glob::pkgs_with_modifiers(names, config, &cache)?.only_pkgs(),
+						Ok(names) => {
+							let selection = glob::pkgs_with_modifiers(names, config, &cache)?;
+							let (packages, selection_missing) =
+								selection.into_packages_and_missing();
+							missing = selection_missing;
+							packages
+						},
 						Err(_) => cache.packages(&glob::get_sorter(config)).collect(),
 					}
 				};
 
 				list_packages(config, packages)?;
+				glob::log_missing_notices(&missing);
 			},
 			Commands::Show(_) => show(config)?,
 			Commands::Policy(_) => policy(config)?,

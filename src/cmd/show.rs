@@ -38,7 +38,8 @@ pub fn show(config: &Config) -> Result<()> {
 	let mut additional_records = 0;
 	// Filter virtual packages into their real package.
 	let all_versions = config.get_bool("all_versions", false);
-	let packages = glob::pkgs_with_modifiers(config.pkg_names()?, config, &cache)?.only_pkgs();
+	let selection = glob::pkgs_with_modifiers(config.pkg_names()?, config, &cache)?;
+	let (packages, missing) = selection.into_packages_and_missing();
 	for pkg in &packages {
 		let versions = pkg.versions().map(ShowVersion::new).collect::<Vec<_>>();
 		additional_records += versions.len();
@@ -61,6 +62,8 @@ pub fn show(config: &Config) -> Result<()> {
 			color::color!(Theme::Notice, "'-a'"),
 		);
 	}
+
+	glob::log_missing_notices(&missing);
 
 	Ok(())
 }

@@ -6,7 +6,6 @@ use crate::cmd::Operation;
 use crate::config::Config;
 use crate::deb::DebFile;
 use crate::download::Downloader;
-use crate::glob::CliPackage;
 use crate::util::sudo_check;
 use crate::{debug, glob, info};
 
@@ -57,7 +56,7 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 	let deb_paths: Vec<&str> = deb_files.iter().map(|deb| deb.path.as_str()).collect();
 	let cache = new_cache!(&deb_paths)?;
 
-	let mut packages = glob::pkgs_with_modifiers(cache_pkgs, config, &cache)?;
+	let mut selection = glob::pkgs_with_modifiers(cache_pkgs, config, &cache)?;
 
 	// Fetch the correct local .deb and version from the cache
 	for deb in deb_files {
@@ -78,11 +77,10 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 				pkg.name()
 			)
 		};
-		ver.set_candidate();
-		packages.push(CliPackage::new_glob(pkg.name().to_string())?.with_pkg(pkg, ver))
+		selection.add(pkg, Some(ver), None);
 	}
 
-	packages.mark(&cache, operation, config.get_bool("purge", false))?;
+	selection.mark(&cache, operation, config.get_bool("purge", false))?;
 
 	if let Err(err) = cache.resolve(false) {
 		debug!("Broken Count: {}", cache.depcache().broken_count());

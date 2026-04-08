@@ -271,8 +271,10 @@ pub fn policy(config: &Config) -> Result<()> {
 		return Ok(());
 	}
 
-	let packages = glob::pkgs_with_modifiers(config.pkg_names()?, config, &cache)?.only_pkgs();
+	let selection = glob::pkgs_with_modifiers(config.pkg_names()?, config, &cache)?;
+	let (packages, missing) = selection.into_packages_and_missing();
 	if config.get_bool(keys::MACHINE, false) {
+		glob::log_missing_notices(&missing);
 		return policy_machine(packages);
 	}
 
@@ -284,6 +286,8 @@ pub fn policy(config: &Config) -> Result<()> {
 		let policy = collect_package_policy(&pkg);
 		print_package_policy(&policy);
 	}
+
+	glob::log_missing_notices(&missing);
 
 	Ok(())
 }
