@@ -7,7 +7,7 @@ macro_rules! define_modules {
 	};
 }
 
-define_modules!(show, update, upgrade, history, fetch, clean);
+define_modules!(show, policy, update, upgrade, history, fetch, clean);
 
 pub mod install;
 mod list;
@@ -243,7 +243,7 @@ impl ShowVersion<'_> {
 	}
 
 	pub fn show(&self, config: &Config) -> Result<()> {
-		if config.get_bool("machine", false) {
+		if config.get_bool(crate::config::keys::MACHINE, false) {
 			println!("{}", self.to_json()?);
 			return Ok(());
 		}
@@ -257,7 +257,7 @@ impl ShowVersion<'_> {
 
 	/// List a single version of a package
 	pub fn list(&self, config: &Config) -> Result<()> {
-		if config.get_bool("machine", false) {
+		if config.get_bool(crate::config::keys::MACHINE, false) {
 			println!("{}", self.to_json()?);
 			return Ok(());
 		}

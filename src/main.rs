@@ -29,7 +29,9 @@ mod tui;
 mod util;
 
 use crate::cli::NalaParser;
-use crate::cmd::{clean, fetch, history, list_packages, mark_cli_pkgs, show, update, upgrade};
+use crate::cmd::{
+	clean, fetch, history, list_packages, mark_cli_pkgs, policy, show, update, upgrade,
+};
 use crate::config::Config;
 use crate::download::download;
 
@@ -110,6 +112,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 				list_packages(config, packages)?;
 			},
 			Commands::Show(_) => show(config)?,
+			Commands::Policy(_) => policy(config)?,
 			Commands::Clean(_) => clean(config)?,
 			Commands::Download(_) => download(config).await?,
 			Commands::History(_) => history(config).await?,

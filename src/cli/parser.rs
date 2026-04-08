@@ -65,6 +65,7 @@ pub enum Commands {
 	List(List),
 	Search(Search),
 	Show(Show),
+	Policy(Policy),
 	Clean(Clean),
 	Download(Download),
 	History(History),
@@ -137,6 +138,17 @@ pub struct Show {
 
 	#[clap(short = 'a', long, action)]
 	pub all_versions: bool,
+
+	#[clap(short = 'm', long, action)]
+	pub machine: bool,
+}
+
+/// Show pin/priority information about one or more packages
+#[derive(Args, Debug)]
+pub struct Policy {
+	/// Package names to show policy for
+	#[clap(required = false)]
+	pub pkg_names: Vec<String>,
 
 	#[clap(short = 'm', long, action)]
 	pub machine: bool,
