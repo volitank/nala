@@ -1,73 +1,31 @@
+use std::borrow::Cow;
 use std::io::{stdout, Write};
 
 use anyhow::Result;
 use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
 use ratatui::symbols;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, LineGauge, Padding, Paragraph, Widget, Wrap};
+use ratatui::widgets::{LineGauge, Paragraph, Widget, Wrap};
 use regex::Regex;
 use rust_apt::util::time_str;
 
-use super::style as tui_style;
+use super::{borderless_area, frame_block};
 use crate::config::{Config, Theme};
-use crate::progress::{DisplayGroup, ProgressMessage, ProgressState};
+use crate::progress::{DisplayGroup, ProgressMessage, ProgressPanel, ProgressState};
 use crate::terminal::Term;
 
-#[derive(Debug)]
-struct ProgressWidget<'a> {
-	dpkg: bool,
-	percentage: String,
-	current_total: String,
-	per_sec: String,
-	bar: LineGauge<'a>,
-	spans: Vec<Line<'a>>,
-	themes: (Style, Style),
+struct InfoRow<'a> {
+	label: &'a str,
+	value: Cow<'a, str>,
 }
 
-impl Widget for ProgressWidget<'_> {
-	fn render(self, area: Rect, buf: &mut Buffer) {
-		let block = Block::bordered()
-			.border_type(BorderType::Rounded)
-			.padding(Padding::horizontal(1))
-			.style(self.themes.0);
-
-		let inner = Layout::vertical([Constraint::Fill(100), Constraint::Length(1)])
-			.split(block.inner(*buf.area()));
-
-		let mut constraints = vec![
-			Constraint::Fill(100),
-			Constraint::Length(self.percentage.len() as u16 + 2),
-			Constraint::Length(self.current_total.len() as u16 + 2),
-		];
-
-		let bar_block = if self.dpkg {
-			Layout::horizontal(constraints).split(block.inner(*buf.area()))
-		} else {
-			constraints.push(Constraint::Length(self.per_sec.len() as u16 + 2));
-			Layout::horizontal(constraints).split(inner[1])
-		};
-
-		block.render(area, buf);
-		if !self.dpkg {
-			Paragraph::new(self.spans).render(inner[0], buf);
-
-			get_paragraph(&self.per_sec)
-				.style(self.themes.1)
-				.render(bar_block[3], buf);
-		}
-
-		self.bar.render(bar_block[0], buf);
-		get_paragraph(&self.percentage)
-			.style(self.themes.1)
-			.render(bar_block[1], buf);
-
-		if !self.dpkg {
-			get_paragraph(&self.current_total)
-				.style(self.themes.0)
-				.render(bar_block[2], buf);
+impl<'a> InfoRow<'a> {
+	fn new(label: &'a str, value: impl Into<Cow<'a, str>>) -> Self {
+		Self {
+			label,
+			value: value.into(),
 		}
 	}
 }
@@ -110,32 +68,19 @@ impl<'a> TuiProgressRenderer<'a> {
 			return Ok(());
 		}
 
-		// Strip ansi escape codes to get the correct size of the message
 		let height = self.ansi.replace_all(msg, "").len() as f32
 			/ self.terminal.backend().size()?.width as f32;
-
-		// Check how many new lines as well
 		let lines = (height.ceil() as u16).max(msg.lines().count() as u16);
 
-		// Artifacts come into play if the viewport isn't cleared
 		self.terminal.clear()?;
 		self.terminal.insert_before(lines, |buf| {
 			Paragraph::new(msg)
 				.left_aligned()
 				.wrap(Wrap::default())
-				.style(tui_style::style(self.config, Theme::Regular))
+				.style(super::style::style(self.config, Theme::Regular))
 				.render(buf.area, buf);
 		})?;
-		// Must redraw the terminal after printing
 		self.render(state)
-	}
-
-	fn remaining_label(&self, state: &ProgressState) -> ProgressMessage {
-		let mut msg = ProgressMessage::empty("Remaining: ");
-		if let Some(eta) = state.eta() {
-			msg.add(time_str(eta));
-		}
-		msg
 	}
 
 	pub(crate) fn render(&mut self, state: &ProgressState) -> Result<()> {
@@ -143,42 +88,34 @@ impl<'a> TuiProgressRenderer<'a> {
 			return Ok(());
 		}
 
-		let progress = ProgressWidget {
-			dpkg: state.is_dpkg(),
-			percentage: format!("{:.1}%", state.ratio() * 100.0),
-			current_total: state.current_total(),
-			per_sec: format!("{}/s", state.unit_str(state.rate())),
-			bar: LineGauge::default()
-				.line_set(symbols::line::THICK)
-				.ratio(state.ratio())
-				.label(progress_line(&self.remaining_label(state), self.config))
-				.filled_style(tui_style::style(self.config, Theme::ProgressFilled))
-				.unfilled_style(tui_style::style(self.config, Theme::ProgressUnfilled)),
-			spans: display_lines(state.display(), self.config),
-			themes: (
-				tui_style::style(self.config, Theme::Primary),
-				tui_style::style(self.config, Theme::Secondary),
-			),
-		};
+		let status_lines = display_lines(state.display(), self.config);
+		let (left_info, right_info) = info_columns(state);
 
-		self.terminal
-			.draw(|f| progress.render(f.area(), f.buffer_mut()))?;
+		self.terminal.draw(|f| {
+			render_progress_view(
+				f,
+				f.area(),
+				self.config,
+				state,
+				&status_lines,
+				&left_info,
+				&right_info,
+			)
+		})?;
 
 		Ok(())
 	}
 }
 
-fn get_paragraph(text: &str) -> Paragraph<'_> { Paragraph::new(text).right_aligned() }
-
 fn progress_line(msg: &ProgressMessage, config: &Config) -> Line<'static> {
 	let mut line = Line::default();
 	line.push_span(
-		Span::from(msg.header().to_string()).style(tui_style::reset(config, msg.theme_value())),
+		Span::from(msg.header().to_string()).style(super::style::reset(config, msg.theme_value())),
 	);
 
 	for segment in msg.segments() {
 		line.push_span(
-			Span::from(segment.to_string()).style(tui_style::reset(config, Theme::Regular)),
+			Span::from(segment.to_string()).style(super::style::reset(config, Theme::Regular)),
 		);
 	}
 
@@ -186,13 +123,224 @@ fn progress_line(msg: &ProgressMessage, config: &Config) -> Line<'static> {
 }
 
 fn display_lines(display: &DisplayGroup, config: &Config) -> Vec<Line<'static>> {
-	if display.messages().is_empty() {
-		return vec![Line::from("Working...")];
-	}
-
 	display
 		.messages()
 		.iter()
 		.map(|msg| progress_line(msg, config))
 		.collect()
+}
+
+fn info_columns(state: &ProgressState) -> (Vec<InfoRow<'_>>, Vec<InfoRow<'_>>) {
+	let mut left = if state.is_dpkg() {
+		vec![InfoRow::new("Progress", state.current_total())]
+	} else {
+		vec![
+			InfoRow::new("Total", state.current_total()),
+			InfoRow::new("Speed", format!("{}/s", state.unit_str(state.rate()))),
+		]
+	};
+
+	let mut right = if state.is_dpkg() {
+		vec![InfoRow::new("Elapsed", time_str(state.elapsed()))]
+	} else {
+		vec![
+			InfoRow::new("Elapsed", time_str(state.elapsed())),
+			match state.eta() {
+				Some(eta) => InfoRow::new("Remaining", time_str(eta)),
+				None => InfoRow::new("Remaining", "--"),
+			},
+		]
+	};
+
+	for (index, (label, value)) in state.info().iter().enumerate() {
+		let row = InfoRow::new(label.as_str(), value.as_str());
+		if index % 2 == 0 {
+			left.push(row);
+		} else {
+			right.push(row);
+		}
+	}
+
+	(left, right)
+}
+
+fn render_progress_view(
+	f: &mut ratatui::Frame,
+	area: Rect,
+	config: &Config,
+	state: &ProgressState,
+	status_lines: &[Line<'static>],
+	left_info: &[InfoRow<'_>],
+	right_info: &[InfoRow<'_>],
+) {
+	let block = frame_block(config);
+	let inner = block.inner(area);
+	f.render_widget(block, area);
+
+	let mirror_height = mirrors_height(state.panels());
+	let status_height = status_lines.len() as u16;
+	let progress_height = progress_height(left_info, right_info);
+
+	let mut constraints = Vec::with_capacity(4);
+	if mirror_height > 0 {
+		constraints.push(Constraint::Length(mirror_height));
+	}
+	if status_height > 0 {
+		constraints.push(Constraint::Length(status_height));
+	}
+	constraints.push(Constraint::Length(progress_height));
+	constraints.push(Constraint::Min(0));
+
+	let slots = Layout::vertical(constraints).split(inner);
+	let mut index = 0;
+
+	if mirror_height > 0 {
+		render_mirrors(f, config, slots[index], state.panels());
+		index += 1;
+	}
+
+	if status_height > 0 {
+		render_status(f.buffer_mut(), slots[index], status_lines);
+		index += 1;
+	}
+
+	render_progress_widget(
+		f.buffer_mut(),
+		config,
+		slots[index],
+		state,
+		left_info,
+		right_info,
+	);
+}
+
+fn mirrors_height(panels: &[ProgressPanel]) -> u16 {
+	if panels.is_empty() {
+		0
+	} else {
+		1 + panels.iter().map(ProgressPanel::height).sum::<u16>()
+	}
+}
+
+fn progress_height(left_info: &[InfoRow<'_>], right_info: &[InfoRow<'_>]) -> u16 {
+	(1 + left_info.len().max(right_info.len()) as u16).max(4)
+}
+
+fn render_mirrors(f: &mut ratatui::Frame, config: &Config, area: Rect, panels: &[ProgressPanel]) {
+	if panels.is_empty() || area.width == 0 || area.height == 0 {
+		return;
+	}
+
+	let inner = borderless_area(f, area, "Mirrors:");
+	let heights = panels
+		.iter()
+		.map(|panel| Constraint::Length(panel.height()))
+		.collect::<Vec<_>>();
+	let slots = Layout::vertical(heights).split(inner);
+
+	for (panel, slot) in panels.iter().zip(slots.iter()) {
+		render_panel(f, config, *slot, panel);
+	}
+}
+
+fn render_panel(f: &mut ratatui::Frame, config: &Config, area: Rect, panel: &ProgressPanel) {
+	if area.width == 0 || area.height == 0 {
+		return;
+	}
+
+	let inner = borderless_area(f, area, panel.title());
+
+	if panel.items().is_empty() || inner.width == 0 || inner.height == 0 {
+		return;
+	}
+
+	let widths = vec![Constraint::Length(1); panel.items().len()];
+	let slots = Layout::vertical(widths).split(inner);
+	let key_width = panel.items().len().to_string().len() + 1;
+
+	for (slot, (index, item)) in slots.iter().zip(panel.items().iter().enumerate()) {
+		let number = (index + 1).to_string();
+		let mut line = Line::default();
+		line.push_span(
+			Span::from(number.clone()).style(super::style::reset(config, Theme::Primary)),
+		);
+		line.push_span(Span::raw(" ".repeat(key_width - number.len())));
+		line.push_span(Span::from(item.clone()).style(super::style::reset(config, Theme::Regular)));
+		Paragraph::new(line)
+			.wrap(Wrap { trim: false })
+			.render(*slot, f.buffer_mut());
+	}
+}
+
+fn render_status(buf: &mut Buffer, area: Rect, lines: &[Line<'static>]) {
+	if lines.is_empty() || area.width == 0 || area.height == 0 {
+		return;
+	}
+
+	let slots = Layout::vertical(vec![Constraint::Length(1); lines.len()]).split(area);
+	for (slot, line) in slots.iter().zip(lines.iter()) {
+		Paragraph::new(line.clone())
+			.wrap(Wrap { trim: false })
+			.render(*slot, buf);
+	}
+}
+
+fn render_progress_widget(
+	buf: &mut Buffer,
+	config: &Config,
+	area: Rect,
+	state: &ProgressState,
+	left_info: &[InfoRow<'_>],
+	right_info: &[InfoRow<'_>],
+) {
+	if area.width == 0 || area.height == 0 {
+		return;
+	}
+
+	let [bar_area, info_area] =
+		Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+	let [bar_slot, _, _] = split_columns(bar_area);
+
+	let bar = LineGauge::default()
+		.line_set(symbols::line::THICK)
+		.ratio(state.ratio())
+		.label(progress_line(&ProgressMessage::empty("Progress:"), config))
+		.filled_style(super::style::style(config, Theme::ProgressFilled))
+		.unfilled_style(super::style::style(config, Theme::ProgressUnfilled));
+	bar.render(bar_slot, buf);
+
+	let [left_area, right_area, _] = split_columns(info_area);
+	render_info_column(buf, config, left_area, left_info);
+	render_info_column(buf, config, right_area, right_info);
+}
+
+fn split_columns(area: Rect) -> [Rect; 3] {
+	Layout::horizontal([Constraint::Max(32), Constraint::Max(32), Constraint::Min(0)]).areas(area)
+}
+
+fn render_info_column(buf: &mut Buffer, config: &Config, area: Rect, rows: &[InfoRow<'_>]) {
+	if rows.is_empty() || area.width == 0 || area.height == 0 {
+		return;
+	}
+
+	let labels = rows
+		.iter()
+		.map(|row| format!("  {}:", row.label))
+		.collect::<Vec<_>>();
+	let label_width = labels.iter().map(String::len).max().unwrap_or_default() + 1;
+	let slots = Layout::vertical(vec![Constraint::Length(1); rows.len()]).split(area);
+
+	for ((slot, label), row) in slots.iter().zip(labels.iter()).zip(rows.iter()) {
+		let mut line = Line::default();
+		line.push_span(
+			Span::from(label.clone()).style(super::style::reset(config, Theme::Primary)),
+		);
+		line.push_span(Span::raw(" ".repeat(label_width - label.len())));
+		line.push_span(
+			Span::from(row.value.as_ref()).style(super::style::reset(config, Theme::Regular)),
+		);
+		Paragraph::new(line)
+			.wrap(Wrap { trim: false })
+			.render(*slot, buf);
+	}
 }

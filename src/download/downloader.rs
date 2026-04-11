@@ -1,14 +1,13 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Error, Result};
 use rust_apt::{new_cache, Version};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
-use super::{proxy, Uri, UriFilter};
+use super::{proxy, DomainMap, Uri, UriFilter};
 use crate::config::{color, Config, Paths, Theme};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
@@ -109,7 +108,7 @@ pub struct Downloader {
 	pub(crate) partial_dir: PathBuf,
 	/// Used to count how many connections are open to a domain.
 	/// Nala only allows 3 at a time per domain.
-	domains: Arc<Mutex<HashMap<String, u8>>>,
+	domains: DomainMap,
 	set: JoinSet<Result<Uri>>,
 	pub(crate) tx: mpsc::UnboundedSender<Message>,
 	rx: mpsc::UnboundedReceiver<Message>,
@@ -133,7 +132,7 @@ impl Downloader {
 			archive_dir,
 			partial_dir,
 			filter: UriFilter::new(),
-			domains: Arc::new(Mutex::new(HashMap::new())),
+			domains: DomainMap::new(),
 			set: JoinSet::new(),
 			tx,
 			rx,
@@ -252,9 +251,9 @@ impl Downloader {
 			untrusted_error(config, self.filter.untrusted.iter().cloned().collect())?;
 		}
 
-		let mut progress = Progress::new(config, false)?;
+		let mut progress = Progress::with_tui_lines(config, false, 16)?;
 		// Set the total downloads.
-		let mut total = 0;
+		let mut total = 0usize;
 		for uri in &self.uris {
 			total += 1;
 			progress.inc_length(uri.size as u64)
@@ -305,11 +304,8 @@ impl Downloader {
 			}
 
 			if tick.elapsed() >= tick_rate {
-				progress
-					.display_mut()
-					.clear()
-					.push_str("Packages:", format!(" {current}/{total}"))
-					.push_str("Connections:", format!(" {:?}", self.domains.lock().await));
+				progress.set_info(vec![("Items".to_string(), format!("{current}/{total}"))]);
+				progress.set_panels(self.domains.panels().await);
 
 				progress.render()?;
 				tick = Instant::now();

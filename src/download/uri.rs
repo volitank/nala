@@ -1,39 +1,20 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use rust_apt::records::RecordField;
 use rust_apt::Version;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
 use super::downloader::Message;
 use super::Downloader;
 use crate::config::{color, Theme};
+use crate::download::DomainMap;
 use crate::fs::AsyncFs;
 use crate::hashsum::{self, HashSum};
 use crate::util::{get_pkg_name, DOMAIN, MIRROR};
-
-pub async fn add_domain(domain: String, domains: &mut Arc<Mutex<HashMap<String, u8>>>) -> bool {
-	let mut lock = domains.lock().await;
-	let entry = lock.entry(domain).or_default();
-
-	if *entry < 3 {
-		*entry += 1;
-		return true;
-	}
-	false
-}
-
-pub async fn remove_domain(domain: &str, domains: &mut Arc<Mutex<HashMap<String, u8>>>) {
-	if let Some(entry) = domains.lock().await.get_mut(domain) {
-		if *entry > 0 {
-			*entry -= 1;
-		}
-	}
-}
 
 #[derive(Serialize)]
 pub struct Uri {
@@ -109,7 +90,7 @@ impl Uri {
 		bail!("Checksum did not match for {}", &self.filename);
 	}
 
-	pub async fn download(mut self, mut domains: Arc<Mutex<HashMap<String, u8>>>) -> Result<Uri> {
+	pub async fn download(mut self, domains: DomainMap) -> Result<Uri> {
 		// First check if the file already exists on disk.
 		if self.archive.exists() {
 			if let Some(hash) = &self.hash {
@@ -141,7 +122,7 @@ impl Uri {
 			};
 
 			// Lock the map so other threads can't mutate the data while this one does
-			if !add_domain(domain.to_string(), &mut domains).await {
+			if !domains.add(domain, &self.filename).await {
 				// Too many connections to this domain.
 				// Add the URL back to the queue and move to the next.
 				self.uris.push_back(url);
@@ -168,7 +149,7 @@ impl Uri {
 						self.partial.rename(&self.archive).await?;
 						self.tx.send(Message::Verbose(format!("Finished: {url}")))?;
 
-						remove_domain(domain, &mut domains).await;
+						domains.remove(domain, &self.filename).await;
 						self.tx.send(Message::Finished)?;
 						return Ok(self);
 					},
@@ -176,7 +157,7 @@ impl Uri {
 						// Non fatal errors can continue operation.
 						self.retries += 1;
 						self.tx.send(Message::NonFatal((err, self.size)))?;
-						remove_domain(domain, &mut domains).await;
+						domains.remove(domain, &self.filename).await;
 						continue;
 					},
 				}

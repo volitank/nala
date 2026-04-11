@@ -93,11 +93,42 @@ impl DisplayGroup {
 	}
 }
 
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ProgressPanel {
+	title: String,
+	items: Vec<String>,
+}
+
+impl ProgressPanel {
+	pub fn new<T: ToString>(title: T) -> Self {
+		Self {
+			title: title.to_string(),
+			items: vec![],
+		}
+	}
+
+	pub fn push<T: ToString>(&mut self, value: T) -> &mut Self {
+		self.items.push(value.to_string());
+		self
+	}
+
+	pub(crate) fn title(&self) -> &str { &self.title }
+
+	pub(crate) fn items(&self) -> &[String] { &self.items }
+
+	pub(crate) fn height(&self) -> u16 {
+		let items = self.items.len().max(1) as u16;
+		items + 1
+	}
+}
+
 pub(crate) struct ProgressState {
 	length: u64,
 	position: u64,
 	started: Instant,
 	display: DisplayGroup,
+	info: Vec<(String, String)>,
+	panels: Vec<ProgressPanel>,
 	hidden: bool,
 	unit: UnitStr,
 	dpkg: bool,
@@ -110,6 +141,8 @@ impl ProgressState {
 			position: 0,
 			started: Instant::now(),
 			display: DisplayGroup::new(),
+			info: vec![],
+			panels: vec![],
 			hidden: false,
 			unit: UnitStr::new(1, NumSys::Binary),
 			dpkg,
@@ -133,6 +166,14 @@ impl ProgressState {
 	pub(crate) fn display(&self) -> &DisplayGroup { &self.display }
 
 	fn display_mut(&mut self) -> &mut DisplayGroup { &mut self.display }
+
+	pub(crate) fn info(&self) -> &[(String, String)] { &self.info }
+
+	fn set_info(&mut self, info: Vec<(String, String)>) { self.info = info }
+
+	pub(crate) fn panels(&self) -> &[ProgressPanel] { &self.panels }
+
+	fn set_panels(&mut self, panels: Vec<ProgressPanel>) { self.panels = panels }
 
 	pub(crate) fn hidden(&self) -> bool { self.hidden }
 
@@ -240,6 +281,15 @@ impl PlainProgress {
 			message.push_str(&rate);
 		}
 
+		for (label, value) in state.info() {
+			if !message.is_empty() {
+				message.push_str(" | ");
+			}
+			message.push_str(label);
+			message.push_str(": ");
+			message.push_str(value);
+		}
+
 		line.push_str(&message);
 		line
 	}
@@ -284,11 +334,11 @@ impl PlainProgress {
 	fn clean_up(&mut self) -> Result<()> { self.clear_line() }
 }
 
-fn progress_terminal(dpkg: bool) -> Result<Term> {
+fn progress_terminal(lines: u16) -> Result<Term> {
 	Ok(Terminal::with_options(
 		CrosstermBackend::new(stdout()),
 		TerminalOptions {
-			viewport: Viewport::Inline(if dpkg { 3 } else { 5 }),
+			viewport: Viewport::Inline(lines),
 		},
 	)?)
 }
@@ -308,9 +358,14 @@ pub(crate) struct Progress<'a> {
 
 impl<'a> Progress<'a> {
 	pub fn new(config: &'a Config, dpkg: bool) -> Result<Self> {
+		let lines = if dpkg { 4 } else { 10 };
+		Self::with_tui_lines(config, dpkg, lines)
+	}
+
+	pub fn with_tui_lines(config: &'a Config, dpkg: bool, tui_lines: u16) -> Result<Self> {
 		let kind = if use_tui(config) {
 			let raw = RawModeGuard::new()?;
-			let terminal = progress_terminal(dpkg)?;
+			let terminal = progress_terminal(tui_lines)?;
 			let renderer = TuiProgressRenderer::new(config, terminal)?;
 			ProgressKind::Tui { renderer, raw }
 		} else {
@@ -338,6 +393,10 @@ impl<'a> Progress<'a> {
 	pub fn unit_str(&self, size: u64) -> String { self.state.unit_str(size) }
 
 	pub fn display_mut(&mut self) -> &mut DisplayGroup { self.state.display_mut() }
+
+	pub fn set_info(&mut self, info: Vec<(String, String)>) { self.state.set_info(info) }
+
+	pub fn set_panels(&mut self, panels: Vec<ProgressPanel>) { self.state.set_panels(panels) }
 
 	pub fn hidden(&self) -> bool { self.state.hidden() }
 
