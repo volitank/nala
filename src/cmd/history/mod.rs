@@ -38,7 +38,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 		return Ok(());
 	};
 
-	let entry = HistoryEntry::find_selector(&history_file, &history_id)?;
+	let entry = HistoryEntry::find_selector(&history_file, history_id)?;
 	let pkg_set = entry.grouped_packages();
 
 	if pkg_set.is_empty() {
