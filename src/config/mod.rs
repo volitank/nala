@@ -98,5 +98,15 @@ pub fn bootstrap() -> Result<(ArgMatches, crate::cli::NalaParser, Config)> {
 		},
 	};
 
+	let mut config = config;
+
+	if let Ok(env_dir) = std::env::var("NALA_HISTORY_DIR") {
+		config.set_history_dir(env_dir);
+	}
+
+	if let Some(dir) = derived.history_dir.as_deref() {
+		config.set_history_dir(dir.to_string_lossy().to_string());
+	}
+
 	Ok((args, derived, config))
 }

@@ -1,77 +1,55 @@
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
+mod row;
 
-use ansi_to_tui::IntoText;
+use std::collections::{BTreeMap, HashMap};
+
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseEventKind};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint::{Length, Max, Min};
 use ratatui::layout::{Alignment, Flex, Layout, Margin, Rect};
-use ratatui::style::{Style, Styled};
+use ratatui::style::Styled;
 use ratatui::text::Text;
 use ratatui::widgets::{
 	Block, BorderType, Cell, HighlightSpacing, Padding, Paragraph, Row, Scrollbar,
 	ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Tabs, Widget, Wrap,
 };
+pub(crate) use row::SummaryRow;
 use rust_apt::util::DiskSpace;
 use rust_apt::Cache;
 
 use super::style as tui_style;
-use crate::cmd::{HistoryPackage, Operation};
 use crate::config::{Config, Theme};
+use crate::libnala::{Operation, PackageTransition};
 use crate::terminal::TerminalGuard;
 
-#[derive(Debug)]
-pub struct Item {
-	align: Alignment,
-	style: Style,
-	pub string: String,
-}
+const SUMMARY_HELP: &[&str] = &[
+	"(↑) move up | (↓) move down",
+	"(→) next tab | (←) previous tab",
+	"(Enter) show changelog | (s) show version info",
+	"(q) quit | (y) start upgrade",
+];
 
-impl Item {
-	fn new(align: Alignment, style: Style, string: String) -> Self {
-		Self {
-			align,
-			style,
-			string,
-		}
-	}
-
-	pub fn center(style: Style, string: String) -> Self {
-		Self::new(Alignment::Center, style, string)
-	}
-
-	pub fn right(style: Style, string: String) -> Self {
-		Self::new(Alignment::Right, style, string)
-	}
-
-	pub fn left(style: Style, string: String) -> Self { Self::new(Alignment::Left, style, string) }
-
-	fn get_cell(&self) -> Cell<'_> {
-		Cell::from(
-			self.string
-				.into_text()
-				.unwrap()
-				.style(self.style)
-				.alignment(self.align),
-		)
-	}
-}
-
-impl fmt::Display for Item {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.string) }
-}
+const HISTORY_HELP: &[&str] = &[
+	"(↑) move up | (↓) move down",
+	"(→) next tab | (←) previous tab",
+	"(Enter) show changelog | (s) show version info",
+	"(q) quit",
+];
 
 pub struct App<'a> {
 	state: TableState,
 	scroll_state: ScrollbarState,
 	config: &'a Config,
-	items: &'a Vec<HistoryPackage>,
+	items: Vec<SummaryRow<'a>>,
 }
 
 impl<'a> App<'a> {
-	fn new(config: &'a Config, items: &'a Vec<HistoryPackage>) -> Self {
-		let scroll_state = ScrollbarState::new(items.len() - 1);
+	fn new<I>(config: &'a Config, items: I) -> Self
+	where
+		I: IntoIterator<Item = &'a PackageTransition>,
+	{
+		let items = items.into_iter().map(SummaryRow::new).collect::<Vec<_>>();
+		let scroll_state = ScrollbarState::new(items.len().saturating_sub(1));
 		Self {
 			state: TableState::default().with_selected(0),
 			scroll_state,
@@ -186,20 +164,23 @@ pub struct SummaryTab<'a> {
 	pkg_set: BTreeMap<Operation, App<'a>>,
 	// Array first is the header, second is string.
 	download_size: Option<Vec<String>>,
-	disk_space: Vec<String>,
+	disk_space: Option<Vec<String>>,
 	i: usize,
 	tabs: Vec<Operation>,
+	title: &'static str,
+	help: &'static [&'static str],
+	confirm_enabled: bool,
 }
 
 impl<'a> SummaryTab<'a> {
 	pub fn new(
 		cache: &'a Cache,
 		config: &'a Config,
-		pkg_set: &'a HashMap<Operation, Vec<HistoryPackage>>,
+		pkg_set: &'a HashMap<Operation, Vec<PackageTransition>>,
 	) -> Self {
 		let pkg_set = pkg_set
 			.iter()
-			.map(|(op, set)| (*op, App::new(config, set)))
+			.map(|(op, set)| (*op, App::new(config, set.iter())))
 			.collect();
 
 		let size = cache.depcache().download_size();
@@ -212,12 +193,12 @@ impl<'a> SummaryTab<'a> {
 			None
 		};
 
-		let disk_space = match cache.depcache().disk_size() {
+		let disk_space = Some(match cache.depcache().disk_size() {
 			DiskSpace::Require(num) => {
 				vec!["Disk space required:".to_string(), config.unit_str(num)]
 			},
 			DiskSpace::Free(num) => vec!["Disk space to free:".to_string(), config.unit_str(num)],
-		};
+		});
 
 		let mut tabs = Self {
 			cache,
@@ -227,6 +208,40 @@ impl<'a> SummaryTab<'a> {
 			disk_space,
 			i: 0,
 			tabs: Operation::to_vec(),
+			title: "Nala Upgrade",
+			help: SUMMARY_HELP,
+			confirm_enabled: true,
+		};
+
+		for (i, tab) in tabs.tabs.iter().enumerate() {
+			if tabs.pkg_set.contains_key(tab) {
+				tabs.i = i;
+				break;
+			}
+		}
+
+		tabs
+	}
+
+	pub fn for_history(
+		cache: &'a Cache,
+		config: &'a Config,
+		pkg_set: &'a HashMap<Operation, Vec<&'a PackageTransition>>,
+	) -> Self {
+		let mut tabs = Self {
+			cache,
+			config,
+			pkg_set: pkg_set
+				.iter()
+				.map(|(op, set)| (*op, App::new(config, set.iter().copied())))
+				.collect(),
+			download_size: None,
+			disk_space: None,
+			i: 0,
+			tabs: Operation::to_vec(),
+			title: "Nala History",
+			help: HISTORY_HELP,
+			confirm_enabled: false,
 		};
 
 		for (i, tab) in tabs.tabs.iter().enumerate() {
@@ -335,7 +350,9 @@ impl<'a> SummaryTab<'a> {
 								return Ok(false);
 							},
 							KeyCode::Char('y') => {
-								return Ok(true);
+								if self.confirm_enabled {
+									return Ok(true);
+								}
 							},
 							KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
 							KeyCode::Char('h') | KeyCode::Left => self.previous_tab(),
@@ -384,7 +401,7 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 	type State = u8;
 
 	fn render(self, area: Rect, buf: &mut Buffer, _: &mut Self::State) {
-		let block = header_block(self.config, "Nala Upgrade");
+		let block = header_block(self.config, self.title);
 
 		let mut summary = vec![];
 		for op in Operation::to_vec().iter() {
@@ -399,7 +416,9 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 		if let Some(array) = &self.download_size {
 			summary.push(array.clone());
 		}
-		summary.push(self.disk_space.clone());
+		if let Some(array) = &self.disk_space {
+			summary.push(array.clone());
+		}
 
 		let mut header_len = 0;
 		let mut size_len = 0;
@@ -429,16 +448,9 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 			.unwrap()
 			.render(table, buf, &mut 0);
 
-		let text = [
-			"(↑) move up | (↓) move down",
-			"(→) next tab | (←) previous tab",
-			"(Enter) show changelog | (s) show version info",
-			"(q) quit | (y) start upgrade",
-		];
-
 		let [summary_area, info_area] = Layout::horizontal([
 			Max((header_len + size_len) as u16),
-			Max(text.iter().map(|s| s.len()).max().unwrap_or_default() as u16),
+			Max(self.help.iter().map(|s| s.len()).max().unwrap_or_default() as u16),
 		])
 		.flex(Flex::SpaceAround)
 		.areas(footer);
@@ -458,7 +470,7 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 		);
 		Widget::render(t, summary_area, buf);
 
-		Paragraph::new(Text::from_iter(text))
+		Paragraph::new(Text::from_iter(self.help.iter().copied()))
 			.centered()
 			.style(tui_style::style(self.config, Theme::Secondary))
 			.wrap(Wrap::default())

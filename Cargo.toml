@@ -29,7 +29,6 @@ crossterm = "0.28"
 sha2 = "0.10"
 chrono = "0.4"
 ansi-to-tui = "7"
-bincode = "1"
 tar = "0.4"
 ar = "0.9"
 

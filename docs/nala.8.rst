@@ -125,9 +125,8 @@ COMMANDS
 **history**
 
 	**history** is another command not found in **apt**.
-	Every **install**, **remove**, or **upgrade** command is stored with an id.
-	You can use **history** to view these in a summary style view, and even go more in depth with **history info [id]**.
-	If you're familiar with how *Fedora*'s **dnf history** command works, then you'll feel right at home.
+	Package transactions are stored as numbered JSON entries under */var/lib/nala/history*.
+	You can use **history** to view a summary with **nala history**, inspect a specific entry with **nala history [id]**, and replay stored package transactions with **nala history undo [id]** or **nala history redo [id]**.
 
 	This command is inspired by **dnf**'s history functionality.
 

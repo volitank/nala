@@ -8,39 +8,27 @@ nala-history - subcommand for interacting with nala's history
 SYNOPSIS
 ========
 
-**nala history** [*--options*]
+**nala history** [*ID*] [*--options*]
 
-**nala history** COMMAND [*--options*]
+**nala history** {*undo* | *redo*} *ID* [*--options*]
 
 DESCRIPTION
 ===========
 
-**nala history** with no subcommands will show a summary of all transactions made.
+**nala history** with no *ID* or subcommand shows a summary of stored package transactions.
 
-**nala history info** [*ID*] shows information about a specific transaction
+**nala history** [*ID*] shows information about a specific transaction.
 
-	*last* can be used as the *ID* to get the last transaction
+**nala history undo** [*ID*] replays the inverse of the stored package transaction.
 
-**nala history redo** [*ID*] redo the specified transaction
+**nala history redo** [*ID*] replays the stored package transaction again.
 
-	*last* can be used as the *ID* to redo the last transaction
+History entries are stored as numbered JSON files under */var/lib/nala/history*.
 
-	This subcommand accepts the same switches as **install** or **remove**
-
-**nala history undo** [*ID*] undo the specified transaction
-
-	*last* can be used as the *ID* to undo the last transaction
-
-	This subcommand accepts the same switches as **install** or **remove**
+This command currently documents and implements list/detail plus *undo* and *redo* only.
 
 OPTIONS
 =======
-
---installed
-	Show only packages that were explicitly installed with Nala.
-
-	For example, If you were to install *libreoffice* this switch will
-	only show that package and not its dependencies.
 
 --debug
 	Print helpful information for solving issues.
@@ -49,6 +37,12 @@ OPTIONS
 
 -v, --verbose
 	Disable scrolling text and print extra information
+
+--tui
+	Turn the TUI on if it is disabled in the config.
+
+--no-tui
+	Turn the TUI off. This takes precedence over other UI options.
 
 -h, --help
 	Shows this man page.

@@ -1,13 +1,30 @@
+mod transaction;
+
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{bail, Result};
 use rust_apt::{Cache, Marked, Package, PkgCurrentState};
+pub use transaction::{Operation, PackageState, PackageTransition};
 
-use crate::cmd::{HistoryPackage, Operation};
 use crate::config::color;
 use crate::{debug, info, warn};
 
-type SortedChanges<'a> = (Vec<Package<'a>>, HashMap<Operation, Vec<HistoryPackage>>);
+type SortedChanges<'a> = (Vec<Package<'a>>, HashMap<Operation, Vec<PackageTransition>>);
+
+fn current_package_state(pkg: &Package<'_>) -> Option<PackageState> {
+	if let Some(installed) = pkg.installed() {
+		return Some(PackageState::from_version(&installed));
+	}
+
+	if pkg.config_state() {
+		return Some(PackageState::config_only(
+			None,
+			Some(pkg.is_auto_installed()),
+		));
+	}
+
+	None
+}
 
 // Package is not really mutable in the way clippy thinks.
 #[allow(clippy::mutable_key_type)]
@@ -16,12 +33,12 @@ pub trait NalaCache {
 	fn auto_remove(&self, remove_config: bool, purge: bool) -> HashSet<Package<'_>>;
 }
 
-pub trait NalaPkg<'a> {
+pub trait PackageExt<'a> {
 	fn filter_virtual(self) -> Result<Package<'a>>;
 	fn config_state(&self) -> bool;
 }
 
-impl<'a> NalaPkg<'a> for Package<'a> {
+impl<'a> PackageExt<'a> for Package<'a> {
 	fn filter_virtual(self) -> Result<Package<'a>> {
 		if self.has_versions() {
 			return Ok(self);
@@ -84,7 +101,7 @@ impl<'a> NalaPkg<'a> for Package<'a> {
 impl NalaCache for Cache {
 	/// Run the autoremover and then get the changes from the cache.
 	fn sort_changes<'a>(&'a self, auto: HashSet<Package<'a>>) -> Result<SortedChanges<'a>> {
-		let mut pkg_set: HashMap<Operation, Vec<HistoryPackage>> = HashMap::new();
+		let mut pkg_set: HashMap<Operation, Vec<PackageTransition>> = HashMap::new();
 		let mut pkgs: Vec<Package> = vec![];
 
 		debug!("Calculating changes");
@@ -97,33 +114,33 @@ impl NalaCache for Cache {
 			debug!("{pkg}:");
 			debug!("  Marked::{:?}", pkg.marked());
 
-			let (op, ver) = match pkg.marked() {
+			match pkg.marked() {
 				mark @ (Marked::NewInstall | Marked::Install | Marked::ReInstall) => {
-					let Some(cand) = pkg.install_version() else {
+					let Some(after_version) = pkg.install_version() else {
 						continue;
 					};
 					let op = match mark {
 						Marked::ReInstall => Operation::Reinstall,
 						_ => Operation::Install,
 					};
-					(op, cand)
+					let before = current_package_state(&pkg).unwrap_or_else(PackageState::missing);
+					let after = PackageState::from_version(&after_version);
+
+					debug!("  Operation::{op:?}");
+					pkg_set
+						.entry(op)
+						.or_default()
+						.push(PackageTransition::transition(
+							pkg.name().to_string(),
+							after_version.size(),
+							op,
+							before,
+							after,
+						));
+					pkgs.push(pkg);
 				},
 				mark @ (Marked::Remove | Marked::Purge) => {
-					let inst = if let Some(inst) = pkg.installed() {
-						inst
-					// If the pkg is in config_state and not installed
-					// It can still be purged, but technically it's not
-					// installed. TODO: For now just choose the first
-					// version available. This can panic on real situations
-					// so it needs to be fixed. For example if you remove a
-					// package and it's config files stick around
-					// And then for whatever reason that package is no longer
-					// available from the cache this will panic when trying
-					// to purge it. We need to be able to send no version
-					// into the summary I guess.
-					} else if pkg.config_state() {
-						pkg.versions().next().unwrap()
-					} else {
+					let Some(before) = current_package_state(&pkg) else {
 						continue;
 					};
 
@@ -140,7 +157,32 @@ impl NalaCache for Cache {
 							_ => unreachable!(),
 						}
 					};
-					(op, inst)
+
+					let after = match op {
+						Operation::Remove | Operation::AutoRemove => {
+							PackageState::config_only(before.version.clone(), before.auto_installed)
+						},
+						Operation::Purge | Operation::AutoPurge => PackageState::missing(),
+						_ => unreachable!(),
+					};
+
+					let size = pkg
+						.installed()
+						.map(|installed| installed.size())
+						.unwrap_or_default();
+
+					debug!("  Operation::{op:?}");
+					pkg_set
+						.entry(op)
+						.or_default()
+						.push(PackageTransition::transition(
+							pkg.name().to_string(),
+							size,
+							op,
+							before,
+							after,
+						));
+					pkgs.push(pkg);
 				},
 				mark @ (Marked::Upgrade | Marked::Downgrade) => {
 					if let (Some(inst), Some(cand)) = (pkg.installed(), pkg.candidate()) {
@@ -153,11 +195,16 @@ impl NalaCache for Cache {
 						pkg_set
 							.entry(op)
 							.or_default()
-							.push(HistoryPackage::from_version(op, &cand, &Some(inst)));
+							.push(PackageTransition::transition(
+								pkg.name().to_string(),
+								cand.size(),
+								op,
+								PackageState::from_version(&inst),
+								PackageState::from_version(&cand),
+							));
 
 						pkgs.push(pkg)
 					}
-					continue;
 				},
 				// TODO: See if pkg is held for phasing and show percent
 				// pkgDepCache::PhasingApplied
@@ -166,19 +213,24 @@ impl NalaCache for Cache {
 					let Some(cand) = pkg.candidate() else {
 						continue;
 					};
-					(Operation::Held, cand)
+					let before = current_package_state(&pkg).unwrap_or_else(PackageState::missing);
+					let op = Operation::Held;
+
+					debug!("  Operation::{op:?}");
+					pkg_set
+						.entry(op)
+						.or_default()
+						.push(PackageTransition::transition(
+							pkg.name().to_string(),
+							cand.size(),
+							op,
+							before,
+							PackageState::from_version(&cand),
+						));
 				},
 				Marked::Keep => continue,
 				Marked::None => bail!("{pkg} not marked, this should be impossible"),
-			};
-
-			debug!("  Operation::{op:?}");
-			pkg_set
-				.entry(op)
-				.or_default()
-				.push(HistoryPackage::from_version(op, &ver, &None));
-
-			pkgs.push(pkg);
+			}
 		}
 
 		Ok((pkgs, pkg_set))

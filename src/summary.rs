@@ -5,20 +5,19 @@ use chrono::Utc;
 use rust_apt::util::DiskSpace;
 use rust_apt::{Cache, Package};
 
-use crate::cmd::{
-	self, apt_hook_with_pkgs, ask, run_scripts, HistoryEntry, HistoryPackage, Operation,
-};
+use crate::cmd::{self, apt_hook_with_pkgs, ask, run_scripts, HistoryEntry};
 use crate::config::{color, Config, Paths, Theme};
 use crate::download::Downloader;
-use crate::libnala::NalaCache;
+use crate::libnala::{NalaCache, Operation, PackageTransition};
 use crate::terminal::{use_tui, TerminalGuard};
+use crate::tui::summary::SummaryRow;
 use crate::{dpkg, error, table, tui, warn};
 
 /// TODO: Implement a simple summary that is very short for serial/console users
 pub async fn display_summary(
 	cache: &Cache,
 	config: &Config,
-	pkg_set: &HashMap<Operation, Vec<HistoryPackage>>,
+	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
 ) -> Result<bool> {
 	if use_tui(config) {
 		// App returns true if we should continue.
@@ -29,13 +28,14 @@ pub async fn display_summary(
 	} else {
 		let mut tables = vec![];
 		for (op, pkgs) in pkg_set {
-			let mut table = table::get_table(if pkgs[0].items(config).len() > 3 {
+			let rows = pkgs.iter().map(SummaryRow::new).collect::<Vec<_>>();
+			let mut table = table::get_table(if rows[0].items(config).len() > 3 {
 				&["Package:", "Old Version:", "New Version:", "Size:"]
 			} else {
 				&["Package:", "Version:", "Size:"]
 			});
 
-			table.add_rows(pkgs.iter().map(|p| p.items(config)));
+			table.add_rows(rows.iter().map(|row| row.items(config)));
 			tables.push((op, table));
 		}
 
@@ -79,6 +79,16 @@ pub async fn display_summary(
 		ask("Do you want to continue?")?;
 		Ok(true)
 	}
+}
+
+fn collect_history_packages(
+	pkg_set: HashMap<Operation, Vec<PackageTransition>>,
+) -> Vec<PackageTransition> {
+	pkg_set
+		.into_iter()
+		.filter(|(operation, _)| *operation != Operation::Held)
+		.flat_map(|(_, packages)| packages)
+		.collect()
 }
 
 fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
@@ -154,6 +164,8 @@ pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
 		return Ok(());
 	};
 
+	let started_at = Utc::now().to_rfc3339();
+
 	// Only download if needed
 	// Downloader will error if empty download
 	// TODO: Should probably just make run check and return Ok(vec![])?
@@ -164,20 +176,6 @@ pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
 	if config.get_bool("download_only", false) {
 		return Ok(());
 	}
-
-	let history_entry = HistoryEntry::new(
-		cmd::get_history(config)
-			.await?
-			.iter()
-			.map(|entry| entry.id)
-			.max()
-			.unwrap_or_default()
-			+ 1,
-		Utc::now().to_rfc3339(),
-		pkg_set.into_values().flatten().collect(),
-	);
-
-	history_entry.write_to_file(config)?;
 
 	// TODO: There should likely be a field in the history
 	// to mark that it was a transaction that failed.
@@ -192,5 +190,55 @@ pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
 
 	dpkg::run_install(cache, config)?;
 
+	let history_packages = collect_history_packages(pkg_set);
+	if !history_packages.is_empty() {
+		let history_entry = HistoryEntry::applied(
+			config,
+			cmd::next_history_id(config).await?,
+			started_at,
+			Utc::now().to_rfc3339(),
+			history_packages,
+		);
+
+		history_entry.write_to_file(config)?;
+	}
+
 	run_scripts(config, "DPkg::Post-Invoke")
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::libnala::PackageState;
+
+	#[test]
+	fn collect_history_packages_skips_non_transaction_rows() {
+		let mut pkg_set = HashMap::new();
+		pkg_set.insert(
+			Operation::Install,
+			vec![PackageTransition::transition(
+				"demo".to_string(),
+				1,
+				Operation::Install,
+				PackageState::missing(),
+				PackageState::config_only(Some("1.0".to_string()), Some(false)),
+			)],
+		);
+		pkg_set.insert(
+			Operation::Held,
+			vec![PackageTransition::transition(
+				"held-demo".to_string(),
+				1,
+				Operation::Held,
+				PackageState::missing(),
+				PackageState::config_only(Some("2.0".to_string()), Some(false)),
+			)],
+		);
+
+		let packages = collect_history_packages(pkg_set);
+
+		assert_eq!(packages.len(), 1);
+		assert_eq!(packages[0].name, "demo");
+		assert_eq!(packages[0].operation, Operation::Install);
+	}
 }

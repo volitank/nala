@@ -14,84 +14,19 @@ mod list;
 pub mod traits;
 
 use anyhow::Result;
-// TODO: These should maybe be part of like a libnala?
-pub use history::{get_history, HistoryEntry, HistoryPackage};
+pub use history::{next_history_id, HistoryEntry};
 use indexmap::IndexMap;
 pub use install::mark_cli_pkgs;
 pub use list::list_packages;
 use rust_apt::records::RecordField;
 use rust_apt::{DepType, Version};
-use serde::{Deserialize, Serialize};
 use show::format_local;
 use traits::ShowFormat;
 pub use upgrade::{apt_hook_with_pkgs, ask, run_scripts};
 
-use crate::config::{color, Config, Theme};
+use crate::config::{color, Config};
+pub use crate::libnala::Operation;
 use crate::util::URL;
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Operation {
-	Remove,
-	AutoRemove,
-	Purge,
-	AutoPurge,
-	Install,
-	Reinstall,
-	Upgrade,
-	Downgrade,
-	Held,
-}
-
-impl Operation {
-	pub fn to_vec() -> Vec<Operation> {
-		vec![
-			Self::Remove,
-			Self::AutoRemove,
-			Self::Purge,
-			Self::AutoPurge,
-			Self::Install,
-			Self::Reinstall,
-			Self::Upgrade,
-			Self::Downgrade,
-		]
-	}
-}
-
-impl Operation {
-	pub fn as_str(&self) -> &str { self.as_ref() }
-}
-
-impl std::fmt::Display for Operation {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", AsRef::<str>::as_ref(self))
-	}
-}
-
-impl AsRef<str> for Operation {
-	fn as_ref(&self) -> &str {
-		match self {
-			Operation::Remove => "Remove",
-			Operation::AutoRemove => "AutoRemove",
-			Operation::Purge => "Purge",
-			Operation::AutoPurge => "AutoPurge",
-			Operation::Install => "Install",
-			Operation::Reinstall => "ReInstall",
-			Operation::Upgrade => "Upgrade",
-			Operation::Downgrade => "Downgrade",
-			Operation::Held => "Held",
-		}
-	}
-}
-
-impl AsRef<Theme> for Operation {
-	fn as_ref(&self) -> &Theme {
-		match self {
-			Self::Remove | Self::AutoRemove | Self::Purge | Self::AutoPurge => &Theme::Error,
-			Self::Install | Self::Upgrade => &Theme::Secondary,
-			Self::Reinstall | Self::Downgrade | Self::Held => &Theme::Notice,
-		}
-	}
-}
 
 const DEP_ITER: &[DepType] = {
 	&[
@@ -129,7 +64,7 @@ fn print_info(header: &str, value: &str) {
 	println!("{header}{sep} {value}")
 }
 
-struct ShowVersion<'a> {
+pub(crate) struct ShowVersion<'a> {
 	ver: Version<'a>,
 	records: IndexMap<&'static str, String>,
 }

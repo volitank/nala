@@ -58,14 +58,11 @@ Nala will choose the fastest 3 mirrors (configurable) and write them to a file.
 Our last big feature is the ``nala history`` command.
 
 If you're familiar with ``dnf`` this works much in the same way.
-Each Install, Remove, or Upgrade we store in /var/lib/nala/history.json with a unique ``<ID>`` number.
+Each Install, Remove or Upgrade is stored as a numbered JSON entry under ``/var/lib/nala/history``.
 
 At any time you can call ``nala history`` to print a summary of every transaction ever made.
-You can then further manipulate this with commands such as ``nala history undo <ID>`` or ``nala history redo <ID>``.
-
-If there is something in the history file that you don't want you can use the ``nala history clear <ID>`` It will remove that entry.
-
-Alternatively, for the ``clear`` command, we accept ``--all`` which will remove the entire history.
+You can also inspect a specific transaction with ``nala history <ID>``.
+Stored package transactions can then be replayed with commands such as ``nala history undo <ID>`` or ``nala history redo <ID>``.
 
 # Zsh/fish Completions
 ======================

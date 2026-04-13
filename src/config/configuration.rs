@@ -118,6 +118,11 @@ impl Config {
 		self.overrides.insert(key.to_string(), OptType::Bool(value));
 	}
 
+	pub fn set_history_dir<S: Into<String>>(&mut self, dir: S) {
+		self.overrides
+			.insert(keys::HISTORY_DIR.to_string(), OptType::String(dir.into()));
+	}
+
 	pub fn get_str(&self, key: &str) -> Option<&str> {
 		self.overrides.get(key).and_then(|opt| {
 			opt.as_vec_string()
@@ -139,6 +144,10 @@ impl Config {
 
 	pub fn get_path(&self, dir: &Paths) -> PathBuf {
 		match dir.spec() {
+			PathSpec::Fixed(path) if matches!(dir, Paths::History) => self
+				.get_str(keys::HISTORY_DIR)
+				.map(PathBuf::from)
+				.unwrap_or_else(|| PathBuf::from(path)),
 			PathSpec::Fixed(path) => PathBuf::from(path),
 			PathSpec::Apt { key, default } => PathBuf::from(self.apt.file(key, default)),
 		}
@@ -251,6 +260,23 @@ mod test {
 
 		let history = config.get_path(&Paths::History);
 		assert_eq!(history.to_string_lossy(), "/var/lib/nala/history");
+	}
+
+	#[test]
+	fn history_dir_override_changes_history_path_only() {
+		let _guard = test_lock();
+		let mut config = Config::default();
+
+		config.set_history_dir("/tmp/nala-history-test");
+
+		assert_eq!(
+			config.get_path(&Paths::History).to_string_lossy(),
+			"/tmp/nala-history-test"
+		);
+		assert_eq!(
+			config.get_path(&Paths::NalaSources).to_string_lossy(),
+			"/etc/apt/sources.list.d/nala.sources"
+		);
 	}
 
 	#[test]

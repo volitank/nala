@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use clap::{Args, Parser, Subcommand};
 
@@ -22,6 +23,10 @@ pub struct NalaParser {
 	/// Specify a different configuration file
 	#[clap(short, long, value_parser, value_name = "FILE")]
 	pub config: Option<PathBuf>,
+
+	/// Override the history directory for tests and isolated fixtures
+	#[clap(global = true, long, hide = true, value_name = "DIR")]
+	pub history_dir: Option<PathBuf>,
 
 	/// Turn on tui if it's disabled in the config.
 	#[clap(global = true, long, action)]
@@ -177,10 +182,61 @@ pub struct Download {
 	pub fetch: bool,
 }
 
+/// View or replay stored package transaction history.
 #[derive(Args, Debug)]
+#[clap(args_conflicts_with_subcommands = true)]
 pub struct History {
-	/// Package names to download
-	pub history_id: Option<u32>,
+	/// Show details for a specific history entry ID or `last`
+	#[clap(value_name = "ID|last")]
+	pub history_id: Option<HistorySelector>,
+
+	/// Run a history action instead of showing list/detail output
+	#[clap(subcommand)]
+	pub command: Option<HistoryCommand>,
+}
+
+/// Additional actions supported by the history command.
+#[derive(Subcommand, Debug)]
+#[clap(rename_all = "lower")]
+pub enum HistoryCommand {
+	Undo(HistoryUndo),
+	Redo(HistoryRedo),
+}
+
+/// Replay the inverse of a previously applied history entry.
+#[derive(Args, Debug)]
+pub struct HistoryUndo {
+	/// History entry ID or `last` to undo
+	#[clap(value_name = "ID|last")]
+	pub history_id: HistorySelector,
+}
+
+/// Replay the stored package actions from a previously applied history entry.
+#[derive(Args, Debug)]
+pub struct HistoryRedo {
+	/// History entry ID or `last` to redo
+	#[clap(value_name = "ID|last")]
+	pub history_id: HistorySelector,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum HistorySelector {
+	Last,
+	Id(u32),
+}
+
+impl FromStr for HistorySelector {
+	type Err = String;
+
+	fn from_str(value: &str) -> Result<Self, Self::Err> {
+		if value.eq_ignore_ascii_case("last") {
+			return Ok(Self::Last);
+		}
+
+		value.parse::<u32>().map(Self::Id).map_err(|_| {
+			format!("Invalid history selector '{value}'. Use an integer ID or 'last'.")
+		})
+	}
 }
 
 #[derive(Args, Debug)]
