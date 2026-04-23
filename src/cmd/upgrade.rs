@@ -321,7 +321,7 @@ pub fn ask(msg: &str) -> Result<()> {
 	std::io::stdin().read_line(&mut response)?;
 
 	let resp = response.to_lowercase();
-	if resp.starts_with('y') {
+	if resp.trim().is_empty() || resp.starts_with('y') {
 		return Ok(());
 	}
 
