@@ -63,7 +63,7 @@ fn main() -> ExitCode {
 					warn!("{}", error.msg.replace("W: ", ""));
 				};
 			}
-		} else {
+		} else if format!("{err:?}") != "Subcommand not supplied" {
 			error!("{err:?}");
 		}
 		return ExitCode::FAILURE;
@@ -136,7 +136,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 		}
 	} else {
 		NalaParser::command().print_help()?;
-		bail!("Subcommand not found")
+		bail!("Subcommand not supplied")
 	}
 	Ok(())
 }
