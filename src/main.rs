@@ -97,6 +97,10 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 			}
 		}
 
+		if config.debug() {
+			debug!("{config:?}");
+		}
+
 		match command {
 			Commands::List(_) | Commands::Search(_) => {
 				let cache = new_cache!()?;

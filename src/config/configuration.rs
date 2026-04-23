@@ -100,9 +100,6 @@ impl Config {
 			}
 		}
 
-		if self.debug() {
-			dbg!(&self);
-		}
 		Ok(())
 	}
 
