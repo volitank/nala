@@ -343,48 +343,42 @@ impl<'a> SummaryTab<'a> {
 				.draw(|frame| frame.render_stateful_widget(&mut *self, frame.area(), &mut 0))?;
 
 			match event::read()? {
-				Event::Key(key) => {
-					if key.kind == KeyEventKind::Press {
-						match key.code {
-							KeyCode::Char('q') | KeyCode::Esc => {
-								return Ok(false);
-							},
-							KeyCode::Char('y') => {
-								if self.confirm_enabled {
-									return Ok(true);
-								}
-							},
-							KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
-							KeyCode::Char('h') | KeyCode::Left => self.previous_tab(),
-							KeyCode::Char('j') | KeyCode::Down => self.current_mut().next(),
-							KeyCode::Char('k') | KeyCode::Up => self.current_mut().previous(),
-							KeyCode::Home => self.current_mut().home(),
-							KeyCode::End => self.current_mut().end(),
-							KeyCode::PageDown => {
-								for _ in 0..10 {
-									self.current_mut().next();
-								}
-							},
-							KeyCode::PageUp => {
-								for _ in 0..10 {
-									self.current_mut().previous();
-								}
-							},
-							KeyCode::Enter => {
-								let app = self.current();
-								if let Some(i) = app.state.selected() {
-									app.items[i].render_changelog(self.cache, guard).await?;
-								}
-							},
-							KeyCode::Char('s') => {
-								let app = self.current();
-								if let Some(i) = app.state.selected() {
-									app.items[i].render_show(self.cache, self.config, guard)?;
-								}
-							},
-							_ => {},
+				Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
+					KeyCode::Char('q') | KeyCode::Esc => {
+						return Ok(false);
+					},
+					KeyCode::Char('y') if self.confirm_enabled => {
+						return Ok(true);
+					},
+					KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
+					KeyCode::Char('h') | KeyCode::Left => self.previous_tab(),
+					KeyCode::Char('j') | KeyCode::Down => self.current_mut().next(),
+					KeyCode::Char('k') | KeyCode::Up => self.current_mut().previous(),
+					KeyCode::Home => self.current_mut().home(),
+					KeyCode::End => self.current_mut().end(),
+					KeyCode::PageDown => {
+						for _ in 0..10 {
+							self.current_mut().next();
 						}
-					}
+					},
+					KeyCode::PageUp => {
+						for _ in 0..10 {
+							self.current_mut().previous();
+						}
+					},
+					KeyCode::Enter => {
+						let app = self.current();
+						if let Some(i) = app.state.selected() {
+							app.items[i].render_changelog(self.cache, guard).await?;
+						}
+					},
+					KeyCode::Char('s') => {
+						let app = self.current();
+						if let Some(i) = app.state.selected() {
+							app.items[i].render_show(self.cache, self.config, guard)?;
+						}
+					},
+					_ => {},
 				},
 				Event::Mouse(event) => match event.kind {
 					MouseEventKind::ScrollDown => self.current_mut().next(),

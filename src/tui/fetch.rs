@@ -151,10 +151,8 @@ impl<'a> App<'a> {
 								.collect());
 						},
 						// CTRL+C will return an empty vec to exit cleanly without progressing.
-						Char('c') => {
-							if key.modifiers.contains(KeyModifiers::CONTROL) {
-								return Ok(vec![]);
-							}
+						Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+							return Ok(vec![])
 						},
 						Char('j') | Down => self.items.next(),
 						Char('k') | Up => self.items.previous(),
