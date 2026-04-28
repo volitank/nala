@@ -4,6 +4,17 @@ use super::model::{HistoryStatus, HISTORY_SCHEMA_VERSION};
 use crate::cli::HistorySelector;
 use crate::config::Config;
 use crate::libnala::{Operation, PackageState, PackageTransition};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::runtime::Runtime;
+
+static HISTORY_STORE_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+fn history_store_test_lock() -> MutexGuard<'static, ()> {
+	HISTORY_STORE_TEST_LOCK.lock().unwrap()
+}
 
 #[test]
 fn entry_records_requested_targets_and_status() {
@@ -344,4 +355,135 @@ fn history_entry_json_roundtrip_preserves_recorded_fields() {
 	assert_eq!(decoded.status, HistoryStatus::Applied);
 	assert_eq!(decoded.packages().len(), 1);
 	assert_eq!(decoded.packages()[0].name, "demo");
+}
+
+fn temp_history_dir() -> PathBuf {
+	let unique = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.unwrap()
+		.as_nanos();
+	std::env::temp_dir().join(format!("nala-history-test-{unique}"))
+}
+
+fn sample_entry(id: u32, command: &str) -> HistoryEntry {
+	HistoryEntry {
+		schema_version: HISTORY_SCHEMA_VERSION,
+		id,
+		started_at: "2026-04-11T00:00:00Z".to_string(),
+		finished_at: "2026-04-11T00:01:00Z".to_string(),
+		status: HistoryStatus::Applied,
+		requested_by: "user (1000)".to_string(),
+		command: command.to_string(),
+		requested_targets: vec![],
+		altered: 0,
+		packages: vec![],
+	}
+}
+
+#[test]
+fn clear_history_removes_selected_entry_only() {
+	let _guard = history_store_test_lock();
+	let runtime = Runtime::new().unwrap();
+	let history_dir = temp_history_dir();
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+
+	let first = sample_entry(3, "install demo");
+	let second = sample_entry(8, "remove demo");
+	first.write_to_file(&config).unwrap();
+	second.write_to_file(&config).unwrap();
+
+	let entries = runtime.block_on(get_history(&config)).unwrap();
+	let removed = runtime
+		.block_on(clear_history(
+			&config,
+			&entries,
+			Some(&HistorySelector::Id(3)),
+			false,
+		))
+		.unwrap();
+
+	assert_eq!(removed, 1);
+	assert!(!history_dir.join("3.json").exists());
+	assert!(history_dir.join("8.json").exists());
+
+	let remaining = runtime.block_on(get_history(&config)).unwrap();
+	assert_eq!(remaining.len(), 1);
+	assert_eq!(remaining[0].id, 8);
+
+	fs::remove_dir_all(&history_dir).unwrap();
+}
+
+#[test]
+fn clear_history_supports_last_selector() {
+	let _guard = history_store_test_lock();
+	let runtime = Runtime::new().unwrap();
+	let history_dir = temp_history_dir();
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+
+	sample_entry(2, "install a").write_to_file(&config).unwrap();
+	sample_entry(9, "install b").write_to_file(&config).unwrap();
+
+	let entries = runtime.block_on(get_history(&config)).unwrap();
+	runtime
+		.block_on(clear_history(
+			&config,
+			&entries,
+			Some(&HistorySelector::Last),
+			false,
+		))
+		.unwrap();
+
+	assert!(history_dir.join("2.json").exists());
+	assert!(!history_dir.join("9.json").exists());
+
+	fs::remove_dir_all(&history_dir).unwrap();
+}
+
+#[test]
+fn clear_history_all_removes_every_stored_entry() {
+	let _guard = history_store_test_lock();
+	let runtime = Runtime::new().unwrap();
+	let history_dir = temp_history_dir();
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+
+	sample_entry(1, "install a").write_to_file(&config).unwrap();
+	sample_entry(2, "remove b").write_to_file(&config).unwrap();
+	fs::write(history_dir.join("3.json"), "{").unwrap();
+	fs::write(history_dir.join("1.json.bak"), "{}").unwrap();
+
+	let removed = runtime
+		.block_on(clear_history(&config, &[], None, true))
+		.unwrap();
+
+	assert_eq!(removed, 3);
+	assert!(!history_dir.join("1.json").exists());
+	assert!(!history_dir.join("2.json").exists());
+	assert!(!history_dir.join("3.json").exists());
+	assert!(history_dir.join("1.json.bak").exists());
+	assert!(runtime.block_on(get_history(&config)).unwrap().is_empty());
+
+	fs::remove_dir_all(&history_dir).unwrap();
+}
+
+#[test]
+fn get_history_ignores_non_history_files() {
+	let _guard = history_store_test_lock();
+	let runtime = Runtime::new().unwrap();
+	let history_dir = temp_history_dir();
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+
+	sample_entry(4, "install a").write_to_file(&config).unwrap();
+	fs::write(history_dir.join("1.json.bak"), "{").unwrap();
+	fs::write(history_dir.join("notes.txt"), "{").unwrap();
+
+	let entries = runtime.block_on(get_history(&config)).unwrap();
+
+	assert_eq!(entries.len(), 1);
+	assert_eq!(entries[0].id, 4);
+
+	fs::remove_dir_all(&history_dir).unwrap();
 }

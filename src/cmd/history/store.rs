@@ -1,13 +1,20 @@
 use std::fs;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 
 use super::model::HistoryEntry;
+use crate::cli::HistorySelector;
 use crate::config::{Config, Paths};
-use crate::{debug, warn};
+use crate::debug;
 use crate::fs::AsyncFs;
 
-const TMP_EXTENSION: &str = "tmp";
+fn is_history_entry_path(path: &std::path::Path) -> bool {
+	path.extension().is_some_and(|ext| ext == "json")
+		&& path
+			.file_stem()
+			.and_then(|stem| stem.to_str())
+			.is_some_and(|stem| stem.parse::<u32>().is_ok())
+}
 
 /// Reads and deserializes every stored history entry from the history directory.
 pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
@@ -25,8 +32,8 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 			continue;
 		}
 
-		if path.extension().is_some_and(|ext| ext == TMP_EXTENSION) {
-			warn!("Skipping temp history file '{}'", path.display());
+		if !is_history_entry_path(&path) {
+			debug!("Skipping non-history file '{}'", path.display());
 			continue;
 		}
 
@@ -53,6 +60,50 @@ pub async fn next_history_id(config: &Config) -> Result<u32> {
 		.max()
 		.unwrap_or_default()
 		+ 1)
+}
+
+/// Clears a stored history entry by durable selector, or removes all entries.
+pub async fn clear_history(
+	config: &Config,
+	entries: &[HistoryEntry],
+	selector: Option<&HistorySelector>,
+	clear_all: bool,
+) -> Result<usize> {
+	let history_dir = config.get_path(&Paths::History);
+	if !history_dir.exists() {
+		history_dir.mkdir().await?;
+	}
+
+	if clear_all {
+		let mut removed = 0;
+		for dir_entry in fs::read_dir(&history_dir)
+			.with_context(|| format!("{}", history_dir.display()))?
+		{
+			let path = dir_entry?.path();
+			if !path.is_file() {
+				continue;
+			}
+			if !is_history_entry_path(&path) {
+				continue;
+			}
+
+			fs::remove_file(&path)
+				.with_context(|| format!("Unable to remove '{}'", path.display()))?;
+			removed += 1;
+		}
+
+		return Ok(removed);
+	}
+
+	let Some(selector) = selector else {
+		bail!("History clear requires an entry selector or --all");
+	};
+
+	let entry = HistoryEntry::find_selector(entries, selector)?;
+	let filename = history_dir.join(format!("{}.json", entry.id));
+	fs::remove_file(&filename)
+		.with_context(|| format!("Unable to remove '{}'", filename.display()))?;
+	Ok(1)
 }
 
 impl HistoryEntry {

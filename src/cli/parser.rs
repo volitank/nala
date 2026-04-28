@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{ArgGroup, Args, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[clap(name = "nala")]
@@ -201,6 +201,7 @@ pub struct History {
 pub enum HistoryCommand {
 	Undo(HistoryUndo),
 	Redo(HistoryRedo),
+	Clear(HistoryClear),
 }
 
 /// Replay the inverse of a previously applied history entry.
@@ -217,6 +218,23 @@ pub struct HistoryRedo {
 	/// History entry ID or `last` to redo
 	#[clap(value_name = "ID|last")]
 	pub history_id: HistorySelector,
+}
+
+/// Clear a specific stored history entry or the entire history.
+#[derive(Args, Debug)]
+#[clap(group(
+	ArgGroup::new("target")
+		.required(true)
+		.args(["history_id", "all"])
+))]
+pub struct HistoryClear {
+	/// History entry ID or `last` to clear
+	#[clap(value_name = "ID|last", conflicts_with = "all")]
+	pub history_id: Option<HistorySelector>,
+
+	/// Clear the entire stored history
+	#[clap(long, action)]
+	pub all: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
