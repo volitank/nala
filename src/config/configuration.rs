@@ -222,7 +222,10 @@ impl Config {
 mod test {
 	use std::sync::{LazyLock, Mutex, MutexGuard};
 
+	use clap::CommandFactory;
+
 	use super::Config;
+	use crate::cli::NalaParser;
 	use crate::config::file::{ConfigFile, UiMode};
 	use crate::config::{keys, OptType, Paths, Switch};
 	use crate::util::NumSys;
@@ -297,6 +300,30 @@ mod test {
 		config.set_bool("no_feature", true);
 
 		assert!(!config.get_no_bool("feature", false));
+	}
+
+	#[test]
+	fn assume_prompt_flags_load_from_cli() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from(["nala", "install", "--assume-no", "demo"])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert!(config.get_bool(keys::ASSUME_NO, false));
+	}
+
+	#[test]
+	fn assume_yes_uses_config_default() {
+		let _guard = test_lock();
+		let mut file = ConfigFile::default();
+		file.nala.assume_yes = true;
+		let config = Config::from_file(file);
+
+		assert!(config.get_bool(keys::ASSUME_YES, false));
 	}
 
 	#[test]

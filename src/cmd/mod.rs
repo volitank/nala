@@ -22,7 +22,7 @@ use rust_apt::records::RecordField;
 use rust_apt::{DepType, Version};
 use show::format_local;
 use traits::ShowFormat;
-pub use upgrade::{apt_hook_with_pkgs, ask, run_scripts};
+pub use upgrade::{apt_hook_with_pkgs, run_scripts};
 
 use crate::config::{color, Config};
 pub use crate::libnala::Operation;

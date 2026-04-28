@@ -311,23 +311,3 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 	config.apt.clear(key);
 	Ok(())
 }
-
-/// Ask the user a question and let them decide Y or N
-pub fn ask(msg: &str) -> Result<()> {
-	print!("{msg} [Y/n] ");
-	std::io::stdout().flush()?;
-
-	let mut response = String::new();
-	std::io::stdin().read_line(&mut response)?;
-
-	let resp = response.to_lowercase();
-	if resp.trim().is_empty() || resp.starts_with('y') {
-		return Ok(());
-	}
-
-	if resp.starts_with('n') {
-		bail!("User refused confirmation")
-	}
-
-	bail!("'{}' is not a valid response", response.trim())
-}

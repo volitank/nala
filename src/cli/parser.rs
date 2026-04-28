@@ -48,6 +48,14 @@ pub struct NalaParser {
 	#[clap(global = true, long, action)]
 	pub allow_unauthenticated: bool,
 
+	/// Assume yes for all prompts.
+	#[clap(global = true, short = 'y', long, action, conflicts_with = "assume_no")]
+	pub assume_yes: bool,
+
+	/// Assume no for all prompts.
+	#[clap(global = true, short = 'n', long, action, conflicts_with = "assume_yes")]
+	pub assume_no: bool,
+
 	/// Additionally remove unnecessary packages.
 	#[clap(global = true, long, action)]
 	pub auto_remove: bool,
@@ -360,5 +368,25 @@ mod tests {
 
 		assert!(args.reinstall);
 		assert_eq!(args.pkg_names, vec!["demo"]);
+	}
+
+	#[test]
+	fn assume_prompt_flags_parse() {
+		let yes = NalaParser::try_parse_from(["nala", "install", "-y", "demo"]).unwrap();
+		assert!(yes.assume_yes);
+		assert!(!yes.assume_no);
+
+		let no = NalaParser::try_parse_from(["nala", "install", "-n", "demo"]).unwrap();
+		assert!(no.assume_no);
+		assert!(!no.assume_yes);
+
+		assert!(NalaParser::try_parse_from([
+			"nala",
+			"install",
+			"--assume-yes",
+			"--assume-no",
+			"demo",
+		])
+		.is_err());
 	}
 }

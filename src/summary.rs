@@ -5,13 +5,13 @@ use chrono::Utc;
 use rust_apt::util::DiskSpace;
 use rust_apt::{Cache, Package};
 
-use crate::cmd::{self, apt_hook_with_pkgs, ask, run_scripts, HistoryEntry};
-use crate::config::{color, Config, Paths, Theme};
+use crate::cmd::{self, apt_hook_with_pkgs, run_scripts, HistoryEntry};
+use crate::config::{color, keys, Config, Paths, Theme};
 use crate::download::Downloader;
 use crate::libnala::{NalaCache, Operation, PackageTransition};
 use crate::terminal::{use_tui, TerminalGuard};
 use crate::tui::summary::SummaryRow;
-use crate::{dpkg, error, table, tui, warn};
+use crate::{dpkg, error, table, tui, util, warn};
 
 /// TODO: Implement a simple summary that is very short for serial/console users
 pub async fn display_summary(
@@ -19,66 +19,69 @@ pub async fn display_summary(
 	config: &Config,
 	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
 ) -> Result<bool> {
-	if use_tui(config) {
+	if use_tui(config)
+		&& !config.get_bool(keys::ASSUME_YES, false)
+		&& !config.get_bool(keys::ASSUME_NO, false)
+	{
 		// App returns true if we should continue.
 		let mut terminal = TerminalGuard::new()?;
-		tui::summary::SummaryTab::new(cache, config, pkg_set)
+		return tui::summary::SummaryTab::new(cache, config, pkg_set)
 			.run(&mut terminal)
-			.await
-	} else {
-		let mut tables = vec![];
-		for (op, pkgs) in pkg_set {
-			let rows = pkgs.iter().map(SummaryRow::new).collect::<Vec<_>>();
-			let mut table = table::get_table(if rows[0].items(config).len() > 3 {
-				&["Package:", "Old Version:", "New Version:", "Size:"]
-			} else {
-				&["Package:", "Version:", "Size:"]
-			});
-
-			table.add_rows(rows.iter().map(|row| row.items(config)));
-			tables.push((op, table));
-		}
-
-		let width = rust_apt::util::terminal_width();
-		let sep = "=".repeat(width);
-
-		for (op, pkgs) in tables {
-			println!("{sep}");
-			println!(" {}", color::highlight!(op.as_str()));
-			println!("{sep}");
-
-			println!("{pkgs}");
-		}
-		println!("{sep}");
-		println!(" Summary");
-		println!("{sep}");
-
-		for (op, pkgs) in pkg_set {
-			println!(" {op} {}", pkgs.len())
-		}
-
-		println!();
-		if cache.depcache().download_size() > 0 {
-			println!(
-				" Total download size: {}",
-				config.unit_str(cache.depcache().download_size())
-			)
-		}
-
-		match cache.depcache().disk_size() {
-			DiskSpace::Require(disk_space) => {
-				println!(" Disk space required: {}", config.unit_str(disk_space))
-			},
-			DiskSpace::Free(disk_space) => {
-				println!(" Disk space to free: {}", config.unit_str(disk_space))
-			},
-		}
-		println!();
-
-		// Returns an error if yes is no selected
-		ask("Do you want to continue?")?;
-		Ok(true)
+			.await;
 	}
+
+	let mut tables = vec![];
+	for (op, pkgs) in pkg_set {
+		let rows = pkgs.iter().map(SummaryRow::new).collect::<Vec<_>>();
+		let mut table = table::get_table(if rows[0].items(config).len() > 3 {
+			&["Package:", "Old Version:", "New Version:", "Size:"]
+		} else {
+			&["Package:", "Version:", "Size:"]
+		});
+
+		table.add_rows(rows.iter().map(|row| row.items(config)));
+		tables.push((op, table));
+	}
+
+	let width = rust_apt::util::terminal_width();
+	let sep = "=".repeat(width);
+
+	for (op, pkgs) in tables {
+		println!("{sep}");
+		println!(" {}", color::highlight!(op.as_str()));
+		println!("{sep}");
+
+		println!("{pkgs}");
+	}
+	println!("{sep}");
+	println!(" Summary");
+	println!("{sep}");
+
+	for (op, pkgs) in pkg_set {
+		println!(" {op} {}", pkgs.len())
+	}
+
+	println!();
+	if cache.depcache().download_size() > 0 {
+		println!(
+			" Total download size: {}",
+			config.unit_str(cache.depcache().download_size())
+		)
+	}
+
+	match cache.depcache().disk_size() {
+		DiskSpace::Require(disk_space) => {
+			println!(" Disk space required: {}", config.unit_str(disk_space))
+		},
+		DiskSpace::Free(disk_space) => {
+			println!(" Disk space to free: {}", config.unit_str(disk_space))
+		},
+	}
+	println!();
+
+	// Returns an error if yes is no selected
+	util::confirm(config, "Do you want to continue?")?;
+	Ok(true)
 }
 
 fn collect_history_packages(

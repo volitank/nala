@@ -1,5 +1,6 @@
 pub const ALL_ARCHES: &str = "all_arches";
 pub const ALLOW_UNAUTHENTICATED: &str = "allow_unauthenticated";
+pub const ASSUME_NO: &str = "assume_no";
 pub const ASSUME_YES: &str = "assume_yes";
 pub const AUTO: &str = "auto";
 pub const AUTO_REMOVE: &str = "auto_remove";
