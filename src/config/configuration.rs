@@ -373,6 +373,27 @@ mod test {
 	}
 
 	#[test]
+	fn transaction_safety_flags_load_from_cli() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from([
+				"nala",
+				"remove",
+				"--remove-essential",
+				"--no-autoremove",
+				"demo",
+			])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert!(config.get_bool(keys::REMOVE_ESSENTIAL, false));
+		assert!(!config.get_no_bool(keys::AUTO_REMOVE, true));
+	}
+
+	#[test]
 	fn unit_format_uses_ui_section() {
 		let _guard = test_lock();
 		let mut file = ConfigFile::default();

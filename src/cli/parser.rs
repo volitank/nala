@@ -97,12 +97,28 @@ pub struct NalaParser {
 	pub assume_no: bool,
 
 	/// Additionally remove unnecessary packages.
-	#[clap(global = true, long, action)]
+	#[clap(
+		global = true,
+		long,
+		visible_alias = "autoremove",
+		action,
+		conflicts_with = "no_auto_remove"
+	)]
 	pub auto_remove: bool,
 
 	/// Do NOT remove unnecessary packages.
-	#[clap(global = true, long, action)]
+	#[clap(
+		global = true,
+		long,
+		visible_alias = "no-autoremove",
+		action,
+		conflicts_with = "auto_remove"
+	)]
 	pub no_auto_remove: bool,
+
+	/// Allow the removal of essential packages.
+	#[clap(global = true, long, action)]
+	pub remove_essential: bool,
 
 	/// Remove config files for any package set to be removed.
 	#[clap(global = true, long, action)]
@@ -454,6 +470,34 @@ mod tests {
 			"install",
 			"--install-suggests",
 			"--no-install-suggests",
+			"demo",
+		])
+		.is_err());
+	}
+
+	#[test]
+	fn transaction_safety_flags_parse() {
+		let parsed = NalaParser::try_parse_from([
+			"nala",
+			"remove",
+			"--remove-essential",
+			"--no-autoremove",
+			"demo",
+		])
+		.unwrap();
+
+		assert!(parsed.remove_essential);
+		assert!(parsed.no_auto_remove);
+
+		let alias = NalaParser::try_parse_from(["nala", "install", "--autoremove", "demo"])
+			.unwrap();
+		assert!(alias.auto_remove);
+
+		assert!(NalaParser::try_parse_from([
+			"nala",
+			"install",
+			"--auto-remove",
+			"--no-autoremove",
 			"demo",
 		])
 		.is_err());

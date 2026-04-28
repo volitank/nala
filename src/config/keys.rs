@@ -19,6 +19,7 @@ pub const NO_TUI: &str = "no_tui";
 pub const OPTION: &str = "option";
 pub const PKG_NAMES: &str = "pkg_names";
 pub const PURGE: &str = "purge";
+pub const REMOVE_ESSENTIAL: &str = "remove_essential";
 pub const SAFE: &str = "safe";
 pub const TARGET_RELEASE: &str = "target_release";
 pub const TUI: &str = "tui";

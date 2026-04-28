@@ -114,7 +114,7 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 			.join(", ")
 	);
 
-	if config.get_bool("remove_essential", false) {
+	if config.get_bool(keys::REMOVE_ESSENTIAL, false) {
 		return Ok(());
 	}
 
@@ -127,7 +127,7 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
 	// Package is not really mutable in the way clippy thinks.
 	#[allow(clippy::mutable_key_type)]
-	let auto = if config.get_no_bool("auto_remove", true) {
+	let auto = if config.get_no_bool(keys::AUTO_REMOVE, true) {
 		let purge = config.get_bool("purge", false);
 		let remove_config = config.get_bool("remove_config", false);
 		cache.auto_remove(remove_config, purge)
