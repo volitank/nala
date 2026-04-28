@@ -112,11 +112,7 @@ impl NalaCache for Cache {
 
 		for pkg in changed {
 			debug!("{pkg}:");
-			let marked = if pkg.marked_reinstall() {
-				Marked::ReInstall
-			} else {
-				pkg.marked()
-			};
+			let marked = if pkg.marked_reinstall() { Marked::ReInstall } else { pkg.marked() };
 			debug!("  Marked::{marked:?}");
 
 			match marked {

@@ -69,7 +69,13 @@ pub struct NalaParser {
 	pub target_release: Option<String>,
 
 	/// Try to fix broken packages.
-	#[clap(global = true, short = 'f', long, action, conflicts_with = "no_fix_broken")]
+	#[clap(
+		global = true,
+		short = 'f',
+		long,
+		action,
+		conflicts_with = "no_fix_broken"
+	)]
 	pub fix_broken: bool,
 
 	/// Do NOT try to fix broken packages.
@@ -81,7 +87,13 @@ pub struct NalaParser {
 	pub assume_yes: bool,
 
 	/// Assume no for all prompts.
-	#[clap(global = true, short = 'n', long, action, conflicts_with = "assume_yes")]
+	#[clap(
+		global = true,
+		short = 'n',
+		long,
+		action,
+		conflicts_with = "assume_yes"
+	)]
 	pub assume_no: bool,
 
 	/// Additionally remove unnecessary packages.
@@ -387,8 +399,8 @@ mod tests {
 
 	#[test]
 	fn install_reinstall_flag_parses() {
-		let parsed = NalaParser::try_parse_from(["nala", "install", "--reinstall", "demo"])
-			.unwrap();
+		let parsed =
+			NalaParser::try_parse_from(["nala", "install", "--reinstall", "demo"]).unwrap();
 
 		let Some(Commands::Install(args)) = parsed.command else {
 			panic!("expected install command");

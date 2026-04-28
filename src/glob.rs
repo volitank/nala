@@ -145,7 +145,10 @@ impl<'a> Selection<'a> {
 					};
 
 					let Some(_inst) = pkg.installed() else {
-						bail!("{} is not installed, so it cannot be reinstalled", pkg.name())
+						bail!(
+							"{} is not installed, so it cannot be reinstalled",
+							pkg.name()
+						)
 					};
 
 					debug!("Mark Reinstall: {pkg} {}", cand.version());
