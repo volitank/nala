@@ -301,7 +301,7 @@ fn redo_action_preserves_remove_vs_purge() {
 }
 
 #[test]
-fn redo_action_rejects_reinstall_entries() {
+fn redo_action_replays_reinstall_entries() {
 	let pkg = PackageTransition::transition(
 		"demo".to_string(),
 		1,
@@ -318,7 +318,13 @@ fn redo_action_rejects_reinstall_entries() {
 		},
 	);
 
-	assert!(pkg.redo_action().is_err());
+	assert_eq!(
+		pkg.redo_action().unwrap(),
+		ReplayAction::Reinstall {
+			version: "1.0".to_string(),
+			auto_installed: Some(false),
+		}
+	);
 }
 
 #[test]

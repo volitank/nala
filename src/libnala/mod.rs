@@ -112,9 +112,14 @@ impl NalaCache for Cache {
 
 		for pkg in changed {
 			debug!("{pkg}:");
-			debug!("  Marked::{:?}", pkg.marked());
+			let marked = if pkg.marked_reinstall() {
+				Marked::ReInstall
+			} else {
+				pkg.marked()
+			};
+			debug!("  Marked::{marked:?}");
 
-			match pkg.marked() {
+			match marked {
 				mark @ (Marked::NewInstall | Marked::Install | Marked::ReInstall) => {
 					let Some(after_version) = pkg.install_version() else {
 						continue;
@@ -265,5 +270,26 @@ impl NalaCache for Cache {
 		// There is more code in private-install.cc DoAutomaticremove
 		// If there are auto_remove bugs consider implementing that.
 		set
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn sort_changes_classifies_reinstall_before_keep() {
+		let cache = rust_apt::new_cache!().unwrap();
+		let pkg = cache.get("apt").unwrap();
+
+		cache.resolver().clear(&pkg);
+		cache.resolver().protect(&pkg);
+		pkg.mark_reinstall(true);
+		cache.resolve(false).unwrap();
+
+		let (_, pkg_set) = cache.sort_changes(HashSet::new()).unwrap();
+		let reinstall = pkg_set.get(&Operation::Reinstall).unwrap();
+
+		assert!(reinstall.iter().any(|package| package.name == "apt"));
 	}
 }

@@ -316,6 +316,10 @@ pub struct Install {
 	/// Package names to install
 	#[clap(required = false)]
 	pub pkg_names: Vec<String>,
+
+	/// Reinstall packages that are already installed
+	#[clap(long, action)]
+	pub reinstall: bool,
 }
 
 #[derive(Args, Debug)]
@@ -339,4 +343,22 @@ pub struct AutoRemove {
 	/// Additionally, when purging, remove pkgs in config state
 	#[clap(long, action)]
 	pub remove_config: bool,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn install_reinstall_flag_parses() {
+		let parsed = NalaParser::try_parse_from(["nala", "install", "--reinstall", "demo"])
+			.unwrap();
+
+		let Some(Commands::Install(args)) = parsed.command else {
+			panic!("expected install command");
+		};
+
+		assert!(args.reinstall);
+		assert_eq!(args.pkg_names, vec!["demo"]);
+	}
 }

@@ -112,7 +112,7 @@ impl<'a> Selection<'a> {
 			let pkg = &item.pkg;
 			let op = item.modifier.unwrap_or(default_op);
 
-			if op == Operation::Install {
+			if matches!(op, Operation::Install | Operation::Reinstall) {
 				if let Some(candidate) = item.candidate {
 					candidate.set_candidate();
 				}
@@ -138,6 +138,20 @@ impl<'a> Selection<'a> {
 					cache.resolver().clear(pkg);
 					cache.resolver().protect(pkg);
 					pkg.mark_install(true, true);
+				},
+				Operation::Reinstall => {
+					let Some(cand) = pkg.candidate() else {
+						bail!("{} has no install candidate", pkg.name())
+					};
+
+					let Some(_inst) = pkg.installed() else {
+						bail!("{} is not installed, so it cannot be reinstalled", pkg.name())
+					};
+
+					debug!("Mark Reinstall: {pkg} {}", cand.version());
+					cache.resolver().clear(pkg);
+					cache.resolver().protect(pkg);
+					pkg.mark_reinstall(true);
 				},
 				Operation::Remove => {
 					let Some(_inst) = pkg.installed() else {

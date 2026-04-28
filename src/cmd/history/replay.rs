@@ -14,6 +14,10 @@ pub(super) enum ReplayAction {
 		version: String,
 		auto_installed: Option<bool>,
 	},
+	Reinstall {
+		version: String,
+		auto_installed: Option<bool>,
+	},
 	Remove {
 		purge: bool,
 	},
@@ -99,6 +103,25 @@ impl ReplayAction {
 					pkg.mark_auto(auto_installed);
 				}
 			},
+			Self::Reinstall {
+				version,
+				auto_installed,
+			} => {
+				let Some(ver) = pkg.get_version(&version) else {
+					bail!("Version '{}' not found for '{}'", version, package.name)
+				};
+
+				if pkg.installed().is_none() {
+					bail!("{} is not installed, so it cannot be reinstalled", package.name);
+				}
+
+				ver.set_candidate();
+				pkg.mark_reinstall(true);
+
+				if let Some(auto_installed) = auto_installed {
+					pkg.mark_auto(auto_installed);
+				}
+			},
 			Self::Remove { purge } => {
 				pkg.mark_delete(purge);
 			},
@@ -159,7 +182,7 @@ impl PackageTransition {
 				})
 			},
 			crate::cmd::Operation::Reinstall => bail!(
-				"Undo is not supported for '{}' because reinstall replay is not implemented",
+				"Undo is not supported for '{}' because reinstall has no recorded inverse",
 				self.name
 			),
 			crate::cmd::Operation::Held => bail!("Held package '{}' cannot be undone", self.name),
@@ -190,13 +213,22 @@ impl PackageTransition {
 			crate::cmd::Operation::Purge | crate::cmd::Operation::AutoPurge => {
 				Ok(ReplayAction::Remove { purge: true })
 			},
-			crate::cmd::Operation::Reinstall => bail!(
-				"Redo is not supported for '{}' because reinstall replay is not implemented",
-				self.name
-			),
-				crate::cmd::Operation::Held => bail!("Held package '{}' cannot be redone", self.name),
-			}
+			crate::cmd::Operation::Reinstall => {
+				let Some(version) = self.after.version.clone() else {
+					bail!(
+						"Redo is not supported for '{}' because the reinstalled version was not recorded",
+						self.name
+					)
+				};
+
+				Ok(ReplayAction::Reinstall {
+					version,
+					auto_installed: self.after.auto_installed,
+				})
+			},
+			crate::cmd::Operation::Held => bail!("Held package '{}' cannot be redone", self.name),
 		}
+	}
 
 	/// Marks the inverse of this package transition into the current cache.
 	fn mark_undo(&self, cache: &Cache) -> Result<()> {

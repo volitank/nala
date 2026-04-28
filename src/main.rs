@@ -131,7 +131,14 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 			Commands::Fetch(_) => fetch(config)?,
 			Commands::Update(_) => update(config).await?,
 			Commands::Upgrade(_) => upgrade(config, upgrade_mode(config)).await?,
-			Commands::Install(_) => mark_cli_pkgs(config, Operation::Install).await?,
+			Commands::Install(args) => {
+				let operation = if args.reinstall {
+					Operation::Reinstall
+				} else {
+					Operation::Install
+				};
+				mark_cli_pkgs(config, operation).await?;
+			},
 			Commands::Remove(_) => mark_cli_pkgs(config, Operation::Remove).await?,
 			Commands::AutoRemove(_) => {
 				sudo_check(config)?;
