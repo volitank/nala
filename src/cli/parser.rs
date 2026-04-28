@@ -48,6 +48,34 @@ pub struct NalaParser {
 	#[clap(global = true, long, action)]
 	pub allow_unauthenticated: bool,
 
+	/// Install recommended packages.
+	#[clap(global = true, long, action, conflicts_with = "no_install_recommends")]
+	pub install_recommends: bool,
+
+	/// Do NOT install recommended packages.
+	#[clap(global = true, long, action, conflicts_with = "install_recommends")]
+	pub no_install_recommends: bool,
+
+	/// Install suggested packages.
+	#[clap(global = true, long, action, conflicts_with = "no_install_suggests")]
+	pub install_suggests: bool,
+
+	/// Do NOT install suggested packages.
+	#[clap(global = true, long, action, conflicts_with = "install_suggests")]
+	pub no_install_suggests: bool,
+
+	/// Set the default release to install packages from.
+	#[clap(global = true, short = 't', long, value_name = "RELEASE")]
+	pub target_release: Option<String>,
+
+	/// Try to fix broken packages.
+	#[clap(global = true, short = 'f', long, action, conflicts_with = "no_fix_broken")]
+	pub fix_broken: bool,
+
+	/// Do NOT try to fix broken packages.
+	#[clap(global = true, long, action, conflicts_with = "fix_broken")]
+	pub no_fix_broken: bool,
+
 	/// Assume yes for all prompts.
 	#[clap(global = true, short = 'y', long, action, conflicts_with = "assume_no")]
 	pub assume_yes: bool,
@@ -385,6 +413,35 @@ mod tests {
 			"install",
 			"--assume-yes",
 			"--assume-no",
+			"demo",
+		])
+		.is_err());
+	}
+
+	#[test]
+	fn apt_behavior_flags_parse() {
+		let parsed = NalaParser::try_parse_from([
+			"nala",
+			"install",
+			"--install-recommends",
+			"--no-install-suggests",
+			"-t",
+			"testing",
+			"--no-fix-broken",
+			"demo",
+		])
+		.unwrap();
+
+		assert!(parsed.install_recommends);
+		assert!(parsed.no_install_suggests);
+		assert_eq!(parsed.target_release.as_deref(), Some("testing"));
+		assert!(parsed.no_fix_broken);
+
+		assert!(NalaParser::try_parse_from([
+			"nala",
+			"install",
+			"--install-suggests",
+			"--no-install-suggests",
 			"demo",
 		])
 		.is_err());

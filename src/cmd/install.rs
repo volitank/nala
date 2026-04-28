@@ -3,7 +3,7 @@ use rust_apt::new_cache;
 use rust_apt::util::show_broken_pkg;
 
 use crate::cmd::Operation;
-use crate::config::Config;
+use crate::config::{keys, Config};
 use crate::deb::DebFile;
 use crate::download::Downloader;
 use crate::util::sudo_check;
@@ -82,7 +82,7 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 
 	selection.mark(&cache, operation, config.get_bool("purge", false))?;
 
-	if let Err(err) = cache.resolve(false) {
+	if let Err(err) = cache.resolve(config.get_no_bool(keys::FIX_BROKEN, true)) {
 		debug!("Broken Count: {}", cache.depcache().broken_count());
 		for pkg in cache.iter() {
 			if let Some(broken) = show_broken_pkg(&cache, &pkg, false) {

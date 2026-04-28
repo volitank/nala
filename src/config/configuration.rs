@@ -100,6 +100,19 @@ impl Config {
 			}
 		}
 
+		self.apt.set(
+			"APT::Install-Recommends",
+			if self.get_no_bool(keys::INSTALL_RECOMMENDS, true) { "1" } else { "0" },
+		);
+		self.apt.set(
+			"APT::Install-Suggests",
+			if self.get_no_bool(keys::INSTALL_SUGGESTS, false) { "1" } else { "0" },
+		);
+
+		if let Some(release) = self.get_str(keys::TARGET_RELEASE) {
+			self.apt.set("APT::Default-Release", release);
+		}
+
 		Ok(())
 	}
 
@@ -324,6 +337,39 @@ mod test {
 		let config = Config::from_file(file);
 
 		assert!(config.get_bool(keys::ASSUME_YES, false));
+	}
+
+	#[test]
+	fn apt_behavior_flags_set_apt_config() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from([
+				"nala",
+				"install",
+				"--no-install-recommends",
+				"--install-suggests",
+				"--target-release",
+				"testing",
+				"--no-fix-broken",
+				"demo",
+			])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+		config.apt.clear("APT::Install-Recommends");
+		config.apt.clear("APT::Install-Suggests");
+		config.apt.clear("APT::Default-Release");
+
+		config.load_args(cmd).unwrap();
+
+		assert!(!config.apt.bool("APT::Install-Recommends", true));
+		assert!(config.apt.bool("APT::Install-Suggests", false));
+		assert_eq!(config.apt.find("APT::Default-Release", ""), "testing");
+		assert!(!config.get_no_bool(keys::FIX_BROKEN, true));
+
+		config.apt.clear("APT::Install-Recommends");
+		config.apt.clear("APT::Install-Suggests");
+		config.apt.clear("APT::Default-Release");
 	}
 
 	#[test]
