@@ -238,6 +238,37 @@ fn find_matching_pkgs<'a>(
 		.collect::<Vec<_>>()
 }
 
+pub fn pkgs_matching_name_patterns<'a>(
+	patterns: &[String],
+	cache: &'a Cache,
+) -> Result<Vec<Package<'a>>> {
+	let mut selection = Vec::new();
+	let mut seen = BTreeSet::<(String, String)>::new();
+
+	for pattern in patterns {
+		let matcher = build_glob_matcher(pattern)?;
+		let mut matched = false;
+
+		for pkg in cache.packages(&PackageSort::default().include_virtual().names()) {
+			if !matcher.is_match(pkg.fullname(true)) {
+				continue;
+			}
+
+			matched = true;
+			let key = (pkg.name().to_string(), pkg.arch().to_string());
+			if seen.insert(key) {
+				selection.push(pkg);
+			}
+		}
+
+		if !matched {
+			bail!("Exclude pattern '{pattern}' did not match any packages");
+		}
+	}
+
+	Ok(selection)
+}
+
 pub fn get_sorter(config: &Config) -> PackageSort {
 	let mut sort = PackageSort::default().include_virtual();
 

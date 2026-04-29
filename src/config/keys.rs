@@ -8,6 +8,7 @@ pub const AUTO_UPDATE: &str = "auto_update";
 pub const COLOR: &str = "color";
 pub const COUNTRY: &str = "country";
 pub const DEBUG: &str = "debug";
+pub const EXCLUDE: &str = "exclude";
 pub const FULL: &str = "full";
 pub const HISTORY_DIR: &str = "history_dir";
 pub const FIX_BROKEN: &str = "fix_broken";

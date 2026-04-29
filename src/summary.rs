@@ -8,7 +8,7 @@ use rust_apt::{Cache, Package};
 use crate::cmd::{self, apt_hook_with_pkgs, run_scripts, HistoryEntry};
 use crate::config::{color, keys, Config, Paths, Theme};
 use crate::download::Downloader;
-use crate::libnala::{NalaCache, Operation, PackageTransition};
+use crate::libnala::{NalaCache, Operation, PackageKey, PackageTransition};
 use crate::terminal::{use_tui, TerminalGuard};
 use crate::tui::summary::SummaryRow;
 use crate::{dpkg, error, table, tui, util, warn};
@@ -175,12 +175,20 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 }
 
 pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
+	commit_with_protected(cache, config, &HashSet::new()).await
+}
+
+pub async fn commit_with_protected(
+	cache: Cache,
+	config: &Config,
+	protected: &HashSet<PackageKey>,
+) -> Result<()> {
 	// Package is not really mutable in the way clippy thinks.
 	#[allow(clippy::mutable_key_type)]
 	let auto = if config.get_no_bool(keys::AUTO_REMOVE, true) {
 		let purge = config.get_bool("purge", false);
 		let remove_config = config.get_bool("remove_config", false);
-		cache.auto_remove(remove_config, purge)
+		cache.auto_remove(remove_config, purge, protected)
 	} else {
 		HashSet::new()
 	};

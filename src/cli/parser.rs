@@ -372,6 +372,10 @@ pub struct Upgrade {
 	#[clap(long, action)]
 	pub print_uris: bool,
 
+	/// Exclude packages from upgrade. Accepts glob patterns.
+	#[clap(long, value_name = "PKG", action)]
+	pub exclude: Vec<String>,
+
 	/// Perform a Full Upgrade.
 	#[clap(long, action)]
 	pub full: bool,
@@ -528,6 +532,25 @@ mod tests {
 		assert!(
 			NalaParser::try_parse_from(["nala", "upgrade", "--update", "--no-update",]).is_err()
 		);
+	}
+
+	#[test]
+	fn upgrade_exclude_flags_parse() {
+		let parsed = NalaParser::try_parse_from([
+			"nala",
+			"upgrade",
+			"--exclude",
+			"foo",
+			"--exclude",
+			"linux-*",
+		])
+		.unwrap();
+
+		let Some(Commands::Upgrade(args)) = parsed.command else {
+			panic!("expected upgrade command");
+		};
+
+		assert_eq!(args.exclude, vec!["foo", "linux-*"]);
 	}
 
 	#[test]

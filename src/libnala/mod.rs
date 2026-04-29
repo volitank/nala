@@ -10,6 +10,11 @@ use crate::config::color;
 use crate::{debug, info, warn};
 
 type SortedChanges<'a> = (Vec<Package<'a>>, HashMap<Operation, Vec<PackageTransition>>);
+pub type PackageKey = (String, String);
+
+pub fn package_key(pkg: &Package<'_>) -> PackageKey {
+	(pkg.name().to_string(), pkg.arch().to_string())
+}
 
 fn current_package_state(pkg: &Package<'_>) -> Option<PackageState> {
 	if let Some(installed) = pkg.installed() {
@@ -30,7 +35,12 @@ fn current_package_state(pkg: &Package<'_>) -> Option<PackageState> {
 #[allow(clippy::mutable_key_type)]
 pub trait NalaCache {
 	fn sort_changes<'a>(&'a self, auto: HashSet<Package<'a>>) -> Result<SortedChanges<'a>>;
-	fn auto_remove(&self, remove_config: bool, purge: bool) -> HashSet<Package<'_>>;
+	fn auto_remove(
+		&self,
+		remove_config: bool,
+		purge: bool,
+		protected: &HashSet<PackageKey>,
+	) -> HashSet<Package<'_>>;
 }
 
 pub trait PackageExt<'a> {
@@ -237,13 +247,23 @@ impl NalaCache for Cache {
 		Ok((pkgs, pkg_set))
 	}
 
-	fn auto_remove(&self, remove_config: bool, purge: bool) -> HashSet<Package<'_>> {
+	fn auto_remove(
+		&self,
+		remove_config: bool,
+		purge: bool,
+		protected: &HashSet<PackageKey>,
+	) -> HashSet<Package<'_>> {
 		// Package is not really mutable in the way clippy thinks.
 		#[allow(clippy::mutable_key_type)]
 		let mut set = HashSet::new();
 		debug!("Auto Remover:");
 		let _ = unsafe { self.depcache().action_group() };
 		for pkg in self.iter() {
+			if protected.contains(&package_key(&pkg)) {
+				pkg.mark_keep();
+				continue;
+			}
+
 			// TODO: Should we have --remove-config, or just do it like apt does and match
 			// on state? apt purge ~c is the equivalent.
 			if !pkg.is_installed() && pkg.config_state() && remove_config && purge {

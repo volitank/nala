@@ -461,6 +461,30 @@ mod test {
 	}
 
 	#[test]
+	fn upgrade_exclude_flags_load_from_cli() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from([
+				"nala",
+				"upgrade",
+				"--exclude",
+				"foo",
+				"--exclude",
+				"linux-*",
+			])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert_eq!(
+			config.get_vec(keys::EXCLUDE).unwrap(),
+			&vec!["foo".to_string(), "linux-*".to_string()]
+		);
+	}
+
+	#[test]
 	fn simple_summary_flags_load_from_cli() {
 		let _guard = test_lock();
 		let simple_args = NalaParser::command()
@@ -505,6 +529,7 @@ mod test {
 		let config = Config::default();
 		let command = Commands::Upgrade(UpgradeCommand {
 			print_uris: false,
+			exclude: Vec::new(),
 			full: false,
 			no_full: false,
 			safe: false,
@@ -520,6 +545,7 @@ mod test {
 		config.set_bool(keys::NO_UPDATE, true);
 		let command = Commands::Upgrade(UpgradeCommand {
 			print_uris: false,
+			exclude: Vec::new(),
 			full: false,
 			no_full: false,
 			safe: false,

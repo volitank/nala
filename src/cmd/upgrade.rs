@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::env;
 use std::ffi::CString;
 use std::io::{BufWriter, Write};
@@ -13,9 +13,10 @@ use rust_apt::cache::Upgrade;
 use rust_apt::raw::quote_string;
 use rust_apt::{Marked, new_cache, Package, PkgCurrentState, Version};
 
-use crate::config::Paths;
+use crate::config::{color, keys, Paths};
+use crate::libnala::{package_key, PackageKey};
 use crate::util::{get_pkg_name, sudo_check};
-use crate::{debug, Config};
+use crate::{debug, glob, info, Config};
 
 /// The subset of APT pre-install hook actions that Nala currently models.
 enum HookActionKind {
@@ -39,11 +40,53 @@ struct HookAction<'a> {
 pub async fn upgrade(config: &Config, upgrade_type: Upgrade) -> Result<()> {
 	sudo_check(config)?;
 	let cache = new_cache!()?;
+	let protected = protect_excluded_packages(&cache, config)?;
 
 	debug!("Running Upgrade: {upgrade_type:?}");
-	cache.upgrade(upgrade_type)?;
+	if let Err(err) = cache.upgrade(upgrade_type) {
+		if !protected.is_empty() {
+			bail!("Selected packages cannot be excluded from upgrade safely.\n{err}");
+		}
+		bail!(err);
+	}
 
-	crate::summary::commit(cache, config).await
+	crate::summary::commit_with_protected(cache, config, &protected).await
+}
+
+fn protect_excluded_packages(
+	cache: &rust_apt::Cache,
+	config: &Config,
+) -> Result<HashSet<PackageKey>> {
+	let Some(excludes) = config.get_vec(keys::EXCLUDE).filter(|items| !items.is_empty()) else {
+		return Ok(HashSet::new());
+	};
+
+	let mut protected = HashSet::new();
+	let packages = glob::pkgs_matching_name_patterns(excludes, cache)?;
+
+	for pkg in packages {
+		let reason = if pkg.is_upgradable() {
+			Some("upgrade")
+		} else if pkg.is_auto_removable() {
+			Some("auto-removal")
+		} else {
+			None
+		};
+
+		let Some(reason) = reason else {
+			continue;
+		};
+
+		info!(
+			"Protecting {} from {reason}",
+			color::primary!(pkg.fullname(true))
+		);
+		cache.resolver().protect(&pkg);
+		pkg.mark_keep();
+		protected.insert(package_key(&pkg));
+	}
+
+	Ok(protected)
 }
 
 /// Runs each configured shell hook under `key` and aborts on the first
