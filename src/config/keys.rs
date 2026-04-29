@@ -22,6 +22,7 @@ pub const PKG_NAMES: &str = "pkg_names";
 pub const PURGE: &str = "purge";
 pub const REMOVE_ESSENTIAL: &str = "remove_essential";
 pub const SAFE: &str = "safe";
+pub const SIMPLE: &str = "simple";
 pub const TARGET_RELEASE: &str = "target_release";
 pub const TUI: &str = "tui";
 pub const UPDATE: &str = "update";

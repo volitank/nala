@@ -40,6 +40,9 @@ pub struct NalaConfig {
 	pub update_show_packages: bool,
 
 	#[serde(default)]
+	pub simple: bool,
+
+	#[serde(default)]
 	pub assume_yes: bool,
 }
 
@@ -49,6 +52,7 @@ impl Default for NalaConfig {
 			auto_remove: true,
 			auto_update: true,
 			update_show_packages: false,
+			simple: false,
 			assume_yes: false,
 		}
 	}
@@ -88,6 +92,7 @@ impl ConfigFile {
 			keys::ASSUME_YES => Some(self.nala.assume_yes),
 			keys::AUTO_REMOVE => Some(self.nala.auto_remove),
 			keys::AUTO_UPDATE => Some(self.nala.auto_update),
+			keys::SIMPLE => Some(self.nala.simple),
 			keys::UPDATE_SHOW_PACKAGES => Some(self.nala.update_show_packages),
 			_ => None,
 		}
@@ -114,6 +119,7 @@ mod tests {
 		assert!(file.nala.auto_remove);
 		assert!(file.nala.auto_update);
 		assert!(!file.nala.update_show_packages);
+		assert!(!file.nala.simple);
 		assert!(!file.nala.assume_yes);
 		assert_eq!(file.ui.mode, UiMode::Auto);
 		assert_eq!(file.ui.unit, NumSys::Binary);

@@ -40,6 +40,10 @@ pub struct NalaParser {
 	#[clap(global = true, long, action)]
 	pub download_only: bool,
 
+	/// Display a simpler and more condensed transaction summary.
+	#[clap(global = true, long, action)]
+	pub simple: bool,
+
 	/// Update package lists before running the command.
 	#[clap(global = true, long, action, conflicts_with = "no_update")]
 	pub update: bool,
@@ -524,5 +528,11 @@ mod tests {
 		assert!(
 			NalaParser::try_parse_from(["nala", "upgrade", "--update", "--no-update",]).is_err()
 		);
+	}
+
+	#[test]
+	fn simple_summary_flags_parse() {
+		let simple = NalaParser::try_parse_from(["nala", "install", "--simple", "demo"]).unwrap();
+		assert!(simple.simple);
 	}
 }

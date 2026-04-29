@@ -13,12 +13,17 @@ use crate::terminal::{use_tui, TerminalGuard};
 use crate::tui::summary::SummaryRow;
 use crate::{dpkg, error, table, tui, util, warn};
 
-/// TODO: Implement a simple summary that is very short for serial/console users
 pub async fn display_summary(
 	cache: &Cache,
 	config: &Config,
 	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
 ) -> Result<bool> {
+	if config.simple_summary() {
+		print_simple_summary(cache, config, pkg_set);
+		util::confirm(config, "Do you want to continue?")?;
+		return Ok(true);
+	}
+
 	if use_tui(config)
 		&& !config.get_bool(keys::ASSUME_YES, false)
 		&& !config.get_bool(keys::ASSUME_NO, false)
@@ -30,8 +35,73 @@ pub async fn display_summary(
 			.await;
 	}
 
+	print_full_summary(cache, config, pkg_set);
+	util::confirm(config, "Do you want to continue?")?;
+	Ok(true)
+}
+
+fn sorted_summary_sets(
+	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
+) -> Vec<(Operation, &[PackageTransition])> {
+	Operation::to_vec()
+		.into_iter()
+		.chain([Operation::Held])
+		.filter_map(|op| {
+			pkg_set
+				.get(&op)
+				.filter(|packages| !packages.is_empty())
+				.map(|packages| (op, packages.as_slice()))
+		})
+		.collect()
+}
+
+fn print_size_summary(cache: &Cache, config: &Config) {
+	println!();
+	if cache.depcache().download_size() > 0 {
+		println!(
+			" Total download size: {}",
+			config.unit_str(cache.depcache().download_size())
+		)
+	}
+
+	match cache.depcache().disk_size() {
+		DiskSpace::Require(disk_space) => {
+			println!(" Disk space required: {}", config.unit_str(disk_space))
+		},
+		DiskSpace::Free(disk_space) => {
+			println!(" Disk space to free: {}", config.unit_str(disk_space))
+		},
+	}
+	println!();
+}
+
+fn print_simple_summary(
+	cache: &Cache,
+	config: &Config,
+	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
+) {
+	let sets = sorted_summary_sets(pkg_set);
+	for (op, pkgs) in &sets {
+		let header = color::highlight!(op.as_str());
+		println!("{header}: {}", pkgs.len());
+		println!(
+			"  {}",
+			pkgs.iter()
+				.map(|pkg| pkg.name.as_str())
+				.collect::<Vec<_>>()
+				.join(", ")
+		)
+	}
+	print_size_summary(cache, config);
+}
+
+fn print_full_summary(
+	cache: &Cache,
+	config: &Config,
+	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
+) {
 	let mut tables = vec![];
-	for (op, pkgs) in pkg_set {
+	for (op, pkgs) in sorted_summary_sets(pkg_set) {
 		let rows = pkgs.iter().map(SummaryRow::new).collect::<Vec<_>>();
 		let mut table = table::get_table(if rows[0].items(config).len() > 3 {
 			&["Package:", "Old Version:", "New Version:", "Size:"]
@@ -57,31 +127,11 @@ pub async fn display_summary(
 	println!(" Summary");
 	println!("{sep}");
 
-	for (op, pkgs) in pkg_set {
+	for (op, pkgs) in sorted_summary_sets(pkg_set) {
 		println!(" {op} {}", pkgs.len())
 	}
 
-	println!();
-	if cache.depcache().download_size() > 0 {
-		println!(
-			" Total download size: {}",
-			config.unit_str(cache.depcache().download_size())
-		)
-	}
-
-	match cache.depcache().disk_size() {
-		DiskSpace::Require(disk_space) => {
-			println!(" Disk space required: {}", config.unit_str(disk_space))
-		},
-		DiskSpace::Free(disk_space) => {
-			println!(" Disk space to free: {}", config.unit_str(disk_space))
-		},
-	}
-	println!();
-
-	// Returns an error if yes is no selected
-	util::confirm(config, "Do you want to continue?")?;
-	Ok(true)
+	print_size_summary(cache, config);
 }
 
 fn collect_history_packages(
@@ -220,28 +270,26 @@ mod tests {
 	use super::*;
 	use crate::libnala::PackageState;
 
+	fn transition(name: &str, operation: Operation) -> PackageTransition {
+		PackageTransition::transition(
+			name.to_string(),
+			1,
+			operation,
+			PackageState::missing(),
+			PackageState::config_only(Some("1.0".to_string()), Some(false)),
+		)
+	}
+
 	#[test]
 	fn collect_history_packages_skips_non_transaction_rows() {
 		let mut pkg_set = HashMap::new();
 		pkg_set.insert(
 			Operation::Install,
-			vec![PackageTransition::transition(
-				"demo".to_string(),
-				1,
-				Operation::Install,
-				PackageState::missing(),
-				PackageState::config_only(Some("1.0".to_string()), Some(false)),
-			)],
+			vec![transition("demo", Operation::Install)],
 		);
 		pkg_set.insert(
 			Operation::Held,
-			vec![PackageTransition::transition(
-				"held-demo".to_string(),
-				1,
-				Operation::Held,
-				PackageState::missing(),
-				PackageState::config_only(Some("2.0".to_string()), Some(false)),
-			)],
+			vec![transition("held-demo", Operation::Held)],
 		);
 
 		let packages = collect_history_packages(pkg_set);
@@ -249,5 +297,30 @@ mod tests {
 		assert_eq!(packages.len(), 1);
 		assert_eq!(packages[0].name, "demo");
 		assert_eq!(packages[0].operation, Operation::Install);
+	}
+
+	#[test]
+	fn sorted_summary_sets_use_transaction_order_and_skip_empty_sets() {
+		let mut pkg_set = HashMap::new();
+		pkg_set.insert(
+			Operation::Upgrade,
+			vec![transition("upgrade", Operation::Upgrade)],
+		);
+		pkg_set.insert(
+			Operation::Remove,
+			vec![transition("remove", Operation::Remove)],
+		);
+		pkg_set.insert(Operation::Install, Vec::new());
+		pkg_set.insert(Operation::Held, vec![transition("held", Operation::Held)]);
+
+		let operations = sorted_summary_sets(&pkg_set)
+			.into_iter()
+			.map(|(operation, _)| operation)
+			.collect::<Vec<_>>();
+
+		assert_eq!(
+			operations,
+			vec![Operation::Remove, Operation::Upgrade, Operation::Held]
+		);
 	}
 }

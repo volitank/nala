@@ -7,6 +7,7 @@ use crate::config::{color, Theme};
 static LOG: std::sync::LazyLock<Mutex<Logger>> =
 	std::sync::LazyLock::new(|| Mutex::new(Logger::new(LogOptions::default())));
 
+#[cfg(test)]
 pub fn setup_logger(options: LogOptions) -> &'static Mutex<Logger> {
 	let mut logger = LOG.lock().unwrap();
 	*logger = Logger::new(options);

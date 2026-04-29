@@ -247,6 +247,8 @@ impl Config {
 			|| self.apt.bool("APT::Get::AllowUnauthenticated", false)
 	}
 
+	pub fn simple_summary(&self) -> bool { self.get_bool(keys::SIMPLE, false) }
+
 	pub fn update_early(&self, command: &Commands) -> bool {
 		if self.get_bool(keys::NO_UPDATE, false) {
 			return false;
@@ -295,6 +297,7 @@ mod test {
 		assert!(file.nala.auto_remove);
 		assert!(file.nala.auto_update);
 		assert!(!file.nala.update_show_packages);
+		assert!(!file.nala.simple);
 		assert_eq!(file.ui.mode, UiMode::Auto);
 		assert_eq!(file.ui.unit, NumSys::Binary);
 		assert_eq!(file.color.mode, Switch::Auto);
@@ -455,6 +458,30 @@ mod test {
 		config.load_args(cmd).unwrap();
 
 		assert!(config.get_bool(keys::NO_UPDATE, false));
+	}
+
+	#[test]
+	fn simple_summary_flags_load_from_cli() {
+		let _guard = test_lock();
+		let simple_args = NalaParser::command()
+			.try_get_matches_from(["nala", "install", "--simple", "demo"])
+			.unwrap();
+		let (_, cmd) = simple_args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert!(config.simple_summary());
+	}
+
+	#[test]
+	fn simple_summary_uses_config_default() {
+		let _guard = test_lock();
+		let mut file = ConfigFile::default();
+		file.nala.simple = true;
+		let config = Config::from_file(file);
+
+		assert!(config.simple_summary());
 	}
 
 	#[test]
