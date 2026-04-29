@@ -34,7 +34,13 @@ impl DebFile {
 				continue;
 			}
 
-			let mut tar = Tarchive::new(Cursor::new(entry.read_vec()?.decompress().await?));
+			let data = if tarball == "control.tar" {
+				entry.read_vec()?
+			} else {
+				entry.read_vec()?.decompress().await?
+			};
+
+			let mut tar = Tarchive::new(Cursor::new(data));
 			for file in tar.entries()? {
 				let mut entry = file?;
 				if entry.path()?.as_os_str() != "./control" {
