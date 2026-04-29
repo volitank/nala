@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{bail, Result};
 use rust_apt::{Cache, Marked, Package, PkgCurrentState};
-pub use transaction::{Operation, PackageState, PackageTransition};
+pub use transaction::{HeldReason, Operation, PackageState, PackageTransition};
 
 use crate::config::color;
 use crate::{debug, info, warn};
@@ -217,29 +217,7 @@ impl NalaCache for Cache {
 						pkgs.push(pkg)
 					}
 				},
-				// TODO: See if pkg is held for phasing and show percent
-				// pkgDepCache::PhasingApplied
-				// VerIterator::PhasedUpdatePercentage
-				Marked::Held => {
-					let Some(cand) = pkg.candidate() else {
-						continue;
-					};
-					let before = current_package_state(&pkg).unwrap_or_else(PackageState::missing);
-					let op = Operation::Held;
-
-					debug!("  Operation::{op:?}");
-					pkg_set
-						.entry(op)
-						.or_default()
-						.push(PackageTransition::transition(
-							pkg.name().to_string(),
-							cand.size(),
-							op,
-							before,
-							PackageState::from_version(&cand),
-						));
-				},
-				Marked::Keep => continue,
+				Marked::Held | Marked::Keep => continue,
 				Marked::None => bail!("{pkg} not marked, this should be impossible"),
 			}
 		}

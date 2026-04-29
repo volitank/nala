@@ -29,10 +29,13 @@ impl Operation {
 			Self::Reinstall,
 			Self::Upgrade,
 			Self::Downgrade,
+			Self::Held,
 		]
 	}
 
 	pub fn as_str(&self) -> &str { self.as_ref() }
+
+	pub fn is_replayable(&self) -> bool { *self != Self::Held }
 }
 
 impl std::fmt::Display for Operation {
@@ -63,6 +66,29 @@ impl AsRef<Theme> for Operation {
 			Self::Remove | Self::AutoRemove | Self::Purge | Self::AutoPurge => &Theme::Error,
 			Self::Install | Self::Upgrade => &Theme::Secondary,
 			Self::Reinstall | Self::Downgrade | Self::Held => &Theme::Notice,
+		}
+	}
+}
+
+/// User-facing explanation for a package being kept out of an upgrade.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum HeldReason {
+	Excluded,
+	ManualHold,
+	PhasedUpdate { percentage: Option<u8> },
+	KeptBack,
+}
+
+impl HeldReason {
+	pub fn summary(&self) -> String {
+		match self {
+			Self::Excluded => "Excluded".to_string(),
+			Self::ManualHold => "Manual hold".to_string(),
+			Self::PhasedUpdate {
+				percentage: Some(percentage),
+			} => format!("Phased {percentage}%"),
+			Self::PhasedUpdate { percentage: None } => "Phased".to_string(),
+			Self::KeptBack => "Kept back".to_string(),
 		}
 	}
 }
@@ -117,6 +143,8 @@ pub struct PackageTransition {
 	pub operation: Operation,
 	pub before: PackageState,
 	pub after: PackageState,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub held_reason: Option<HeldReason>,
 }
 
 impl PackageTransition {
@@ -135,6 +163,25 @@ impl PackageTransition {
 			operation,
 			before,
 			after,
+			held_reason: None,
+		}
+	}
+
+	/// Constructs a package transition with a held-back reason.
+	pub fn held(
+		name: String,
+		size: u64,
+		before: PackageState,
+		after: PackageState,
+		reason: HeldReason,
+	) -> PackageTransition {
+		Self {
+			name,
+			size,
+			operation: Operation::Held,
+			before,
+			after,
+			held_reason: Some(reason),
 		}
 	}
 

@@ -87,12 +87,7 @@ impl<'a> App<'a> {
 		let highlight = tui_style::style(self.config, Theme::Primary);
 		let white = tui_style::style(self.config, Theme::Regular);
 
-		// Choose which headers based on the inner items of the SummaryPkg
-		let headers = if self.items[0].items(self.config).len() > 3 {
-			vec!["Package:", "Old Version:", "New Version:", "Size:"]
-		} else {
-			vec!["Package:", "Version:", "Size:"]
-		};
+		let headers = self.items[0].headers();
 		// Get max length of the headers incase they are the longest in the columns
 		let header_max = headers.iter().map(|h| h.len()).max().unwrap_or_default();
 
@@ -398,7 +393,7 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 		let block = header_block(self.config, self.title);
 
 		let mut summary = vec![];
-		for op in Operation::to_vec().iter() {
+		for op in self.tabs.iter() {
 			let Some(set) = self.pkg_set.get(op) else {
 				continue;
 			};

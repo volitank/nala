@@ -93,6 +93,24 @@ impl<'a> SummaryRow<'a> {
 		}
 	}
 
+	pub(crate) fn headers(&self) -> Vec<&'static str> {
+		match (
+			self.display_old_version().is_some(),
+			self.package.held_reason.is_some(),
+		) {
+			(true, true) => vec![
+				"Package:",
+				"Old Version:",
+				"New Version:",
+				"Reason:",
+				"Size:",
+			],
+			(true, false) => vec!["Package:", "Old Version:", "New Version:", "Size:"],
+			(false, true) => vec!["Package:", "Version:", "Reason:", "Size:"],
+			(false, false) => vec!["Package:", "Version:", "Size:"],
+		}
+	}
+
 	pub fn items(&self, config: &Config) -> &Vec<Item> {
 		self.items.get_or_init(|| {
 			let secondary = tui_style::style(config, self.package.operation);
@@ -110,6 +128,9 @@ impl<'a> SummaryRow<'a> {
 					primary,
 					self.display_version().unwrap_or("Unknown").to_string(),
 				));
+			}
+			if let Some(reason) = &self.package.held_reason {
+				items.push(Item::center(primary, reason.summary()));
 			}
 			items.push(Item::right(primary, config.unit_str(self.package.size)));
 			items

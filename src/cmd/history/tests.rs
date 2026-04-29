@@ -45,7 +45,6 @@ fn history_entry_selects_by_recorded_id() {
 			requested_by: "user (1000)".to_string(),
 			command: "install a".to_string(),
 			requested_targets: vec!["a".to_string()],
-			altered: 1,
 			packages: vec![],
 		},
 		HistoryEntry {
@@ -57,7 +56,6 @@ fn history_entry_selects_by_recorded_id() {
 			requested_by: "user (1000)".to_string(),
 			command: "remove b".to_string(),
 			requested_targets: vec!["b".to_string()],
-			altered: 1,
 			packages: vec![],
 		},
 	];
@@ -78,7 +76,6 @@ fn history_entry_selects_last_by_max_recorded_id() {
 			requested_by: "user (1000)".to_string(),
 			command: "install a".to_string(),
 			requested_targets: vec!["a".to_string()],
-			altered: 1,
 			packages: vec![],
 		},
 		HistoryEntry {
@@ -90,7 +87,6 @@ fn history_entry_selects_last_by_max_recorded_id() {
 			requested_by: "user (1000)".to_string(),
 			command: "remove b".to_string(),
 			requested_targets: vec!["b".to_string()],
-			altered: 1,
 			packages: vec![],
 		},
 	];
@@ -122,7 +118,6 @@ fn history_package_set_groups_packages_by_operation() {
 		requested_by: "user (1000)".to_string(),
 		command: "upgrade".to_string(),
 		requested_targets: vec![],
-			altered: 2,
 			packages: vec![
 				PackageTransition::transition(
 					"demo".to_string(),
@@ -338,7 +333,6 @@ fn history_entry_json_roundtrip_preserves_recorded_fields() {
 		requested_by: "user (1000)".to_string(),
 			command: "install demo".to_string(),
 			requested_targets: vec!["demo".to_string()],
-			altered: 1,
 			packages: vec![PackageTransition::transition(
 				"demo".to_string(),
 				1,
@@ -359,8 +353,8 @@ fn history_entry_json_roundtrip_preserves_recorded_fields() {
 	let decoded: HistoryEntry = serde_json::from_str(&json).unwrap();
 	assert_eq!(decoded.id, 17);
 	assert_eq!(decoded.status, HistoryStatus::Applied);
-	assert_eq!(decoded.packages().len(), 1);
-	assert_eq!(decoded.packages()[0].name, "demo");
+	assert_eq!(decoded.packages.len(), 1);
+	assert_eq!(decoded.packages[0].name, "demo");
 }
 
 fn temp_history_dir() -> PathBuf {
@@ -381,7 +375,6 @@ fn sample_entry(id: u32, command: &str) -> HistoryEntry {
 		requested_by: "user (1000)".to_string(),
 		command: command.to_string(),
 		requested_targets: vec![],
-		altered: 0,
 		packages: vec![],
 	}
 }

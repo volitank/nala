@@ -40,12 +40,13 @@ impl HistoryEntry {
 
 		for entry in entries {
 			let date_time = entry.started_at_display();
+			let altered = entry.altered().count();
 			let row: Vec<&dyn std::fmt::Display> = vec![
 				&entry.id,
 				&entry.command,
 				&date_time,
 				&entry.requested_by,
-				&entry.altered,
+				&altered,
 			];
 			table.add_row(row);
 		}
@@ -53,11 +54,11 @@ impl HistoryEntry {
 		table
 	}
 
-	/// Regroups the stored package effects by operation for display.
+	/// Regroups the stored package rows by operation for display.
 	pub(super) fn grouped_packages(&self) -> HashMap<Operation, Vec<&PackageTransition>> {
 		let mut pkg_set: HashMap<Operation, Vec<&PackageTransition>> = HashMap::new();
 
-		for pkg in self.packages() {
+		for pkg in &self.packages {
 			pkg_set.entry(pkg.operation).or_default().push(pkg);
 		}
 
@@ -87,7 +88,7 @@ impl HistoryEntry {
 		println!("Started: {}", self.started_at_display());
 		println!("Finished: {}", self.finished_at_display());
 		println!("Requested Targets: {requested_targets}");
-		println!("Altered: {}", self.altered);
+		println!("Altered: {}", self.altered().count());
 
 		let pkg_set = self.grouped_packages();
 		if pkg_set.is_empty() {
@@ -103,20 +104,10 @@ impl HistoryEntry {
 				.map(|package| SummaryRow::new(package))
 				.collect::<Vec<_>>();
 
-			let headers = if rows[0].items(config).len() > 3 {
-				["Package:", "Old Version:", "New Version:", "Size:"]
-			} else {
-				["Package:", "Version:", "Size:", ""]
-			};
-
 			println!();
 			println!("{} ({})", operation, packages.len());
 
-			let mut table = if rows[0].items(config).len() > 3 {
-				table::get_table(&headers[..4])
-			} else {
-				table::get_table(&headers[..3])
-			};
+			let mut table = table::get_table(&rows[0].headers());
 
 			table.add_rows(rows.iter().map(|row| row.items(config)));
 			println!("{table}");

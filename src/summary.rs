@@ -8,7 +8,7 @@ use rust_apt::{Cache, Package};
 use crate::cmd::{self, apt_hook_with_pkgs, run_scripts, HistoryEntry};
 use crate::config::{color, keys, Config, Paths, Theme};
 use crate::download::Downloader;
-use crate::libnala::{NalaCache, Operation, PackageKey, PackageTransition};
+use crate::libnala::{package_key, NalaCache, Operation, PackageKey, PackageTransition};
 use crate::terminal::{use_tui, TerminalGuard};
 use crate::tui::summary::SummaryRow;
 use crate::{dpkg, error, table, tui, util, warn};
@@ -40,12 +40,23 @@ pub async fn display_summary(
 	Ok(true)
 }
 
+fn print_readonly_summary(
+	cache: &Cache,
+	config: &Config,
+	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
+) {
+	if config.simple_summary() {
+		print_simple_summary(cache, config, pkg_set);
+	} else {
+		print_full_summary(cache, config, pkg_set);
+	}
+}
+
 fn sorted_summary_sets(
 	pkg_set: &HashMap<Operation, Vec<PackageTransition>>,
 ) -> Vec<(Operation, &[PackageTransition])> {
 	Operation::to_vec()
 		.into_iter()
-		.chain([Operation::Held])
 		.filter_map(|op| {
 			pkg_set
 				.get(&op)
@@ -87,7 +98,12 @@ fn print_simple_summary(
 		println!(
 			"  {}",
 			pkgs.iter()
-				.map(|pkg| pkg.name.as_str())
+				.map(|pkg| {
+					pkg.held_reason.as_ref().map_or_else(
+						|| pkg.name.clone(),
+						|reason| format!("{} ({})", pkg.name, reason.summary()),
+					)
+				})
 				.collect::<Vec<_>>()
 				.join(", ")
 		)
@@ -103,11 +119,7 @@ fn print_full_summary(
 	let mut tables = vec![];
 	for (op, pkgs) in sorted_summary_sets(pkg_set) {
 		let rows = pkgs.iter().map(SummaryRow::new).collect::<Vec<_>>();
-		let mut table = table::get_table(if rows[0].items(config).len() > 3 {
-			&["Package:", "Old Version:", "New Version:", "Size:"]
-		} else {
-			&["Package:", "Version:", "Size:"]
-		});
+		let mut table = table::get_table(&rows[0].headers());
 
 		table.add_rows(rows.iter().map(|row| row.items(config)));
 		tables.push((op, table));
@@ -134,14 +146,15 @@ fn print_full_summary(
 	print_size_summary(cache, config);
 }
 
-fn collect_history_packages(
-	pkg_set: HashMap<Operation, Vec<PackageTransition>>,
-) -> Vec<PackageTransition> {
-	pkg_set
-		.into_iter()
-		.filter(|(operation, _)| *operation != Operation::Held)
-		.flat_map(|(_, packages)| packages)
-		.collect()
+fn add_display_rows(
+	pkg_set: &mut HashMap<Operation, Vec<PackageTransition>>,
+	pkgs: &[Package<'_>],
+	display_rows: impl FnOnce(&HashSet<PackageKey>) -> Vec<PackageTransition>,
+) {
+	let changed = pkgs.iter().map(package_key).collect::<HashSet<_>>();
+	for package in display_rows(&changed) {
+		pkg_set.entry(package.operation).or_default().push(package);
+	}
 }
 
 fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
@@ -175,13 +188,14 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 }
 
 pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
-	commit_with_protected(cache, config, &HashSet::new()).await
+	commit_with_display_rows(cache, config, &HashSet::new(), |_| Vec::new()).await
 }
 
-pub async fn commit_with_protected(
+pub(crate) async fn commit_with_display_rows(
 	cache: Cache,
 	config: &Config,
 	protected: &HashSet<PackageKey>,
+	display_rows: impl FnOnce(&HashSet<PackageKey>) -> Vec<PackageTransition>,
 ) -> Result<()> {
 	// Package is not really mutable in the way clippy thinks.
 	#[allow(clippy::mutable_key_type)]
@@ -193,8 +207,18 @@ pub async fn commit_with_protected(
 		HashSet::new()
 	};
 
-	let (pkgs, pkg_set) = cache.sort_changes(auto)?;
+	let (pkgs, mut pkg_set) = cache.sort_changes(auto)?;
+	add_display_rows(&mut pkg_set, &pkgs, display_rows);
 	check_essential(config, &pkgs)?;
+
+	if pkgs.is_empty() {
+		if pkg_set.is_empty() {
+			println!("Nothing to do.");
+		} else {
+			print_readonly_summary(&cache, config, &pkg_set);
+		}
+		return Ok(());
+	}
 
 	if pkg_set.is_empty() {
 		println!("Nothing to do.");
@@ -257,7 +281,7 @@ pub async fn commit_with_protected(
 
 	dpkg::run_install(cache, config)?;
 
-	let history_packages = collect_history_packages(pkg_set);
+	let history_packages = pkg_set.into_values().flatten().collect::<Vec<_>>();
 	if !history_packages.is_empty() {
 		let history_entry = HistoryEntry::applied(
 			config,
@@ -286,25 +310,6 @@ mod tests {
 			PackageState::missing(),
 			PackageState::config_only(Some("1.0".to_string()), Some(false)),
 		)
-	}
-
-	#[test]
-	fn collect_history_packages_skips_non_transaction_rows() {
-		let mut pkg_set = HashMap::new();
-		pkg_set.insert(
-			Operation::Install,
-			vec![transition("demo", Operation::Install)],
-		);
-		pkg_set.insert(
-			Operation::Held,
-			vec![transition("held-demo", Operation::Held)],
-		);
-
-		let packages = collect_history_packages(pkg_set);
-
-		assert_eq!(packages.len(), 1);
-		assert_eq!(packages[0].name, "demo");
-		assert_eq!(packages[0].operation, Operation::Install);
 	}
 
 	#[test]

@@ -27,7 +27,6 @@ pub struct HistoryEntry {
 	pub requested_by: String,
 	pub command: String,
 	pub requested_targets: Vec<String>,
-	pub altered: usize,
 	pub(super) packages: Vec<PackageTransition>,
 }
 
@@ -53,14 +52,16 @@ impl HistoryEntry {
 				.get_vec(crate::config::keys::PKG_NAMES)
 				.cloned()
 				.unwrap_or_default(),
-			altered: packages.len(),
 			packages,
 		}
 	}
 
-	/// Returns the package effects recorded for this transaction.
-	pub fn packages(&self) -> &[PackageTransition] {
-		&self.packages
+	/// Returns the package rows that changed system state.
+	pub fn altered(&self) -> impl Iterator<Item = &PackageTransition> {
+		self
+			.packages
+			.iter()
+			.filter(|package| package.operation.is_replayable())
 	}
 
 	/// Selects a stored history entry by durable transaction ID or the latest

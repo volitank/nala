@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::env;
 use std::ffi::CString;
 use std::io::{BufWriter, Write};
@@ -9,14 +9,12 @@ use std::process::Command;
 use anyhow::{bail, Result};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{close, dup2, execv, fork, pipe, ForkResult};
-use rust_apt::cache::Upgrade;
 use rust_apt::raw::quote_string;
-use rust_apt::{Marked, new_cache, Package, PkgCurrentState, Version};
+use rust_apt::{Marked, Package, PkgCurrentState, Version};
 
-use crate::config::{color, keys, Paths};
-use crate::libnala::{package_key, PackageKey};
-use crate::util::{get_pkg_name, sudo_check};
-use crate::{debug, glob, info, Config};
+use crate::config::{Config, Paths};
+use crate::util::get_pkg_name;
+use crate::debug;
 
 /// The subset of APT pre-install hook actions that Nala currently models.
 enum HookActionKind {
@@ -33,60 +31,6 @@ enum HookActionKind {
 struct HookAction<'a> {
 	package: Package<'a>,
 	kind: HookActionKind,
-}
-
-/// Executes an upgrade transaction after applying the selected APT upgrade
-/// mode to a fresh cache.
-pub async fn upgrade(config: &Config, upgrade_type: Upgrade) -> Result<()> {
-	sudo_check(config)?;
-	let cache = new_cache!()?;
-	let protected = protect_excluded_packages(&cache, config)?;
-
-	debug!("Running Upgrade: {upgrade_type:?}");
-	if let Err(err) = cache.upgrade(upgrade_type) {
-		if !protected.is_empty() {
-			bail!("Selected packages cannot be excluded from upgrade safely.\n{err}");
-		}
-		bail!(err);
-	}
-
-	crate::summary::commit_with_protected(cache, config, &protected).await
-}
-
-fn protect_excluded_packages(
-	cache: &rust_apt::Cache,
-	config: &Config,
-) -> Result<HashSet<PackageKey>> {
-	let Some(excludes) = config.get_vec(keys::EXCLUDE).filter(|items| !items.is_empty()) else {
-		return Ok(HashSet::new());
-	};
-
-	let mut protected = HashSet::new();
-	let packages = glob::pkgs_matching_name_patterns(excludes, cache)?;
-
-	for pkg in packages {
-		let reason = if pkg.is_upgradable() {
-			Some("upgrade")
-		} else if pkg.is_auto_removable() {
-			Some("auto-removal")
-		} else {
-			None
-		};
-
-		let Some(reason) = reason else {
-			continue;
-		};
-
-		info!(
-			"Protecting {} from {reason}",
-			color::primary!(pkg.fullname(true))
-		);
-		cache.resolver().protect(&pkg);
-		pkg.mark_keep();
-		protected.insert(package_key(&pkg));
-	}
-
-	Ok(protected)
 }
 
 /// Runs each configured shell hook under `key` and aborts on the first
@@ -148,7 +92,10 @@ fn get_now_version<'a>(pkg: &Package<'a>) -> Option<Version<'a>> {
 /// Resolves the filename that should be reported to pre-install hooks for an
 /// install-like action.
 fn install_filename(pkg: &Package, archive: &Path) -> Option<String> {
-	let version = pkg.candidate().or_else(|| pkg.installed()).or_else(|| get_now_version(pkg))?;
+	let version = pkg
+		.candidate()
+		.or_else(|| pkg.installed())
+		.or_else(|| get_now_version(pkg))?;
 	let filename_record = version.get_record(rust_apt::records::RecordField::Filename)?;
 
 	if filename_record.starts_with('/') {

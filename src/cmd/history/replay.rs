@@ -24,22 +24,22 @@ pub(super) enum ReplayAction {
 }
 
 impl HistoryEntry {
-	/// Marks the inverse of this entry's package effects into the cache and commits them.
+	/// Marks the inverse of this entry's altered package rows into the cache and commits them.
 	pub async fn undo(&self, config: &mut Config) -> Result<()> {
 		let cache = self.prepare_replay(config)?;
 
-		for package in self.packages() {
+		for package in self.altered() {
 			package.mark_undo(&cache)?;
 		}
 
 		Self::commit_replay(cache, config).await
 	}
 
-	/// Replays this entry's recorded package effects into the cache and commits them.
+	/// Replays this entry's altered package rows into the cache and commits them.
 	pub async fn redo(&self, config: &mut Config) -> Result<()> {
 		let cache = self.prepare_replay(config)?;
 
-		for package in self.packages() {
+		for package in self.altered() {
 			package.mark_redo(&cache)?;
 		}
 
@@ -54,7 +54,7 @@ impl HistoryEntry {
 			);
 		}
 
-		if self.packages().is_empty() {
+		if self.altered().next().is_none() {
 			bail!("History entry '{}' has no package changes to replay", self.id);
 		}
 
