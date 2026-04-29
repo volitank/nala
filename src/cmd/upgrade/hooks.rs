@@ -2,13 +2,13 @@ use std::collections::VecDeque;
 use std::env;
 use std::ffi::CString;
 use std::io::{BufWriter, Write};
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd};
+use std::os::fd::{FromRawFd, IntoRawFd};
 use std::path::Path;
 use std::process::Command;
 
 use anyhow::{bail, Result};
 use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{close, dup2, execv, fork, pipe, ForkResult};
+use nix::unistd::{close, dup2_raw, execv, fork, pipe, ForkResult};
 use rust_apt::raw::quote_string;
 use rust_apt::{Marked, Package, PkgCurrentState, Version};
 
@@ -241,8 +241,9 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 
 		match unsafe { fork()? } {
 			ForkResult::Child => {
-				close(writefd.as_raw_fd())?;
-				dup2(statusfd.as_raw_fd(), info_fd)?;
+				close(writefd.into_raw_fd())?;
+				// Keep the duplicated fd alive until exec so the hook can read APT_HOOK_INFO_FD.
+				let _info_fd = unsafe { dup2_raw(&statusfd, info_fd)? };
 
 				debug!("From Child");
 				env::set_var("APT_HOOK_INFO_FD", info_fd.to_string());

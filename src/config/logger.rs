@@ -161,7 +161,6 @@ impl Logger {
 mod tests {
 	use std::fs::File;
 	use std::io::Read;
-	use std::os::fd::AsRawFd;
 	use std::sync::{LazyLock, Mutex, MutexGuard};
 
 	use nix::fcntl::{fcntl, FcntlArg, OFlag};
@@ -176,7 +175,7 @@ mod tests {
 	fn read_write() -> (File, File) {
 		let (statusfd, writefd) = nix::unistd::pipe().unwrap();
 		// This way it will error if the io is blocked
-		fcntl(statusfd.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK)).unwrap();
+		fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)).unwrap();
 
 		let writer = File::from(writefd);
 		let reader = File::from(statusfd);

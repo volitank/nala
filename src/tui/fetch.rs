@@ -132,7 +132,10 @@ impl<'a> App<'a> {
 
 	fn go_bottom(&mut self) { self.items.state.select(Some(self.items.items.len() - 1)); }
 
-	pub fn run(mut self, terminal: &mut Terminal<impl Backend>) -> Result<Vec<String>> {
+	pub fn run<B: Backend<Error: Send + Sync + 'static>>(
+		mut self,
+		terminal: &mut Terminal<B>,
+	) -> Result<Vec<String>> {
 		loop {
 			self.draw(terminal)?;
 
@@ -166,7 +169,10 @@ impl<'a> App<'a> {
 		}
 	}
 
-	fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+	fn draw<B: Backend<Error: Send + Sync + 'static>>(
+		&mut self,
+		terminal: &mut Terminal<B>,
+	) -> Result<()> {
 		terminal.draw(|f| f.render_widget(self, f.area()))?;
 		Ok(())
 	}

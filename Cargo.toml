@@ -10,33 +10,33 @@ description = "Commandline frontend for the APT package manager"
 [dependencies]
 rust-apt = { git = "https://gitlab.com/volian/rust-apt", features = ["serde"] }
 # rust-apt = { path = "../rust-apt", features = ["serde"] }
-tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
-nix = { version = "0.29", features = ["fs", "process", "term", "ioctl", "signal"] }
-async-compression = { version = "0.4", features = ["tokio", "all-algorithms"] }
-reqwest = { version = "0.12", features = ["json", "blocking"] }
-serde = { version = "1", features = ["derive"] }
-clap = { version = "4", features = ["derive"] }
-ratatui = { version = "0.29", features = ["serde"] }
-comfy-table = { version = "7", features = ["tty", "custom_styling"] }
-mio = { version = "1", features = ["os-ext"] }
-indexmap = { version = "2", features = ["serde"] }
-hcl = { package = "hcl-rs", version = "0.19" }
-anyhow = "1"
-regex = "1"
-globset = "0.4"
-serde_json = "1"
-crossterm = "0.28"
-sha2 = "0.10"
-chrono = "0.4"
-ansi-to-tui = "7"
-tar = "0.4"
-ar = "0.9"
+tokio = { version = "1.52.1", features = ["fs", "macros", "rt-multi-thread"] }
+nix = { version = "0.31.2", features = ["fs", "process", "term", "ioctl", "signal"] }
+async-compression = { version = "0.4.42", features = ["tokio", "all-algorithms"] }
+reqwest = { version = "0.13.3", features = ["json", "blocking"] }
+serde = { version = "1.0.228", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
+ratatui = { version = "0.30.0", features = ["serde"] }
+comfy-table = { version = "7.2.2", features = ["tty", "custom_styling"] }
+mio = { version = "1.2.0", features = ["os-ext"] }
+indexmap = { version = "2.14.0", features = ["serde"] }
+hcl = { package = "hcl-rs", version = "0.19.7" }
+anyhow = "1.0.102"
+regex = "1.12.3"
+globset = "0.4.18"
+serde_json = "1.0.149"
+crossterm = "0.29.0"
+sha2 = "0.11.0"
+chrono = "0.4.44"
+ansi-to-tui = "8.0.1"
+tar = "0.4.45"
+ar = "0.9.0"
 
 [build-dependencies]
-clap = { version = "4", features = ["derive"] }
-clap-markdown = "0.1"
-clap_complete = { version = "4", features = ["unstable-dynamic"] }
-clap_mangen = "0.2"
+clap = { version = "4.6.1", features = ["derive"] }
+clap-markdown = "0.1.5"
+clap_complete = { version = "4.6.3", features = ["unstable-dynamic"] }
+clap_mangen = "0.3.0"
 
 [profile.lto]
 # A profile with various additional optimizations

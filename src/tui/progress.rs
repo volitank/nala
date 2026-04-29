@@ -302,7 +302,8 @@ fn render_progress_widget(
 	let [bar_slot, _, _] = split_columns(bar_area);
 
 	let bar = LineGauge::default()
-		.line_set(symbols::line::THICK)
+		.filled_symbol(symbols::line::THICK.horizontal)
+		.unfilled_symbol(symbols::line::THICK.horizontal)
 		.ratio(state.ratio())
 		.label(progress_line(&ProgressMessage::empty("Progress:"), config))
 		.filled_style(super::style::style(config, Theme::ProgressFilled))

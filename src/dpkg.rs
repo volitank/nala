@@ -82,13 +82,13 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	debug!("run_install");
 
 	let (statusfd, writefd) = pipe()?;
-	fcntl(statusfd.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
+	fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
 
 	debug!("forking");
 	let window_size = unsafe { get_winsize()? };
 	match unsafe { forkpty(&window_size, None)? } {
 		nix::pty::ForkptyResult::Child => {
-			close(statusfd.as_raw_fd())?;
+			drop(statusfd);
 
 			let mut progress = AcquireProgress::apt();
 
