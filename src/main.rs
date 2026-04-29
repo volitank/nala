@@ -4,8 +4,6 @@ use anyhow::{bail, Result};
 use clap::{ArgMatches, CommandFactory};
 use cli::Commands;
 use cmd::Operation;
-use config::logger::LogOptions;
-use config::Level;
 use rust_apt::cache::Upgrade;
 use rust_apt::error::AptErrors;
 use rust_apt::new_cache;
@@ -78,27 +76,15 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 		return Ok(());
 	}
 
-	let options = LogOptions::new(Level::Info, Box::new(std::io::stderr()));
-	let logger = crate::config::setup_logger(options);
-
 	if let (Some((name, cmd)), Some(command)) = (args.subcommand(), derived.command) {
-		config.command = name.to_string();
-		config.load_args(cmd)?;
-
-		{
-			let mut logger_guard = logger.lock().unwrap();
-			for (enabled, level) in [
-				(config.verbose(), crate::config::Level::Verbose),
-				(config.debug(), crate::config::Level::Debug),
-			] {
-				if enabled {
-					logger_guard.set_level(level);
-				}
-			}
-		}
+		config.load_command(name, cmd)?;
 
 		if config.debug() {
 			debug!("{config:?}");
+		}
+
+		if config.update_early(&command) {
+			update(config).await?;
 		}
 
 		match command {

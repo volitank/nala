@@ -9,7 +9,8 @@ use rust_apt::config::Config as AptConfig;
 use super::color::setup_color;
 use super::file::{ConfigFile, UiMode};
 use super::paths::PathSpec;
-use super::{keys, OptType, Paths, Switch};
+use super::{keys, logger, Level, OptType, Paths, Switch};
+use crate::cli::Commands;
 use crate::config::color::{Style, Theme};
 use crate::util::UnitStr;
 
@@ -43,6 +44,13 @@ impl Config {
 	pub fn file(&self) -> &ConfigFile { &self.file }
 
 	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style { self.file.color.style(theme) }
+
+	pub fn load_command(&mut self, name: &str, args: &ArgMatches) -> Result<()> {
+		self.command = name.to_string();
+		self.load_args(args)?;
+		self.apply_log_level();
+		Ok(())
+	}
 
 	pub fn load_args(&mut self, args: &ArgMatches) -> Result<()> {
 		for alias in [
@@ -114,6 +122,19 @@ impl Config {
 		}
 
 		Ok(())
+	}
+
+	fn apply_log_level(&self) {
+		let mut logger_guard = logger::get_logger().lock().unwrap();
+		logger_guard.set_level(Level::Info);
+		for (enabled, level) in [
+			(self.verbose(), Level::Verbose),
+			(self.debug(), Level::Debug),
+		] {
+			if enabled {
+				logger_guard.set_level(level);
+			}
+		}
 	}
 
 	pub fn get_bool(&self, key: &str, default: bool) -> bool {
@@ -226,6 +247,24 @@ impl Config {
 			|| self.apt.bool("APT::Get::AllowUnauthenticated", false)
 	}
 
+	pub fn update_early(&self, command: &Commands) -> bool {
+		if self.get_bool(keys::NO_UPDATE, false) {
+			return false;
+		}
+
+		if self.get_bool(keys::UPDATE, false) {
+			return matches!(
+				command,
+				Commands::Upgrade(_)
+					| Commands::Install(_)
+					| Commands::Remove(_)
+					| Commands::AutoRemove(_)
+			);
+		}
+
+		matches!(command, Commands::Upgrade(_)) && self.get_bool(keys::AUTO_UPDATE, true)
+	}
+
 	pub fn debug(&self) -> bool { self.get_bool(keys::DEBUG, false) }
 
 	pub fn verbose(&self) -> bool { self.get_bool(keys::VERBOSE, self.debug()) }
@@ -238,7 +277,8 @@ mod test {
 	use clap::CommandFactory;
 
 	use super::Config;
-	use crate::cli::NalaParser;
+	use crate::cli::parser::{Install, Upgrade as UpgradeCommand};
+	use crate::cli::{Commands, NalaParser};
 	use crate::config::file::{ConfigFile, UiMode};
 	use crate::config::{keys, OptType, Paths, Switch};
 	use crate::util::NumSys;
@@ -391,6 +431,89 @@ mod test {
 
 		assert!(config.get_bool(keys::REMOVE_ESSENTIAL, false));
 		assert!(!config.get_no_bool(keys::AUTO_REMOVE, true));
+	}
+
+	#[test]
+	fn update_flags_load_from_cli() {
+		let _guard = test_lock();
+		let update_args = NalaParser::command()
+			.try_get_matches_from(["nala", "install", "--update", "demo"])
+			.unwrap();
+		let (_, cmd) = update_args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert!(config.get_bool(keys::UPDATE, false));
+
+		let no_update_args = NalaParser::command()
+			.try_get_matches_from(["nala", "upgrade", "--no-update"])
+			.unwrap();
+		let (_, cmd) = no_update_args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert!(config.get_bool(keys::NO_UPDATE, false));
+	}
+
+	#[test]
+	fn load_command_sets_update_flag_and_command_name() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from(["nala", "install", "--update", "demo"])
+			.unwrap();
+		let (name, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_command(name, cmd).unwrap();
+
+		assert_eq!(config.command, "install");
+		assert!(config.get_bool(keys::UPDATE, false));
+	}
+
+	#[test]
+	fn update_early_uses_auto_update_for_upgrade_by_default() {
+		let _guard = test_lock();
+		let config = Config::default();
+		let command = Commands::Upgrade(UpgradeCommand {
+			print_uris: false,
+			full: false,
+			no_full: false,
+			safe: false,
+		});
+
+		assert!(config.update_early(&command));
+	}
+
+	#[test]
+	fn update_early_respects_no_update() {
+		let _guard = test_lock();
+		let mut config = Config::default();
+		config.set_bool(keys::NO_UPDATE, true);
+		let command = Commands::Upgrade(UpgradeCommand {
+			print_uris: false,
+			full: false,
+			no_full: false,
+			safe: false,
+		});
+
+		assert!(!config.update_early(&command));
+	}
+
+	#[test]
+	fn update_early_runs_for_install_only_when_requested() {
+		let _guard = test_lock();
+		let mut config = Config::default();
+		let command = Commands::Install(Install {
+			pkg_names: vec!["demo".to_string()],
+			reinstall: false,
+		});
+
+		assert!(!config.update_early(&command));
+
+		config.set_bool(keys::UPDATE, true);
+		assert!(config.update_early(&command));
 	}
 
 	#[test]

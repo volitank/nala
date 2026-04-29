@@ -40,6 +40,14 @@ pub struct NalaParser {
 	#[clap(global = true, long, action)]
 	pub download_only: bool,
 
+	/// Update package lists before running the command.
+	#[clap(global = true, long, action, conflicts_with = "no_update")]
+	pub update: bool,
+
+	/// Do NOT update package lists before running the command.
+	#[clap(global = true, long, action, conflicts_with = "update")]
+	pub no_update: bool,
+
 	/// Passthrough Apt configurations
 	#[clap(global = true, short = 'o', long, action)]
 	pub option: Vec<String>,
@@ -489,8 +497,8 @@ mod tests {
 		assert!(parsed.remove_essential);
 		assert!(parsed.no_auto_remove);
 
-		let alias = NalaParser::try_parse_from(["nala", "install", "--autoremove", "demo"])
-			.unwrap();
+		let alias =
+			NalaParser::try_parse_from(["nala", "install", "--autoremove", "demo"]).unwrap();
 		assert!(alias.auto_remove);
 
 		assert!(NalaParser::try_parse_from([
@@ -501,5 +509,20 @@ mod tests {
 			"demo",
 		])
 		.is_err());
+	}
+
+	#[test]
+	fn update_flags_parse() {
+		let update = NalaParser::try_parse_from(["nala", "install", "--update", "demo"]).unwrap();
+		assert!(update.update);
+		assert!(!update.no_update);
+
+		let no_update = NalaParser::try_parse_from(["nala", "upgrade", "--no-update"]).unwrap();
+		assert!(no_update.no_update);
+		assert!(!no_update.update);
+
+		assert!(
+			NalaParser::try_parse_from(["nala", "upgrade", "--update", "--no-update",]).is_err()
+		);
 	}
 }

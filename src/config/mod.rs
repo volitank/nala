@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::{ArgMatches, CommandFactory, FromArgMatches};
 pub use color::Theme;
 pub use configuration::Config;
-pub use logger::{setup_logger, Level};
+pub use logger::Level;
 pub use paths::Paths;
 use serde::{Deserialize, Serialize};
 
