@@ -102,7 +102,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 							missing = selection_missing;
 							packages
 						},
-						Err(_) => cache.packages(&glob::get_sorter(config)).collect(),
+						Err(_) => glob::sorted_pkgs(config, &cache),
 					}
 				};
 

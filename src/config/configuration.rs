@@ -485,6 +485,21 @@ mod test {
 	}
 
 	#[test]
+	fn list_filter_flags_load_from_cli() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from(["nala", "list", "--all-arches", "--virtual"])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert!(config.get_bool(keys::ALL_ARCHES, false));
+		assert!(config.get_bool(keys::VIRTUAL, false));
+	}
+
+	#[test]
 	fn simple_summary_flags_load_from_cli() {
 		let _guard = test_lock();
 		let simple_args = NalaParser::command()

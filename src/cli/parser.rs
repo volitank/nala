@@ -178,6 +178,10 @@ pub struct List {
 	#[clap(short, long, action)]
 	pub all_versions: bool,
 
+	/// Show packages for all configured architectures
+	#[clap(short = 'A', long, action)]
+	pub all_arches: bool,
+
 	/// Only include packages that are installed
 	#[clap(short, long, action)]
 	pub installed: bool,
@@ -551,6 +555,36 @@ mod tests {
 		};
 
 		assert_eq!(args.exclude, vec!["foo", "linux-*"]);
+	}
+
+	#[test]
+	fn all_arches_flags_parse() {
+		let parsed = NalaParser::try_parse_from(["nala", "list", "--all-arches"]).unwrap();
+		let Some(Commands::List(args)) = parsed.command else {
+			panic!("expected list command");
+		};
+		assert!(args.all_arches);
+
+		let parsed = NalaParser::try_parse_from(["nala", "search", "-A", "demo"]).unwrap();
+		let Some(Commands::Search(args)) = parsed.command else {
+			panic!("expected search command");
+		};
+		assert!(args.list_args.all_arches);
+	}
+
+	#[test]
+	fn virtual_flags_parse() {
+		let parsed = NalaParser::try_parse_from(["nala", "list", "--virtual"]).unwrap();
+		let Some(Commands::List(args)) = parsed.command else {
+			panic!("expected list command");
+		};
+		assert!(args.r#virtual);
+
+		let parsed = NalaParser::try_parse_from(["nala", "search", "-V", "demo"]).unwrap();
+		let Some(Commands::Search(args)) = parsed.command else {
+			panic!("expected search command");
+		};
+		assert!(args.list_args.r#virtual);
 	}
 
 	#[test]

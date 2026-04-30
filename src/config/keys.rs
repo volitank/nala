@@ -29,3 +29,4 @@ pub const TUI: &str = "tui";
 pub const UPDATE: &str = "update";
 pub const UPDATE_SHOW_PACKAGES: &str = "update_show_packages";
 pub const VERBOSE: &str = "verbose";
+pub const VIRTUAL: &str = "virtual";

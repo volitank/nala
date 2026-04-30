@@ -8,7 +8,7 @@ use rust_apt::raw::IntoRawIter;
 use rust_apt::{Cache, Package, PackageSort, Version};
 
 use crate::cmd::Operation;
-use crate::config::{color, Config, Theme};
+use crate::config::{color, keys, Config, Theme};
 use crate::libnala::PackageExt;
 use crate::{debug, error, info};
 
@@ -238,6 +238,22 @@ fn find_matching_pkgs<'a>(
 		.collect::<Vec<_>>()
 }
 
+fn resolve_virtual_for_selection<'a>(pkg: Package<'a>, config: &Config) -> Result<Package<'a>> {
+	if config.get_bool(keys::VIRTUAL, false) {
+		Ok(pkg)
+	} else {
+		pkg.filter_virtual()
+	}
+}
+
+pub fn sorted_pkgs<'a>(config: &Config, cache: &'a Cache) -> Vec<Package<'a>> {
+	let arches = config.arches();
+	cache
+		.packages(&get_sorter(config))
+		.filter(|pkg| arch_matches(pkg.arch(), &arches))
+		.collect()
+}
+
 pub fn pkgs_matching_name_patterns<'a>(
 	patterns: &[String],
 	cache: &'a Cache,
@@ -270,7 +286,11 @@ pub fn pkgs_matching_name_patterns<'a>(
 }
 
 pub fn get_sorter(config: &Config) -> PackageSort {
-	let mut sort = PackageSort::default().include_virtual();
+	let mut sort = if config.get_bool(keys::VIRTUAL, false) {
+		PackageSort::default().only_virtual()
+	} else {
+		PackageSort::default().include_virtual()
+	};
 
 	if config.get_bool("installed", false) {
 		sort = sort.installed();
@@ -302,7 +322,7 @@ pub fn pkgs_with_modifiers<'a>(
 			}
 
 			for pkg in pkgs {
-				let pkg = pkg.filter_virtual()?;
+				let pkg = resolve_virtual_for_selection(pkg, config)?;
 				let Some(ver) = pkg.get_version(&version) else {
 					bail!("Unable to find version '{}' for '{}'", version, pkg.name());
 				};
@@ -315,7 +335,7 @@ pub fn pkgs_with_modifiers<'a>(
 		let raw_matches = find_matching_pkgs(cache, config, &raw_matcher, &arches);
 		if !raw_matches.is_empty() {
 			for pkg in raw_matches {
-				let pkg = pkg.filter_virtual()?;
+				let pkg = resolve_virtual_for_selection(pkg, config)?;
 				selection.add(pkg, None, None);
 			}
 			continue;
@@ -341,7 +361,7 @@ pub fn pkgs_with_modifiers<'a>(
 		}
 
 		for pkg in fallback_matches {
-			let pkg = pkg.filter_virtual()?;
+			let pkg = resolve_virtual_for_selection(pkg, config)?;
 			selection.add(pkg, None, Some(modifier));
 		}
 	}
@@ -357,14 +377,13 @@ pub fn regex_pkgs<'a>(config: &Config, cache: &'a Cache) -> Result<Vec<Package<'
 		.collect::<Result<Vec<Regex>, _>>()?;
 
 	let names_only = config.get_bool("names_only", false);
-	let arches = config.apt.get_architectures();
-	let primary_arch = arches.first().map(String::as_str).unwrap_or("all");
+	let arches = config.arches();
 
 	let mut seen = BTreeSet::<(String, String)>::new();
 	let mut matches = Vec::new();
 
 	for pkg in cache.packages(&get_sorter(config)) {
-		if pkg.arch() != "all" && pkg.arch() != primary_arch {
+		if !arch_matches(pkg.arch(), &arches) {
 			continue;
 		}
 
@@ -432,5 +451,14 @@ mod tests {
 		let (fallback, modifier) = parse_trailing_modifier("foo+");
 		assert_eq!(fallback, "foo");
 		assert_eq!(modifier, Some(Operation::Install));
+	}
+
+	#[test]
+	fn arch_filter_includes_all_and_selected_arches() {
+		let arches = vec!["amd64".to_string()];
+
+		assert!(arch_matches("all", &arches));
+		assert!(arch_matches("amd64", &arches));
+		assert!(!arch_matches("i386", &arches));
 	}
 }
