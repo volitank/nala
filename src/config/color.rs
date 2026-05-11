@@ -2,6 +2,9 @@ use core::fmt;
 use std::sync::{LazyLock, RwLock};
 
 use crossterm::tty::IsTty;
+use ratatui::style::{Color as RatColor, Modifier as RatMod, Style as RatStyle};
+use ratatui::text::{Line, Span, Text};
+use regex::Regex;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -9,7 +12,9 @@ use super::Switch;
 
 static COLOR: LazyLock<RwLock<Color>> = LazyLock::new(|| RwLock::new(Color::default()));
 
-pub fn setup_color(color: Color) { *COLOR.write().unwrap() = color; }
+pub fn setup_color(color: Color) {
+	*COLOR.write().unwrap() = color;
+}
 
 /// Convenience function for non-macro callers/tests.
 pub fn color_str<T: AsRef<Theme>, D: AsRef<str>>(theme: T, string: D) -> String {
@@ -296,18 +301,30 @@ impl Modifiers {
 	pub const SLOW_BLINK: Self = Self(1 << 4);
 	pub const UNDERLINED: Self = Self(1 << 3);
 
-	pub const fn empty() -> Self { Self(0) }
+	pub const fn empty() -> Self {
+		Self(0)
+	}
 
-	pub const fn bold() -> Self { Self::BOLD }
+	pub const fn bold() -> Self {
+		Self::BOLD
+	}
 
-	pub fn contains(self, other: Self) -> bool { self.0 & other.0 == other.0 }
+	pub fn contains(self, other: Self) -> bool {
+		self.0 & other.0 == other.0
+	}
 
-	pub fn is_empty(self) -> bool { self.0 == 0 }
+	pub fn is_empty(self) -> bool {
+		self.0 == 0
+	}
 
-	fn insert(&mut self, other: Self) { self.0 |= other.0 }
+	fn insert(&mut self, other: Self) {
+		self.0 |= other.0
+	}
 }
 
-fn bold() -> Modifiers { Modifiers::bold() }
+fn bold() -> Modifiers {
+	Modifiers::bold()
+}
 
 fn normalize_modifier(name: &str) -> String {
 	name.chars()
@@ -398,6 +415,98 @@ impl<'de> Deserialize<'de> for Modifiers {
 	}
 }
 
+pub fn ansi_to_text(msg: &str) -> Text<'static> {
+	let lines: Vec<Line> = msg
+		.lines()
+		.map(|msg| {
+			let re = Regex::new(r"\x1b\[([0-9;]*)m").unwrap();
+			let mut line = Line::default();
+			let mut style = RatStyle::default();
+			let mut pos = 0;
+
+			for cap in re.captures_iter(msg) {
+				let m = cap.get(0).unwrap();
+				if m.start() > pos {
+					line.push_span(Span::from(msg[pos..m.start()].to_string()).style(style));
+				}
+				style = ansi_to_style(style, cap.get(1).unwrap().as_str());
+				pos = m.end();
+			}
+
+			if pos < msg.len() {
+				line.push_span(Span::from(msg[pos..].to_string()).style(style));
+			}
+
+			line
+		})
+		.collect();
+	Text::from(lines)
+}
+
+pub fn ansi_to_style(mut style: RatStyle, params: &str) -> RatStyle {
+	let parts: Vec<&str> = params.split(';').collect();
+	let mut i = 0;
+	while i < parts.len() {
+		match parts[i] {
+			"" | "0" => style = RatStyle::default(),
+			"1" => style = style.add_modifier(RatMod::BOLD),
+			"2" => style = style.add_modifier(RatMod::DIM),
+			"3" => style = style.add_modifier(RatMod::ITALIC),
+			"4" => style = style.add_modifier(RatMod::UNDERLINED),
+			"7" => style = style.add_modifier(RatMod::REVERSED),
+			"9" => style = style.add_modifier(RatMod::CROSSED_OUT),
+			"22" => style = style.remove_modifier(RatMod::BOLD | RatMod::DIM),
+			"38" | "48" => {
+				let set = |s: RatStyle, c: RatColor| {
+					if parts[i] == "38" {
+						s.fg(c)
+					} else {
+						s.bg(c)
+					}
+				};
+				if i + 1 < parts.len() {
+					match parts[i + 1] {
+						"5" if i + 2 < parts.len() => {
+							if let Ok(n) = parts[i + 2].parse() {
+								style = set(style, RatColor::Indexed(n));
+							}
+							i += 2;
+						},
+						"2" if i + 4 < parts.len() => {
+							let (r, g, b) = (
+								parts[i + 2].parse().ok(),
+								parts[i + 3].parse().ok(),
+								parts[i + 4].parse().ok(),
+							);
+							if let (Some(r), Some(g), Some(b)) = (r, g, b) {
+								style = set(style, RatColor::Rgb(r, g, b));
+							}
+							i += 4;
+						},
+						_ => {},
+					}
+				}
+			},
+			"39" => style = style.fg(RatColor::Reset),
+			"49" => style = style.bg(RatColor::Reset),
+			n if n.len() == 2 || n.len() == 3 => {
+				if let Ok(n) = n.parse::<u8>() {
+					match n {
+						30..=37 => style = style.fg(RatColor::Indexed(n - 30)),
+						40..=47 => style = style.bg(RatColor::Indexed(n - 40)),
+						90..=97 => style = style.fg(RatColor::Indexed(n - 82)),
+						100..=107 => style = style.bg(RatColor::Indexed(n - 92)),
+						_ => {},
+					}
+				}
+			},
+			_ => {},
+		}
+		i += 1;
+	}
+	style
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Style {
 	pub fg: ColorCode,
@@ -411,11 +520,17 @@ impl Style {
 		Self { fg, bg, modifier }
 	}
 
-	pub fn default() -> Self { Self::no_bold(ColorCode::White) }
+	pub fn default() -> Self {
+		Self::no_bold(ColorCode::White)
+	}
 
-	pub fn bold(color: ColorCode) -> Self { Self::new(Modifiers::BOLD, color, None) }
+	pub fn bold(color: ColorCode) -> Self {
+		Self::new(Modifiers::BOLD, color, None)
+	}
 
-	pub fn no_bold(color: ColorCode) -> Self { Self::new(Modifiers::empty(), color, None) }
+	pub fn no_bold(color: ColorCode) -> Self {
+		Self::new(Modifiers::empty(), color, None)
+	}
 
 	pub fn ansi_prefix(&self) -> String {
 		let mut parts = vec![self.mod_string(), fg_ansi_code(self.fg)];
@@ -451,11 +566,15 @@ impl Style {
 }
 
 impl Default for Style {
-	fn default() -> Self { Self::no_bold(ColorCode::White) }
+	fn default() -> Self {
+		Self::no_bold(ColorCode::White)
+	}
 }
 
 impl fmt::Display for Style {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.ansi_prefix()) }
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.ansi_prefix())
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
@@ -472,7 +591,9 @@ pub enum Theme {
 }
 
 impl AsRef<Theme> for Theme {
-	fn as_ref(&self) -> &Theme { self }
+	fn as_ref(&self) -> &Theme {
+		self
+	}
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -499,23 +620,41 @@ pub struct ThemePalette {
 }
 
 impl ThemePalette {
-	fn default_primary() -> Style { Style::bold(ColorCode::LightGreen) }
+	fn default_primary() -> Style {
+		Style::bold(ColorCode::LightGreen)
+	}
 
-	fn default_secondary() -> Style { Style::bold(ColorCode::LightBlue) }
+	fn default_secondary() -> Style {
+		Style::bold(ColorCode::LightBlue)
+	}
 
-	fn default_highlight() -> Style { Style::bold(ColorCode::White) }
+	fn default_highlight() -> Style {
+		Style::bold(ColorCode::White)
+	}
 
-	fn default_regular() -> Style { Style::no_bold(ColorCode::White) }
+	fn default_regular() -> Style {
+		Style::no_bold(ColorCode::White)
+	}
 
-	fn default_progress_filled() -> Style { Style::bold(ColorCode::LightGreen) }
+	fn default_progress_filled() -> Style {
+		Style::bold(ColorCode::LightGreen)
+	}
 
-	fn default_progress_unfilled() -> Style { Style::bold(ColorCode::LightRed) }
+	fn default_progress_unfilled() -> Style {
+		Style::bold(ColorCode::LightRed)
+	}
 
-	fn default_notice() -> Style { Style::bold(ColorCode::LightYellow) }
+	fn default_notice() -> Style {
+		Style::bold(ColorCode::LightYellow)
+	}
 
-	fn default_warning() -> Style { Style::bold(ColorCode::LightYellow) }
+	fn default_warning() -> Style {
+		Style::bold(ColorCode::LightYellow)
+	}
 
-	fn default_error() -> Style { Style::bold(ColorCode::LightRed) }
+	fn default_error() -> Style {
+		Style::bold(ColorCode::LightRed)
+	}
 
 	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style {
 		match theme.as_ref() {
@@ -556,11 +695,17 @@ pub struct ColorConfig {
 }
 
 impl ColorConfig {
-	pub fn to_color(&self) -> Color { Color::new(self.mode, self.theme.clone()) }
+	pub fn to_color(&self) -> Color {
+		Color::new(self.mode, self.theme.clone())
+	}
 
-	pub fn with_mode(&self, mode: Switch) -> Color { Color::new(mode, self.theme.clone()) }
+	pub fn with_mode(&self, mode: Switch) -> Color {
+		Color::new(mode, self.theme.clone())
+	}
 
-	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style { self.theme.style(theme) }
+	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style {
+		self.theme.style(theme)
+	}
 }
 
 pub struct Color {
@@ -569,9 +714,13 @@ pub struct Color {
 }
 
 impl Color {
-	pub fn new(switch: Switch, theme: ThemePalette) -> Color { Color { switch, theme } }
+	pub fn new(switch: Switch, theme: ThemePalette) -> Color {
+		Color { switch, theme }
+	}
 
-	pub fn theme(&self) -> &ThemePalette { &self.theme }
+	pub fn theme(&self) -> &ThemePalette {
+		&self.theme
+	}
 
 	pub fn can_color(&self, target: Target) -> bool {
 		match self.switch {
@@ -604,7 +753,9 @@ impl Color {
 }
 
 impl Default for Color {
-	fn default() -> Self { Self::new(Switch::Auto, ThemePalette::default()) }
+	fn default() -> Self {
+		Self::new(Switch::Auto, ThemePalette::default())
+	}
 }
 
 #[derive(Clone, Copy)]

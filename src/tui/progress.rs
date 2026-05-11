@@ -12,6 +12,7 @@ use regex::Regex;
 use rust_apt::util::time_str;
 
 use super::{borderless_area, frame_block};
+use crate::config::color::ansi_to_text;
 use crate::config::{Config, Theme};
 use crate::progress::{DisplayGroup, ProgressMessage, ProgressPanel, ProgressState};
 use crate::terminal::Term;
@@ -74,7 +75,7 @@ impl<'a> TuiProgressRenderer<'a> {
 
 		self.terminal.clear()?;
 		self.terminal.insert_before(lines, |buf| {
-			Paragraph::new(msg)
+			Paragraph::new(ansi_to_text(msg))
 				.left_aligned()
 				.wrap(Wrap::default())
 				.style(super::style::style(self.config, Theme::Regular))
