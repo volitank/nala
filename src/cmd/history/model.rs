@@ -58,8 +58,7 @@ impl HistoryEntry {
 
 	/// Returns the package rows that changed system state.
 	pub fn altered(&self) -> impl Iterator<Item = &PackageTransition> {
-		self
-			.packages
+		self.packages
 			.iter()
 			.filter(|package| package.operation.is_replayable())
 	}

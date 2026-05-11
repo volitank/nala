@@ -12,9 +12,7 @@ use super::Switch;
 
 static COLOR: LazyLock<RwLock<Color>> = LazyLock::new(|| RwLock::new(Color::default()));
 
-pub fn setup_color(color: Color) {
-	*COLOR.write().unwrap() = color;
-}
+pub fn setup_color(color: Color) { *COLOR.write().unwrap() = color; }
 
 /// Convenience function for non-macro callers/tests.
 pub fn color_str<T: AsRef<Theme>, D: AsRef<str>>(theme: T, string: D) -> String {
@@ -301,30 +299,18 @@ impl Modifiers {
 	pub const SLOW_BLINK: Self = Self(1 << 4);
 	pub const UNDERLINED: Self = Self(1 << 3);
 
-	pub const fn empty() -> Self {
-		Self(0)
-	}
+	pub const fn empty() -> Self { Self(0) }
 
-	pub const fn bold() -> Self {
-		Self::BOLD
-	}
+	pub const fn bold() -> Self { Self::BOLD }
 
-	pub fn contains(self, other: Self) -> bool {
-		self.0 & other.0 == other.0
-	}
+	pub fn contains(self, other: Self) -> bool { self.0 & other.0 == other.0 }
 
-	pub fn is_empty(self) -> bool {
-		self.0 == 0
-	}
+	pub fn is_empty(self) -> bool { self.0 == 0 }
 
-	fn insert(&mut self, other: Self) {
-		self.0 |= other.0
-	}
+	fn insert(&mut self, other: Self) { self.0 |= other.0 }
 }
 
-fn bold() -> Modifiers {
-	Modifiers::bold()
-}
+fn bold() -> Modifiers { Modifiers::bold() }
 
 fn normalize_modifier(name: &str) -> String {
 	name.chars()
@@ -520,17 +506,11 @@ impl Style {
 		Self { fg, bg, modifier }
 	}
 
-	pub fn default() -> Self {
-		Self::no_bold(ColorCode::White)
-	}
+	pub fn default() -> Self { Self::no_bold(ColorCode::White) }
 
-	pub fn bold(color: ColorCode) -> Self {
-		Self::new(Modifiers::BOLD, color, None)
-	}
+	pub fn bold(color: ColorCode) -> Self { Self::new(Modifiers::BOLD, color, None) }
 
-	pub fn no_bold(color: ColorCode) -> Self {
-		Self::new(Modifiers::empty(), color, None)
-	}
+	pub fn no_bold(color: ColorCode) -> Self { Self::new(Modifiers::empty(), color, None) }
 
 	pub fn ansi_prefix(&self) -> String {
 		let mut parts = vec![self.mod_string(), fg_ansi_code(self.fg)];
@@ -566,15 +546,11 @@ impl Style {
 }
 
 impl Default for Style {
-	fn default() -> Self {
-		Self::no_bold(ColorCode::White)
-	}
+	fn default() -> Self { Self::no_bold(ColorCode::White) }
 }
 
 impl fmt::Display for Style {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.ansi_prefix())
-	}
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.ansi_prefix()) }
 }
 
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
@@ -591,9 +567,7 @@ pub enum Theme {
 }
 
 impl AsRef<Theme> for Theme {
-	fn as_ref(&self) -> &Theme {
-		self
-	}
+	fn as_ref(&self) -> &Theme { self }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -620,41 +594,23 @@ pub struct ThemePalette {
 }
 
 impl ThemePalette {
-	fn default_primary() -> Style {
-		Style::bold(ColorCode::LightGreen)
-	}
+	fn default_primary() -> Style { Style::bold(ColorCode::LightGreen) }
 
-	fn default_secondary() -> Style {
-		Style::bold(ColorCode::LightBlue)
-	}
+	fn default_secondary() -> Style { Style::bold(ColorCode::LightBlue) }
 
-	fn default_highlight() -> Style {
-		Style::bold(ColorCode::White)
-	}
+	fn default_highlight() -> Style { Style::bold(ColorCode::White) }
 
-	fn default_regular() -> Style {
-		Style::no_bold(ColorCode::White)
-	}
+	fn default_regular() -> Style { Style::no_bold(ColorCode::White) }
 
-	fn default_progress_filled() -> Style {
-		Style::bold(ColorCode::LightGreen)
-	}
+	fn default_progress_filled() -> Style { Style::bold(ColorCode::LightGreen) }
 
-	fn default_progress_unfilled() -> Style {
-		Style::bold(ColorCode::LightRed)
-	}
+	fn default_progress_unfilled() -> Style { Style::bold(ColorCode::LightRed) }
 
-	fn default_notice() -> Style {
-		Style::bold(ColorCode::LightYellow)
-	}
+	fn default_notice() -> Style { Style::bold(ColorCode::LightYellow) }
 
-	fn default_warning() -> Style {
-		Style::bold(ColorCode::LightYellow)
-	}
+	fn default_warning() -> Style { Style::bold(ColorCode::LightYellow) }
 
-	fn default_error() -> Style {
-		Style::bold(ColorCode::LightRed)
-	}
+	fn default_error() -> Style { Style::bold(ColorCode::LightRed) }
 
 	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style {
 		match theme.as_ref() {
@@ -695,17 +651,11 @@ pub struct ColorConfig {
 }
 
 impl ColorConfig {
-	pub fn to_color(&self) -> Color {
-		Color::new(self.mode, self.theme.clone())
-	}
+	pub fn to_color(&self) -> Color { Color::new(self.mode, self.theme.clone()) }
 
-	pub fn with_mode(&self, mode: Switch) -> Color {
-		Color::new(mode, self.theme.clone())
-	}
+	pub fn with_mode(&self, mode: Switch) -> Color { Color::new(mode, self.theme.clone()) }
 
-	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style {
-		self.theme.style(theme)
-	}
+	pub fn style<T: AsRef<Theme>>(&self, theme: T) -> &Style { self.theme.style(theme) }
 }
 
 pub struct Color {
@@ -714,13 +664,9 @@ pub struct Color {
 }
 
 impl Color {
-	pub fn new(switch: Switch, theme: ThemePalette) -> Color {
-		Color { switch, theme }
-	}
+	pub fn new(switch: Switch, theme: ThemePalette) -> Color { Color { switch, theme } }
 
-	pub fn theme(&self) -> &ThemePalette {
-		&self.theme
-	}
+	pub fn theme(&self) -> &ThemePalette { &self.theme }
 
 	pub fn can_color(&self, target: Target) -> bool {
 		match self.switch {
@@ -753,9 +699,7 @@ impl Color {
 }
 
 impl Default for Color {
-	fn default() -> Self {
-		Self::new(Switch::Auto, ThemePalette::default())
-	}
+	fn default() -> Self { Self::new(Switch::Auto, ThemePalette::default()) }
 }
 
 #[derive(Clone, Copy)]

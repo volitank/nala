@@ -1,6 +1,6 @@
+use super::model::{HistoryStatus, HISTORY_SCHEMA_VERSION};
 use super::replay::ReplayAction;
 use super::*;
-use super::model::{HistoryStatus, HISTORY_SCHEMA_VERSION};
 use crate::cli::HistorySelector;
 use crate::config::Config;
 use crate::libnala::{Operation, PackageState, PackageTransition};
@@ -156,7 +156,10 @@ fn undo_action_purges_new_install_when_package_was_missing() {
 		},
 	);
 
-	assert_eq!(pkg.undo_action().unwrap(), ReplayAction::Remove { purge: true });
+	assert_eq!(
+		pkg.undo_action().unwrap(),
+		ReplayAction::Remove { purge: true }
+	);
 }
 
 #[test]
@@ -173,7 +176,10 @@ fn undo_action_removes_without_purge_when_install_restored_config_files() {
 		},
 	);
 
-	assert_eq!(pkg.undo_action().unwrap(), ReplayAction::Remove { purge: false });
+	assert_eq!(
+		pkg.undo_action().unwrap(),
+		ReplayAction::Remove { purge: false }
+	);
 }
 
 #[test]

@@ -53,8 +53,7 @@ pub async fn update(config: &Config) -> Result<()> {
 					let mut iter = msgs.into_iter();
 
 					// First string is the header and always there
-					let mut msg =
-						ProgressMessage::empty(iter.next().unwrap()).regular();
+					let mut msg = ProgressMessage::empty(iter.next().unwrap()).regular();
 
 					for line in iter {
 						msg.add(line);
@@ -138,7 +137,9 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	/// The higher the number, the less frequent pulse updates will be.
 	///
 	/// Pulse Interval set to 0 assumes the apt defaults.
-	fn pulse_interval(&self) -> usize { self.pulse_interval }
+	fn pulse_interval(&self) -> usize {
+		self.pulse_interval
+	}
 
 	/// Called when an item is confirmed to be up-to-date.
 	///

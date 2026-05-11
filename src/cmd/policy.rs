@@ -60,10 +60,13 @@ fn ver_string(ver: Option<&str>) -> String {
 }
 
 fn status_file(file: &PackageFile<'_>) -> bool {
-	file.index_type().is_some_and(|kind| kind == DPKG_STATUS_FILE)
+	file.index_type()
+		.is_some_and(|kind| kind == DPKG_STATUS_FILE)
 }
 
-fn include_global_file(file: &PackageFile<'_>) -> bool { file.is_downloadable() || status_file(file) }
+fn include_global_file(file: &PackageFile<'_>) -> bool {
+	file.is_downloadable() || status_file(file)
+}
 
 fn release_line(file: &PackageFile<'_>) -> Option<String> {
 	if status_file(file) {
@@ -97,10 +100,12 @@ fn collect_version_sources(ver: &Version<'_>) -> Vec<PolicySource> {
 	let mut by_index: BTreeMap<u64, PolicySource> = BTreeMap::new();
 
 	for file in ver.package_files() {
-		by_index.entry(file.index()).or_insert_with(|| PolicySource {
-			priority: file.priority(),
-			source: file.index_file().describe(true).trim().to_string(),
-		});
+		by_index
+			.entry(file.index())
+			.or_insert_with(|| PolicySource {
+				priority: file.priority(),
+				source: file.index_file().describe(true).trim().to_string(),
+			});
 	}
 
 	let mut sources = by_index.into_values().collect::<Vec<_>>();

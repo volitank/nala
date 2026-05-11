@@ -52,11 +52,11 @@ test +ARGS="":
 leak:
     @cargo test --no-run
     @sudo valgrind --leak-check=full -- $( \
-    	find target/debug/deps/ \
-    	-executable \
-    	-type f \
-    	-name "tests-*" \
-    	-printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
+        find target/debug/deps/ \
+        -executable \
+        -type f \
+        -name "tests-*" \
+        -printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
     ) --test-threads 1
 
 rst_to_md:

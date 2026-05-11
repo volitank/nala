@@ -21,7 +21,10 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 		util::sudo_check(config)?;
 		if clear.all {
 			let removed = clear_history(config, &[], None, true).await?;
-			println!("Cleared {removed} history entr{}.", if removed == 1 { "y" } else { "ies" });
+			println!(
+				"Cleared {removed} history entr{}.",
+				if removed == 1 { "y" } else { "ies" }
+			);
 			return Ok(());
 		}
 	}
@@ -39,13 +42,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 	}
 
 	if let Some(HistoryCommand::Clear(clear)) = &args.command {
-		clear_history(
-			config,
-			&history_file,
-			clear.history_id.as_ref(),
-			clear.all,
-		)
-		.await?;
+		clear_history(config, &history_file, clear.history_id.as_ref(), clear.all).await?;
 
 		if let Some(history_id) = clear.history_id.as_ref() {
 			let entry = HistoryEntry::find_selector(&history_file, history_id)?;

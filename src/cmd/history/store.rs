@@ -1,5 +1,3 @@
-use std::fs;
-
 use anyhow::{bail, Context, Result};
 
 use super::model::HistoryEntry;
@@ -24,8 +22,8 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 	}
 
 	let mut history = vec![];
-	for dir_entry in std::fs::read_dir(&history_db)
-		.with_context(|| format!("{}", history_db.display()))?
+	for dir_entry in
+		std::fs::read_dir(&history_db).with_context(|| format!("{}", history_db.display()))?
 	{
 		let path = dir_entry?.path();
 		if !path.is_file() {
@@ -76,8 +74,8 @@ pub async fn clear_history(
 
 	if clear_all {
 		let mut removed = 0;
-		for dir_entry in fs::read_dir(&history_dir)
-			.with_context(|| format!("{}", history_dir.display()))?
+		for dir_entry in
+			std::fs::read_dir(&history_dir).with_context(|| format!("{}", history_dir.display()))?
 		{
 			let path = dir_entry?.path();
 			if !path.is_file() {
@@ -87,7 +85,7 @@ pub async fn clear_history(
 				continue;
 			}
 
-			fs::remove_file(&path)
+			std::fs::remove_file(&path)
 				.with_context(|| format!("Unable to remove '{}'", path.display()))?;
 			removed += 1;
 		}
@@ -101,7 +99,7 @@ pub async fn clear_history(
 
 	let entry = HistoryEntry::find_selector(entries, selector)?;
 	let filename = history_dir.join(format!("{}.json", entry.id));
-	fs::remove_file(&filename)
+	std::fs::remove_file(&filename)
 		.with_context(|| format!("Unable to remove '{}'", filename.display()))?;
 	Ok(1)
 }
@@ -111,7 +109,7 @@ impl HistoryEntry {
 	pub fn write_to_file(&self, config: &Config) -> Result<()> {
 		let history_dir = config.get_path(&Paths::History);
 		if !history_dir.exists() {
-			fs::create_dir_all(&history_dir)
+			std::fs::create_dir_all(&history_dir)
 				.with_context(|| format!("Unable to create '{}'", history_dir.display()))?;
 		}
 
@@ -123,9 +121,9 @@ impl HistoryEntry {
 			.with_context(|| format!("Unable to serialize HistoryEntry\n\n    {self:?}"))?;
 		serialized.push(b'\n');
 
-		fs::write(&tmp_filename, serialized)
+		std::fs::write(&tmp_filename, serialized)
 			.with_context(|| format!("Unable to write to '{}'", tmp_filename.display()))?;
-		fs::rename(&tmp_filename, &filename)
+		std::fs::rename(&tmp_filename, &filename)
 			.with_context(|| format!("Unable to replace '{}'", filename.display()))?;
 
 		Ok(())

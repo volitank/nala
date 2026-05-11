@@ -25,12 +25,12 @@ pub enum Switch {
 	Never,
 }
 
-impl Into<Switch> for ColorChoice {
-	fn into(self) -> Switch {
-		match self {
-			ColorChoice::Auto => Switch::Auto,
-			ColorChoice::Always => Switch::Always,
-			ColorChoice::Never => Switch::Never,
+impl From<ColorChoice> for Switch {
+	fn from(value: ColorChoice) -> Self {
+		match value {
+			ColorChoice::Auto => Self::Auto,
+			ColorChoice::Always => Self::Always,
+			ColorChoice::Never => Self::Never,
 		}
 	}
 }
