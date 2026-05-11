@@ -28,7 +28,7 @@ mod util;
 
 use crate::cli::NalaParser;
 use crate::cmd::{
-	clean, fetch, history, list_packages, mark_cli_pkgs, policy, show, update, upgrade,
+	clean, fetch, history, list_packages, mark_cli_pkgs, moo, policy, show, update, upgrade,
 };
 use crate::config::Config;
 use crate::download::download;
@@ -127,6 +127,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 				sudo_check(config)?;
 				crate::summary::commit(new_cache!()?, config).await?;
 			},
+			Commands::Moo(args) => moo(args)?,
 		}
 	} else {
 		NalaParser::command().print_help()?;

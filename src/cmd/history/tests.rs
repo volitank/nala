@@ -118,23 +118,23 @@ fn history_package_set_groups_packages_by_operation() {
 		requested_by: "user (1000)".to_string(),
 		command: "upgrade".to_string(),
 		requested_targets: vec![],
-			packages: vec![
-				PackageTransition::transition(
-					"demo".to_string(),
-					1,
-					Operation::Install,
-					PackageState::missing(),
-					PackageState::config_only(Some("1.0".to_string()), Some(false)),
-				),
-				PackageTransition::transition(
-					"demo-old".to_string(),
-					1,
-					Operation::Remove,
-					PackageState::config_only(Some("0.9".to_string()), Some(true)),
-					PackageState::missing(),
-				),
-			],
-		};
+		packages: vec![
+			PackageTransition::transition(
+				"demo".to_string(),
+				1,
+				Operation::Install,
+				PackageState::missing(),
+				PackageState::config_only(Some("1.0".to_string()), Some(false)),
+			),
+			PackageTransition::transition(
+				"demo-old".to_string(),
+				1,
+				Operation::Remove,
+				PackageState::config_only(Some("0.9".to_string()), Some(true)),
+				PackageState::missing(),
+			),
+		],
+	};
 
 	let pkg_set = entry.grouped_packages();
 
@@ -331,17 +331,17 @@ fn history_entry_json_roundtrip_preserves_recorded_fields() {
 		finished_at: "2026-04-11T00:01:00Z".to_string(),
 		status: HistoryStatus::Applied,
 		requested_by: "user (1000)".to_string(),
-			command: "install demo".to_string(),
-			requested_targets: vec!["demo".to_string()],
-			packages: vec![PackageTransition::transition(
-				"demo".to_string(),
-				1,
-				Operation::Install,
-				PackageState::missing(),
-				PackageState {
-					version: Some("1.0".to_string()),
-					auto_installed: Some(false),
-					config_files_only: false,
+		command: "install demo".to_string(),
+		requested_targets: vec!["demo".to_string()],
+		packages: vec![PackageTransition::transition(
+			"demo".to_string(),
+			1,
+			Operation::Install,
+			PackageState::missing(),
+			PackageState {
+				version: Some("1.0".to_string()),
+				auto_installed: Some(false),
+				config_files_only: false,
 			},
 		)],
 	};

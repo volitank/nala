@@ -8,7 +8,7 @@ pub mod paths;
 use std::path::Path;
 
 use anyhow::Result;
-use clap::{ArgMatches, CommandFactory, FromArgMatches};
+use clap::{ArgMatches, ColorChoice, CommandFactory, FromArgMatches};
 pub use color::Theme;
 pub use configuration::Config;
 pub use logger::Level;
@@ -19,10 +19,20 @@ use crate::util::UnitStr;
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq, Default)]
 pub enum Switch {
-	Always,
-	Never,
 	#[default]
 	Auto,
+	Always,
+	Never,
+}
+
+impl Into<Switch> for ColorChoice {
+	fn into(self) -> Switch {
+		match self {
+			ColorChoice::Auto => Switch::Auto,
+			ColorChoice::Always => Switch::Always,
+			ColorChoice::Never => Switch::Never,
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

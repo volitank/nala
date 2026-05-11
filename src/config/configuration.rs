@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 use clap::parser::ValueSource;
-use clap::ArgMatches;
+use clap::{ArgMatches, ColorChoice};
 use rust_apt::config::Config as AptConfig;
 
 use super::color::setup_color;
@@ -76,14 +76,22 @@ impl Config {
 				continue;
 			}
 
-			if let Ok(Some(value)) = args.try_get_occurrences::<String>(&key) {
-				self.overrides
-					.insert(key, OptType::VecString(value.flatten().cloned().collect()));
+			if let Ok(Some(value)) = args.try_get_one::<ColorChoice>(&key) {
+				self.overrides.insert(key, OptType::Switch((*value).into()));
 				continue;
 			}
 
-			if let Ok(Some(value)) = args.try_get_one::<String>(&key) {
-				self.overrides.insert(key, OptType::String(value.clone()));
+			if let Ok(Some(value)) = args.try_get_occurrences::<String>(&key) {
+				let mut values: Vec<_> = value.flatten().cloned().collect();
+				if values.len() == 1
+					&& ![keys::PKG_NAMES, keys::OPTION, keys::COUNTRY, keys::EXCLUDE]
+						.contains(&key.as_str())
+				{
+					let value = values.pop().unwrap();
+					self.overrides.insert(key, OptType::String(value));
+				} else {
+					self.overrides.insert(key, OptType::VecString(values));
+				}
 				continue;
 			}
 
@@ -279,7 +287,8 @@ mod test {
 	use clap::CommandFactory;
 
 	use super::Config;
-	use crate::cli::parser::{Install, Upgrade as UpgradeCommand};
+	use crate::cli::commands::{Install, Upgrade as UpgradeCommand};
+	use crate::cli::flags::{AutoRemoveFlags, FixBrokenFlags, InstallFlags, TransactionFlags};
 	use crate::cli::{Commands, NalaParser};
 	use crate::config::file::{ConfigFile, UiMode};
 	use crate::config::{keys, OptType, Paths, Switch};
@@ -548,6 +557,9 @@ mod test {
 			full: false,
 			no_full: false,
 			safe: false,
+			transaction: TransactionFlags::default(),
+			recommends: InstallFlags::default(),
+			auto_remove: AutoRemoveFlags::default(),
 		});
 
 		assert!(config.update_early(&command));
@@ -564,6 +576,9 @@ mod test {
 			full: false,
 			no_full: false,
 			safe: false,
+			transaction: TransactionFlags::default(),
+			recommends: InstallFlags::default(),
+			auto_remove: AutoRemoveFlags::default(),
 		});
 
 		assert!(!config.update_early(&command));
@@ -576,6 +591,11 @@ mod test {
 		let command = Commands::Install(Install {
 			pkg_names: vec!["demo".to_string()],
 			reinstall: false,
+			target_release: None,
+			transaction: TransactionFlags::default(),
+			recommends: InstallFlags::default(),
+			auto_remove: AutoRemoveFlags::default(),
+			fix_broken: FixBrokenFlags::default(),
 		});
 
 		assert!(!config.update_early(&command));

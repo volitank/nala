@@ -24,6 +24,7 @@ use show::format_local;
 use traits::ShowFormat;
 pub use upgrade::{apt_hook_with_pkgs, run_scripts};
 
+use crate::cli::commands::Moo;
 use crate::config::{color, Config};
 pub use crate::libnala::Operation;
 use crate::util::URL;
@@ -229,4 +230,29 @@ impl ShowVersion<'_> {
 	}
 
 	pub fn to_json(&self) -> Result<String> { Ok(serde_json::to_string_pretty(&self.ver)?) }
+}
+
+const CAT: &str = r#"   |\---/|
+   | ,_, |
+    \_`_/-..----.
+ ___/ `   ' ,""+ \  sk
+(__...'   __\    |`.___.';
+  (_,...'(_,.`__)/'.....+"#;
+
+pub fn moo(moo: Moo) -> Result<()> {
+	if moo.help {
+		println!("I beg, pls moo");
+		return Ok(());
+	}
+	println!("{CAT}");
+
+	println!("\"...I can't moo for I'm a cat...\"");
+
+	if moo.update {
+		println!("\"...What did you expect to update to do?...\"");
+	} else if moo.no_update {
+		println!("\"...What did you expect no-update to do?...\"");
+	}
+
+	Ok(())
 }

@@ -2,7 +2,17 @@ use clap::CommandFactory;
 use clap_complete as completion;
 use clap_mangen as man;
 
-include!("src/cli/parser.rs");
+mod flags {
+	include!("src/cli/flags.rs");
+}
+mod commands {
+	include!("src/cli/commands.rs");
+}
+mod parser {
+	include!("src/cli/parser.rs");
+}
+
+use parser::NalaParser;
 
 macro_rules! gen {
 	($label:literal, $out_dir:expr, $code:block) => {{

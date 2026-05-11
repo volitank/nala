@@ -1,3 +1,6 @@
+pub mod commands;
+pub mod flags;
 pub mod parser;
 
-pub use parser::{Commands, History, HistoryCommand, HistorySelector, NalaParser};
+pub use commands::{Commands, History, HistoryCommand, HistorySelector};
+pub use parser::NalaParser;
