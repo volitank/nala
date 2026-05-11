@@ -1,5 +1,7 @@
 const HISTORY_DEFAULT: &str = "/var/lib/nala/history";
 const NALA_SOURCES_PATH: &str = "/etc/apt/sources.list.d/nala.sources";
+const REBOOT_REQUIRED: &str = "/run/reboot-required";
+const REBOOT_PKGS: &str = "/run/reboot-required.pkgs";
 
 #[derive(Clone, Copy)]
 pub enum PathSpec {
@@ -27,6 +29,10 @@ pub enum Paths {
 	/// Nala Sources file is generated from the `fetch` command.
 	/// Default file `/etc/apt/sources.list.d/nala-sources.list`
 	NalaSources,
+	/// File indicating a reboot is needed
+	RebootRequired,
+	/// File listing packages requiring reboot
+	RebootRequiredPkgs,
 
 	History,
 }
@@ -51,6 +57,8 @@ impl Paths {
 				default: "/etc/apt/sources.list.d/",
 			},
 			Paths::NalaSources => PathSpec::Fixed(NALA_SOURCES_PATH),
+			Paths::RebootRequired => PathSpec::Fixed(REBOOT_REQUIRED),
+			Paths::RebootRequiredPkgs => PathSpec::Fixed(REBOOT_PKGS),
 			Paths::History => PathSpec::Fixed(HISTORY_DEFAULT),
 		}
 	}

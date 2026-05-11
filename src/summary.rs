@@ -11,7 +11,7 @@ use crate::download::Downloader;
 use crate::libnala::{package_key, NalaCache, Operation, PackageKey, PackageTransition};
 use crate::terminal::{use_tui, TerminalGuard};
 use crate::tui::summary::SummaryRow;
-use crate::{dpkg, error, table, tui, util, warn};
+use crate::{dpkg, error, info, table, tui, util, warn};
 
 pub async fn display_summary(
 	cache: &Cache,
@@ -294,7 +294,31 @@ pub(crate) async fn commit_with_display_rows(
 		history_entry.write_to_file(config)?;
 	}
 
-	run_scripts(config, "DPkg::Post-Invoke")
+	run_scripts(config, "DPkg::Post-Invoke")?;
+
+	check_reboot_required(config);
+
+	Ok(())
+}
+
+fn check_reboot_required(config: &Config) {
+	let reboot_path = config.get_path(&Paths::RebootRequired);
+	if !reboot_path.exists() {
+		return;
+	}
+
+	info!("A reboot is required to complete these changes.");
+
+	let pkgs_path = config.get_path(&Paths::RebootRequiredPkgs);
+	if pkgs_path.exists() {
+		if let Ok(content) = std::fs::read_to_string(&pkgs_path) {
+			let pkgs: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
+			if !pkgs.is_empty() {
+				info!("The following packages require a reboot:");
+				info!(" {}", pkgs.join(", "));
+			}
+		}
+	}
 }
 
 #[cfg(test)]
