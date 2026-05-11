@@ -1,7 +1,7 @@
 use ratatui::style::{Color as RatColor, Modifier as RatMod, Style as RatStyle};
 
 use crate::config::color::{ColorCode, Modifiers, Style, Theme};
-use crate::config::Config;
+use crate::config::{Config, Switch};
 
 fn to_rat_color(color: &ColorCode) -> RatColor {
 	match color {
@@ -50,7 +50,11 @@ fn to_rat_modifiers(mods: Modifiers) -> RatMod {
 	rat
 }
 
-fn to_rat_style(style: &Style) -> RatStyle {
+fn to_rat_style(config: &Config, style: &Style) -> RatStyle {
+	if config.color_mode() == Switch::Never {
+		return RatStyle::default();
+	}
+
 	let mut rat = RatStyle::default()
 		.fg(to_rat_color(&style.fg))
 		.add_modifier(to_rat_modifiers(style.modifier));
@@ -63,7 +67,7 @@ fn to_rat_style(style: &Style) -> RatStyle {
 }
 
 pub fn style(config: &Config, theme: impl AsRef<Theme>) -> RatStyle {
-	to_rat_style(config.style(theme))
+	to_rat_style(config, config.style(theme))
 }
 
 pub fn reset(config: &Config, theme: impl AsRef<Theme>) -> RatStyle {
