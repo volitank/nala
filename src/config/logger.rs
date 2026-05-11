@@ -197,7 +197,7 @@ mod tests {
 
 		info!("Test");
 
-		let expected = "Notice: Test\n";
+		let expected = "\u{1b}[1;93mNotice:\u{1b}[0m Test\n";
 		let output = read_exact(&mut reader, expected.len()).unwrap();
 
 		assert_eq!(std::str::from_utf8(&output).unwrap(), expected);
@@ -214,13 +214,13 @@ mod tests {
 		setup_logger(LogOptions::new(Level::Debug, Box::new(writer)));
 
 		debug!("Test");
-		let debug_expected = "Debug: Test\n";
+		let debug_expected = "\u{1b}[1;97mDebug:\u{1b}[0m Test\n";
 		let output = read_exact(&mut reader, debug_expected.len()).unwrap();
 		assert_eq!(std::str::from_utf8(&output).unwrap(), debug_expected);
 
 		// Test that info during debug does work
 		info!("Test");
-		let notice_expected = "Notice: Test\n";
+		let notice_expected = "\u{1b}[1;93mNotice:\u{1b}[0m Test\n";
 		let output = read_exact(&mut reader, notice_expected.len()).unwrap();
 		assert_eq!(std::str::from_utf8(&output).unwrap(), notice_expected);
 	}
