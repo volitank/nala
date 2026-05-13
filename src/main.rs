@@ -34,6 +34,8 @@ use crate::config::Config;
 use crate::download::download;
 
 fn main() -> ExitCode {
+	clap_complete::CompleteEnv::with_factory(NalaParser::command).complete();
+
 	let (args, derived, mut config) = match config::bootstrap() {
 		Ok(conf) => conf,
 		Err(err) => {

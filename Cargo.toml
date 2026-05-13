@@ -16,6 +16,7 @@ async-compression = { version = "0.4.42", features = ["tokio", "all-algorithms"]
 reqwest = { version = "0.13.3", features = ["json", "blocking"] }
 serde = { version = "1.0.228", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
+clap_complete = { version = "4.6.3", features = ["unstable-dynamic"] }
 ratatui = { version = "0.30.0", features = ["serde"] }
 comfy-table = { version = "7.2.2", features = ["tty", "custom_styling"] }
 mio = { version = "1.2.0", features = ["os-ext"] }

@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod completion;
 pub mod flags;
 pub mod parser;
 

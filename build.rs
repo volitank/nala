@@ -1,9 +1,19 @@
 use clap::CommandFactory;
-use clap_complete as completion;
 use clap_mangen as man;
 
 mod flags {
 	include!("src/cli/flags.rs");
+}
+mod completion {
+	use std::ffi::OsStr;
+
+	use clap_complete::engine::CompletionCandidate;
+
+	pub fn package_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }
+
+	pub fn installed_package_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }
+
+	pub fn history_id_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }
 }
 mod commands {
 	include!("src/cli/commands.rs");
@@ -27,11 +37,7 @@ fn main() -> Result<(), std::io::Error> {
 	let out_dir =
 		std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or(std::io::ErrorKind::NotFound)?);
 
-	let mut parser = NalaParser::command();
-
-	gen!("Completion", out_dir, {
-		completion::generate_to(completion::shells::Bash, &mut parser, "nala", &out_dir)?;
-	});
+	let parser = NalaParser::command();
 
 	gen!("Manpage", out_dir, {
 		man::generate_to(parser, &out_dir)?;

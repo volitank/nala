@@ -42,7 +42,7 @@ release:
 install:
     cargo build --release
     sudo cp target/release/nala /usr/bin/nala
-    sudo cp target/release/build/nala-*/out/nala.bash /usr/share/bash-completion/completions/nala
+    sudo cp debian/bash-completion /usr/share/bash-completion/completions/nala
 
 # Run the tests
 test +ARGS="":
