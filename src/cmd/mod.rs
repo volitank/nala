@@ -232,12 +232,10 @@ impl ShowVersion<'_> {
 	pub fn to_json(&self) -> Result<String> { Ok(serde_json::to_string_pretty(&self.ver)?) }
 }
 
-const CAT: &str = r#"   |\---/|
-   | ,_, |
-    \_`_/-..----.
- ___/ `   ' ,""+ \  sk
-(__...'   __\    |`.___.';
-  (_,...'(_,.`__)/'.....+"#;
+const CAT: &str = r#"
+   /\_/\    (`\
+  (='.'=).--.) )
+  (")_(")----\/"#;
 
 pub fn moo(moo: Moo) -> Result<()> {
 	if moo.help {
