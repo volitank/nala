@@ -73,7 +73,7 @@ impl HistoryEntry {
 			HistorySelector::Last => entries
 				.iter()
 				.max_by_key(|entry| entry.id)
-				.ok_or_else(|| anyhow::anyhow!("No history entries found.")),
+				.ok_or_else(|| anyhow::anyhow!(crate::t!("history-no-entries-error"))),
 			HistorySelector::Id(id) => Self::find(entries, *id),
 		}
 	}

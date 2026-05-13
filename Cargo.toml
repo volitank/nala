@@ -31,6 +31,8 @@ sha2 = "0.11.0"
 chrono = "0.4.45"
 tar = { version = "0.4.46", default-features = false }
 ar = "0.9.0"
+fluent = "0.17.0"
+unic-langid = "0.9.6"
 
 [build-dependencies]
 clap = { version = "4.6.4", features = ["derive"] }

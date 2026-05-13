@@ -35,8 +35,15 @@ impl HistoryEntry {
 
 	/// Builds the plain history list table from stored entries.
 	pub(super) fn list_table(entries: &[Self]) -> comfy_table::Table {
-		let mut table =
-			table::get_table(&["ID", "Command", "Date and Time", "Requested-By", "Altered"]);
+		let headers = [
+			crate::t!("history-table-id"),
+			crate::t!("history-table-command"),
+			crate::t!("history-table-date-time"),
+			crate::t!("history-table-requested-by"),
+			crate::t!("history-table-altered"),
+		];
+		let header_refs = headers.iter().map(String::as_str).collect::<Vec<_>>();
+		let mut table = table::get_table(&header_refs);
 
 		for entry in entries {
 			let date_time = entry.started_at_display();
@@ -70,25 +77,40 @@ impl HistoryEntry {
 		entries
 			.iter()
 			.find(|entry| entry.id == id)
-			.ok_or_else(|| anyhow!("History entry with ID '{id}' does not exist"))
+			.ok_or_else(|| anyhow!(crate::t!("history-entry-not-found", "id" => id)))
 	}
 
 	/// Prints a plain-text detail view for this history entry.
 	pub(super) fn print_detail(&self, config: &Config) {
 		let requested_targets = if self.requested_targets.is_empty() {
-			"None".to_string()
+			crate::t!("history-detail-none")
 		} else {
 			self.requested_targets.join(", ")
 		};
 
-		println!("ID: {}", self.id);
-		println!("Status: {:?}", self.status);
-		println!("Command: {}", self.command);
-		println!("Requested-By: {}", self.requested_by);
-		println!("Started: {}", self.started_at_display());
-		println!("Finished: {}", self.finished_at_display());
-		println!("Requested Targets: {requested_targets}");
-		println!("Altered: {}", self.altered().count());
+		println!("{}: {}", crate::t!("history-detail-id"), self.id);
+		println!("{}: {:?}", crate::t!("history-detail-status"), self.status);
+		println!("{}: {}", crate::t!("history-detail-command"), self.command);
+		println!(
+			"{}: {}",
+			crate::t!("history-detail-requested-by"),
+			self.requested_by
+		);
+		println!(
+			"{}: {}",
+			crate::t!("history-detail-started"),
+			self.started_at_display()
+		);
+		println!(
+			"{}: {}",
+			crate::t!("history-detail-finished"),
+			self.finished_at_display()
+		);
+		println!(
+			"{}: {requested_targets}",
+			crate::t!("history-detail-requested-targets")
+		);
+		println!("{}: {}", crate::t!("history-detail-altered"), self.altered().count());
 
 		let pkg_set = self.grouped_packages();
 		if pkg_set.is_empty() {

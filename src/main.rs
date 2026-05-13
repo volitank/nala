@@ -18,6 +18,7 @@ mod dpkg;
 mod fs;
 mod glob;
 mod hashsum;
+mod i18n;
 mod libnala;
 mod progress;
 mod summary;
