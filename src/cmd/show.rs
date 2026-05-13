@@ -25,7 +25,7 @@ pub fn format_local(pkg_name: &str) -> String {
 		}
 	}
 	if pac_repo.is_empty() {
-		return "local install".to_string();
+		return crate::t!("show-local-install");
 	}
 
 	color::secondary!(pac_repo)
@@ -56,10 +56,11 @@ pub fn show(config: &Config) -> Result<()> {
 	}
 
 	if additional_records != 0 {
+		let count = color::color!(Theme::Notice, &additional_records.to_string());
+		let switch = color::color!(Theme::Notice, "'-a'");
 		info!(
-			"There are {} additional records. Please use the {} switch to see them.",
-			color::color!(Theme::Notice, &additional_records.to_string()),
-			color::color!(Theme::Notice, "'-a'"),
+			"{}",
+			crate::t!("show-additional-records", "count" => count, "switch" => switch),
 		);
 	}
 
