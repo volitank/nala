@@ -36,12 +36,11 @@ build:
 
 # Build with custom release profile
 release:
-    @RUSTFLAGS="-C target-cpu=native" cargo build --profile=lto
+    @cargo build --profile=lto
 
 # Build release and install the binary
-install:
-    cargo build --release
-    sudo cp target/release/nala /usr/bin/nala
+install: release
+    sudo cp target/lto/nala /usr/bin/nala
     sudo cp debian/bash-completion /usr/share/bash-completion/completions/nala
 
 # Run the tests
