@@ -10,9 +10,10 @@ use anyhow::{bail, Result};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{close, dup2_raw, execv, fork, pipe, ForkResult};
 use rust_apt::raw::quote_string;
-use rust_apt::{Marked, Package, PkgCurrentState, Version};
+use rust_apt::{Marked, Package, Version};
 
 use crate::config::{Config, Paths};
+use crate::libnala::needs_configure;
 use crate::util::get_pkg_name;
 use crate::debug;
 
@@ -123,7 +124,7 @@ fn hook_action<'a>(pkg: &Package<'a>, archive: &Path) -> Option<HookAction<'a>> 
 			package: pkg.clone(),
 			kind: HookActionKind::Remove,
 		}),
-		Marked::Keep if pkg.current_state() == PkgCurrentState::ConfigFiles => Some(HookAction {
+		Marked::Keep if needs_configure(pkg) => Some(HookAction {
 			package: pkg.clone(),
 			kind: HookActionKind::Configure,
 		}),

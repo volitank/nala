@@ -16,7 +16,7 @@ pub mod traits;
 use anyhow::Result;
 pub use history::{next_history_id, HistoryEntry};
 use indexmap::IndexMap;
-pub use install::mark_cli_pkgs;
+pub use install::{fix_broken, mark_cli_pkgs};
 pub use list::list_packages;
 use rust_apt::records::RecordField;
 use rust_apt::{DepType, Version};

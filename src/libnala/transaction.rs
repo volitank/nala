@@ -15,6 +15,7 @@ pub enum Operation {
 	Reinstall,
 	Upgrade,
 	Downgrade,
+	Configure,
 	Held,
 }
 
@@ -29,13 +30,14 @@ impl Operation {
 			Self::Reinstall,
 			Self::Upgrade,
 			Self::Downgrade,
+			Self::Configure,
 			Self::Held,
 		]
 	}
 
 	pub fn as_str(&self) -> &str { self.as_ref() }
 
-	pub fn is_replayable(&self) -> bool { *self != Self::Held }
+	pub fn is_replayable(&self) -> bool { !matches!(self, Self::Configure | Self::Held) }
 }
 
 impl std::fmt::Display for Operation {
@@ -55,6 +57,7 @@ impl AsRef<str> for Operation {
 			Operation::Reinstall => "ReInstall",
 			Operation::Upgrade => "Upgrade",
 			Operation::Downgrade => "Downgrade",
+			Operation::Configure => "Configure",
 			Operation::Held => "Held",
 		}
 	}
@@ -65,7 +68,7 @@ impl AsRef<Theme> for Operation {
 		match self {
 			Self::Remove | Self::AutoRemove | Self::Purge | Self::AutoPurge => &Theme::Error,
 			Self::Install | Self::Upgrade => &Theme::Secondary,
-			Self::Reinstall | Self::Downgrade | Self::Held => &Theme::Notice,
+			Self::Reinstall | Self::Downgrade | Self::Configure | Self::Held => &Theme::Notice,
 		}
 	}
 }

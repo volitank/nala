@@ -16,6 +16,17 @@ pub fn package_key(pkg: &Package<'_>) -> PackageKey {
 	(pkg.name().to_string(), pkg.arch().to_string())
 }
 
+pub(crate) fn needs_configure(pkg: &Package<'_>) -> bool {
+	matches!(
+		pkg.current_state(),
+		PkgCurrentState::UnPacked
+			| PkgCurrentState::HalfConfigured
+			| PkgCurrentState::HalfInstalled
+			| PkgCurrentState::TriggersAwaited
+			| PkgCurrentState::TriggersPending
+	)
+}
+
 fn current_package_state(pkg: &Package<'_>) -> Option<PackageState> {
 	if let Some(installed) = pkg.installed() {
 		return Some(PackageState::from_version(&installed));
@@ -116,9 +127,7 @@ impl NalaCache for Cache {
 
 		debug!("Calculating changes");
 		let changed = self.get_changes(true).collect::<Vec<_>>();
-		if changed.is_empty() {
-			return Ok((vec![], pkg_set));
-		}
+		let changed_keys = changed.iter().map(package_key).collect::<HashSet<_>>();
 
 		for pkg in changed {
 			debug!("{pkg}:");
@@ -220,6 +229,29 @@ impl NalaCache for Cache {
 				Marked::Held | Marked::Keep => continue,
 				Marked::None => bail!("{pkg} not marked, this should be impossible"),
 			}
+		}
+
+		for pkg in self.iter() {
+			if changed_keys.contains(&package_key(&pkg)) || !needs_configure(&pkg) {
+				continue;
+			}
+
+			let Some(installed) = pkg.installed() else {
+				continue;
+			};
+
+			debug!("  Operation::{:?}", Operation::Configure);
+			pkg_set
+				.entry(Operation::Configure)
+				.or_default()
+				.push(PackageTransition::transition(
+					pkg.name().to_string(),
+					installed.size(),
+					Operation::Configure,
+					PackageState::from_version(&installed),
+					PackageState::from_version(&installed),
+				));
+			pkgs.push(pkg);
 		}
 
 		Ok((pkgs, pkg_set))

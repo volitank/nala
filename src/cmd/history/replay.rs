@@ -185,6 +185,9 @@ impl PackageTransition {
 				"Undo is not supported for '{}' because reinstall has no recorded inverse",
 				self.name
 			),
+			crate::cmd::Operation::Configure => {
+				bail!("Configured package '{}' cannot be undone", self.name)
+			},
 			crate::cmd::Operation::Held => bail!("Held package '{}' cannot be undone", self.name),
 		}
 	}
@@ -225,6 +228,9 @@ impl PackageTransition {
 					version,
 					auto_installed: self.after.auto_installed,
 				})
+			},
+			crate::cmd::Operation::Configure => {
+				bail!("Configured package '{}' cannot be redone", self.name)
 			},
 			crate::cmd::Operation::Held => bail!("Held package '{}' cannot be redone", self.name),
 		}

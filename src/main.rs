@@ -28,9 +28,10 @@ mod util;
 
 use crate::cli::NalaParser;
 use crate::cmd::{
-	clean, fetch, history, list_packages, mark_cli_pkgs, moo, policy, show, update, upgrade,
+	clean, fetch, fix_broken, history, list_packages, mark_cli_pkgs, moo, policy, show, update,
+	upgrade,
 };
-use crate::config::Config;
+use crate::config::{keys, Config};
 use crate::download::download;
 
 fn main() -> ExitCode {
@@ -120,9 +121,13 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 			Commands::Update(_) => update(config).await?,
 			Commands::Upgrade(_) => upgrade(config, upgrade_mode(config)).await?,
 			Commands::Install(args) => {
-				let operation =
-					if args.reinstall { Operation::Reinstall } else { Operation::Install };
-				mark_cli_pkgs(config, operation).await?;
+				if args.pkg_names.is_empty() && config.get_bool(keys::FIX_BROKEN, false) {
+					fix_broken(config).await?;
+				} else {
+					let operation =
+						if args.reinstall { Operation::Reinstall } else { Operation::Install };
+					mark_cli_pkgs(config, operation).await?;
+				}
 			},
 			Commands::Remove(_) => mark_cli_pkgs(config, Operation::Remove).await?,
 			Commands::AutoRemove(_) => {

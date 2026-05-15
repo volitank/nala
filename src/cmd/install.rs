@@ -94,3 +94,14 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 
 	crate::summary::commit(cache, config).await
 }
+
+pub async fn fix_broken(config: &mut Config) -> Result<()> {
+	sudo_check(config)?;
+
+	let cache = new_cache!()?;
+	if !cache.fix_broken() {
+		bail!("Unable to correct broken packages")
+	}
+
+	crate::summary::commit(cache, config).await
+}
