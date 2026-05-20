@@ -117,7 +117,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 			Commands::Clean(_) => clean(config)?,
 			Commands::Download(_) => download(config).await?,
 			Commands::History(args) => history(config, &args).await?,
-			Commands::Fetch(_) => fetch(config)?,
+			Commands::Fetch(_) => fetch(config).await?,
 			Commands::Update(_) => update(config).await?,
 			Commands::Upgrade(_) => upgrade(config, upgrade_mode(config)).await?,
 			Commands::Install(args) => {
