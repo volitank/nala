@@ -22,6 +22,4 @@ lazy_regex!(
 	URL => "(https?://.*?/.*?/)",
 	PACSTALL => r#"_remoterepo="(.*?)""#,
 	DOMAIN => r"https?://([A-Za-z_0-9.-]+).*",
-	UBUNTU_URL => r"<link>(.*)</link>",
-	UBUNTU_COUNTRY => r"<mirror:countrycode>(.*)</mirror:countrycode>",
 );
