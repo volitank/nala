@@ -131,6 +131,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 
 enum PtyStr<'a> {
 	Str(&'a str),
+	Bytes(&'a [u8]),
 	None,
 	Eof,
 }
@@ -195,6 +196,16 @@ impl Pty {
 
 	fn read_master(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
 		match read_fd(&mut self.pty, &mut self.pty_buf)? {
+			PtyStr::Bytes(bytes) => {
+				if !progress.hidden() {
+					progress.hide()?;
+				}
+
+				dprog!(config, progress, "pty", "{bytes:?}");
+				stdout().write_all(bytes)?;
+				stdout().flush()?;
+				Ok(true)
+			},
 			PtyStr::Str(string) => {
 				if !progress.hidden()
 				// Determine if it's proper to hide the progress.
@@ -242,6 +253,7 @@ impl Pty {
 
 	fn read_status(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
 		match read_fd(&mut self.status, &mut self.status_buf)? {
+			PtyStr::Bytes(_) => bail!("Dpkg status fd returned invalid UTF-8"),
 			PtyStr::Str(string) => {
 				for line in string.lines() {
 					let status = DpkgStatus::try_from(line)?;
@@ -310,6 +322,10 @@ impl Pty {
 		match read_fd(&mut self.stdin, &mut buffer)? {
 			PtyStr::Str(input) => {
 				write!(self.pty, "{input}")?;
+				Ok(true)
+			},
+			PtyStr::Bytes(input) => {
+				self.pty.write_all(input)?;
 				Ok(true)
 			},
 			PtyStr::None => Ok(true),
@@ -407,7 +423,10 @@ fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>> {
 		Err(e) => return Err(anyhow!(e)),
 	};
 
-	Ok(PtyStr::Str(std::str::from_utf8(sized_buf)?))
+	match std::str::from_utf8(sized_buf) {
+		Ok(string) => Ok(PtyStr::Str(string)),
+		Err(_) => Ok(PtyStr::Bytes(sized_buf)),
+	}
 }
 
 #[derive(Debug, Default)]
