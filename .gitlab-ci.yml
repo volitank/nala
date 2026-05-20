@@ -3,14 +3,16 @@ stages:
 variables:
   DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
-  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/${CARGO_HOME}/bin"
+  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${CARGO_HOME}/bin"
 
 test:
   stage: test
-  image: debian:bookworm
-  environment:
+  image: debian:trixie
   cache:
-    key: nala-cache
+    key:
+      files:
+        - Cargo.lock
+      prefix: trixie-rust
     paths:
       - ".cargo/"
       - target/
@@ -27,10 +29,10 @@ test:
       libssl-dev
 
     - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
-    - rustup toolchain install nightly
+    - rustup toolchain install nightly --component rustfmt
     - rustup toolchain install stable
 
-    - cargo install just
+    - cargo install just --locked
     - just check
     # Disable tests for now. We need to make sure we can get some solid ones that work
     # - just test

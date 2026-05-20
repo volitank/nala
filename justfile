@@ -85,5 +85,5 @@ fmt +ARGS="":
 
 # Spellcheck the active codebase
 spellcheck +ARGS="":
-    @codespell --skip="./target*,./legacy/*" --builtin clear,rare,informal,code --ignore-words-list mut,crate,ratatui,stdio,ws {{ ARGS }}
+    @codespell --skip="./target*,./legacy/*,./.cargo/*" --builtin clear,rare,informal,code --ignore-words-list mut,crate,ratatui,stdio,ws {{ ARGS }}
     @echo Spellings look good!

@@ -26,7 +26,11 @@ use parser::NalaParser;
 
 fn generate_manpages(cmd: clap::Command, out_dir: &std::path::Path) -> Result<(), std::io::Error> {
 	fn generate(cmd: clap::Command, out_dir: &std::path::Path) -> Result<(), std::io::Error> {
-		for cmd in cmd.get_subcommands().filter(|cmd| !cmd.is_hide_set()).cloned() {
+		for cmd in cmd
+			.get_subcommands()
+			.filter(|cmd| !cmd.is_hide_set())
+			.cloned()
+		{
 			generate(cmd, out_dir)?;
 		}
 
