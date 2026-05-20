@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Small wrapper around dpkg-buildpackage for Nala builds."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+
+ARTIFACT_PATTERNS = (
+	"*.deb",
+	"*.ddeb",
+	"*.changes",
+	"*.buildinfo",
+	"*.dsc",
+	"*.tar.*",
+)
+
+
+def parse_args() -> argparse.Namespace:
+	parser = argparse.ArgumentParser(description="Build Nala Debian artifacts")
+	mode = parser.add_mutually_exclusive_group()
+	mode.add_argument("--binary", action="store_const", const="binary", dest="mode")
+	mode.add_argument("--source", action="store_const", const="source", dest="mode")
+	mode.add_argument("--release", action="store_const", const="release", dest="mode")
+	parser.set_defaults(mode="binary")
+
+	parser.add_argument("--out-dir", default="dist/debian")
+	parser.add_argument("--no-clean", action="store_true", help="preserve build caches")
+	parser.add_argument("--nocheck", action="store_true", help="set DEB_BUILD_OPTIONS=nocheck")
+	parser.add_argument("--sign", action="store_true", help="sign build outputs")
+	parser.add_argument("--key-id", help="sign build outputs with this key")
+	return parser.parse_args()
+
+
+def collect_artifacts(marker: Path, out_dir: Path) -> None:
+	out_dir.mkdir(parents=True, exist_ok=True)
+	for pattern in ARTIFACT_PATTERNS:
+		for artifact in Path("..").glob(pattern):
+			if artifact.is_file() and artifact.stat().st_mtime > marker.stat().st_mtime:
+				shutil.move(str(artifact), out_dir / artifact.name)
+
+
+def build(kind: str, args: argparse.Namespace, out_dir: Path) -> None:
+	with tempfile.NamedTemporaryFile() as marker:
+		cmd = ["dpkg-buildpackage", "-S" if kind == "source" else "-b"]
+		if args.key_id:
+			cmd.append(f"--sign-keyid={args.key_id}")
+		elif not args.sign:
+			cmd.extend(("-us", "-uc"))
+
+		env = os.environ.copy()
+		env["DEB_DESTDIR"] = ".."
+		if args.no_clean:
+			env["NO_CLEAN"] = "1"
+			env.setdefault("CARGO_HOME", str(Path.home() / ".cargo"))
+		if args.nocheck:
+			options = env.get("DEB_BUILD_OPTIONS", "").split()
+			if "nocheck" not in options:
+				options.append("nocheck")
+			env["DEB_BUILD_OPTIONS"] = " ".join(options)
+
+		print(f"Building {kind} package...")
+		subprocess.run(cmd, check=True, env=env)
+		collect_artifacts(Path(marker.name), out_dir)
+
+
+def main() -> None:
+	args = parse_args()
+	out_dir = Path(args.out_dir)
+
+	if args.mode == "release":
+		build("source", args, out_dir)
+		build("binary", args, out_dir)
+	else:
+		build(args.mode, args, out_dir)
+
+	print(f"Artifacts: {out_dir}")
+
+
+if __name__ == "__main__":
+	main()

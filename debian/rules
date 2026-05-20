@@ -1,12 +1,34 @@
 #!/usr/bin/make -f
+
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-export PYBUILD_NAME = nala
+export CARGO_HOME ?= $(CURDIR)/debian/cargo-home
+export DEB_DESTDIR ?= ..
 export DH_VERBOSE = 1
+
 %:
-	dh $@ --buildsystem=pybuild
+	dh $@
 
-execute_before_dh_installman:
-	python3 nala_build.py man
+override_dh_auto_build:
+	cargo build --locked --profile lto
+	rm -rf debian/generated-man
+	mkdir -p debian/generated-man
+	find target/lto/build -path '*/out/*.8' -exec cp {} debian/generated-man/ \;
 
-execute_before_dh_auto_install:
-	python3 nala_build.py babel --compile
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	cargo test --locked --no-run
+endif
+
+override_dh_auto_install:
+	install -Dm755 target/lto/nala debian/nala/usr/bin/nala
+
+override_dh_builddeb:
+	mkdir -p $(DEB_DESTDIR)
+	dh_builddeb --destdir=$(DEB_DESTDIR)
+
+override_dh_auto_clean:
+ifeq ($(NO_CLEAN),1)
+	@echo "Skipping Cargo build cache cleanup because NO_CLEAN=1"
+else
+	rm -rf debian/cargo-home debian/generated-man target
+endif

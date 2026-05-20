@@ -1,111 +1,148 @@
-[![Discord](https://img.shields.io/discord/923757419253882920?color=5865F2&label=Discord&logo=discord&logoColor=FFFFFF&style=flat-square)](https://discord.gg/JEFpg73yr7)
+# Nala
 
-[![Codacy](https://app.codacy.com/project/badge/Grade/686108742fe042c6b31965b5cf51a042)](https://www.codacy.com/gl/volian/nala/dashboard?utm_source=gitlab.com&amp;utm_medium=referral&amp;utm_content=volian/nala&amp;utm_campaign=Badge_Grade)
+Nala is a command-line front-end for `libapt-pkg`, currently being rewritten in
+Rust on top of [`rust-apt`](https://gitlab.com/volian/rust-apt).
 
-::: {.contents depth="1" local="" backlinks="none"}
-Table of Contents
-:::
+The goal is the same as the original Python project: keep APT's package
+semantics, but present package operations in a way that is easier to inspect
+before committing changes. The Rust version keeps that focus while adding a
+more structured command parser, typed configuration, JSON-friendly internal
+models, and terminal UI paths for high-information workflows.
 
-# \# Nala
+## Status
 
-Nala is a front-end for `libapt-pkg`. Specifically we interface using
-the `python-apt` api.
+This repository is in transition from the original Python implementation to the
+Rust implementation. The active application code lives under `src/`. Python-era
+source, Poetry metadata, translation files, RST docs, and screenshots are
+archived under [`legacy/python`](legacy/python).
 
-Especially for newer users it can be hard to understand what `apt` is
-trying to do when installing or upgrading.
+## Features
 
-We aim to solve this by not showing some redundant messages, formatting
-the packages better, and using color to show specifically what will
-happen with a package during install, removal, or an upgrade.
+- Package discovery commands: `list`, `search`, `show`, and `policy`
+- Transaction commands: `install`, `remove`, `autoremove`, `update`, and
+  `upgrade`
+- Upgrade modes for normal, safe, and full upgrades
+- Exclusion support for upgrades with glob-style package patterns
+- Local `.deb` installation and direct URL package ingestion
+- Parallel package downloader with per-domain connection limits
+- Hash verification for package downloads before installation
+- Proxy support through APT acquire configuration
+- Transaction summaries in full, simple, plain, or TUI-backed views
+- Transaction history stored as per-entry JSON records
+- History inspection, `undo`, `redo`, and targeted or full history clearing
+- Mirror selection through `nala fetch`, including automatic and interactive
+  TUI modes
+- Machine-readable output for package info and policy views
+- HCL configuration for Nala behavior, UI mode, units, color mode, and theme
+- Shell completion integration through `clap_complete`
+- Generated manpage and Markdown command documentation from the Rust CLI
 
-# \# Installation
+## Commands
 
-For installation instructions see our [wiki
-page](https://gitlab.com/volian/nala/-/wikis/Installation).
+Common command families:
 
-# \# Parallel Downloads
+```sh
+nala update
+nala upgrade
+nala install ripgrep
+nala remove ripgrep
+nala autoremove
+```
 
-Outside of pretty formatting, the number 1 reason to use Nala over `apt`
-is parallel downloads.
+Package inspection:
 
-Nala will download 3 packages at a time per unique mirror in your
-`sources.list` file. This constraint is to limit how hard Nala hits
-mirrors. Opening multiple connections to the same mirror is great for
-speeding up downloading many small packages.
+```sh
+nala list nala
+nala search --names-only apt
+nala show nala
+nala policy nala
+```
 
-Additionally we alternate downloads between the available mirrors to
-improve download speeds even further. If a mirror fails for whatever
-reason, we just try the next until all defined mirrors are exhausted.
+History:
 
-[Note: Nala does not use APT for package downloading and
-verification]{.title-ref}
+```sh
+nala history
+nala history last
+nala history undo last
+nala history redo 12
+nala history clear 12
+nala history clear --all
+```
 
-# \# Fetch
+Mirror selection:
 
-Which brings us to our next standout feature, `nala fetch`.
+```sh
+nala fetch
+nala fetch --auto
+nala fetch --https-only --country US
+```
 
-This command works similar to how most people use `netselect` and
-`netselect-apt`. `nala fetch` will check if your distro is either Debian
-or Ubuntu. Nala will then go get all the mirrors from the respective
-master list. Once done we test the latency and score each mirror. Nala
-will choose the fastest 3 mirrors (configurable) and write them to a
-file.
+Most transaction commands accept shared safety and behavior flags such as
+`--download-only`, `--simple`, `--update`, `--no-update`, `--assume-yes`,
+`--assume-no`, `--purge`, and `--allow-unauthenticated`.
 
-[At the moment fetch will only work on Debian, Ubuntu and derivatives
-still tied to the main repos. Such as Pop!\_OS]{.title-ref}
+## Configuration
 
-# \# History
+Nala reads an HCL configuration file. See [`nala.conf`](nala.conf) for the
+current shape.
 
-Our last big feature is the `nala history` command.
+Top-level configuration areas:
 
-If you\'re familiar with `dnf` this works much in the same way. Each
-Install, Remove or Upgrade is stored as a numbered JSON entry under
-`/var/lib/nala/history`.
+- `Nala`: transaction behavior such as auto remove, auto update, simple
+  summaries, and assume-yes defaults
+- `Ui`: output mode and binary or decimal unit formatting
+- `Color`: color mode and theme entries for package summaries, progress, and
+  warnings
 
-At any time you can call `nala history` to print a summary of every
-transaction ever made, or `nala history <ID>` to inspect a specific
-transaction. Stored package transactions can then be replayed with
-commands such as `nala history undo <ID>` or `nala history redo <ID>`.
+Command-line flags override configuration values for the current invocation.
+APT options can be passed through with `-o KEY=VALUE`.
 
-# \# Zsh/fish Completions
+## Development
 
-Nala\'s bash, Zsh and fish completions are now handled with `typer`.
+Install system requirements first:
 
-There is nothing you need to do but install Nala and restart your shell
-for them to work
+```sh
+sudo apt-get install libapt-pkg-dev codespell
+```
 
-# \# Bug Reports or Feature Requests
+Build and test:
 
-Nala is mirrored to several sites such as GitHub and even Debian Salsa.
+```sh
+cargo build
+cargo test -- --test-threads 1
+```
 
-The official repository is <https://gitlab.com/volian/nala>
+Useful `just` targets:
 
-We ask that you please go here to report a bug or request a feature.
+```sh
+just build
+just test
+just clippy
+just fmt
+just check
+```
 
-The other repositories are official, but just mirrors of what is on
-GitLab.
+`just check` runs spellcheck, clippy, and nightly rustfmt checking. The
+formatter target expects a nightly toolchain with `rustfmt` installed.
 
-# \# Donations
+## Generated Files
 
-If you would like to support the project you can donate at the link
-below.
+The Rust build script derives command documentation from the clap parser:
 
-<https://liberapay.com/Volian-Linux>
+- manpage output through `clap_mangen`
+- Markdown output through `clap-markdown`
 
-# \# Images
+This keeps user-facing command docs tied to the same parser that powers the
+binary.
 
-![image](/imgs/nala-install-1.png)
+## Safety Notes
 
-![image](/imgs/nala-install-2.png)
+Package-changing commands require root privileges. Nala checks for root before
+operations that modify the system, displays planned changes before committing
+them, records applied transactions to history, and reports when the system marks
+a reboot as required.
 
-![image](/imgs/nala-fetch.png)
+## Links
 
-![image](/imgs/nala-history-info.png)
-
-![image](/imgs/nala-history-undo-1.png)
-
-![image](/imgs/nala-history-undo-2.png)
-
-![image](/imgs/nala-update.png)
-
-![image](/imgs/nala-show-apt.png)
+- Official repository: <https://gitlab.com/volian/nala>
+- Issues: <https://gitlab.com/volian/nala/-/issues>

@@ -5,31 +5,23 @@ Source: https://gitlab.com/volian/nala
 
 Files: *
 Copyright: 2021 - 2022 Blake Lee <blake@volian.org>
-License: GPL-3+
+License: GPL-3
 
 Files: debian/*
 Copyright: 2021 - 2022 Blake Lee <blake@volian.org>
-License: GPL-3+
+License: GPL-3
 
-Files: nala/install.py
-       nala/utils.py
-       nala/downloader.py
-Copyright: 2021 - 2022 Blake Lee <blake@volian.org>
-           2010 - 2021 Tatsuhiro Tsujikawa
-License: GPL-3+
-
-License: GPL-3+
+License: GPL-3
  Copyright (C) 2021 - 2022 Blake Lee <blake@volian.org>
  .
  nala is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+ the Free Software Foundation, version 3 of the License.
  .
  nala is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.tures
+ GNU General Public License for more details.
  .
  You should have received a copy of the GNU General Public License
  along with nala.  If not, see <https://www.gnu.org/licenses/>.

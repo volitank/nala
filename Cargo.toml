@@ -1,10 +1,10 @@
 [package]
 name = "nala"
-version = "0.1.0"
+version = "0.17.0"
 edition = "2021"
 license = "GPL-3.0-only"
 repository = "https://gitlab.com/volian/nala/-/tree/nala-rs"
-readme = "README.rst"
+readme = "README.md"
 description = "Commandline frontend for the APT package manager"
 
 [dependencies]

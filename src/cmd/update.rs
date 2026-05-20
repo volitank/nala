@@ -65,7 +65,7 @@ pub async fn update(config: &Config) -> Result<()> {
 			},
 		}
 
-		// Exit immedately.
+		// Exit immediately.
 		// This is the only way to stop apt's update
 		if poll_exit_event()? {
 			progress.clean_up()?;

@@ -88,7 +88,7 @@ impl<'a> App<'a> {
 		let white = tui_style::style(self.config, Theme::Regular);
 
 		let headers = self.items[0].headers();
-		// Get max length of the headers incase they are the longest in the columns
+		// Get max length of the headers in case they are the longest in the columns.
 		let header_max = headers.iter().map(|h| h.len()).max().unwrap_or_default();
 
 		// Build the headers into Cells

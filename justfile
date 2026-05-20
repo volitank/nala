@@ -41,7 +41,22 @@ release:
 # Build release and install the binary
 install: release
     sudo cp target/lto/nala /usr/bin/nala
-    sudo cp debian/bash-completion /usr/share/bash-completion/completions/nala
+
+# Build the Debian package while keeping build caches
+deb:
+    scripts/deb-build --binary --no-clean
+
+# Build source Debian artifacts
+deb-source:
+    scripts/deb-build --source
+
+# Build source and binary Debian artifacts
+deb-release:
+    scripts/deb-build --release
+
+# Build signed source and binary Debian artifacts
+deb-release-sign KEY:
+    scripts/deb-build --release --key-id {{KEY}}
 
 # Run the tests
 test +ARGS="":
@@ -58,18 +73,6 @@ leak:
         -printf "%T@ %p\n" | sort -nr | awk '{print $2}' \
     ) --test-threads 1
 
-rst_to_md:
-    #!/bin/sh
-
-    set -e
-
-    FILES=docs/*.rst
-    for f in $FILES; do
-    	filename="${f%.*}"
-    	echo "Converting $f to $filename.md"
-    	`pandoc $f -f rst -t markdown -o $filename.md`
-    done
-
 # Lint the codebase
 clippy +ARGS="":
     @cargo clippy --all-targets --all-features --workspace -- --deny warnings {{ ARGS }}
@@ -80,7 +83,7 @@ fmt +ARGS="":
     @cargo +nightly fmt --all -- {{ ARGS }}
     @echo Codebase formatted successfully!
 
-# Spellcheck the codebase
-spellcheck +ARGS="--skip target*":
-    @codespell --skip="./po"--builtin clear,rare,informal,code --ignore-words-list mut,crate {{ ARGS }}
+# Spellcheck the active codebase
+spellcheck +ARGS="":
+    @codespell --skip="./target*,./legacy/*" --builtin clear,rare,informal,code --ignore-words-list mut,crate,ratatui,stdio,ws {{ ARGS }}
     @echo Spellings look good!

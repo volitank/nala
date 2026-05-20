@@ -51,7 +51,7 @@ macro_rules! secondary {
 	}};
 }
 
-/// Hightlights the string according to configuration.
+/// Highlights the string according to configuration.
 #[macro_export]
 macro_rules! highlight {
 	($string:expr) => {{

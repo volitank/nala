@@ -7,7 +7,7 @@ use super::commands::Commands;
 #[derive(Parser, Debug)]
 #[clap(name = "nala")]
 #[clap(author = "Blake Lee <blake@volian.org>")]
-#[clap(version = "0.1.0")]
+#[clap(version)]
 #[clap(about = "Commandline front-end for libapt-pkg", long_about = None)]
 pub struct NalaParser {
 	/// Print license information

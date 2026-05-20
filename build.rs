@@ -24,6 +24,21 @@ mod parser {
 
 use parser::NalaParser;
 
+fn generate_manpages(cmd: clap::Command, out_dir: &std::path::Path) -> Result<(), std::io::Error> {
+	fn generate(cmd: clap::Command, out_dir: &std::path::Path) -> Result<(), std::io::Error> {
+		for cmd in cmd.get_subcommands().filter(|cmd| !cmd.is_hide_set()).cloned() {
+			generate(cmd, out_dir)?;
+		}
+
+		man::Man::new(cmd).section("8").generate_to(out_dir)?;
+		Ok(())
+	}
+
+	let mut cmd = cmd.disable_help_subcommand(true);
+	cmd.build();
+	generate(cmd, out_dir)
+}
+
 macro_rules! gen {
 	($label:literal, $out_dir:expr, $code:block) => {{
 		let path = $out_dir.join($label);
@@ -40,7 +55,7 @@ fn main() -> Result<(), std::io::Error> {
 	let parser = NalaParser::command();
 
 	gen!("Manpage", out_dir, {
-		man::generate_to(parser, &out_dir)?;
+		generate_manpages(parser, &out_dir)?;
 	});
 
 	gen!("Markdown", out_dir, {

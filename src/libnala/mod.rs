@@ -77,7 +77,7 @@ impl<'a> PackageExt<'a> for Package<'a> {
 		// At time of commit `python3-libmapper` is purely virtual
 		if providers.is_empty() {
 			warn!(
-				"{} has no providers and is purely virutal",
+				"{} has no providers and is purely virtual",
 				color::primary!(self.name())
 			);
 

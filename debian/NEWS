@@ -1,3 +1,12 @@
+nala (0.17.0~rs1) unstable; urgency=medium
+
+  This package now builds the Rust implementation of Nala.
+
+  The configuration file installed at /etc/nala/nala.conf uses the current HCL
+  shape from the Rust codebase.
+
+ -- Blake Lee <blake@volian.org>  Wed, 20 May 2026 00:00:00 -0500
+
 nala (0.15.0) unstable; urgency=medium
   Nala hooks have been removed. You should use apt hooks.
 
