@@ -49,8 +49,6 @@ const SAVE_TERM: &str = "\x1b[22;0;0t";
 
 static mut CHILD_FD: i32 = 0;
 const STDIN_FD: i32 = 0;
-const STDOUT_FD: i32 = 1;
-const STDERR_FD: i32 = 2;
 
 // Define the ioctl read call for TIOCGWINSZ
 ioctl_read_bad!(tiocgwinsz, TIOCGWINSZ, winsize);
@@ -90,18 +88,25 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 		nix::pty::ForkptyResult::Child => {
 			drop(statusfd);
 
-			let mut progress = AcquireProgress::apt();
+			let child_result = (|| -> Result<()> {
+				let mut progress = AcquireProgress::apt();
 
-			let mut inst_progress = InstallProgress::fd(writefd.as_raw_fd());
+				let mut inst_progress = InstallProgress::fd(writefd.as_raw_fd());
 
-			cache.commit(&mut progress, &mut inst_progress)?;
-			close(writefd.into_raw_fd())?;
+				cache.commit(&mut progress, &mut inst_progress)?;
+				close(writefd.into_raw_fd())?;
 
-			// Flush all stdio for the child before we leave.
-			for fd in [STDIN_FD, STDOUT_FD, STDERR_FD] {
-				let mut file = unsafe { File::from_raw_fd(fd) };
-				file.flush()?;
+				stdout().flush()?;
+				std::io::stderr().flush()?;
+				Ok(())
+			})();
+
+			if let Err(err) = child_result {
+				eprintln!("Dpkg child failed: {err:?}");
+				std::process::exit(1);
 			}
+
+			std::process::exit(0);
 		},
 		nix::pty::ForkptyResult::Parent { child, master } => {
 			let mut pty = Pty::new(

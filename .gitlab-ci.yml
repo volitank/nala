@@ -1,38 +1,29 @@
 stages:
-  - test
+  - build
 variables:
   DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
-  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${CARGO_HOME}/bin"
+  PATH: "${CARGO_HOME}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-test:
-  stage: test
+debian-package:
+  stage: build
   image: debian:trixie
   cache:
     key:
       files:
         - Cargo.lock
-      prefix: trixie-rust
+      prefix: trixie-debian
     paths:
       - ".cargo/"
       - target/
   script:
     - apt-get update
-    - apt-get install -y eatmydata
-    - eatmydata apt install -y
-      build-essential
-      curl
-      sudo
-      libapt-pkg-dev
-      codespell
-      pkg-config
-      libssl-dev
-
-    - curl https://sh.rustup.rs -sSf | sh -- /dev/stdin -y
-    - rustup toolchain install nightly --component rustfmt
-    - rustup toolchain install stable
-
-    - cargo install just --locked
-    - just check
-    # Disable tests for now. We need to make sure we can get some solid ones that work
-    # - just test
+    - apt-get install -y --no-install-recommends eatmydata
+    - eatmydata apt-get build-dep -y --no-install-recommends .
+    - rm -rf dist/debian
+    - scripts/deb-build --binary --no-clean
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - dist/debian/*

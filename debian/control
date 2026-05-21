@@ -6,6 +6,7 @@ Uploaders: Blake Lee <blake@volian.org>
 Build-Depends:
   debhelper-compat (= 13),
   ca-certificates,
+  python3,
   cargo,
   rustc,
   libapt-pkg-dev,

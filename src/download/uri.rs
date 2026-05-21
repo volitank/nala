@@ -170,7 +170,14 @@ impl Uri {
 	/// Downloads the file and returns the hash
 	pub async fn download_file(&self, url: &str) -> Result<HashSum> {
 		// Initiate http(s) connection
-		let mut response = self.client.get(url).send().await.context("Get")?;
+		let mut response = self
+			.client
+			.get(url)
+			.send()
+			.await
+			.context("Get")?
+			.error_for_status()
+			.with_context(|| format!("Download request failed for '{url}'"))?;
 
 		// Get a mutable writer for our outfile.
 		let mut writer = self.partial.open_writer().await?;
