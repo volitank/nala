@@ -166,62 +166,79 @@ mod tests {
 	use nix::fcntl::{fcntl, FcntlArg, OFlag};
 
 	use super::Level;
+	use crate::config::color::{setup_color, Color};
 	use crate::config::logger::*;
 
 	static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 	fn test_lock() -> MutexGuard<'static, ()> { TEST_LOCK.lock().unwrap() }
 
-	fn read_write() -> (File, File) {
-		let (statusfd, writefd) = nix::unistd::pipe().unwrap();
-		// This way it will error if the io is blocked
-		fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)).unwrap();
-
-		let writer = File::from(writefd);
-		let reader = File::from(statusfd);
-
-		(reader, writer)
+	struct LoggerTest {
+		reader: File,
+		_guard: MutexGuard<'static, ()>,
 	}
 
-	fn read_exact(reader: &mut File, size: usize) -> std::io::Result<Vec<u8>> {
-		let mut v = vec![0; size];
-		reader.read_exact(&mut v)?;
-		Ok(v)
+	impl LoggerTest {
+		fn new(level: Level) -> Self {
+			let guard = test_lock();
+			let (statusfd, writefd) = nix::unistd::pipe().unwrap();
+			// This way it will error if the io is blocked
+			fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)).unwrap();
+
+			let writer = File::from(writefd);
+			let reader = File::from(statusfd);
+
+			setup_color(Color::new(crate::config::Switch::Never, Default::default()));
+			setup_logger(LogOptions::new(level, Box::new(writer)));
+			Self {
+				reader,
+				_guard: guard,
+			}
+		}
+
+		fn read_exact(&mut self, size: usize) -> std::io::Result<Vec<u8>> {
+			let mut output = vec![0; size];
+			self.reader.read_exact(&mut output)?;
+			Ok(output)
+		}
+	}
+
+	impl Drop for LoggerTest {
+		fn drop(&mut self) {
+			setup_logger(LogOptions::default());
+			setup_color(Color::default());
+		}
 	}
 
 	#[test]
 	fn info() {
-		let _guard = test_lock();
-		let (mut reader, writer) = read_write();
-		setup_logger(LogOptions::new(Level::Info, Box::new(writer)));
+		let mut logger = LoggerTest::new(Level::Info);
 
 		info!("Test");
 
-		let expected = "\u{1b}[1;93mNotice:\u{1b}[0m Test\n";
-		let output = read_exact(&mut reader, expected.len()).unwrap();
+		let expected = "Notice: Test\n";
+		let output = logger.read_exact(expected.len()).unwrap();
 
 		assert_eq!(std::str::from_utf8(&output).unwrap(), expected);
 
 		// Test that debug does not work
 		debug!("Test");
-		assert!(read_exact(&mut reader, "Debug: Test\n".len()).is_err());
+		assert!(logger.read_exact("Debug: Test\n".len()).is_err());
 	}
 
 	#[test]
 	fn debug() {
-		let _guard = test_lock();
-		let (mut reader, writer) = read_write();
-		setup_logger(LogOptions::new(Level::Debug, Box::new(writer)));
+		let mut logger = LoggerTest::new(Level::Debug);
 
 		debug!("Test");
-		let debug_expected = "\u{1b}[1;97mDebug:\u{1b}[0m Test\n";
-		let output = read_exact(&mut reader, debug_expected.len()).unwrap();
+		let debug_expected = "Debug: Test\n";
+		let output = logger.read_exact(debug_expected.len()).unwrap();
 		assert_eq!(std::str::from_utf8(&output).unwrap(), debug_expected);
 
 		// Test that info during debug does work
 		info!("Test");
-		let notice_expected = "\u{1b}[1;93mNotice:\u{1b}[0m Test\n";
-		let output = read_exact(&mut reader, notice_expected.len()).unwrap();
+		let notice_expected = "Notice: Test\n";
+		let output = logger.read_exact(notice_expected.len()).unwrap();
 		assert_eq!(std::str::from_utf8(&output).unwrap(), notice_expected);
 	}
 }

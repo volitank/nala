@@ -16,7 +16,7 @@ override_dh_auto_build:
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	cargo test --locked --no-run
+	cargo test --locked -- --test-threads 1
 endif
 
 override_dh_auto_install:
