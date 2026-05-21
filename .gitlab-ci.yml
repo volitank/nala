@@ -7,12 +7,12 @@ variables:
 
 debian-package:
   stage: build
-  image: debian:trixie
+  image: debian:sid
   cache:
     key:
       files:
         - Cargo.lock
-      prefix: trixie-debian
+      prefix: sid-debian
     paths:
       - ".cargo/"
       - target/
