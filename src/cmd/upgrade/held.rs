@@ -26,7 +26,7 @@ impl UpgradeSnapshot {
 
 		Some(Self {
 			key: package_key(pkg),
-			name: pkg.name().to_string(),
+			name: pkg.fullname(true),
 			size: candidate.size(),
 			before: PackageState::from_version(&installed),
 			after: PackageState::from_version(&candidate),

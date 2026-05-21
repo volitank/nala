@@ -228,14 +228,29 @@ fn arch_matches(arch: &str, arches: &[String]) -> bool {
 fn find_matching_pkgs<'a>(
 	cache: &'a Cache,
 	config: &Config,
-	matcher: &globset::GlobMatcher,
+	pattern: &str,
 	arches: &[String],
-) -> Vec<Package<'a>> {
-	cache
+) -> Result<Vec<Package<'a>>> {
+	let (name, pattern_arch) = pattern
+		.rsplit_once(':')
+		.map_or((pattern, None), |(name, arch)| (name, Some(arch)));
+
+	if name.is_empty() || pattern_arch == Some("") {
+		bail!("Invalid package name: '{pattern}'");
+	}
+
+	let matcher = build_glob_matcher(name)?;
+
+	Ok(cache
 		.packages(&get_sorter(config))
-		.filter(|pkg| arch_matches(pkg.arch(), arches))
+		.filter(|pkg| {
+			pattern_arch.map_or_else(
+				|| arch_matches(pkg.arch(), arches),
+				|pattern_arch| pkg.arch() == pattern_arch,
+			)
+		})
 		.filter(|pkg| matcher.is_match(pkg.name()))
-		.collect::<Vec<_>>()
+		.collect::<Vec<_>>())
 }
 
 fn resolve_virtual_for_selection<'a>(pkg: Package<'a>, config: &Config) -> Result<Package<'a>> {
@@ -314,8 +329,7 @@ pub fn pkgs_with_modifiers<'a>(
 	for raw in cli_pkgs {
 		if raw.contains('=') {
 			let (name, version, modifier) = parse_version_pin(&raw)?;
-			let name_matcher = build_glob_matcher(&name)?;
-			let pkgs = find_matching_pkgs(cache, config, &name_matcher, &arches);
+			let pkgs = find_matching_pkgs(cache, config, &name, &arches)?;
 			if pkgs.is_empty() {
 				selection.missing.push(raw);
 				continue;
@@ -331,8 +345,7 @@ pub fn pkgs_with_modifiers<'a>(
 			continue;
 		}
 
-		let raw_matcher = build_glob_matcher(&raw)?;
-		let raw_matches = find_matching_pkgs(cache, config, &raw_matcher, &arches);
+		let raw_matches = find_matching_pkgs(cache, config, &raw, &arches)?;
 		if !raw_matches.is_empty() {
 			for pkg in raw_matches {
 				let pkg = resolve_virtual_for_selection(pkg, config)?;
@@ -353,8 +366,7 @@ pub fn pkgs_with_modifiers<'a>(
 			bail!("Invalid package name: '{raw}'");
 		}
 
-		let fallback_matcher = build_glob_matcher(fallback_pattern)?;
-		let fallback_matches = find_matching_pkgs(cache, config, &fallback_matcher, &arches);
+		let fallback_matches = find_matching_pkgs(cache, config, fallback_pattern, &arches)?;
 		if fallback_matches.is_empty() {
 			selection.missing.push(raw);
 			continue;

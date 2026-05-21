@@ -151,7 +151,7 @@ impl NalaCache for Cache {
 						.entry(op)
 						.or_default()
 						.push(PackageTransition::transition(
-							pkg.name().to_string(),
+							pkg.fullname(true),
 							after_version.size(),
 							op,
 							before,
@@ -196,7 +196,7 @@ impl NalaCache for Cache {
 						.entry(op)
 						.or_default()
 						.push(PackageTransition::transition(
-							pkg.name().to_string(),
+							pkg.fullname(true),
 							size,
 							op,
 							before,
@@ -216,7 +216,7 @@ impl NalaCache for Cache {
 							.entry(op)
 							.or_default()
 							.push(PackageTransition::transition(
-								pkg.name().to_string(),
+								pkg.fullname(true),
 								cand.size(),
 								op,
 								PackageState::from_version(&inst),
@@ -245,7 +245,7 @@ impl NalaCache for Cache {
 				.entry(Operation::Configure)
 				.or_default()
 				.push(PackageTransition::transition(
-					pkg.name().to_string(),
+					pkg.fullname(true),
 					installed.size(),
 					Operation::Configure,
 					PackageState::from_version(&installed),
