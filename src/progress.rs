@@ -155,11 +155,11 @@ impl ProgressState {
 
 	fn inc(&mut self, delta: u64) { self.position = self.position.saturating_add(delta) }
 
+	fn dec(&mut self, delta: u64) { self.position = self.position.saturating_sub(delta) }
+
 	fn set_position(&mut self, pos: u64) { self.position = pos }
 
 	fn finish(&mut self) { self.position = self.length }
-
-	pub(crate) fn length(&self) -> u64 { self.length }
 
 	pub(crate) fn is_dpkg(&self) -> bool { self.dpkg }
 
@@ -384,11 +384,11 @@ impl<'a> Progress<'a> {
 
 	pub fn inc(&mut self, delta: u64) { self.state.inc(delta) }
 
+	pub fn dec(&mut self, delta: u64) { self.state.dec(delta) }
+
 	pub fn set_position(&mut self, pos: u64) { self.state.set_position(pos) }
 
 	pub fn finish(&mut self) { self.state.finish() }
-
-	pub fn length(&self) -> u64 { self.state.length() }
 
 	pub fn unit_str(&self, size: u64) -> String { self.state.unit_str(size) }
 

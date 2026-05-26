@@ -7,6 +7,7 @@ use rust_apt::Version;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
+use tokio::time::{sleep, Duration};
 
 use super::downloader::Message;
 use super::Downloader;
@@ -25,6 +26,8 @@ pub struct Uri {
 	pub hash: Option<HashSum>,
 	pub filename: String,
 	retries: usize,
+	#[serde(skip)]
+	bytes_downloaded: usize,
 	#[serde(skip)]
 	pub client: reqwest::Client,
 	#[serde(skip)]
@@ -61,6 +64,7 @@ impl Uri {
 			hash,
 			filename,
 			retries: 0,
+			bytes_downloaded: 0,
 			client: downloader.client.clone(),
 			tx: downloader.tx.clone(),
 		}
@@ -126,6 +130,7 @@ impl Uri {
 				// Too many connections to this domain.
 				// Add the URL back to the queue and move to the next.
 				self.uris.push_back(url);
+				sleep(Duration::from_millis(150)).await;
 				continue;
 			}
 
@@ -139,8 +144,11 @@ impl Uri {
 					"Starting: {url}, Retries: {}",
 					self.retries
 				)))?;
+				self.bytes_downloaded = 0;
 				match self.download_file(&url).await {
 					Ok(hash) => {
+						domains.remove(domain, &self.filename).await;
+
 						// Compare the hash from downloaded file against a known good hash.
 						// Removes the file on disk if it doesn't match.
 						self.check_hash(&hash).await?;
@@ -149,26 +157,26 @@ impl Uri {
 						self.partial.rename(&self.archive).await?;
 						self.tx.send(Message::Verbose(format!("Finished: {url}")))?;
 
-						domains.remove(domain, &self.filename).await;
 						self.tx.send(Message::Finished)?;
 						return Ok(self);
 					},
 					Err(err) => {
 						// Non fatal errors can continue operation.
 						self.retries += 1;
-						self.tx.send(Message::NonFatal((err, self.size)))?;
-						domains.remove(domain, &self.filename).await;
+						self.tx
+							.send(Message::NonFatal((err, self.bytes_downloaded)))?;
 						continue;
 					},
 				}
 			}
+			domains.remove(domain, &self.filename).await;
 		}
 		self.tx.send(Message::Exit)?;
 		bail!("No URIs could be downloaded for {}", self.filename)
 	}
 
 	/// Downloads the file and returns the hash
-	pub async fn download_file(&self, url: &str) -> Result<HashSum> {
+	pub async fn download_file(&mut self, url: &str) -> Result<HashSum> {
 		// Initiate http(s) connection
 		let mut response = self
 			.client
@@ -194,6 +202,7 @@ impl Uri {
 		{
 			// Send message to add to total progress bar.
 			self.tx.send(Message::Update(chunk.len()))?;
+			self.bytes_downloaded += chunk.len();
 			hasher.update(&chunk);
 
 			// Write the data to file

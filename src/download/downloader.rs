@@ -124,7 +124,8 @@ impl Downloader {
 
 		Ok(Downloader {
 			client: reqwest::Client::builder()
-				.timeout(Duration::from_secs(30))
+				.connect_timeout(Duration::from_secs(30))
+				.read_timeout(Duration::from_secs(120))
 				.proxy(proxy)
 				.build()?,
 			uris: vec![],
@@ -289,9 +290,9 @@ impl Downloader {
 							progress.print(&msg)?;
 						}
 					},
-					Message::NonFatal((err, size)) => {
+					Message::NonFatal((err, bytes_downloaded)) => {
 						progress.print(&format!("Error: {err:?}"))?;
-						progress.set_position(progress.length() - size as u64)
+						progress.dec(bytes_downloaded as u64)
 					},
 				}
 			}
