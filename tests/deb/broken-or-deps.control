@@ -1,0 +1,10 @@
+Package: broken-or-deps
+Version: 1.0
+Section: misc
+Priority: optional
+Architecture: all
+Maintainer: Nala Test Fixture <nala@example.invalid>
+Depends: missing-a (>= 1.0) | missing-b (>= 1.0)
+Description: Package with unsatisfiable OR dependencies
+ This test reproduces install candidates that APT rejects because none of
+ the dependency alternatives are installable.

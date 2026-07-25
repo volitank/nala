@@ -137,7 +137,9 @@ impl<'a> Selection<'a> {
 
 					cache.resolver().clear(pkg);
 					cache.resolver().protect(pkg);
-					pkg.mark_install(true, true);
+					if !pkg.mark_install(true, true) && !pkg.mark_install(false, true) {
+						bail!("Unable to mark '{}' for installation", pkg.name());
+					}
 				},
 				Operation::Reinstall => {
 					let Some(cand) = pkg.candidate() else {

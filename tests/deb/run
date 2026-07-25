@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+nala_bin="${1:-${CARGO_TARGET_DIR:-target}/debug/nala}"
+
+if [[ ! -x "${nala_bin}" ]]; then
+	echo "Missing executable Nala binary: ${nala_bin}" >&2
+	echo "Build one first or pass a binary path." >&2
+	exit 1
+fi
+
+if [[ "$(id -u)" != "0" ]]; then
+	echo "Deb tests need root because Nala requires root for install." >&2
+	exit 1
+fi
+
+work_dir="$(mktemp -d)"
+trap 'rm -rf "${work_dir}"' EXIT
+chmod a+rx "${work_dir}"
+
+for control in tests/deb/*.control; do
+	case_name="$(basename "${control%.control}")"
+	pkg_dir="${work_dir}/${case_name}"
+	deb_path="${work_dir}/${case_name}.deb"
+	apt_log="${work_dir}/${case_name}.apt.log"
+	nala_log="${work_dir}/${case_name}.nala.log"
+
+	mkdir -p "${pkg_dir}/DEBIAN"
+	cp "${control}" "${pkg_dir}/DEBIAN/control"
+	dpkg-deb --build "${pkg_dir}" "${deb_path}" >/dev/null
+
+	if apt-get install -s "${deb_path}" >"${apt_log}" 2>&1; then
+		echo "Expected apt-get install -s ${deb_path} to fail" >&2
+		cat "${apt_log}" >&2
+		exit 1
+	fi
+
+	nala_status=0
+	"${nala_bin}" --no-tui --color never install --assume-no "${deb_path}" \
+		>"${nala_log}" 2>&1 || nala_status=$?
+
+	if [[ "${nala_status}" == "0" ]]; then
+		echo "Expected Nala to reject ${case_name}" >&2
+		cat "${nala_log}" >&2
+		exit 1
+	fi
+
+	if grep -q "Nothing to do\\." "${nala_log}"; then
+		echo "Nala hid unresolved dependencies as Nothing to do." >&2
+		cat "${nala_log}" >&2
+		exit 1
+	fi
+
+	if ! grep -Fq "missing-a" "${nala_log}" || ! grep -Fq "missing-b" "${nala_log}"; then
+		echo "Expected Nala to report both missing dependency alternatives." >&2
+		cat "${nala_log}" >&2
+		exit 1
+	fi
+
+	echo "PASS: apt and nala reject ${case_name}."
+done

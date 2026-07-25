@@ -97,7 +97,9 @@ impl ReplayAction {
 				};
 
 				ver.set_candidate();
-				pkg.mark_install(true, true);
+				if !pkg.mark_install(true, true) && !pkg.mark_install(false, true) {
+					bail!("Unable to mark '{}' for installation", pkg.name());
+				}
 
 				if let Some(auto_installed) = auto_installed {
 					pkg.mark_auto(auto_installed);
