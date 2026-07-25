@@ -56,7 +56,23 @@ deb-release:
 
 # Build signed source and binary Debian artifacts
 deb-release-sign KEY:
-    scripts/deb-build --release --key-id {{KEY}}
+    scripts/deb-build --release --key-id {{ KEY }}
+
+# Run a command in the Debian test container
+docker COMMAND:
+    @docker build --quiet -f tests/deb/Dockerfile -t nala-debtest tests/deb
+    @docker run --rm \
+        -e CARGO_TARGET_DIR=/target \
+        -e TERM="${TERM:-dumb}" \
+        -v "$PWD:/work" \
+        -v nala-debtest-target:/target \
+        -w /work \
+        nala-debtest \
+        sh -c '{{ COMMAND }}'
+
+# Run Debian package integration test
+debtest:
+    @just docker 'cargo build --locked --quiet && tests/deb/run'
 
 # Run the tests
 test +ARGS="":
