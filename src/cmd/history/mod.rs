@@ -20,7 +20,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 		util::sudo_check(config)?;
 		if clear.all {
 			let removed = clear_history(config, &[], None, true).await?;
-			println!("{}", t!("history-cleared-count", "count" => removed));
+			println!("{}", t!("history-cleared", "count" => removed));
 			return Ok(());
 		}
 	}
@@ -50,7 +50,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 
 	let Some(history_id) = args.history_id.as_ref() else {
 		if history_file.is_empty() {
-			println!("{}", t!("history-no-entries"));
+			println!("{}", t!("history-empty"));
 			return Ok(());
 		}
 

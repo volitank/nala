@@ -36,11 +36,11 @@ impl HistoryEntry {
 	/// Builds the plain history list table from stored entries.
 	pub(super) fn list_table(entries: &[Self]) -> comfy_table::Table {
 		let headers = [
-			t!("history-table-id"),
-			t!("history-table-command"),
-			t!("history-table-date-time"),
-			t!("history-table-requested-by"),
-			t!("history-table-altered"),
+			t!("history-id"),
+			t!("history-command"),
+			t!("history-date-time"),
+			t!("history-requested-by"),
+			t!("history-altered"),
 		];
 		let header_refs = headers.iter().map(String::as_str).collect::<Vec<_>>();
 		let mut table = table::get_table(&header_refs);
@@ -77,40 +77,40 @@ impl HistoryEntry {
 		entries
 			.iter()
 			.find(|entry| entry.id == id)
-			.ok_or_else(|| anyhow!(t!("history-entry-not-found", "id" => id)))
+			.ok_or_else(|| anyhow!(t!("history-not-found", "id" => id)))
 	}
 
 	/// Prints a plain-text detail view for this history entry.
 	pub(super) fn print_detail(&self, config: &Config) {
 		let requested_targets = if self.requested_targets.is_empty() {
-			t!("history-detail-none")
+			t!("history-none")
 		} else {
 			self.requested_targets.join(", ")
 		};
 
-		println!("{}: {}", t!("history-detail-id"), self.id);
-		println!("{}: {:?}", t!("history-detail-status"), self.status);
-		println!("{}: {}", t!("history-detail-command"), self.command);
+		println!("{}: {}", t!("history-id"), self.id);
+		println!("{}: {:?}", t!("history-status"), self.status);
+		println!("{}: {}", t!("history-command"), self.command);
 		println!(
 			"{}: {}",
-			t!("history-detail-requested-by"),
+			t!("history-requested-by"),
 			self.requested_by
 		);
 		println!(
 			"{}: {}",
-			t!("history-detail-started"),
+			t!("history-started"),
 			self.started_at_display()
 		);
 		println!(
 			"{}: {}",
-			t!("history-detail-finished"),
+			t!("history-finished"),
 			self.finished_at_display()
 		);
 		println!(
 			"{}: {requested_targets}",
-			t!("history-detail-requested-targets")
+			t!("history-targets")
 		);
-		println!("{}: {}", t!("history-detail-altered"), self.altered().count());
+		println!("{}: {}", t!("history-altered"), self.altered().count());
 
 		let pkg_set = self.grouped_packages();
 		if pkg_set.is_empty() {

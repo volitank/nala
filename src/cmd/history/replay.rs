@@ -50,12 +50,12 @@ impl HistoryEntry {
 		if self.status != HistoryStatus::Applied {
 			bail!(
 				"{}",
-				t!("history-entry-not-replayable", "id" => self.id)
+				t!("history-not-replayable", "id" => self.id)
 			);
 		}
 
 		if self.altered().next().is_none() {
-			bail!("{}", t!("history-entry-no-package-changes", "id" => self.id));
+			bail!("{}", t!("history-no-changes", "id" => self.id));
 		}
 
 		util::sudo_check(config)?;
@@ -96,7 +96,7 @@ impl ReplayAction {
 					bail!(
 						"{}",
 						t!(
-							"history-version-not-found",
+							"history-version-missing",
 							"version" => &version,
 							"package" => &package.name,
 						)
@@ -120,7 +120,7 @@ impl ReplayAction {
 					bail!(
 						"{}",
 						t!(
-							"history-version-not-found",
+							"history-version-missing",
 							"version" => &version,
 							"package" => &package.name,
 						)
@@ -131,7 +131,7 @@ impl ReplayAction {
 					bail!(
 						"{}",
 						t!(
-							"history-reinstall-not-installed",
+							"history-reinstall-missing",
 							"package" => &package.name,
 						)
 					);
@@ -170,7 +170,7 @@ impl PackageTransition {
 					bail!(
 						"{}",
 						t!(
-							"history-undo-prior-version-missing",
+							"history-undo-version-missing",
 							"package" => &self.name,
 						)
 					)
@@ -191,7 +191,7 @@ impl PackageTransition {
 					bail!(
 						"{}",
 						t!(
-							"history-undo-config-files-only",
+							"history-undo-config-only",
 							"package" => &self.name,
 						)
 					);
@@ -201,7 +201,7 @@ impl PackageTransition {
 					bail!(
 						"{}",
 						t!(
-							"history-undo-prior-installed-version-missing",
+							"history-undo-installed-version-missing",
 							"package" => &self.name,
 						)
 					)
@@ -215,7 +215,7 @@ impl PackageTransition {
 			crate::cmd::Operation::Reinstall => bail!(
 				"{}",
 				t!(
-					"history-undo-reinstall-no-inverse",
+					"history-undo-reinstall",
 					"package" => &self.name,
 				)
 			),
@@ -238,7 +238,7 @@ impl PackageTransition {
 					bail!(
 						"{}",
 						t!(
-							"history-redo-result-version-missing",
+							"history-redo-version-missing",
 							"package" => &self.name,
 						)
 					)
@@ -260,7 +260,7 @@ impl PackageTransition {
 					bail!(
 						"{}",
 						t!(
-							"history-redo-reinstall-version-missing",
+							"history-redo-reinstall-missing",
 							"package" => &self.name,
 						)
 					)

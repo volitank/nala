@@ -40,7 +40,6 @@ fn build_bundle(ftl: &str) -> FluentBundle<FluentResource> {
 		.parse()
 		.expect("default Fluent locale must parse");
 	let mut bundle = FluentBundle::new_concurrent(vec![locale]);
-	bundle.set_use_isolating(false);
 	bundle
 		.add_resource(resource)
 		.expect("bundled Fluent messages must not conflict");
@@ -49,10 +48,10 @@ fn build_bundle(ftl: &str) -> FluentBundle<FluentResource> {
 
 #[macro_export]
 macro_rules! t {
-	($id:expr) => {
+	($id:literal) => {
 		$crate::i18n::translate($id, None)
 	};
-	($id:expr, $($key:literal => $value:expr),+ $(,)?) => {{
+	($id:literal, $($key:literal => $value:expr),+ $(,)?) => {{
 		let mut args = ::fluent::FluentArgs::new();
 		$(args.set($key, $value);)+
 		$crate::i18n::translate($id, Some(&args))
@@ -70,25 +69,22 @@ mod tests {
 
 	#[test]
 	fn translate_falls_back_to_message_id_when_formatting_fails() {
-		assert_eq!(
-			translate("history-cleared-count", None),
-			"history-cleared-count"
-		);
+		assert_eq!(translate("history-cleared", None), "history-cleared");
 	}
 
 	#[test]
-	fn translate_formats_plural_messages() {
+	fn translate_formats_plural_messages_with_isolating() {
 		assert_eq!(
-			t!("history-cleared-count", "count" => 0),
-			"Cleared 0 history entries."
+			t!("history-cleared", "count" => 0),
+			"Cleared \u{2068}0\u{2069} history entries."
 		);
 		assert_eq!(
-			t!("history-cleared-count", "count" => 1),
-			"Cleared 1 history entry."
+			t!("history-cleared", "count" => 1),
+			"Cleared \u{2068}1\u{2069} history entry."
 		);
 		assert_eq!(
-			t!("history-cleared-count", "count" => 2),
-			"Cleared 2 history entries."
+			t!("history-cleared", "count" => 2),
+			"Cleared \u{2068}2\u{2069} history entries."
 		);
 	}
 }

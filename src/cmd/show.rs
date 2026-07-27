@@ -60,7 +60,7 @@ pub fn show(config: &Config) -> Result<()> {
 		let switch = color::color!(Theme::Notice, "'-a'");
 		info!(
 			"{}",
-			t!("show-additional-records", "count" => count, "switch" => switch),
+			t!("show-more-records", "count" => count, "switch" => switch),
 		);
 	}
 

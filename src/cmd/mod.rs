@@ -68,36 +68,36 @@ fn print_info(header: &str, value: &str) {
 
 fn show_label(key: &str) -> String {
 	match key {
-		RecordField::Package => t!("show-field-package"),
-		RecordField::Version => t!("show-field-version"),
-		RecordField::Architecture => t!("show-field-architecture"),
-		RecordField::Priority => t!("show-field-priority"),
-		RecordField::Essential => t!("show-field-essential"),
-		RecordField::Section => t!("show-field-section"),
-		RecordField::Source => t!("show-field-source"),
-		RecordField::InstalledSize => t!("show-field-installed-size"),
-		RecordField::Size => t!("show-field-size"),
-		RecordField::Maintainer => t!("show-field-maintainer"),
-		RecordField::OriginalMaintainer => t!("show-field-original-maintainer"),
-		RecordField::Homepage => t!("show-field-homepage"),
-		RecordField::SHA256 => t!("show-field-sha256"),
-		"Archive" => t!("show-field-archive"),
-		"Origin" => t!("show-field-origin"),
-		"Codename" => t!("show-field-codename"),
-		"Component" => t!("show-field-component"),
-		"Provides" => t!("show-field-provides"),
-		"Description" => t!("show-field-description"),
-		"Attributes" => t!("show-field-attributes"),
-		"APT-Sources" => t!("show-field-apt-sources"),
-		"Depends" => t!("show-field-depends"),
-		"PreDepends" => t!("show-field-pre-depends"),
-		"Suggests" => t!("show-field-suggests"),
-		"Recommends" => t!("show-field-recommends"),
-		"Conflicts" => t!("show-field-conflicts"),
-		"Replaces" => t!("show-field-replaces"),
-		"Obsoletes" => t!("show-field-obsoletes"),
-		"Breaks" | "DpkgBreaks" => t!("show-field-breaks"),
-		"Enhances" => t!("show-field-enhances"),
+		RecordField::Package => t!("show-package"),
+		RecordField::Version => t!("show-version"),
+		RecordField::Architecture => t!("show-architecture"),
+		RecordField::Priority => t!("show-priority"),
+		RecordField::Essential => t!("show-essential"),
+		RecordField::Section => t!("show-section"),
+		RecordField::Source => t!("show-source"),
+		RecordField::InstalledSize => t!("show-installed-size"),
+		RecordField::Size => t!("show-size"),
+		RecordField::Maintainer => t!("show-maintainer"),
+		RecordField::OriginalMaintainer => t!("show-original-maintainer"),
+		RecordField::Homepage => t!("show-homepage"),
+		RecordField::SHA256 => t!("show-sha256"),
+		"Archive" => t!("show-archive"),
+		"Origin" => t!("show-origin"),
+		"Codename" => t!("show-codename"),
+		"Component" => t!("show-component"),
+		"Provides" => t!("show-provides"),
+		"Description" => t!("show-description"),
+		"Attributes" => t!("show-attributes"),
+		"APT-Sources" => t!("show-apt-sources"),
+		"Depends" => t!("show-depends"),
+		"PreDepends" => t!("show-pre-depends"),
+		"Suggests" => t!("show-suggests"),
+		"Recommends" => t!("show-recommends"),
+		"Conflicts" => t!("show-conflicts"),
+		"Replaces" => t!("show-replaces"),
+		"Obsoletes" => t!("show-obsoletes"),
+		"Breaks" | "DpkgBreaks" => t!("show-breaks"),
+		"Enhances" => t!("show-enhances"),
 		_ => key.to_string(),
 	}
 }
@@ -112,8 +112,7 @@ impl ShowVersion<'_> {
 		let records = IndexMap::from_iter(RECORDS.iter().copied().map(|key| {
 			(
 				key,
-				ver.get_record(key)
-					.unwrap_or_else(|| t!("show-record-unknown")),
+				ver.get_record(key).unwrap_or_else(|| t!("show-unknown")),
 			)
 		}));
 		ShowVersion { ver, records }
@@ -203,7 +202,7 @@ impl ShowVersion<'_> {
 				pkg_file
 					.origin()
 					.map(str::to_string)
-					.unwrap_or_else(|| t!("show-record-unknown")),
+					.unwrap_or_else(|| t!("show-unknown")),
 			);
 
 			// Check if source is local, pacstall or from a repo
