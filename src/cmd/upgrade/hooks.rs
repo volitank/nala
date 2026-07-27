@@ -1,14 +1,13 @@
 use std::collections::VecDeque;
-use std::env;
-use std::ffi::CString;
 use std::io::{BufWriter, Write};
 use std::os::fd::{FromRawFd, IntoRawFd};
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 
 use anyhow::{bail, Result};
 use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{close, dup2_raw, execv, fork, pipe, ForkResult};
+use nix::unistd::{close, dup2_raw, fork, pipe, ForkResult};
 use rust_apt::raw::quote_string;
 use rust_apt::{Marked, Package, Version};
 
@@ -247,23 +246,17 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 				let _info_fd = unsafe { dup2_raw(&statusfd, info_fd)? };
 
 				debug!("From Child");
-				// SAFETY: fork leaves this child with one thread, so environment mutation cannot race.
-				unsafe {
-					env::set_var("APT_HOOK_INFO_FD", info_fd.to_string());
-					if key == "DPkg::Pre-Install-Pkgs" {
-						env::set_var("DPKG_FRONTEND_LOCKED", "true");
-					}
+				let mut command = Command::new("/bin/sh");
+				command
+					.arg("-c")
+					.arg(&hook)
+					.env("APT_HOOK_INFO_FD", info_fd.to_string());
+				if key == "DPkg::Pre-Install-Pkgs" {
+					command.env("DPKG_FRONTEND_LOCKED", "true");
 				}
 
-				let mut args_cstr: Vec<CString> = vec![];
-				for arg in ["/bin/sh", "-c", &hook] {
-					args_cstr.push(CString::new(arg)?)
-				}
-				debug!("Exec {args_cstr:?}");
-				execv(&args_cstr[0], &args_cstr)?;
-
-				// Ensure exit after execv if it fails
-				std::process::exit(1);
+				debug!("Exec {command:?}");
+				return Err(command.exec().into());
 			},
 			ForkResult::Parent { child } => {
 				let file = unsafe { std::fs::File::from_raw_fd(writefd.into_raw_fd()) };
