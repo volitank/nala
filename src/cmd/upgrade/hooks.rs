@@ -79,10 +79,8 @@ fn set_multi_arch(version: &Version, hook_ver: i32) -> String {
 fn get_now_version<'a>(pkg: &Package<'a>) -> Option<Version<'a>> {
 	for ver in pkg.versions() {
 		for pkg_file in ver.package_files() {
-			if let Some(archive) = pkg_file.archive() {
-				if archive == "now" {
-					return Some(ver);
-				}
+			if pkg_file.archive().is_some_and(|archive| archive == "now") {
+				return Some(ver);
 			}
 		}
 	}
@@ -196,16 +194,16 @@ fn write_config_info<W: Write>(w: &mut W, config: &Config, hook_ver: i32) -> Res
 			stack.push_back(item);
 		}
 
-		if let (Some(tag), Some(value)) = (node.full_tag(), node.value()) {
-			if !value.is_empty() {
-				let tag_value = format!(
-					"{}={}",
-					quote_string(&tag, "=\"\n".to_string()),
-					quote_string(&value, "\n".to_string())
-				);
-				debug!("{tag_value}");
-				writeln!(w, "{tag_value}",)?;
-			}
+		if let (Some(tag), Some(value)) = (node.full_tag(), node.value())
+			&& !value.is_empty()
+		{
+			let tag_value = format!(
+				"{}={}",
+				quote_string(&tag, "=\"\n".to_string()),
+				quote_string(&value, "\n".to_string())
+			);
+			debug!("{tag_value}");
+			writeln!(w, "{tag_value}",)?;
 		}
 	}
 	writeln!(w)?;
@@ -287,10 +285,10 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 
 				// Wait for the child process to finish and get its exit code
 				let wait_status = waitpid(child, None)?;
-				if let WaitStatus::Exited(_, exit_code) = wait_status {
-					if exit_code != 0 {
-						std::process::exit(exit_code);
-					}
+				if let WaitStatus::Exited(_, exit_code) = wait_status
+					&& exit_code != 0
+				{
+					std::process::exit(exit_code);
 				}
 			},
 		}

@@ -173,12 +173,12 @@ impl<'a> SummaryRow<'a> {
 				.stdin(Stdio::piped())
 				.spawn()?;
 
-			if let Some(stdin) = pager.stdin.as_mut() {
-				if let Err(err) = stdin.write_all(changelog.as_bytes()) {
-					match err.kind() {
-						io::ErrorKind::BrokenPipe => {},
-						_ => return Err(err.into()),
-					}
+			if let Some(stdin) = pager.stdin.as_mut()
+				&& let Err(err) = stdin.write_all(changelog.as_bytes())
+			{
+				match err.kind() {
+					io::ErrorKind::BrokenPipe => {},
+					_ => return Err(err.into()),
 				}
 			}
 
@@ -232,13 +232,11 @@ impl<'a> SummaryRow<'a> {
 				}
 			})?;
 
-			if let Event::Key(key) = event::read()? {
-				if key.kind == KeyEventKind::Press {
-					match key.code {
-						KeyCode::Char('q') | KeyCode::Esc => break Ok(()),
-						_ => {},
-					}
-				}
+			if let Event::Key(key) = event::read()?
+				&& key.kind == KeyEventKind::Press
+				&& matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
+			{
+				break Ok(());
 			}
 		}
 	}

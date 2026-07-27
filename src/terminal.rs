@@ -45,16 +45,12 @@ pub(crate) fn use_tui(config: &Config) -> bool {
 }
 
 pub(crate) fn poll_exit_event() -> Result<bool> {
-	if event::poll(Duration::from_millis(0))? {
-		if let Event::Key(key) = event::read()? {
-			if KeyCode::Char('q') == key.code {
-				return Ok(true);
-			}
-
-			if KeyCode::Char('c') == key.code && key.modifiers.contains(KeyModifiers::CONTROL) {
-				return Ok(true);
-			}
-		}
+	if event::poll(Duration::from_millis(0))?
+		&& let Event::Key(key) = event::read()?
+		&& (KeyCode::Char('q') == key.code
+			|| KeyCode::Char('c') == key.code && key.modifiers.contains(KeyModifiers::CONTROL))
+	{
+		return Ok(true);
 	}
 	Ok(false)
 }
