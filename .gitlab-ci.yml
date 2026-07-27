@@ -3,18 +3,20 @@ stages:
 variables:
   DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  CACHE_COMPRESSION_LEVEL: fastest
   PATH: "${CARGO_HOME}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 debian-package:
   stage: build
   image: debian:sid
   cache:
-    key:
-      files:
-        - Cargo.lock
-      prefix: sid-debian
+    key: "${CI_COMMIT_REF_SLUG}"
+    fallback_keys:
+      - "${CI_DEFAULT_BRANCH}"
     paths:
-      - ".cargo/"
+      - .cargo/registry/cache/
+      - .cargo/registry/index/
+      - .cargo/git/db/
       - target/
   script:
     - apt-get update
