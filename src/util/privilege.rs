@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use crate::config::Config;
 
 #[link(name = "c")]
-extern "C" {
+unsafe extern "C" {
 	fn geteuid() -> u32;
 }
 

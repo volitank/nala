@@ -58,7 +58,7 @@ ioctl_write_ptr_bad!(tiocswinsz, TIOCSWINSZ, winsize);
 /// Get Terminal Size from stdin
 unsafe fn get_winsize() -> nix::Result<winsize> {
 	let mut ws: winsize = unsafe { zeroed() };
-	tiocgwinsz(STDIN_FD, &mut ws)?;
+	unsafe { tiocgwinsz(STDIN_FD, &mut ws) }?;
 	Ok(ws)
 }
 
