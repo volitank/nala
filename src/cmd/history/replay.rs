@@ -5,7 +5,7 @@ use rust_apt::{new_cache, Cache};
 use super::model::{HistoryEntry, HistoryStatus};
 use crate::config::Config;
 use crate::libnala::PackageTransition;
-use crate::{debug, util};
+use crate::{debug, t, util};
 
 /// Solver-facing package action derived from a stored history transition.
 #[derive(Debug, PartialEq, Eq)]
@@ -50,12 +50,12 @@ impl HistoryEntry {
 		if self.status != HistoryStatus::Applied {
 			bail!(
 				"{}",
-				crate::t!("history-entry-not-replayable", "id" => self.id)
+				t!("history-entry-not-replayable", "id" => self.id)
 			);
 		}
 
 		if self.altered().next().is_none() {
-			bail!("{}", crate::t!("history-entry-no-package-changes", "id" => self.id));
+			bail!("{}", t!("history-entry-no-package-changes", "id" => self.id));
 		}
 
 		util::sudo_check(config)?;
@@ -95,7 +95,7 @@ impl ReplayAction {
 				let Some(ver) = pkg.get_version(&version) else {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-version-not-found",
 							"version" => &version,
 							"package" => &package.name,
@@ -119,7 +119,7 @@ impl ReplayAction {
 				let Some(ver) = pkg.get_version(&version) else {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-version-not-found",
 							"version" => &version,
 							"package" => &package.name,
@@ -130,7 +130,7 @@ impl ReplayAction {
 				if pkg.installed().is_none() {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-reinstall-not-installed",
 							"package" => &package.name,
 						)
@@ -169,7 +169,7 @@ impl PackageTransition {
 				let Some(version) = self.before.version.clone() else {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-undo-prior-version-missing",
 							"package" => &self.name,
 						)
@@ -190,7 +190,7 @@ impl PackageTransition {
 				if self.before.config_files_only {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-undo-config-files-only",
 							"package" => &self.name,
 						)
@@ -200,7 +200,7 @@ impl PackageTransition {
 				let Some(version) = self.before.version.clone() else {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-undo-prior-installed-version-missing",
 							"package" => &self.name,
 						)
@@ -214,7 +214,7 @@ impl PackageTransition {
 			},
 			crate::cmd::Operation::Reinstall => bail!(
 				"{}",
-				crate::t!(
+				t!(
 					"history-undo-reinstall-no-inverse",
 					"package" => &self.name,
 				)
@@ -223,7 +223,7 @@ impl PackageTransition {
 				bail!("Configured package '{}' cannot be undone", self.name)
 			},
 			crate::cmd::Operation::Held => {
-				bail!("{}", crate::t!("history-undo-held", "package" => &self.name))
+				bail!("{}", t!("history-undo-held", "package" => &self.name))
 			},
 		}
 	}
@@ -237,7 +237,7 @@ impl PackageTransition {
 				let Some(version) = self.after.version.clone() else {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-redo-result-version-missing",
 							"package" => &self.name,
 						)
@@ -259,7 +259,7 @@ impl PackageTransition {
 				let Some(version) = self.after.version.clone() else {
 					bail!(
 						"{}",
-						crate::t!(
+						t!(
 							"history-redo-reinstall-version-missing",
 							"package" => &self.name,
 						)
@@ -275,7 +275,7 @@ impl PackageTransition {
 				bail!("Configured package '{}' cannot be redone", self.name)
 			},
 			crate::cmd::Operation::Held => {
-				bail!("{}", crate::t!("history-redo-held", "package" => &self.name))
+				bail!("{}", t!("history-redo-held", "package" => &self.name))
 			},
 		}
 	}

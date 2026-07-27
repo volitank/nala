@@ -8,7 +8,7 @@ use crate::cmd::Operation;
 use crate::config::Config;
 use crate::libnala::PackageTransition;
 use crate::tui::summary::SummaryRow;
-use crate::table;
+use crate::{t, table};
 
 impl HistoryEntry {
 	/// Formats a stored UTC timestamp for local display, or returns the raw value.
@@ -36,11 +36,11 @@ impl HistoryEntry {
 	/// Builds the plain history list table from stored entries.
 	pub(super) fn list_table(entries: &[Self]) -> comfy_table::Table {
 		let headers = [
-			crate::t!("history-table-id"),
-			crate::t!("history-table-command"),
-			crate::t!("history-table-date-time"),
-			crate::t!("history-table-requested-by"),
-			crate::t!("history-table-altered"),
+			t!("history-table-id"),
+			t!("history-table-command"),
+			t!("history-table-date-time"),
+			t!("history-table-requested-by"),
+			t!("history-table-altered"),
 		];
 		let header_refs = headers.iter().map(String::as_str).collect::<Vec<_>>();
 		let mut table = table::get_table(&header_refs);
@@ -77,40 +77,40 @@ impl HistoryEntry {
 		entries
 			.iter()
 			.find(|entry| entry.id == id)
-			.ok_or_else(|| anyhow!(crate::t!("history-entry-not-found", "id" => id)))
+			.ok_or_else(|| anyhow!(t!("history-entry-not-found", "id" => id)))
 	}
 
 	/// Prints a plain-text detail view for this history entry.
 	pub(super) fn print_detail(&self, config: &Config) {
 		let requested_targets = if self.requested_targets.is_empty() {
-			crate::t!("history-detail-none")
+			t!("history-detail-none")
 		} else {
 			self.requested_targets.join(", ")
 		};
 
-		println!("{}: {}", crate::t!("history-detail-id"), self.id);
-		println!("{}: {:?}", crate::t!("history-detail-status"), self.status);
-		println!("{}: {}", crate::t!("history-detail-command"), self.command);
+		println!("{}: {}", t!("history-detail-id"), self.id);
+		println!("{}: {:?}", t!("history-detail-status"), self.status);
+		println!("{}: {}", t!("history-detail-command"), self.command);
 		println!(
 			"{}: {}",
-			crate::t!("history-detail-requested-by"),
+			t!("history-detail-requested-by"),
 			self.requested_by
 		);
 		println!(
 			"{}: {}",
-			crate::t!("history-detail-started"),
+			t!("history-detail-started"),
 			self.started_at_display()
 		);
 		println!(
 			"{}: {}",
-			crate::t!("history-detail-finished"),
+			t!("history-detail-finished"),
 			self.finished_at_display()
 		);
 		println!(
 			"{}: {requested_targets}",
-			crate::t!("history-detail-requested-targets")
+			t!("history-detail-requested-targets")
 		);
-		println!("{}: {}", crate::t!("history-detail-altered"), self.altered().count());
+		println!("{}: {}", t!("history-detail-altered"), self.altered().count());
 
 		let pkg_set = self.grouped_packages();
 		if pkg_set.is_empty() {

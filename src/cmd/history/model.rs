@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::cli::HistorySelector;
 use crate::config::Config;
 use crate::libnala::PackageTransition;
-use crate::util;
+use crate::{t, util};
 
 /// Schema version for on-disk package transaction history entries.
 pub const HISTORY_SCHEMA_VERSION: u32 = 1;
@@ -73,7 +73,7 @@ impl HistoryEntry {
 			HistorySelector::Last => entries
 				.iter()
 				.max_by_key(|entry| entry.id)
-				.ok_or_else(|| anyhow::anyhow!(crate::t!("history-no-entries-error"))),
+				.ok_or_else(|| anyhow::anyhow!(t!("history-no-entries-error"))),
 			HistorySelector::Id(id) => Self::find(entries, *id),
 		}
 	}

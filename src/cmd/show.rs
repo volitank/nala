@@ -4,8 +4,8 @@ use anyhow::Result;
 use rust_apt::new_cache;
 
 use crate::config::{color, Config, Theme};
-use crate::{glob, info};
 use crate::util::PACSTALL;
+use crate::{glob, info, t};
 
 use super::ShowVersion;
 
@@ -25,7 +25,7 @@ pub fn format_local(pkg_name: &str) -> String {
 		}
 	}
 	if pac_repo.is_empty() {
-		return crate::t!("show-local-install");
+		return t!("show-local-install");
 	}
 
 	color::secondary!(pac_repo)
@@ -60,7 +60,7 @@ pub fn show(config: &Config) -> Result<()> {
 		let switch = color::color!(Theme::Notice, "'-a'");
 		info!(
 			"{}",
-			crate::t!("show-additional-records", "count" => count, "switch" => switch),
+			t!("show-additional-records", "count" => count, "switch" => switch),
 		);
 	}
 

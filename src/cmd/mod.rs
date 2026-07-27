@@ -27,6 +27,7 @@ pub use upgrade::{apt_hook_with_pkgs, run_scripts};
 use crate::cli::commands::Moo;
 use crate::config::{Config, color};
 pub use crate::libnala::Operation;
+use crate::t;
 use crate::util::URL;
 
 const DEP_ITER: &[DepType] = {
@@ -67,36 +68,36 @@ fn print_info(header: &str, value: &str) {
 
 fn show_label(key: &str) -> String {
 	match key {
-		RecordField::Package => crate::t!("show-field-package"),
-		RecordField::Version => crate::t!("show-field-version"),
-		RecordField::Architecture => crate::t!("show-field-architecture"),
-		RecordField::Priority => crate::t!("show-field-priority"),
-		RecordField::Essential => crate::t!("show-field-essential"),
-		RecordField::Section => crate::t!("show-field-section"),
-		RecordField::Source => crate::t!("show-field-source"),
-		RecordField::InstalledSize => crate::t!("show-field-installed-size"),
-		RecordField::Size => crate::t!("show-field-size"),
-		RecordField::Maintainer => crate::t!("show-field-maintainer"),
-		RecordField::OriginalMaintainer => crate::t!("show-field-original-maintainer"),
-		RecordField::Homepage => crate::t!("show-field-homepage"),
-		RecordField::SHA256 => crate::t!("show-field-sha256"),
-		"Archive" => crate::t!("show-field-archive"),
-		"Origin" => crate::t!("show-field-origin"),
-		"Codename" => crate::t!("show-field-codename"),
-		"Component" => crate::t!("show-field-component"),
-		"Provides" => crate::t!("show-field-provides"),
-		"Description" => crate::t!("show-field-description"),
-		"Attributes" => crate::t!("show-field-attributes"),
-		"APT-Sources" => crate::t!("show-field-apt-sources"),
-		"Depends" => crate::t!("show-field-depends"),
-		"PreDepends" => crate::t!("show-field-pre-depends"),
-		"Suggests" => crate::t!("show-field-suggests"),
-		"Recommends" => crate::t!("show-field-recommends"),
-		"Conflicts" => crate::t!("show-field-conflicts"),
-		"Replaces" => crate::t!("show-field-replaces"),
-		"Obsoletes" => crate::t!("show-field-obsoletes"),
-		"Breaks" | "DpkgBreaks" => crate::t!("show-field-breaks"),
-		"Enhances" => crate::t!("show-field-enhances"),
+		RecordField::Package => t!("show-field-package"),
+		RecordField::Version => t!("show-field-version"),
+		RecordField::Architecture => t!("show-field-architecture"),
+		RecordField::Priority => t!("show-field-priority"),
+		RecordField::Essential => t!("show-field-essential"),
+		RecordField::Section => t!("show-field-section"),
+		RecordField::Source => t!("show-field-source"),
+		RecordField::InstalledSize => t!("show-field-installed-size"),
+		RecordField::Size => t!("show-field-size"),
+		RecordField::Maintainer => t!("show-field-maintainer"),
+		RecordField::OriginalMaintainer => t!("show-field-original-maintainer"),
+		RecordField::Homepage => t!("show-field-homepage"),
+		RecordField::SHA256 => t!("show-field-sha256"),
+		"Archive" => t!("show-field-archive"),
+		"Origin" => t!("show-field-origin"),
+		"Codename" => t!("show-field-codename"),
+		"Component" => t!("show-field-component"),
+		"Provides" => t!("show-field-provides"),
+		"Description" => t!("show-field-description"),
+		"Attributes" => t!("show-field-attributes"),
+		"APT-Sources" => t!("show-field-apt-sources"),
+		"Depends" => t!("show-field-depends"),
+		"PreDepends" => t!("show-field-pre-depends"),
+		"Suggests" => t!("show-field-suggests"),
+		"Recommends" => t!("show-field-recommends"),
+		"Conflicts" => t!("show-field-conflicts"),
+		"Replaces" => t!("show-field-replaces"),
+		"Obsoletes" => t!("show-field-obsoletes"),
+		"Breaks" | "DpkgBreaks" => t!("show-field-breaks"),
+		"Enhances" => t!("show-field-enhances"),
 		_ => key.to_string(),
 	}
 }
@@ -112,7 +113,7 @@ impl ShowVersion<'_> {
 			(
 				key,
 				ver.get_record(key)
-					.unwrap_or_else(|| crate::t!("show-record-unknown")),
+					.unwrap_or_else(|| t!("show-record-unknown")),
 			)
 		}));
 		ShowVersion { ver, records }
@@ -147,25 +148,25 @@ impl ShowVersion<'_> {
 		let pkg = self.ver.parent();
 		let mut attrs = vec![];
 		if let Some(installed) = pkg.installed() {
-			attrs.push(crate::t!("show-attr-installed"));
+			attrs.push(t!("show-attr-installed"));
 
 			// Version isn't downloadable, consider it locally installed
 			if !self.ver.is_downloadable() {
-				attrs.push(crate::t!("show-attr-local"));
+				attrs.push(t!("show-attr-local"));
 			}
 
 			if pkg.is_auto_removable() {
-				attrs.push(crate::t!("show-attr-auto-removable"));
+				attrs.push(t!("show-attr-auto-removable"));
 			}
 
 			if pkg.is_auto_installed() {
-				attrs.push(crate::t!("show-attr-automatic"));
+				attrs.push(t!("show-attr-automatic"));
 			}
 
 			if let Some(candidate) = pkg.candidate() {
 				// Version is installed, check if it's upgradable
 				if self.ver == installed && self.ver < candidate {
-					attrs.push(crate::t!(
+					attrs.push(t!(
 						"show-attr-upgradable-to",
 						"version" => color::ver!(candidate.version()),
 					));
@@ -173,7 +174,7 @@ impl ShowVersion<'_> {
 
 				// This Version isn't installed, see if it's the candidate
 				if self.ver == candidate && self.ver > installed {
-					attrs.push(crate::t!(
+					attrs.push(t!(
 						"show-attr-upgradable-from",
 						"version" => color::ver!(installed.version()),
 					));
@@ -202,7 +203,7 @@ impl ShowVersion<'_> {
 				pkg_file
 					.origin()
 					.map(str::to_string)
-					.unwrap_or_else(|| crate::t!("show-record-unknown")),
+					.unwrap_or_else(|| t!("show-record-unknown")),
 			);
 
 			// Check if source is local, pacstall or from a repo
@@ -255,11 +256,9 @@ impl ShowVersion<'_> {
 		let desc = if description {
 			self.ver
 				.description()
-				.unwrap_or_else(|| crate::t!("show-no-description"))
+				.unwrap_or_else(|| t!("show-no-description"))
 		} else if summary {
-			self.ver
-				.summary()
-				.unwrap_or_else(|| crate::t!("show-no-summary"))
+			self.ver.summary().unwrap_or_else(|| t!("show-no-summary"))
 		} else {
 			"".to_string()
 		};

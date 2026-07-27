@@ -79,15 +79,15 @@ mod tests {
 	#[test]
 	fn translate_formats_plural_messages() {
 		assert_eq!(
-			crate::t!("history-cleared-count", "count" => 0),
+			t!("history-cleared-count", "count" => 0),
 			"Cleared 0 history entries."
 		);
 		assert_eq!(
-			crate::t!("history-cleared-count", "count" => 1),
+			t!("history-cleared-count", "count" => 1),
 			"Cleared 1 history entry."
 		);
 		assert_eq!(
-			crate::t!("history-cleared-count", "count" => 2),
+			t!("history-cleared-count", "count" => 2),
 			"Cleared 2 history entries."
 		);
 	}
