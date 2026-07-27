@@ -3,68 +3,46 @@ use std::path::PathBuf;
 use clap::{ColorChoice, Parser};
 
 use super::commands::Commands;
-use crate::t;
 
 #[derive(Parser, Debug)]
 #[clap(name = "nala")]
 #[clap(author = "Blake Lee <blake@volian.org>")]
 #[clap(version)]
-#[clap(about = t!("cli-about"), long_about = None)]
+#[clap(about = "Commandline front-end for libapt-pkg", long_about = None)]
 pub struct NalaParser {
-	#[clap(global = true, short, long, action, help = t!("cli-license"))]
+	/// Print license information
+	#[clap(global = true, short, long, action)]
 	pub license: bool,
 
-	#[clap(global = true, short, long, action, help = t!("cli-verbose"))]
+	/// Disable scrolling text and print extra information
+	#[clap(global = true, short, long, action)]
 	pub verbose: bool,
-	#[clap(global = true, short, long, action, help = t!("cli-debug"))]
+	/// Print debug statements for solving issues
+	#[clap(global = true, short, long, action)]
 	pub debug: bool,
 
-	#[clap(
-		short,
-		long,
-		value_parser,
-		value_name = "FILE",
-		help = t!("cli-config")
-	)]
+	/// Specify a different configuration file
+	#[clap(short, long, value_parser, value_name = "FILE")]
 	pub config: Option<PathBuf>,
 
 	/// Override the history directory for tests and isolated fixtures
 	#[clap(global = true, long, hide = true, value_name = "DIR")]
 	pub history_dir: Option<PathBuf>,
 
-	#[clap(
-		global = true,
-		long,
-		action,
-		conflicts_with = "no_tui",
-		help = t!("cli-tui")
-	)]
+	/// Turn on tui if it's disabled in the config.
+	#[clap(global = true, long, action, conflicts_with = "no_tui")]
 	pub tui: bool,
 
-	#[clap(
-		global = true,
-		long,
-		action,
-		conflicts_with = "tui",
-		help = t!("cli-no-tui")
-	)]
+	/// Turn the tui off. Takes precedence over other options
+	#[clap(global = true, long, action, conflicts_with = "tui")]
 	pub no_tui: bool,
 
-	#[clap(
-		global = true,
-		short = 'o',
-		long,
-		action,
-		help = t!("cli-option")
-	)]
+	/// Passthrough Apt configurations
+	#[clap(global = true, short = 'o', long, action)]
 	pub option: Vec<String>,
 
-	#[clap(
-		global = true,
-		long,
-		default_value = "auto",
-		help = t!("cli-color")
-	)]
+	/// Set color mode (always, never, auto).
+	#[clap(global = true, long, default_value = "auto")]
 	pub color: ColorChoice,
 
 	#[clap(subcommand)]

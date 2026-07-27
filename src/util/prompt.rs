@@ -3,6 +3,7 @@ use std::io::Write;
 use anyhow::{Result, bail};
 
 use crate::config::{Config, keys};
+use crate::i18n::{Language, language};
 use crate::t;
 
 /// Ask the user for confirmation, honoring configured prompt defaults.
@@ -22,7 +23,7 @@ pub fn confirm(config: &Config, msg: &str) -> Result<()> {
 	std::io::stdin().read_line(&mut response)?;
 
 	let resp = response.to_lowercase();
-	if resp.trim().is_empty() || resp.starts_with('y') {
+	if response_is_yes(&resp) {
 		return Ok(());
 	}
 
@@ -33,9 +34,15 @@ pub fn confirm(config: &Config, msg: &str) -> Result<()> {
 	bail!("{}", t!("prompt-invalid", "response" => response.trim()))
 }
 
+fn response_is_yes(response: &str) -> bool {
+	response.trim().is_empty()
+		|| response.starts_with('y')
+		|| (language() == Language::PtBr && response.starts_with('s'))
+}
+
 #[cfg(test)]
 mod tests {
-	use super::confirm;
+	use super::{confirm, response_is_yes};
 	use crate::config::{Config, keys};
 
 	#[test]
@@ -53,5 +60,12 @@ mod tests {
 		config.set_bool(keys::ASSUME_NO, true);
 
 		assert!(confirm(&config, "Continue?").is_err());
+	}
+
+	#[test]
+	fn confirmation_accepts_default_and_english_yes() {
+		assert!(response_is_yes(""));
+		assert!(response_is_yes("y"));
+		assert!(!response_is_yes("n"));
 	}
 }

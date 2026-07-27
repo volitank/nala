@@ -1,15 +1,6 @@
 use clap::CommandFactory;
 use clap_mangen as man;
 
-#[path = "src/i18n/shared.rs"]
-mod i18n_shared;
-
-mod i18n {
-	pub fn translate(id: &str, args: Option<&fluent::FluentArgs>) -> String {
-		crate::i18n_shared::translate(id, args, |_| {})
-	}
-}
-
 mod flags {
 	include!("src/cli/flags.rs");
 }
@@ -62,7 +53,6 @@ macro_rules! generate_files {
 }
 
 fn main() -> Result<(), std::io::Error> {
-	println!("cargo:rerun-if-changed=locales/en-US/main.ftl");
 	let out_dir =
 		std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or(std::io::ErrorKind::NotFound)?);
 
