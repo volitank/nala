@@ -4,7 +4,7 @@ use std::process::Stdio;
 use std::{fmt, io};
 
 use ansi_to_tui::IntoText;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::Constraint::Length;
 use ratatui::layout::{Alignment, Layout};
@@ -14,7 +14,7 @@ use ratatui::widgets::{Cell, Paragraph, Wrap};
 use rust_apt::Cache;
 use tokio::sync::OnceCell as AsyncOnceCell;
 
-use crate::config::{color, Config, Theme};
+use crate::config::{Config, Theme, color};
 use crate::libnala::PackageTransition;
 use crate::terminal::TerminalGuard;
 use crate::tui::{style as tui_style, summary};

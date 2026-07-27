@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use ratatui::Terminal;
 use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
@@ -8,7 +9,6 @@ use ratatui::text::Line;
 use ratatui::widgets::{
 	Block, BorderType, List, ListItem, ListState, Padding, Paragraph, StatefulWidget, Widget,
 };
-use ratatui::Terminal;
 
 use super::style as tui_style;
 use crate::config::{Config, Theme};
@@ -155,7 +155,7 @@ impl<'a> App<'a> {
 						},
 						// CTRL+C will return an empty vec to exit cleanly without progressing.
 						Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-							return Ok(vec![])
+							return Ok(vec![]);
 						},
 						Char('j') | Down => self.items.next(),
 						Char('k') | Up => self.items.previous(),

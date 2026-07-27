@@ -32,31 +32,23 @@ pub fn color_str_with_target<T: AsRef<Theme>, D: AsRef<str>>(
 
 #[macro_export]
 macro_rules! color {
-	($theme:expr, $string:expr) => {{
-		$crate::config::color::color_str($theme, $string)
-	}};
+	($theme:expr, $string:expr) => {{ $crate::config::color::color_str($theme, $string) }};
 }
 
 #[macro_export]
 macro_rules! primary {
-	($string:expr) => {{
-		$crate::color!($crate::config::color::Theme::Primary, $string)
-	}};
+	($string:expr) => {{ $crate::color!($crate::config::color::Theme::Primary, $string) }};
 }
 
 #[macro_export]
 macro_rules! secondary {
-	($string:expr) => {{
-		$crate::color!($crate::config::color::Theme::Secondary, $string)
-	}};
+	($string:expr) => {{ $crate::color!($crate::config::color::Theme::Secondary, $string) }};
 }
 
 /// Highlights the string according to configuration.
 #[macro_export]
 macro_rules! highlight {
-	($string:expr) => {{
-		$crate::color!($crate::config::color::Theme::Highlight, $string)
-	}};
+	($string:expr) => {{ $crate::color!($crate::config::color::Theme::Highlight, $string) }};
 }
 
 /// Color the version according to configuration.
@@ -444,11 +436,7 @@ pub fn ansi_to_style(mut style: RatStyle, params: &str) -> RatStyle {
 			"22" => style = style.remove_modifier(RatMod::BOLD | RatMod::DIM),
 			"38" | "48" => {
 				let set = |s: RatStyle, c: RatColor| {
-					if parts[i] == "38" {
-						s.fg(c)
-					} else {
-						s.bg(c)
-					}
+					if parts[i] == "38" { s.fg(c) } else { s.bg(c) }
 				};
 				if i + 1 < parts.len() {
 					match parts[i + 1] {
@@ -537,11 +525,7 @@ impl Style {
 		.collect::<Vec<&str>>()
 		.join(";");
 
-		if mods.is_empty() {
-			"0".to_string()
-		} else {
-			mods
-		}
+		if mods.is_empty() { "0".to_string() } else { mods }
 	}
 }
 

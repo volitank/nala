@@ -1,4 +1,4 @@
-use crate::config::{color, Theme};
+use crate::config::{Theme, color};
 
 pub fn version_diff(old: &str, new: String) -> String {
 	// Check for just revision change first.

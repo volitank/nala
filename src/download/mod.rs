@@ -5,7 +5,7 @@ pub mod uri;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub use downloader::{download, Downloader};
+pub use downloader::{Downloader, download};
 use indexmap::IndexSet;
 use tokio::sync::RwLock;
 pub use uri::{Uri, UriFilter};

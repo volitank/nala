@@ -4,7 +4,7 @@
 //! progress renderer, and the selection of the ratatui progress backend.
 
 use std::env;
-use std::io::{stderr, stdout, IsTerminal, Write};
+use std::io::{IsTerminal, Write, stderr, stdout};
 use std::time::Instant;
 
 use anyhow::Result;
@@ -13,7 +13,7 @@ use ratatui::{Terminal, TerminalOptions, Viewport};
 use rust_apt::util::time_str;
 
 use crate::config::{Config, Theme};
-use crate::terminal::{use_tui, RawModeGuard, Term};
+use crate::terminal::{RawModeGuard, Term, use_tui};
 use crate::tui::progress::TuiProgressRenderer;
 use crate::util::{NumSys, UnitStr};
 

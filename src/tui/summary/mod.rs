@@ -14,8 +14,8 @@ use ratatui::widgets::{
 	ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Tabs, Widget, Wrap,
 };
 pub(crate) use row::SummaryRow;
-use rust_apt::util::DiskSpace;
 use rust_apt::Cache;
+use rust_apt::util::DiskSpace;
 
 use super::style as tui_style;
 use crate::config::{Config, Theme};
@@ -303,11 +303,7 @@ impl<'a> SummaryTab<'a> {
 			.iter()
 			.filter_map(
 				|op| {
-					if self.pkg_set.contains_key(op) {
-						Some(op.as_str())
-					} else {
-						None
-					}
+					if self.pkg_set.contains_key(op) { Some(op.as_str()) } else { None }
 				},
 			)
 			.collect();

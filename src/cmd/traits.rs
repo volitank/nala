@@ -1,7 +1,7 @@
 use indexmap::IndexSet;
 use rust_apt::{BaseDep, DepType, Dependency, PackageFile, Provider, Version};
 
-use crate::config::{color, Theme};
+use crate::config::{Theme, color};
 
 pub trait ShowFormat {
 	fn format(&self) -> String;

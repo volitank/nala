@@ -1,6 +1,6 @@
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, BorderType, Padding};
-use ratatui::Frame;
 
 pub mod fetch;
 pub mod progress;

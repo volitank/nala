@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap_complete::engine::CompletionCandidate;
-use rust_apt::{new_cache, Cache, PackageSort, PkgCurrentState};
+use rust_apt::{Cache, PackageSort, PkgCurrentState, new_cache};
 
 const HISTORY_DEFAULT: &str = "/var/lib/nala/history";
 

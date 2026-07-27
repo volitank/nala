@@ -14,7 +14,7 @@ mod list;
 pub mod traits;
 
 use anyhow::Result;
-pub use history::{next_history_id, HistoryEntry};
+pub use history::{HistoryEntry, next_history_id};
 use indexmap::IndexMap;
 pub use install::{fix_broken, mark_cli_pkgs};
 pub use list::list_packages;
@@ -25,7 +25,7 @@ use traits::ShowFormat;
 pub use upgrade::{apt_hook_with_pkgs, run_scripts};
 
 use crate::cli::commands::Moo;
-use crate::config::{color, Config};
+use crate::config::{Config, color};
 pub use crate::libnala::Operation;
 use crate::util::URL;
 

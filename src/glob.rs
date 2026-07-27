@@ -1,14 +1,14 @@
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use globset::GlobBuilder;
 use regex::{Regex, RegexBuilder};
 use rust_apt::raw::IntoRawIter;
 use rust_apt::{Cache, Package, PackageSort, Version};
 
 use crate::cmd::Operation;
-use crate::config::{color, keys, Config, Theme};
+use crate::config::{Config, Theme, color, keys};
 use crate::libnala::PackageExt;
 use crate::{debug, error, info};
 
@@ -439,9 +439,10 @@ mod tests {
 	#[test]
 	fn version_pin_requires_exact_name() {
 		let err = parse_version_pin("acl*=2.3.2-2").unwrap_err();
-		assert!(err
-			.to_string()
-			.contains("Version pin requires an exact package name"));
+		assert!(
+			err.to_string()
+				.contains("Version pin requires an exact package name")
+		);
 	}
 
 	#[test]

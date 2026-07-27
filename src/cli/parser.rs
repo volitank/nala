@@ -82,14 +82,10 @@ mod tests {
 		assert!(args.transaction.assume_no);
 		assert!(!args.transaction.assume_yes);
 
-		assert!(NalaParser::try_parse_from([
-			"nala",
-			"install",
-			"--assume-yes",
-			"--assume-no",
-			"demo",
-		])
-		.is_err());
+		assert!(
+			NalaParser::try_parse_from(["nala", "install", "--assume-yes", "--assume-no", "demo",])
+				.is_err()
+		);
 	}
 
 	#[test]
@@ -114,14 +110,16 @@ mod tests {
 		assert_eq!(args.target_release.as_deref(), Some("testing"));
 		assert!(args.fix_broken.no_fix_broken);
 
-		assert!(NalaParser::try_parse_from([
-			"nala",
-			"install",
-			"--install-suggests",
-			"--no-install-suggests",
-			"demo",
-		])
-		.is_err());
+		assert!(
+			NalaParser::try_parse_from([
+				"nala",
+				"install",
+				"--install-suggests",
+				"--no-install-suggests",
+				"demo",
+			])
+			.is_err()
+		);
 	}
 
 	#[test]
@@ -148,14 +146,16 @@ mod tests {
 		};
 		assert!(args.auto_remove.auto_remove);
 
-		assert!(NalaParser::try_parse_from([
-			"nala",
-			"install",
-			"--auto-remove",
-			"--no-autoremove",
-			"demo",
-		])
-		.is_err());
+		assert!(
+			NalaParser::try_parse_from([
+				"nala",
+				"install",
+				"--auto-remove",
+				"--no-autoremove",
+				"demo",
+			])
+			.is_err()
+		);
 	}
 
 	#[test]

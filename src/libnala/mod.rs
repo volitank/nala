@@ -2,7 +2,7 @@ mod transaction;
 
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use rust_apt::{Cache, Marked, Package, PkgCurrentState};
 pub use transaction::{HeldReason, Operation, PackageState, PackageTransition};
 

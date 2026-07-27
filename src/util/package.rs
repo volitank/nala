@@ -1,5 +1,5 @@
-use rust_apt::records::RecordField;
 use rust_apt::Version;
+use rust_apt::records::RecordField;
 
 /// Return the package name. Checks if epoch is needed.
 pub fn get_pkg_name(version: &Version) -> String {

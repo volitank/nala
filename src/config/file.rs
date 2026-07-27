@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use super::color::ColorConfig;
-use super::{keys, Switch};
+use super::{Switch, keys};
 use crate::util::{NumSys, UnitStr};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,8 +108,8 @@ impl ConfigFile {
 #[cfg(test)]
 mod tests {
 	use super::{ConfigFile, UiMode};
-	use crate::config::color::{ColorCode, Modifiers};
 	use crate::config::Switch;
+	use crate::config::color::{ColorCode, Modifiers};
 	use crate::util::NumSys;
 
 	#[test]
