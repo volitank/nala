@@ -11,7 +11,7 @@ description = "Commandline frontend for the APT package manager"
 rust-apt = { version = "0.10.0", features = ["serde"] }
 # rust-apt = { path = "../rust-apt", features = ["serde"] }
 tokio = { version = "1.53.1", features = ["fs", "macros", "rt-multi-thread"] }
-nix = { version = "0.31.3", features = ["fs", "process", "term", "ioctl", "signal"] }
+nix = { version = "0.31.3", features = ["fs", "process", "term", "ioctl", "signal", "user"] }
 async-compression = { version = "0.4.42", features = ["tokio", "all-algorithms"] }
 reqwest = { version = "0.13.4", features = ["json", "blocking"] }
 serde = { version = "1.0.229", features = ["derive"] }
