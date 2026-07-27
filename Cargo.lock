@@ -1589,7 +1589,6 @@ dependencies = [
  "sha2",
  "tar",
  "tokio",
- "unic-langid",
 ]
 
 [[package]]
