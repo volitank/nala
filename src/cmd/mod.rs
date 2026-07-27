@@ -109,12 +109,12 @@ pub(crate) struct ShowVersion<'a> {
 
 impl ShowVersion<'_> {
 	pub fn new(ver: Version) -> ShowVersion {
-		let records = IndexMap::from_iter(RECORDS.iter().copied().map(|key| {
-			(
-				key,
-				ver.get_record(key).unwrap_or_else(|| t!("show-unknown")),
-			)
-		}));
+		let records = IndexMap::from_iter(
+			RECORDS
+				.iter()
+				.copied()
+				.map(|key| (key, ver.get_record(key).unwrap_or_else(|| t!("unknown")))),
+		);
 		ShowVersion { ver, records }
 	}
 
@@ -202,7 +202,7 @@ impl ShowVersion<'_> {
 				pkg_file
 					.origin()
 					.map(str::to_string)
-					.unwrap_or_else(|| t!("show-unknown")),
+					.unwrap_or_else(|| t!("unknown")),
 			);
 
 			// Check if source is local, pacstall or from a repo

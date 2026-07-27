@@ -13,6 +13,7 @@ use ratatui::{Terminal, TerminalOptions, Viewport};
 use rust_apt::util::time_str;
 
 use crate::config::{Config, Theme};
+use crate::t;
 use crate::terminal::{RawModeGuard, Term, use_tui};
 use crate::tui::progress::TuiProgressRenderer;
 use crate::util::{NumSys, UnitStr};
@@ -86,7 +87,7 @@ impl DisplayGroup {
 
 	fn plain_lines(&self) -> Vec<String> {
 		if self.0.is_empty() {
-			vec!["Working...".to_string()]
+			vec![t!("progress-working")]
 		} else {
 			self.0.iter().map(ProgressMessage::plain_line).collect()
 		}
@@ -226,14 +227,14 @@ impl ProgressState {
 	fn finished_string(&self) -> String {
 		if self.length > 1 {
 			let rate = self.rate();
-			format!(
-				"Fetched {} in {} ({}/s)",
-				self.unit.str(self.length),
-				time_str(self.elapsed()),
-				self.unit.str(rate),
+			t!(
+				"progress-fetched",
+				"size" => self.unit.str(self.length),
+				"time" => time_str(self.elapsed()),
+				"rate" => self.unit.str(rate),
 			)
 		} else {
-			"Nothing to fetch".to_string()
+			t!("progress-nothing")
 		}
 	}
 }

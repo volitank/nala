@@ -15,6 +15,7 @@ use crate::config::{Config, Paths};
 use crate::libnala::needs_configure;
 use crate::util::get_pkg_name;
 use crate::debug;
+use crate::t;
 
 /// The subset of APT pre-install hook actions that Nala currently models.
 enum HookActionKind {
@@ -173,7 +174,7 @@ fn pkg_info(action: &HookAction<'_>, hook_ver: i32) -> String {
 /// pre-install hooks.
 fn write_config_info<W: Write>(w: &mut W, config: &Config, hook_ver: i32) -> Result<()> {
 	let Some(tree) = config.apt.root_tree() else {
-		bail!("No config tree!");
+		bail!("{}", t!("upgrade-config-missing"));
 	};
 
 	if hook_ver <= 3 {

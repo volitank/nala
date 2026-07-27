@@ -9,6 +9,7 @@ use tokio::fs;
 use tokio::io::AsyncReadExt;
 
 use crate::config::{Theme, color};
+use crate::t;
 
 /// Return the hash_type and the hash_value to be used.
 pub fn get_hash(version: &Version) -> Result<HashSum> {
@@ -25,9 +26,12 @@ pub fn get_hash(version: &Version) -> Result<HashSum> {
 	}
 
 	bail!(
-		"{} {} can't be checked for integrity.\nThere are no hashes available for this package.",
-		color::color!(Theme::Notice, version.parent().name()),
-		color::color!(Theme::Notice, version.version()),
+		"{}",
+		t!(
+			"hash-unavailable",
+			"package" => color::color!(Theme::Notice, version.parent().name()),
+			"version" => color::color!(Theme::Notice, version.version())
+		)
 	);
 }
 
@@ -62,7 +66,7 @@ pub fn get_hasher(hash_type: &str) -> Result<Hasher> {
 	Ok(match hash_type {
 		"sha512" => Hasher::Sha512(Sha512::new()),
 		"sha256" => Hasher::Sha256(Sha256::new()),
-		anything_else => bail!("Hash Type: {anything_else} is not supported"),
+		anything_else => bail!("{}", t!("hash-unsupported", "type" => anything_else)),
 	})
 }
 
@@ -90,7 +94,7 @@ impl HashSum {
 		Ok(match hash_type {
 			128 => Self::Sha512(hash),
 			64 => Self::Sha256(hash),
-			anything_else => bail!("Hash Type: {anything_else} is not supported"),
+			anything_else => bail!("{}", t!("hash-unsupported", "type" => anything_else)),
 		})
 	}
 
@@ -98,7 +102,7 @@ impl HashSum {
 		Ok(match hash_type {
 			"sha512" => Self::Sha512(hash),
 			"sha256" => Self::Sha256(hash),
-			anything_else => bail!("Hash Type: {anything_else} is not supported"),
+			anything_else => bail!("{}", t!("hash-unsupported", "type" => anything_else)),
 		})
 	}
 

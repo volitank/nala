@@ -3,6 +3,7 @@ use async_compression::tokio::bufread::{GzipDecoder, XzDecoder, ZstdDecoder};
 use tokio::io::AsyncRead;
 
 use super::AsyncReader;
+use crate::t;
 
 pub trait Decompress {
 	async fn decompress(&self) -> Result<Vec<u8>>;
@@ -32,7 +33,7 @@ impl Compression {
 				return Ok(compression);
 			}
 		}
-		bail!("Archive type is not supported");
+		bail!("{}", t!("archive-unsupported"));
 	}
 
 	/// Returns the decompressor for this compression type.

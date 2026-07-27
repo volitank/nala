@@ -12,6 +12,7 @@ use super::paths::PathSpec;
 use super::{Level, OptType, Paths, Switch, keys, logger};
 use crate::cli::Commands;
 use crate::config::color::{Style, Theme};
+use crate::t;
 use crate::util::UnitStr;
 
 #[derive(Debug)]
@@ -110,7 +111,7 @@ impl Config {
 		if let Some(options) = self.get_vec(keys::OPTION) {
 			for raw_opt in options {
 				let Some((key, value)) = raw_opt.split_once("=") else {
-					bail!("Option '{raw_opt}' is not supported");
+					bail!("{}", t!("config-option", "option" => raw_opt));
 				};
 				self.apt.set(key, value);
 			}
@@ -228,7 +229,7 @@ impl Config {
 
 	pub fn pkg_names(&self) -> Result<Vec<String>> {
 		let Some(pkg_names) = self.get_vec(keys::PKG_NAMES) else {
-			bail!("You must specify a package");
+			bail!("{}", t!("pkg-required"));
 		};
 
 		let mut deduped = pkg_names.clone();

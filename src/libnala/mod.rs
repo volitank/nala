@@ -7,7 +7,7 @@ use rust_apt::{Cache, Marked, Package, PkgCurrentState};
 pub use transaction::{HeldReason, Operation, PackageState, PackageTransition};
 
 use crate::config::color;
-use crate::{debug, info, warn};
+use crate::{debug, info, t, warn};
 
 type SortedChanges<'a> = (Vec<Package<'a>>, HashMap<Operation, Vec<PackageTransition>>);
 pub type PackageKey = (String, String);
@@ -77,8 +77,11 @@ impl<'a> PackageExt<'a> for Package<'a> {
 		// At time of commit `python3-libmapper` is purely virtual
 		if providers.is_empty() {
 			warn!(
-				"{} has no providers and is purely virtual",
-				color::primary!(self.name())
+				"{}",
+				t!(
+					"pkg-virtual-no-providers",
+					"package" => color::primary!(self.name())
+				)
 			);
 
 			return Ok(self);
@@ -89,9 +92,12 @@ impl<'a> PackageExt<'a> for Package<'a> {
 			// Unwrap should be fine here, we know that there is 1 in the Vector.
 			let target = providers.into_iter().next().unwrap();
 			info!(
-				"Selecting {} instead of virtual package {}",
-				color::primary!(target.fullname(false)),
-				color::primary!(self.name())
+				"{}",
+				t!(
+					"pkg-virtual-select",
+					"provider" => color::primary!(target.fullname(false)),
+					"package" => color::primary!(self.name())
+				)
 			);
 			return Ok(target);
 		}
@@ -99,8 +105,11 @@ impl<'a> PackageExt<'a> for Package<'a> {
 		// If there are multiple providers then we will error out
 		// and show the packages the user could select instead.
 		info!(
-			"{} is a virtual package provided by:",
-			color::primary!(self.name())
+			"{}",
+			t!(
+				"pkg-virtual-providers",
+				"package" => color::primary!(self.name())
+			)
 		);
 
 		for target in &providers {
@@ -113,7 +122,7 @@ impl<'a> PackageExt<'a> for Package<'a> {
 				);
 			}
 		}
-		bail!("You should select just one.")
+		bail!("{}", t!("pkg-virtual-one"))
 	}
 
 	fn config_state(&self) -> bool { self.current_state() == PkgCurrentState::ConfigFiles }

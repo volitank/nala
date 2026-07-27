@@ -1,56 +1,80 @@
 use clap::Args;
 
+use crate::t;
+
 /// Flags common to all transactional subcommands (install, remove, upgrade,
 /// autoremove).
 #[derive(Args, Default, Debug)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TransactionFlags {
-	/// Only download packages.
-	#[clap(long, action)]
+	#[clap(long, action, help = t!("cli-download-only"))]
 	pub download_only: bool,
 
-	/// Display a simpler and more condensed transaction summary.
-	#[clap(long, action)]
+	#[clap(long, action, help = t!("cli-simple"))]
 	pub simple: bool,
 
-	/// Update package lists before running the command.
-	#[clap(long, action, conflicts_with = "no_update")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "no_update",
+		help = t!("cli-update-first")
+	)]
 	pub update: bool,
 
-	/// Do NOT update package lists before running the command.
-	#[clap(long, action, conflicts_with = "update")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "update",
+		help = t!("cli-no-update")
+	)]
 	pub no_update: bool,
 
-	/// Allow Nala to install packages that can't be hashsum verified
-	#[clap(long, action)]
+	#[clap(long, action, help = t!("cli-allow-unauthenticated"))]
 	pub allow_unauthenticated: bool,
 
-	/// Assume yes for all prompts.
-	#[clap(short = 'y', long, action, conflicts_with = "assume_no")]
+	#[clap(
+		short = 'y',
+		long,
+		action,
+		conflicts_with = "assume_no",
+		help = t!("cli-assume-yes")
+	)]
 	pub assume_yes: bool,
 
-	/// Assume no for all prompts.
-	#[clap(short = 'n', long, action, conflicts_with = "assume_yes")]
+	#[clap(
+		short = 'n',
+		long,
+		action,
+		conflicts_with = "assume_yes",
+		help = t!("cli-assume-no")
+	)]
 	pub assume_no: bool,
 
-	/// Allow the removal of essential packages.
-	#[clap(long, action)]
+	#[clap(long, action, help = t!("cli-remove-essential"))]
 	pub remove_essential: bool,
 
-	/// Remove config files for any package set to be removed.
-	#[clap(long, action)]
+	#[clap(long, action, help = t!("cli-purge"))]
 	pub purge: bool,
 }
 
 /// Fix broken flags (install and remove only).
 #[derive(Args, Default, Debug)]
 pub struct FixBrokenFlags {
-	/// Try to fix broken packages.
-	#[clap(short = 'f', long, action, conflicts_with = "no_fix_broken")]
+	#[clap(
+		short = 'f',
+		long,
+		action,
+		conflicts_with = "no_fix_broken",
+		help = t!("cli-fix-broken")
+	)]
 	pub fix_broken: bool,
 
-	/// Do NOT try to fix broken packages.
-	#[clap(long, action, conflicts_with = "fix_broken")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "fix_broken",
+		help = t!("cli-no-fix-broken")
+	)]
 	pub no_fix_broken: bool,
 }
 
@@ -58,51 +82,65 @@ pub struct FixBrokenFlags {
 #[derive(Args, Default, Debug)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct InstallFlags {
-	/// Install recommended packages.
-	#[clap(long, action, conflicts_with = "no_install_recommends")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "no_install_recommends",
+		help = t!("cli-install-recommends")
+	)]
 	pub install_recommends: bool,
 
-	/// Do NOT install recommended packages.
-	#[clap(long, action, conflicts_with = "install_recommends")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "install_recommends",
+		help = t!("cli-no-install-recommends")
+	)]
 	pub no_install_recommends: bool,
 
-	/// Install suggested packages.
-	#[clap(long, action, conflicts_with = "no_install_suggests")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "no_install_suggests",
+		help = t!("cli-install-suggests")
+	)]
 	pub install_suggests: bool,
 
-	/// Do NOT install suggested packages.
-	#[clap(long, action, conflicts_with = "install_suggests")]
+	#[clap(
+		long,
+		action,
+		conflicts_with = "install_suggests",
+		help = t!("cli-no-install-suggests")
+	)]
 	pub no_install_suggests: bool,
 }
 
 #[derive(Args, Debug)]
 pub struct InfoFlags {
-	/// Show all versions of a package
-	#[clap(short = 'a', long, action)]
+	#[clap(short = 'a', long, action, help = t!("cli-all-versions"))]
 	pub all_versions: bool,
 
-	/// Show packages for all configured architectures
-	#[clap(short = 'A', long, action)]
+	#[clap(short = 'A', long, action, help = t!("cli-all-arches"))]
 	pub all_arches: bool,
 }
 
 #[derive(Args, Default, Debug)]
 pub struct AutoRemoveFlags {
-	/// Additionally remove unnecessary packages.
 	#[clap(
 		long,
 		visible_alias = "autoremove",
 		action,
-		conflicts_with = "no_auto_remove"
+		conflicts_with = "no_auto_remove",
+		help = t!("cli-auto-remove")
 	)]
 	pub auto_remove: bool,
 
-	/// Do NOT remove unnecessary packages.
 	#[clap(
 		long,
 		visible_alias = "no-autoremove",
 		action,
-		conflicts_with = "auto_remove"
+		conflicts_with = "auto_remove",
+		help = t!("cli-no-auto-remove")
 	)]
 	pub no_auto_remove: bool,
 }

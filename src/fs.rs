@@ -12,10 +12,13 @@ use tokio::io::BufWriter;
 macro_rules! fs_method {
 	($name:ident, { $func:path => $ret:ty }) => {
 		async fn $name(&self) -> Result<$ret> {
-			$func(self).await.with_context(|| format!(
-				"Failed to {} {self:?}",
-				stringify!($name)
-			))
+			$func(self).await.with_context(|| {
+				$crate::t!(
+					"fs-failed",
+					"operation" => stringify!($name),
+					"path" => format!("{self:?}")
+				)
+			})
 		}
 	};
 
@@ -30,10 +33,14 @@ macro_rules! fs_method {
 
 	($name:ident, { $func:path => $ret:ty, with_arg }) => {
 		async fn $name<T: AsyncPath>(&self, other: T) -> Result<$ret> {
-			$func(self, &other).await.with_context(|| format!(
-				"Failed to {} {self:?} => {other:?}",
-				stringify!($name)
-			))
+			$func(self, &other).await.with_context(|| {
+				$crate::t!(
+					"fs-failed-target",
+					"operation" => stringify!($name),
+					"path" => format!("{self:?}"),
+					"target" => format!("{other:?}")
+				)
+			})
 		}
 	};
 }

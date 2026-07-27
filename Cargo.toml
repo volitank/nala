@@ -37,6 +37,7 @@ fluent = "0.17.0"
 clap = { version = "4.6.4", features = ["derive"] }
 clap_complete = { version = "4.6.7", features = ["unstable-dynamic"] }
 clap_mangen = "0.3.0"
+fluent = "0.17.0"
 
 [profile.lto]
 # A profile with various additional optimizations

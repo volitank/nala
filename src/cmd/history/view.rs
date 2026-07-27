@@ -83,13 +83,13 @@ impl HistoryEntry {
 	/// Prints a plain-text detail view for this history entry.
 	pub(super) fn print_detail(&self, config: &Config) {
 		let requested_targets = if self.requested_targets.is_empty() {
-			t!("history-none")
+			t!("none")
 		} else {
 			self.requested_targets.join(", ")
 		};
 
 		println!("{}: {}", t!("history-id"), self.id);
-		println!("{}: {:?}", t!("history-status"), self.status);
+		println!("{}: {}", t!("history-status"), self.status.label());
 		println!("{}: {}", t!("history-command"), self.command);
 		println!(
 			"{}: {}",
@@ -127,7 +127,7 @@ impl HistoryEntry {
 				.collect::<Vec<_>>();
 
 			println!();
-			println!("{} ({})", operation, packages.len());
+			println!("{} ({})", operation.label(), packages.len());
 
 			let mut table = table::get_table(&rows[0].headers());
 

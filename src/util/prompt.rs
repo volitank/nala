@@ -3,18 +3,19 @@ use std::io::Write;
 use anyhow::{Result, bail};
 
 use crate::config::{Config, keys};
+use crate::t;
 
 /// Ask the user for confirmation, honoring configured prompt defaults.
 pub fn confirm(config: &Config, msg: &str) -> Result<()> {
 	if config.get_bool(keys::ASSUME_NO, false) {
-		bail!("User refused confirmation");
+		bail!("{}", t!("prompt-refused"));
 	}
 
 	if config.get_bool(keys::ASSUME_YES, false) {
 		return Ok(());
 	}
 
-	print!("{msg} [Y/n] ");
+	print!("{msg} {} ", t!("prompt-choice"));
 	std::io::stdout().flush()?;
 
 	let mut response = String::new();
@@ -26,10 +27,10 @@ pub fn confirm(config: &Config, msg: &str) -> Result<()> {
 	}
 
 	if resp.starts_with('n') {
-		bail!("User refused confirmation")
+		bail!("{}", t!("prompt-refused"))
 	}
 
-	bail!("'{}' is not a valid response", response.trim())
+	bail!("{}", t!("prompt-invalid", "response" => response.trim()))
 }
 
 #[cfg(test)]

@@ -2,12 +2,13 @@ use anyhow::{Result, bail};
 use nix::unistd::Uid;
 
 use crate::config::Config;
+use crate::t;
 
 /// Check for root. Errors if not root.
 /// Set up lock file if root.
 pub fn sudo_check(config: &Config) -> Result<()> {
 	if !Uid::effective().is_root() {
-		bail!("Nala needs root to {}", config.command)
+		bail!("{}", t!("root-required", "command" => &config.command))
 	}
 	// TODO: Need to add lock file logic here maybe.
 	Ok(())
@@ -23,7 +24,7 @@ pub(crate) fn get_user() -> (String, String) {
 				return name;
 			}
 		}
-		"Unknown".to_string()
+		t!("unknown")
 	});
 
 	(uid, username)

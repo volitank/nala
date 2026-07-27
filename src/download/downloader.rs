@@ -13,14 +13,14 @@ use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
 use crate::progress::Progress;
 use crate::terminal::poll_exit_event;
-use crate::{debug, dprog, info, warn};
+use crate::{debug, dprog, info, t, warn};
 
 pub async fn download(config: &Config) -> Result<()> {
 	// Set download directory to the cwd.
 	config.apt.set(Paths::Archive.path(), "./");
 
 	let mut downloader = Downloader::new(config)?;
-	let mut not_found = vec![];
+	let mut not_found = false;
 
 	let cache = new_cache!()?;
 	let pkg_names = config.pkg_names()?;
@@ -34,31 +34,34 @@ pub async fn download(config: &Config) -> Result<()> {
 					break;
 				}
 				warn!(
-					"Can't find a source to download version '{}' of '{}'",
-					version.version(),
-					pkg.fullname(false)
+					"{}",
+					t!(
+						"download-source-missing",
+						"version" => version.version(),
+						"package" => pkg.fullname(false)
+					)
 				);
 			}
 		} else {
-			not_found.push(color::color!(Theme::Notice, name).to_string());
+			not_found = true;
 		}
 	}
 
-	if !not_found.is_empty() {
-		for pkg in &not_found {
-			color::color!(Theme::Error, &format!("{pkg} not found"));
-		}
-		bail!("Some packages were not found.");
+	if not_found {
+		bail!("{}", t!("download-some-missing"));
 	}
 
 	let finished = downloader.run(config, true).await?;
 
-	println!("Downloads Complete:");
+	println!("{}", t!("download-complete"));
 	for uri in finished {
 		println!(
-			"  {} was written to {}",
-			color::primary!(&uri.filename),
-			color::primary!(&uri.archive.to_string_lossy()),
+			"  {}",
+			t!(
+				"download-written",
+				"package" => color::primary!(&uri.filename),
+				"path" => color::primary!(&uri.archive.to_string_lossy())
+			)
 		)
 	}
 
@@ -74,17 +77,20 @@ pub fn untrusted_error(config: &Config, untrusted: Vec<String>) -> Result<()> {
 	if untrusted.is_empty() {
 		return Ok(());
 	}
-	warn!("The Following packages cannot be authenticated!");
+	warn!("{}", t!("download-auth-warning"));
 	eprintln!("  {}", untrusted.join(", "));
 
 	if !config.allow_unauthenticated() {
-		bail!(format!(
-			"Some packages were unable to be authenticated.\n  If you're sure use {}",
-			color::color!(Theme::Notice, "--allow-unauthenticated")
-		));
+		bail!(
+			"{}",
+			t!(
+				"download-auth-required",
+				"switch" => color::color!(Theme::Notice, "--allow-unauthenticated")
+			)
+		);
 	}
 
-	info!("Configuration is set to allow installation of unauthenticated packages.");
+	info!("{}", t!("download-auth-allowed"));
 	Ok(())
 }
 
@@ -155,12 +161,12 @@ impl Downloader {
 		let mut parser = cli_uri.split_terminator(":");
 
 		let Some(protocol) = parser.next() else {
-			bail!("No protocol was defined")
+			bail!("{}", t!("download-protocol-missing"))
 		};
 
 		// Rebuild the string to maintain order
 		let Some(uri) = parser.next().map(|u| format!("{protocol}:{u}")) else {
-			bail!("No uri was defined")
+			bail!("{}", t!("download-uri-missing"))
 		};
 
 		// sha512 d500faf8b2b9ee3a8fbc6a18f966076ed432894cd4d17b42514ffffac9ee81ce
@@ -172,7 +178,7 @@ impl Downloader {
 		let hash = if let Some(hashsum) = parser.next() {
 			Some(HashSum::from_str_len(hashsum.len(), hashsum.to_string())?)
 		} else {
-			warn!("No Hash Found for '{uri}'");
+			warn!("{}", t!("download-hash-missing", "uri" => &uri));
 			None
 		};
 
@@ -183,17 +189,20 @@ impl Downloader {
 
 		debug!("URL Headers for {uri} {headers:#?}");
 		let Some(content_len) = response.headers().get("content-length") else {
-			bail!("content-length does not exist in {headers:#?}");
+			bail!(
+				"{}",
+				t!("download-content-length", "headers" => format!("{headers:#?}"))
+			);
 		};
 
 		let size = content_len
 			.to_str()
-			.with_context(|| format!("Converting content-len to &str {headers:#?}"))?
+			.with_context(|| t!("download-content-str", "headers" => format!("{headers:#?}")))?
 			.parse::<usize>()
-			.with_context(|| format!("Parsing content-len to usize {headers:#?}"))?;
+			.with_context(|| t!("download-content-parse", "headers" => format!("{headers:#?}")))?;
 
 		let Some(filename) = uri.split_terminator("/").last().map(|s| s.to_string()) else {
-			bail!("'{uri}' is malformed!");
+			bail!("{}", t!("download-malformed", "uri" => &uri));
 		};
 
 		self.uris
@@ -291,7 +300,7 @@ impl Downloader {
 						}
 					},
 					Message::NonFatal((err, bytes_downloaded)) => {
-						progress.print(&format!("Error: {err:?}"))?;
+						progress.print(&t!("download-error", "error" => format!("{err:?}")))?;
 						progress.dec(bytes_downloaded as u64)
 					},
 				}
@@ -300,12 +309,12 @@ impl Downloader {
 			if poll_exit_event()? {
 				progress.clean_up()?;
 				self.set.shutdown().await;
-				info!("Exiting at user request");
+				info!("{}", t!("download-exit"));
 				return Ok(vec![]);
 			}
 
 			if tick.elapsed() >= tick_rate {
-				progress.set_info(vec![("Items".to_string(), format!("{current}/{total}"))]);
+				progress.set_info(vec![(t!("download-items"), format!("{current}/{total}"))]);
 				progress.set_panels(self.domains.panels().await);
 
 				progress.render()?;
@@ -315,7 +324,7 @@ impl Downloader {
 
 		let finished = self.finish(rm_partial).await?;
 		if finished.is_empty() {
-			bail!("Downloads Failed")
+			bail!("{}", t!("download-failed"))
 		}
 		Ok(finished)
 	}

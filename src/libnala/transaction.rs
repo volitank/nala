@@ -3,6 +3,7 @@ use rust_apt::{Cache, Package, Version};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Theme;
+use crate::t;
 
 /// Transaction operation recorded and displayed by Nala.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -35,7 +36,20 @@ impl Operation {
 		]
 	}
 
-	pub fn as_str(&self) -> &str { self.as_ref() }
+	pub fn label(&self) -> String {
+		match self {
+			Self::Remove => t!("op-remove"),
+			Self::AutoRemove => t!("op-auto-remove"),
+			Self::Purge => t!("op-purge"),
+			Self::AutoPurge => t!("op-auto-purge"),
+			Self::Install => t!("op-install"),
+			Self::Reinstall => t!("op-reinstall"),
+			Self::Upgrade => t!("op-upgrade"),
+			Self::Downgrade => t!("op-downgrade"),
+			Self::Configure => t!("op-configure"),
+			Self::Held => t!("op-held"),
+		}
+	}
 
 	pub fn is_replayable(&self) -> bool { !matches!(self, Self::Configure | Self::Held) }
 }
@@ -85,13 +99,13 @@ pub enum HeldReason {
 impl HeldReason {
 	pub fn summary(&self) -> String {
 		match self {
-			Self::Excluded => "Excluded".to_string(),
-			Self::ManualHold => "Manual hold".to_string(),
+			Self::Excluded => t!("reason-excluded"),
+			Self::ManualHold => t!("reason-manual-hold"),
 			Self::PhasedUpdate {
 				percentage: Some(percentage),
-			} => format!("Phased {percentage}%"),
-			Self::PhasedUpdate { percentage: None } => "Phased".to_string(),
-			Self::KeptBack => "Kept back".to_string(),
+			} => t!("reason-phased-percent", "percentage" => *percentage),
+			Self::PhasedUpdate { percentage: None } => t!("reason-phased"),
+			Self::KeptBack => t!("reason-kept-back"),
 		}
 	}
 }
@@ -191,7 +205,7 @@ impl PackageTransition {
 	/// Looks up the package referenced by this transition in the current cache.
 	pub(crate) fn get_pkg<'a>(&self, cache: &'a Cache) -> Result<Package<'a>> {
 		let Some(pkg) = cache.get(&self.name) else {
-			bail!("Package '{}' not found in cache", self.name)
+			bail!("{}", t!("pkg-cache-missing", "package" => &self.name))
 		};
 		Ok(pkg)
 	}
@@ -200,11 +214,21 @@ impl PackageTransition {
 	/// current cache.
 	pub(crate) fn get_version<'a>(&self, cache: &'a Cache) -> Result<Version<'a>> {
 		let Some(version) = self.after.version_str().or(self.before.version_str()) else {
-			bail!("No recorded version for '{}'", self.name)
+			bail!(
+				"{}",
+				t!("pkg-recorded-version-missing", "package" => &self.name)
+			)
 		};
 
 		let Some(ver) = self.get_pkg(cache)?.get_version(version) else {
-			bail!("Version '{}' not found for '{}'", version, self.name)
+			bail!(
+				"{}",
+				t!(
+					"pkg-version-cache-missing",
+					"version" => version,
+					"package" => &self.name
+				)
+			)
 		};
 		Ok(ver)
 	}

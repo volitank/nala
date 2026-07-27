@@ -3,6 +3,7 @@ use rust_apt::{new_cache, Package};
 
 use crate::config::Config;
 use crate::debug;
+use crate::t;
 
 fn get_origin_codename(pkg: Option<Package>) -> Option<(String, String)> {
 	let pkg_file = pkg?.candidate()?.package_files().next()?;
@@ -41,7 +42,7 @@ pub(super) fn detect_release(config: &Config) -> Result<(String, String, String)
 			return Ok((distro, codename.to_lowercase(), keyring));
 		}
 	}
-	bail!("There was an issue detecting release.");
+	bail!("{}", t!("fetch-release-detect"));
 }
 
 pub(super) fn get_component(config: &Config, distro: &str) -> Result<String> {
@@ -57,5 +58,5 @@ pub(super) fn get_component(config: &Config, distro: &str) -> Result<String> {
 		// It's Ubuntu, you probably don't care about foss
 		return Ok(component + " restricted universe multiverse");
 	}
-	bail!("{distro} is unsupported.")
+	bail!("{}", t!("fetch-unsupported", "distro" => distro))
 }

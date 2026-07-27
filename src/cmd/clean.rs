@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 
 use crate::config::{Config, Paths};
+use crate::t;
 
 fn remove_files(file_str: &Path) -> Result<()> {
 	// If the path doesn't exist just ignore it
@@ -12,7 +13,9 @@ fn remove_files(file_str: &Path) -> Result<()> {
 		for path in paths.flatten() {
 			if path.file_type().is_ok_and(|file_type| file_type.is_file()) {
 				remove_file(path.path())
-					.with_context(|| format!("Failed to remove {}", path.path().display()))?;
+					.with_context(|| {
+						t!("file-remove", "path" => path.path().display().to_string())
+					})?;
 			}
 		}
 	}
@@ -30,7 +33,7 @@ pub fn clean(config: &Config) -> Result<()> {
 	if config.get_bool("fetch", false) {
 		let nala_sources = Paths::NalaSources.path();
 		return remove_file(nala_sources)
-			.with_context(|| format!("Failed to remove {nala_sources}"));
+			.with_context(|| t!("file-remove", "path" => nala_sources));
 	}
 
 	let mut archive = config.get_path(&Paths::Archive);

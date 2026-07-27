@@ -96,7 +96,7 @@ impl ReplayAction {
 					bail!(
 						"{}",
 						t!(
-							"history-version-missing",
+							"pkg-version-cache-missing",
 							"version" => &version,
 							"package" => &package.name,
 						)
@@ -105,7 +105,7 @@ impl ReplayAction {
 
 				ver.set_candidate();
 				if !pkg.mark_install(true, true) && !pkg.mark_install(false, true) {
-					bail!("Unable to mark '{}' for installation", pkg.name());
+					bail!("{}", t!("pkg-mark-install", "package" => pkg.name()));
 				}
 
 				if let Some(auto_installed) = auto_installed {
@@ -120,7 +120,7 @@ impl ReplayAction {
 					bail!(
 						"{}",
 						t!(
-							"history-version-missing",
+							"pkg-version-cache-missing",
 							"version" => &version,
 							"package" => &package.name,
 						)
@@ -130,10 +130,7 @@ impl ReplayAction {
 				if pkg.installed().is_none() {
 					bail!(
 						"{}",
-						t!(
-							"history-reinstall-missing",
-							"package" => &package.name,
-						)
+						t!("pkg-reinstall-missing", "package" => &package.name)
 					);
 				}
 
@@ -220,7 +217,7 @@ impl PackageTransition {
 				)
 			),
 			crate::cmd::Operation::Configure => {
-				bail!("Configured package '{}' cannot be undone", self.name)
+				bail!("{}", t!("history-config-undo", "package" => &self.name))
 			},
 			crate::cmd::Operation::Held => {
 				bail!("{}", t!("history-undo-held", "package" => &self.name))
@@ -272,7 +269,7 @@ impl PackageTransition {
 				})
 			},
 			crate::cmd::Operation::Configure => {
-				bail!("Configured package '{}' cannot be redone", self.name)
+				bail!("{}", t!("history-config-redo", "package" => &self.name))
 			},
 			crate::cmd::Operation::Held => {
 				bail!("{}", t!("history-redo-held", "package" => &self.name))

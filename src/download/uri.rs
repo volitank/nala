@@ -14,6 +14,7 @@ use crate::config::{Theme, color};
 use crate::download::DomainMap;
 use crate::fs::AsyncFs;
 use crate::hashsum::{self, HashSum};
+use crate::t;
 use crate::util::{DOMAIN, get_pkg_name};
 
 #[derive(Serialize)]
@@ -93,7 +94,7 @@ impl Uri {
 		self.partial.remove().await?;
 
 		self.tx.send(Message::Exit)?;
-		bail!("Checksum did not match for {}", &self.filename);
+		bail!("{}", t!("download-checksum", "file" => &self.filename));
 	}
 
 	pub async fn download(mut self, domains: DomainMap) -> Result<Uri> {
@@ -114,7 +115,7 @@ impl Uri {
 			// Async remove hangs for some reason.
 			// Remove the file unconditionally since it's planned to download
 			std::fs::remove_file(&self.archive)
-				.with_context(|| format!("Unable to remove {:?}", self.archive))?;
+				.with_context(|| t!("file-remove", "path" => format!("{:?}", self.archive)))?;
 		}
 
 		// This is the string URL passed to the http client
@@ -136,15 +137,17 @@ impl Uri {
 				continue;
 			}
 
-			self.tx.send(Message::Debug(format!(
-				"Selecting {domain} for {}",
-				self.filename
+			self.tx.send(Message::Debug(t!(
+				"download-select-domain",
+				"domain" => domain,
+				"file" => &self.filename
 			)))?;
 
 			while self.retries <= 3 {
-				self.tx.send(Message::Verbose(format!(
-					"Starting: {url}, Retries: {}",
-					self.retries
+				self.tx.send(Message::Verbose(t!(
+					"download-start",
+					"uri" => &url,
+					"retries" => self.retries
 				)))?;
 				self.bytes_downloaded = 0;
 				match self.download_file(&url).await {
@@ -157,7 +160,10 @@ impl Uri {
 
 						// Move the good file from partial to the archive dir.
 						self.partial.rename(&self.archive).await?;
-						self.tx.send(Message::Verbose(format!("Finished: {url}")))?;
+						self.tx.send(Message::Verbose(t!(
+							"download-finished",
+							"uri" => &url
+						)))?;
 
 						self.tx.send(Message::Finished)?;
 						return Ok(self);
@@ -174,7 +180,7 @@ impl Uri {
 			domains.remove(domain, &self.filename).await;
 		}
 		self.tx.send(Message::Exit)?;
-		bail!("No URIs could be downloaded for {}", self.filename)
+		bail!("{}", t!("download-no-uris", "file" => &self.filename))
 	}
 
 	/// Downloads the file and returns the hash
@@ -185,9 +191,9 @@ impl Uri {
 			.get(url)
 			.send()
 			.await
-			.context("Get")?
+			.context(t!("download-get"))?
 			.error_for_status()
-			.with_context(|| format!("Download request failed for '{url}'"))?;
+			.with_context(|| t!("download-request-failed", "uri" => url))?;
 
 		// Get a mutable writer for our outfile.
 		let mut writer = self.partial.open_writer().await?;
@@ -200,7 +206,7 @@ impl Uri {
 		while let Some(chunk) = response
 			.chunk()
 			.await
-			.with_context(|| format!("Unable to stream data from '{url}'"))?
+			.with_context(|| t!("download-stream-failed", "uri" => url))?
 		{
 			// Send message to add to total progress bar.
 			self.tx.send(Message::Update(chunk.len()))?;
@@ -264,7 +270,7 @@ impl UriFilter {
 			// Any real files should be copied into the Archive directory for use
 			if let Some(path) = uri.strip_prefix("file:").map(Path::new) {
 				let Some(filename) = path.file_name() else {
-					bail!("{path:?} Does not have a valid filename!")
+					bail!("{}", t!("download-filename", "path" => format!("{path:?}")))
 				};
 				path.cp(archive.join(filename)).await?;
 			}

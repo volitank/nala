@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 use crate::config::color::Target;
 use crate::config::{Theme, color};
+use crate::t;
 
 static LOG: std::sync::LazyLock<Mutex<Logger>> =
 	std::sync::LazyLock::new(|| Mutex::new(Logger::new(LogOptions::default())));
@@ -92,20 +93,16 @@ pub enum Level {
 }
 
 impl Level {
-	pub fn as_str(&self) -> &str { self.as_ref() }
-
 	pub fn as_theme(&self) -> &Theme { self.as_ref() }
-}
 
-impl AsRef<str> for Level {
-	fn as_ref(&self) -> &str {
+	fn label(&self) -> String {
 		match self {
-			Self::Error => "Error:",
-			Self::Notice => "Notice:",
-			Self::Warning => "Warning:",
-			Self::Info => "Info:",
-			Self::Verbose => "Verbose:",
-			Self::Debug => "Debug:",
+			Self::Error => t!("log-error"),
+			Self::Notice => t!("log-notice"),
+			Self::Warning => t!("log-warning"),
+			Self::Info => t!("log-info"),
+			Self::Verbose => t!("log-verbose"),
+			Self::Debug => t!("log-debug"),
 		}
 	}
 }
@@ -147,7 +144,7 @@ impl Logger {
 		writeln!(
 			self.0.out,
 			"{} {msg}",
-			color::color_str_with_target(level.as_theme(), level.as_str(), Target::Stderr)
+			color::color_str_with_target(level.as_theme(), level.label(), Target::Stderr)
 		)
 		.unwrap();
 	}

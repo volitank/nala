@@ -16,6 +16,15 @@ pub enum HistoryStatus {
 	Applied,
 }
 
+impl HistoryStatus {
+	pub fn label(self) -> String {
+		match self {
+			Self::Unknown => t!("unknown"),
+			Self::Applied => t!("history-status-applied"),
+		}
+	}
+}
+
 /// Stored package transaction record written by the history command path.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {

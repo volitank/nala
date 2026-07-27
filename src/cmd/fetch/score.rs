@@ -10,6 +10,7 @@ use tokio::time::Duration;
 use crate::config::Config;
 use crate::progress::Progress;
 use crate::terminal::poll_exit_event;
+use crate::t;
 
 pub(super) async fn score_mirrors(
 	config: &Config,
@@ -41,7 +42,7 @@ pub(super) async fn score_mirrors(
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
 			pb.display_mut()
-				.push_str("Finished: ", response.0.to_string());
+				.push_str(format!("{} ", t!("progress-finished")), response.0.to_string());
 			scores.push(response)
 		}
 		pb.inc(1);

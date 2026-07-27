@@ -8,6 +8,7 @@ use rust_apt::tagfile::parse_tagfile;
 
 use crate::config::{Config, Paths};
 use crate::util::DOMAIN;
+use crate::t;
 
 fn domain_from_list(line: &str) -> Option<String> {
 	if line.starts_with('#') || line.is_empty() {
@@ -24,7 +25,8 @@ fn read_optional<T>(result: std::io::Result<T>, path: &Path) -> Result<Option<T>
 	match result {
 		Ok(value) => Ok(Some(value)),
 		Err(err) if err.kind() == ErrorKind::NotFound => Ok(None),
-		Err(err) => Err(err).with_context(|| format!("Failed to read '{}'", path.display())),
+		Err(err) => Err(err)
+			.with_context(|| t!("file-read", "path" => path.display().to_string())),
 	}
 }
 
@@ -96,7 +98,7 @@ pub(super) fn parse_sources(config: &Config) -> Result<HashSet<String>> {
 		}
 
 		let data = fs::read_to_string(&path)
-			.with_context(|| format!("Failed to read '{}'", path.display()))?;
+			.with_context(|| t!("file-read", "path" => path.display().to_string()))?;
 
 		if filename.ends_with(".sources") {
 			parse_deb822_sources(&mut sources, &data)?;

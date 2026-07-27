@@ -2,6 +2,7 @@ use indexmap::IndexSet;
 use rust_apt::{BaseDep, DepType, Dependency, PackageFile, Provider, Version};
 
 use crate::config::{Theme, color};
+use crate::t;
 
 pub trait ShowFormat {
 	fn format(&self) -> String;
@@ -84,7 +85,7 @@ impl ShowFormat for PackageFile<'_> {
 		let mut string = String::new();
 
 		let Some(archive) = self.archive() else {
-			return "ERROR:?".into();
+			return t!("unknown");
 		};
 
 		if archive == "now" {
