@@ -10,11 +10,9 @@ fn remove_files(file_str: &Path) -> Result<()> {
 	if let Ok(paths) = read_dir(file_str) {
 		// Flatten the errors away!
 		for path in paths.flatten() {
-			if let Ok(is_file) = path.file_type() {
-				if is_file.is_file() {
-					remove_file(path.path())
-						.with_context(|| format!("Failed to remove {}", path.path().display()))?;
-				}
+			if path.file_type().is_ok_and(|file_type| file_type.is_file()) {
+				remove_file(path.path())
+					.with_context(|| format!("Failed to remove {}", path.path().display()))?;
 			}
 		}
 	}

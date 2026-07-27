@@ -139,31 +139,31 @@ impl<'a> App<'a> {
 		loop {
 			self.draw(terminal)?;
 
-			if let Event::Key(key) = event::read()? {
-				if key.kind == KeyEventKind::Press {
-					use KeyCode::*;
-					match key.code {
-						Char('q') | Enter => {
-							// Return only the selected Urls.
-							return Ok(self
-								.items
-								.items
-								.into_iter()
-								.filter(|f| f.selected)
-								.map(|f| f.url)
-								.collect());
-						},
-						// CTRL+C will return an empty vec to exit cleanly without progressing.
-						Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-							return Ok(vec![]);
-						},
-						Char('j') | Down => self.items.next(),
-						Char('k') | Up => self.items.previous(),
-						Char(' ') => self.change_status(),
-						Char('g') | Home => self.go_top(),
-						Char('G') | End => self.go_bottom(),
-						_ => {},
-					}
+			if let Event::Key(key) = event::read()?
+				&& key.kind == KeyEventKind::Press
+			{
+				use KeyCode::*;
+				match key.code {
+					Char('q') | Enter => {
+						// Return only the selected Urls.
+						return Ok(self
+							.items
+							.items
+							.into_iter()
+							.filter(|f| f.selected)
+							.map(|f| f.url)
+							.collect());
+					},
+					// CTRL+C will return an empty vec to exit cleanly without progressing.
+					Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+						return Ok(vec![]);
+					},
+					Char('j') | Down => self.items.next(),
+					Char('k') | Up => self.items.previous(),
+					Char(' ') => self.change_status(),
+					Char('g') | Home => self.go_top(),
+					Char('G') | End => self.go_bottom(),
+					_ => {},
 				}
 			}
 		}

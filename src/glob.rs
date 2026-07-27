@@ -112,10 +112,10 @@ impl<'a> Selection<'a> {
 			let pkg = &item.pkg;
 			let op = item.modifier.unwrap_or(default_op);
 
-			if matches!(op, Operation::Install | Operation::Reinstall) {
-				if let Some(candidate) = item.candidate {
-					candidate.set_candidate();
-				}
+			if matches!(op, Operation::Install | Operation::Reinstall)
+				&& let Some(candidate) = item.candidate
+			{
+				candidate.set_candidate();
 			}
 
 			match op {
@@ -124,15 +124,13 @@ impl<'a> Selection<'a> {
 						bail!("{} has no install candidate", pkg.name())
 					};
 
-					if let Some(inst) = pkg.installed() {
-						if inst == cand {
-							info!(
-								"{}{} is already installed and at the latest version",
-								color::primary!(pkg.name()),
-								color::ver!(cand.version())
-							);
-							continue;
-						}
+					if pkg.installed().is_some_and(|inst| inst == cand) {
+						info!(
+							"{}{} is already installed and at the latest version",
+							color::primary!(pkg.name()),
+							color::ver!(cand.version())
+						);
+						continue;
 					}
 
 					cache.resolver().clear(pkg);

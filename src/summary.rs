@@ -310,13 +310,11 @@ fn check_reboot_required(config: &Config) {
 	info!("A reboot is required to complete these changes.");
 
 	let pkgs_path = config.get_path(&Paths::RebootRequiredPkgs);
-	if pkgs_path.exists() {
-		if let Ok(content) = std::fs::read_to_string(&pkgs_path) {
-			let pkgs: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
-			if !pkgs.is_empty() {
-				info!("The following packages require a reboot:");
-				info!(" {}", pkgs.join(", "));
-			}
+	if let Ok(content) = std::fs::read_to_string(&pkgs_path) {
+		let pkgs: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
+		if !pkgs.is_empty() {
+			info!("The following packages require a reboot:");
+			info!(" {}", pkgs.join(", "));
 		}
 	}
 }

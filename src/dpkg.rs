@@ -284,10 +284,10 @@ impl Pty {
 	fn poll(&mut self, child: Pid) -> Result<bool> {
 		// Wait for the child process to finish and get its exit code
 		let wait_status = waitpid(child, Some(WaitPidFlag::WNOHANG))?;
-		if let WaitStatus::Exited(_, exit_code) = wait_status {
-			if exit_code != 0 {
-				bail!("Dpkg exited with code: '{exit_code}'");
-			}
+		if let WaitStatus::Exited(_, exit_code) = wait_status
+			&& exit_code != 0
+		{
+			bail!("Dpkg exited with code: '{exit_code}'");
 		}
 
 		// When resizing the terminal poll will be Error Interrupted
