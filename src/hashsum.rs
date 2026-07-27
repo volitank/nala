@@ -1,14 +1,14 @@
 use std::fmt::Write;
 use std::path::Path;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use rust_apt::Version;
 use serde::Serialize;
 use sha2::{Digest, Sha256, Sha512};
 use tokio::fs;
 use tokio::io::AsyncReadExt;
 
-use crate::config::{color, Theme};
+use crate::config::{Theme, color};
 
 /// Return the hash_type and the hash_value to be used.
 pub fn get_hash(version: &Version) -> Result<HashSum> {

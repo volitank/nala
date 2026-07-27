@@ -2,7 +2,7 @@ use anyhow::Result;
 use rust_apt::Package;
 
 use crate::cmd::ShowVersion;
-use crate::config::{color, Config};
+use crate::config::{Config, color};
 
 /// List packages in a vector
 ///

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::parser::ValueSource;
 use clap::{ArgMatches, ColorChoice};
 use rust_apt::config::Config as AptConfig;
@@ -9,7 +9,7 @@ use rust_apt::config::Config as AptConfig;
 use super::color::setup_color;
 use super::file::{ConfigFile, UiMode};
 use super::paths::PathSpec;
-use super::{keys, logger, Level, OptType, Paths, Switch};
+use super::{Level, OptType, Paths, Switch, keys, logger};
 use crate::cli::Commands;
 use crate::config::color::{Style, Theme};
 use crate::util::UnitStr;
@@ -291,7 +291,7 @@ mod test {
 	use crate::cli::flags::{AutoRemoveFlags, FixBrokenFlags, InstallFlags, TransactionFlags};
 	use crate::cli::{Commands, NalaParser};
 	use crate::config::file::{ConfigFile, UiMode};
-	use crate::config::{keys, OptType, Paths, Switch};
+	use crate::config::{OptType, Paths, Switch, keys};
 	use crate::util::NumSys;
 
 	static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));

@@ -2,13 +2,13 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use anyhow::{bail, Context, Error, Result};
-use rust_apt::{new_cache, Version};
+use anyhow::{Context, Error, Result, bail};
+use rust_apt::{Version, new_cache};
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
-use super::{proxy, DomainMap, Uri, UriFilter};
-use crate::config::{color, Config, Paths, Theme};
+use super::{DomainMap, Uri, UriFilter, proxy};
+use crate::config::{Config, Paths, Theme, color};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
 use crate::progress::Progress;

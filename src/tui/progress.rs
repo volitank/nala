@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 
 use anyhow::Result;
 use ratatui::backend::Backend;

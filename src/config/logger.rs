@@ -2,7 +2,7 @@ use std::io::Write;
 use std::sync::Mutex;
 
 use crate::config::color::Target;
-use crate::config::{color, Theme};
+use crate::config::{Theme, color};
 
 static LOG: std::sync::LazyLock<Mutex<Logger>> =
 	std::sync::LazyLock::new(|| Mutex::new(Logger::new(LogOptions::default())));
@@ -163,10 +163,10 @@ mod tests {
 	use std::io::Read;
 	use std::sync::{LazyLock, Mutex, MutexGuard};
 
-	use nix::fcntl::{fcntl, FcntlArg, OFlag};
+	use nix::fcntl::{FcntlArg, OFlag, fcntl};
 
 	use super::Level;
-	use crate::config::color::{setup_color, Color};
+	use crate::config::color::{Color, setup_color};
 	use crate::config::logger::*;
 
 	static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));

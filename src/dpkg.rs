@@ -1,25 +1,25 @@
 use std::fmt;
 use std::fs::File;
-use std::io::{stdout, ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Write, stdout};
 use std::mem::zeroed;
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use mio::event::Iter;
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
-use nix::fcntl::{fcntl, FcntlArg, OFlag};
-use nix::libc::{winsize, TIOCGWINSZ, TIOCSWINSZ};
+use nix::fcntl::{FcntlArg, OFlag, fcntl};
+use nix::libc::{TIOCGWINSZ, TIOCSWINSZ, winsize};
 use nix::pty::forkpty;
 use nix::sys::signal::{self, SigHandler};
-use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
-use nix::unistd::{close, pipe, Pid};
+use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
+use nix::unistd::{Pid, close, pipe};
 use nix::{ioctl_read_bad, ioctl_write_ptr_bad};
 use regex::RegexBuilder;
-use rust_apt::progress::{AcquireProgress, InstallProgress};
 use rust_apt::Cache;
+use rust_apt::progress::{AcquireProgress, InstallProgress};
 
-use crate::config::{color, Config, Theme};
+use crate::config::{Config, Theme, color};
 use crate::progress::Progress;
 use crate::{debug, dprog};
 
@@ -179,7 +179,7 @@ impl Pty {
 
 		for token in tokens {
 			poll.registry()
-				.register(&mut SourceFd(&(token.0 .0 as i32)), token.0, token.1)?;
+				.register(&mut SourceFd(&(token.0.0 as i32)), token.0, token.1)?;
 		}
 
 		unsafe {
@@ -423,7 +423,7 @@ fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>> {
 		Ok(num) => &buffer[..num],
 		Err(ref e) if e.kind() == ErrorKind::WouldBlock => return Ok(PtyStr::None),
 		Err(ref e) if e.raw_os_error().is_some_and(|code| code == 5 || code == 4) => {
-			return Ok(PtyStr::Eof)
+			return Ok(PtyStr::Eof);
 		},
 		Err(e) => return Err(anyhow!(e)),
 	};

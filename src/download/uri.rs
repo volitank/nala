@@ -1,21 +1,21 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
-use rust_apt::records::RecordField;
+use anyhow::{Context, Result, bail};
 use rust_apt::Version;
+use rust_apt::records::RecordField;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
-use super::downloader::Message;
 use super::Downloader;
-use crate::config::{color, Theme};
+use super::downloader::Message;
+use crate::config::{Theme, color};
 use crate::download::DomainMap;
 use crate::fs::AsyncFs;
 use crate::hashsum::{self, HashSum};
-use crate::util::{get_pkg_name, DOMAIN, MIRROR};
+use crate::util::{DOMAIN, MIRROR, get_pkg_name};
 
 #[derive(Serialize)]
 pub struct Uri {

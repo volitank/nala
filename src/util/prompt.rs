@@ -1,8 +1,8 @@
 use std::io::Write;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
-use crate::config::{keys, Config};
+use crate::config::{Config, keys};
 
 /// Ask the user for confirmation, honoring configured prompt defaults.
 pub fn confirm(config: &Config, msg: &str) -> Result<()> {
@@ -35,7 +35,7 @@ pub fn confirm(config: &Config, msg: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
 	use super::confirm;
-	use crate::config::{keys, Config};
+	use crate::config::{Config, keys};
 
 	#[test]
 	fn confirm_honors_assume_yes_without_prompting() {

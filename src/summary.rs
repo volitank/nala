@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use chrono::Utc;
 use rust_apt::util::DiskSpace;
 use rust_apt::{Cache, Package};
 
-use crate::cmd::{self, apt_hook_with_pkgs, run_scripts, HistoryEntry};
-use crate::config::{color, keys, Config, Paths, Theme};
+use crate::cmd::{self, HistoryEntry, apt_hook_with_pkgs, run_scripts};
+use crate::config::{Config, Paths, Theme, color, keys};
 use crate::download::Downloader;
-use crate::libnala::{package_key, NalaCache, Operation, PackageKey, PackageTransition};
-use crate::terminal::{use_tui, TerminalGuard};
+use crate::libnala::{NalaCache, Operation, PackageKey, PackageTransition, package_key};
+use crate::terminal::{TerminalGuard, use_tui};
 use crate::tui::summary::SummaryRow;
 use crate::{dpkg, error, info, table, tui, util, warn};
 

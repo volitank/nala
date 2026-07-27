@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use rust_apt::{Cache, Package, Version};
 use serde::{Deserialize, Serialize};
 

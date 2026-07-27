@@ -1,9 +1,9 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use rust_apt::new_cache;
 use rust_apt::util::show_broken_pkg;
 
 use crate::cmd::Operation;
-use crate::config::{keys, Config};
+use crate::config::{Config, keys};
 use crate::deb::DebFile;
 use crate::download::Downloader;
 use crate::util::sudo_check;

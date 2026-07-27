@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use ar::Archive;
 use rust_apt::tagfile;
 use serde::{Deserialize, Serialize};

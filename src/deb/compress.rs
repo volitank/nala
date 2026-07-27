@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use async_compression::tokio::bufread::{GzipDecoder, XzDecoder, ZstdDecoder};
 use tokio::io::AsyncRead;
 

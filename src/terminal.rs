@@ -4,7 +4,7 @@
 //! raw mode, alternate screen, mouse capture, and the shared terminal type.
 
 use std::env;
-use std::io::{stdout, IsTerminal};
+use std::io::{IsTerminal, stdout};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -12,14 +12,14 @@ use crossterm::event::{
 	self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers,
 };
 use crossterm::terminal::{
-	disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+	EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use crossterm::{execute, ExecutableCommand};
-use ratatui::backend::CrosstermBackend;
+use crossterm::{ExecutableCommand, execute};
 use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 
-use crate::config::file::UiMode;
 use crate::config::Config;
+use crate::config::file::UiMode;
 
 pub(crate) type Term = Terminal<CrosstermBackend<std::io::Stdout>>;
 

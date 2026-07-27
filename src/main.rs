@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::{ArgMatches, CommandFactory};
 use cli::Commands;
 use cmd::Operation;
@@ -31,7 +31,7 @@ use crate::cmd::{
 	clean, fetch, fix_broken, history, list_packages, mark_cli_pkgs, moo, policy, show, update,
 	upgrade,
 };
-use crate::config::{keys, Config};
+use crate::config::{Config, keys};
 use crate::download::download;
 
 fn main() -> ExitCode {
