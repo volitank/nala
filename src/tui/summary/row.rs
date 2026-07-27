@@ -3,7 +3,6 @@ use std::io::Write;
 use std::process::Stdio;
 use std::{fmt, io};
 
-use ansi_to_tui::IntoText;
 use anyhow::{Result, bail};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::Constraint::Length;
@@ -48,9 +47,7 @@ impl Item {
 
 	pub(crate) fn get_cell(&self) -> Cell<'_> {
 		Cell::from(
-			self.string
-				.into_text()
-				.unwrap()
+			color::ansi_to_text(&self.string)
 				.style(self.style)
 				.alignment(self.align),
 		)
@@ -206,9 +203,10 @@ impl<'a> SummaryRow<'a> {
 		for (head, info) in show.pretty_map() {
 			let mut split = info.split('\n');
 			if let Some(first) = split.next() {
-				lines.push(format!("{}: {first}", color::highlight!(head)).into_text()?);
+				let header = color::highlight!(head);
+				lines.push(color::ansi_to_text(&format!("{header}: {first}")));
 				for line in split {
-					lines.push(line.to_string().into_text()?);
+					lines.push(color::ansi_to_text(line));
 				}
 			}
 		}

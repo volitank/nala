@@ -310,7 +310,12 @@ impl UriFilter {
 			filename.to_string(),
 			match uri.starts_with("mirror+file:") {
 				true => Path::new(filename).read_string().await?,
-				false => reqwest::blocking::get("http://".to_string() + filename)?.text()?,
+				false => {
+					reqwest::get("http://".to_string() + filename)
+						.await?
+						.text()
+						.await?
+				},
 			},
 		);
 		Ok(())

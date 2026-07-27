@@ -431,7 +431,10 @@ pub fn ansi_to_style(mut style: RatStyle, params: &str) -> RatStyle {
 			"2" => style = style.add_modifier(RatMod::DIM),
 			"3" => style = style.add_modifier(RatMod::ITALIC),
 			"4" => style = style.add_modifier(RatMod::UNDERLINED),
+			"5" => style = style.add_modifier(RatMod::SLOW_BLINK),
+			"6" => style = style.add_modifier(RatMod::RAPID_BLINK),
 			"7" => style = style.add_modifier(RatMod::REVERSED),
+			"8" => style = style.add_modifier(RatMod::HIDDEN),
 			"9" => style = style.add_modifier(RatMod::CROSSED_OUT),
 			"22" => style = style.remove_modifier(RatMod::BOLD | RatMod::DIM),
 			"38" | "48" => {
@@ -755,5 +758,14 @@ mod tests {
 		assert!(prefix.starts_with("\u{1b}["));
 		assert!(prefix.contains("38;5;201"));
 		assert!(prefix.contains("48;5;125"));
+	}
+
+	#[test]
+	fn ansi_to_style_preserves_theme_modifiers() {
+		assert_eq!(
+			ansi_to_style(RatStyle::default(), "5;6;8"),
+			RatStyle::default()
+				.add_modifier(RatMod::SLOW_BLINK | RatMod::RAPID_BLINK | RatMod::HIDDEN)
+		);
 	}
 }

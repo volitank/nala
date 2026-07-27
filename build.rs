@@ -62,14 +62,5 @@ fn main() -> Result<(), std::io::Error> {
 		generate_manpages(parser, &out_dir)?;
 	});
 
-	generate_files!("Markdown", out_dir, {
-		let opts = clap_markdown::MarkdownOptions::new()
-			.show_footer(false)
-			.show_table_of_contents(false)
-			.title("Nala".to_string());
-		let markdown = clap_markdown::help_markdown_custom::<NalaParser>(&opts);
-		std::fs::write(out_dir.join("nala.md"), markdown)?;
-	});
-
 	Ok(())
 }

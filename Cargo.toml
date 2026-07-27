@@ -10,17 +10,17 @@ description = "Commandline frontend for the APT package manager"
 [dependencies]
 rust-apt = { version = "0.10.0", features = ["serde"] }
 # rust-apt = { path = "../rust-apt", features = ["serde"] }
-tokio = { version = "1.53.1", features = ["fs", "macros", "rt-multi-thread"] }
+tokio = { version = "1.53.1", features = ["fs", "io-util", "macros", "rt-multi-thread", "sync", "time"] }
 nix = { version = "0.31.3", features = ["fs", "process", "term", "ioctl", "signal", "user"] }
-async-compression = { version = "0.4.42", features = ["tokio", "all-algorithms"] }
-reqwest = { version = "0.13.4", features = ["json", "blocking"] }
+async-compression = { version = "0.4.42", features = ["tokio", "gzip", "xz", "zstd"] }
+reqwest = { version = "0.13.4", features = ["json"] }
 serde = { version = "1.0.229", features = ["derive"] }
 clap = { version = "4.6.4", features = ["derive"] }
 clap_complete = { version = "4.6.7", features = ["unstable-dynamic"] }
-ratatui = { version = "0.30.2", features = ["serde"] }
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm_0_29"] }
 comfy-table = { version = "7.2.2", features = ["tty", "custom_styling"] }
 mio = { version = "1.2.2", features = ["os-ext"] }
-indexmap = { version = "2.14.0", features = ["serde"] }
+indexmap = "2.14.0"
 hcl = { package = "hcl-rs", version = "0.19.7" }
 anyhow = "1.0.104"
 regex = "1.13.1"
@@ -29,13 +29,11 @@ serde_json = "1.0.151"
 crossterm = "0.29.0"
 sha2 = "0.11.0"
 chrono = "0.4.45"
-ansi-to-tui = "8.0.1"
-tar = "0.4.46"
+tar = { version = "0.4.46", default-features = false }
 ar = "0.9.0"
 
 [build-dependencies]
 clap = { version = "4.6.4", features = ["derive"] }
-clap-markdown = "0.1.5"
 clap_complete = { version = "4.6.7", features = ["unstable-dynamic"] }
 clap_mangen = "0.3.0"
 

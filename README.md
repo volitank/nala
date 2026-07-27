@@ -127,13 +127,9 @@ formatter target expects a nightly toolchain with `rustfmt` installed.
 
 ## Generated Files
 
-The Rust build script derives command documentation from the clap parser:
-
-- manpage output through `clap_mangen`
-- Markdown output through `clap-markdown`
-
-This keeps user-facing command docs tied to the same parser that powers the
-binary.
+The Rust build script generates manpages from the clap parser through
+`clap_mangen`, keeping command documentation tied to the same parser that
+powers the binary.
 
 ## Safety Notes
 
