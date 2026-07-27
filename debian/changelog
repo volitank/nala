@@ -1,6 +1,19 @@
-nala (0.17.0~rs1) unstable; urgency=medium
+nala (0.17.1) unstable; urgency=medium
 
-  * Dev Build
+  [ Bug Fixes ]
+  * Support architecture-qualified package installs.
+  * Improve downloader retry handling.
+  * Report unsatisfied install dependencies.
+
+ -- Blake Lee <blake@volian.org>  Mon, 27 Jul 2026 02:14:41 +0000
+
+nala (0.17.0) unstable; urgency=medium
+
+  [ Changes ]
+  * Switch the development package from the Python implementation to Rust.
+  * Archive the Python implementation under legacy/python.
+  * Adopt the Rust HCL configuration format.
+  * Add Rust-based Debian packaging and command documentation.
 
  -- Blake Lee <blake@volian.org>  Wed, 20 May 2026 00:00:00 -0500
 

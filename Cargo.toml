@@ -1,6 +1,6 @@
 [package]
 name = "nala"
-version = "0.17.0"
+version = "0.17.1"
 edition = "2024"
 license = "GPL-3.0-only"
 repository = "https://gitlab.com/volian/nala/-/tree/nala-rs"
