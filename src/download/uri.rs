@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use rust_apt::Version;
-use rust_apt::records::RecordField;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
@@ -15,7 +14,7 @@ use crate::config::{Theme, color};
 use crate::download::DomainMap;
 use crate::fs::AsyncFs;
 use crate::hashsum::{self, HashSum};
-use crate::util::{DOMAIN, MIRROR, get_pkg_name};
+use crate::util::{DOMAIN, get_pkg_name};
 
 #[derive(Serialize)]
 pub struct Uri {
@@ -40,7 +39,10 @@ impl Uri {
 		version: &'a Version<'a>,
 		archive: &Path,
 	) -> Result<Uri> {
-		let uris = downloader.filter.uris(version, archive).await?;
+		let uris = downloader
+			.filter
+			.uris(version, archive, &downloader.client)
+			.await?;
 		let size = version.size() as usize;
 		let filename = get_pkg_name(version);
 		let hash = hashsum::get_hash(version)?;
@@ -239,6 +241,7 @@ impl UriFilter {
 		&mut self,
 		version: &'a Version<'a>,
 		archive: &Path,
+		client: &reqwest::Client,
 	) -> Result<VecDeque<String>> {
 		let mut filtered = VecDeque::new();
 
@@ -255,7 +258,8 @@ impl UriFilter {
 				self.add_untrusted(version.parent().name());
 			}
 
-			let uri = pf.index_file().archive_uri(&vf.lookup().filename());
+			let package_filename = vf.lookup().filename();
+			let uri = pf.index_file().archive_uri(&package_filename);
 
 			// Any real files should be copied into the Archive directory for use
 			if let Some(path) = uri.strip_prefix("file:").map(Path::new) {
@@ -265,19 +269,13 @@ impl UriFilter {
 				path.cp(archive.join(filename)).await?;
 			}
 
-			// We should probably consolidate this. And maybe test if mirror: works.
-			if (uri.starts_with("mirror+file:") || uri.starts_with("mirror:"))
-				&& let Some(file_match) = MIRROR.captures(&uri)
-			{
-				let filename = file_match.get(1).unwrap().as_str();
-				if !self.mirrors.contains_key(filename) {
-					self.add_to_mirrors(&uri, filename).await?;
+			if let Some(location) = mirror_location(&uri, &package_filename) {
+				if !self.mirrors.contains_key(&location) {
+					self.add_to_mirrors(client, &location).await?;
 				};
 
-				if self
-					.get_from_mirrors(version, &mut filtered, filename)
-					.is_some()
-				{
+				if let Some(mirrors) = self.mirrors.get(&location) {
+					add_mirror_uris(mirrors, &package_filename, &mut filtered);
 					continue;
 				}
 			}
@@ -287,37 +285,87 @@ impl UriFilter {
 		Ok(filtered)
 	}
 
-	/// Add the filtered Uris into the HashSet if applicable.
-	fn get_from_mirrors<'a>(
-		&self,
-		version: &'a Version<'a>,
-		uris: &mut VecDeque<String>,
-		filename: &str,
-	) -> Option<()> {
-		// Return None if not in mirrors.
-		for line in self.mirrors.get(filename)?.lines() {
-			if !line.is_empty() && !line.starts_with('#') {
-				uris.push_back(
-					line.to_string() + "/" + &version.get_record(RecordField::Filename)?,
-				);
-			}
-		}
-		Some(())
-	}
-
-	async fn add_to_mirrors(&mut self, uri: &str, filename: &str) -> Result<()> {
+	async fn add_to_mirrors(&mut self, client: &reqwest::Client, location: &str) -> Result<()> {
 		self.mirrors.insert(
-			filename.to_string(),
-			match uri.starts_with("mirror+file:") {
-				true => Path::new(filename).read_string().await?,
-				false => {
-					reqwest::get("http://".to_string() + filename)
+			location.to_string(),
+			match location.strip_prefix("file:") {
+				Some(path) => Path::new(path).read_string().await?,
+				None => {
+					client
+						.get(location)
+						.send()
 						.await?
+						.error_for_status()?
 						.text()
 						.await?
 				},
 			},
 		);
 		Ok(())
+	}
+}
+
+fn add_mirror_uris(mirrors: &str, package_filename: &str, uris: &mut VecDeque<String>) {
+	for line in mirrors.lines() {
+		if let Some(mirror) = line.split_ascii_whitespace().next()
+			&& !mirror.starts_with('#')
+		{
+			uris.push_back(format!(
+				"{}/{package_filename}",
+				mirror.trim_end_matches('/')
+			));
+		}
+	}
+}
+
+fn mirror_location(uri: &str, package_filename: &str) -> Option<String> {
+	let location = uri.strip_suffix(package_filename)?.strip_suffix('/')?;
+
+	if let Some(location) = location.strip_prefix("mirror://") {
+		return Some(format!("http://{location}"));
+	}
+
+	location
+		.strip_prefix("mirror+")
+		.filter(|location| {
+			location.starts_with("http://")
+				|| location.starts_with("https://")
+				|| location.starts_with("file:")
+		})
+		.map(str::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn mirror_sources_are_normalized_and_expanded() {
+		let filename = "pool/nala.deb";
+
+		for (source, expected) in [
+			("mirror://host/list", "http://host/list"),
+			("mirror+http://host/list", "http://host/list"),
+			("mirror+https://host/list", "https://host/list"),
+			("mirror+file:/tmp/list", "file:/tmp/list"),
+		] {
+			let uri = format!("{source}/{filename}");
+			assert_eq!(mirror_location(&uri, filename).as_deref(), Some(expected));
+		}
+
+		let mut uris = VecDeque::new();
+		add_mirror_uris(
+			"# comment\n\n https://one/\tpriority:1\nhttp://two",
+			filename,
+			&mut uris,
+		);
+
+		assert_eq!(
+			uris,
+			VecDeque::from([
+				"https://one/pool/nala.deb".to_string(),
+				"http://two/pool/nala.deb".to_string(),
+			])
+		);
 	}
 }

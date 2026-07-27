@@ -18,7 +18,6 @@ macro_rules! lazy_regex {
 }
 
 lazy_regex!(
-	MIRROR => r"(mirror://(.*?)/pool|mirror\+file:(/.*?)/pool)",
 	URL => "(https?://.*?/.*?/)",
 	PACSTALL => r#"_remoterepo="(.*?)""#,
 	DOMAIN => r"https?://([A-Za-z_0-9.-]+).*",

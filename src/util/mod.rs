@@ -24,7 +24,7 @@ macro_rules! dprog {
 }
 
 pub use package::get_pkg_name;
-pub use patterns::{DOMAIN, MIRROR, PACSTALL, URL};
+pub use patterns::{DOMAIN, PACSTALL, URL};
 pub(crate) use privilege::get_user;
 pub use privilege::sudo_check;
 pub use prompt::confirm;
