@@ -247,9 +247,12 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 				let _info_fd = unsafe { dup2_raw(&statusfd, info_fd)? };
 
 				debug!("From Child");
-				env::set_var("APT_HOOK_INFO_FD", info_fd.to_string());
-				if key == "DPkg::Pre-Install-Pkgs" {
-					env::set_var("DPKG_FRONTEND_LOCKED", "true");
+				// SAFETY: fork leaves this child with one thread, so environment mutation cannot race.
+				unsafe {
+					env::set_var("APT_HOOK_INFO_FD", info_fd.to_string());
+					if key == "DPkg::Pre-Install-Pkgs" {
+						env::set_var("DPKG_FRONTEND_LOCKED", "true");
+					}
 				}
 
 				let mut args_cstr: Vec<CString> = vec![];

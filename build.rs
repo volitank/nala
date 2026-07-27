@@ -43,7 +43,7 @@ fn generate_manpages(cmd: clap::Command, out_dir: &std::path::Path) -> Result<()
 	generate(cmd, out_dir)
 }
 
-macro_rules! gen {
+macro_rules! generate_files {
 	($label:literal, $out_dir:expr, $code:block) => {{
 		let path = $out_dir.join($label);
 		let result = { $code };
@@ -58,11 +58,11 @@ fn main() -> Result<(), std::io::Error> {
 
 	let parser = NalaParser::command();
 
-	gen!("Manpage", out_dir, {
+	generate_files!("Manpage", out_dir, {
 		generate_manpages(parser, &out_dir)?;
 	});
 
-	gen!("Markdown", out_dir, {
+	generate_files!("Markdown", out_dir, {
 		let opts = clap_markdown::MarkdownOptions::new()
 			.show_footer(false)
 			.show_table_of_contents(false)
