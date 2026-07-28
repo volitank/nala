@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write, stdout};
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::fd::{AsRawFd, IntoRawFd, OwnedFd, RawFd};
 
 use anyhow::{Context, Result, anyhow, bail};
 use mio::event::Iter;
@@ -11,8 +11,8 @@ use nix::fcntl::{FcntlArg, OFlag, fcntl};
 use nix::libc::{TIOCGWINSZ, TIOCSWINSZ, winsize};
 use nix::pty::forkpty;
 use nix::sys::signal::{self, SigHandler};
-use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
-use nix::unistd::{Pid, close, pipe};
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::{close, dup, pipe};
 use nix::{ioctl_read_bad, ioctl_write_ptr_bad};
 use regex::RegexBuilder;
 use rust_apt::Cache;
@@ -34,12 +34,12 @@ use crate::{debug, dprog, t};
 const ENABLE_BRACKETED_PASTE: &str = "\x1b[?2004h";
 // const DISABLE_BRACKETED_PASTE: &'static str = "\x1b[?2004l";
 const ENABLE_ALT_SCREEN: &str = "\x1b[?1049h";
-// const DISABLE_ALT_SCREEN: &str = "\x1b[?1049l";
+const DISABLE_ALT_SCREEN: &str = "\x1b[?1049l";
 // const SHOW_CURSOR: &'static str = "\x1b[?25h";
 // const HIDE_CURSOR: &'static str = "\x1b[?25l";
 // const SET_CURSER: &'static str = "\x1b[?1l";
 const SAVE_TERM: &str = "\x1b[22;0;0t";
-// const RESTORE_TERM: &str = "\x1b[23;0;0t";
+const RESTORE_TERM: &str = "\x1b[23;0;0t";
 // const APPLICATION_KEYPAD: &'static str = "\x1b=";
 // const NORMAL_KEYPAD: &'static str = "\x1b>";
 // const CR: &'static str = "\r";
@@ -73,6 +73,24 @@ extern "C" fn sigwinch_passthrough(_: i32) {
 		// Set Terminal Size for pty.
 		let _ = tiocswinsz(CHILD_FD, &ws);
 	}
+}
+
+struct SigwinchGuard(SigHandler);
+
+impl SigwinchGuard {
+	fn install(master: RawFd) -> Result<Self> {
+		unsafe {
+			CHILD_FD = master;
+			Ok(Self(signal::signal(
+				signal::SIGWINCH,
+				SigHandler::Handler(sigwinch_passthrough),
+			)?))
+		}
+	}
+}
+
+impl Drop for SigwinchGuard {
+	fn drop(&mut self) { let _ = unsafe { signal::signal(signal::SIGWINCH, self.0) }; }
 }
 
 pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
@@ -113,29 +131,33 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			std::process::exit(0);
 		},
 		nix::pty::ForkptyResult::Parent { child, master } => {
-			let mut pty = Pty::new(
-				writefd.into_raw_fd(),
-				statusfd.as_raw_fd(),
-				master.as_raw_fd(),
-			)?;
+			let mut pty = Pty::new(writefd, statusfd, master)?;
 
 			let mut progress = Progress::new(config, true)?;
 			progress.set_position(0);
 			progress.set_length(100);
 
-			while pty.listen_to_child(config, &mut progress, child)? {}
+			while pty.listen_to_child(config, &mut progress)? {}
+			check_wait_status(waitpid(child, None)?)?;
 
 			progress.finish();
 			progress.render()?;
 			progress.clean_up()?;
-
-			// Forget the file descriptor, the child closes it.
-			// Not doing this causes Debug build to panic.
-			std::mem::forget(pty);
 		},
 	}
 
 	Ok(())
+}
+
+fn check_wait_status(status: WaitStatus) -> Result<()> {
+	match status {
+		WaitStatus::Exited(_, 0) => Ok(()),
+		WaitStatus::Exited(_, code) => bail!("{}", t!("dpkg-exit", "code" => code)),
+		WaitStatus::Signaled(_, signal, _) => {
+			bail!("{}", t!("dpkg-exit", "code" => 128 + signal as i32))
+		},
+		status => bail!("Unexpected dpkg wait status: {status:?}"),
+	}
 }
 
 enum PtyStr<'a> {
@@ -147,9 +169,11 @@ enum PtyStr<'a> {
 
 pub struct Pty {
 	status: File,
+	_sigwinch: SigwinchGuard,
 	pty: File,
 	stdin: File,
 	status_buf: [u8; 4096],
+	status_pending: Vec<u8>,
 	pty_buf: [u8; 4096],
 	poll: Poll,
 	events: Events,
@@ -168,14 +192,18 @@ impl fmt::Debug for Pty {
 }
 
 impl Pty {
-	fn new(writefd: RawFd, statusfd: RawFd, master: RawFd) -> Result<Pty> {
+	fn new(writefd: OwnedFd, statusfd: OwnedFd, master: OwnedFd) -> Result<Pty> {
 		// This is for the Parent, close the write end of the pipe.
-		close(writefd)?;
+		drop(writefd);
 
+		let stdin = File::from(dup(std::io::stdin())?);
+		let stdin_fd = stdin.as_raw_fd();
+		let status_fd = statusfd.as_raw_fd();
+		let master_fd = master.as_raw_fd();
 		let tokens = [
-			(Token(0), Interest::READABLE),
-			(Token(master as usize), Interest::READABLE),
-			(Token(statusfd as usize), Interest::READABLE),
+			(Token(stdin_fd as usize), Interest::READABLE),
+			(Token(master_fd as usize), Interest::READABLE),
+			(Token(status_fd as usize), Interest::READABLE),
 		];
 
 		// Create a poll instance
@@ -184,30 +212,27 @@ impl Pty {
 
 		let stdin_registered = poll
 			.registry()
-			.register(&mut SourceFd(&STDIN_FD), tokens[0].0, tokens[0].1)
+			.register(&mut SourceFd(&stdin_fd), tokens[0].0, tokens[0].1)
 			.is_ok();
 
-		for token in &tokens[1..] {
-			poll.registry()
-				.register(&mut SourceFd(&(token.0.0 as i32)), token.0, token.1)?;
-		}
+		poll.registry()
+			.register(&mut SourceFd(&master_fd), tokens[1].0, tokens[1].1)?;
+		poll.registry()
+			.register(&mut SourceFd(&status_fd), tokens[2].0, tokens[2].1)?;
 
-		unsafe {
-			CHILD_FD = master;
-			signal::signal(signal::SIGWINCH, SigHandler::Handler(sigwinch_passthrough))?;
-
-			Ok(Pty {
-				status: File::from_raw_fd(statusfd),
-				pty: File::from_raw_fd(master),
-				stdin: File::from_raw_fd(0),
-				status_buf: [0u8; 4096],
-				pty_buf: [0u8; 4096],
-				poll,
-				events,
-				tokens,
-				stdin_registered,
-			})
-		}
+		Ok(Pty {
+			status: File::from(statusfd),
+			_sigwinch: SigwinchGuard::install(master_fd)?,
+			pty: File::from(master),
+			stdin,
+			status_buf: [0u8; 4096],
+			status_pending: Vec::new(),
+			pty_buf: [0u8; 4096],
+			poll,
+			events,
+			tokens,
+			stdin_registered,
+		})
 	}
 
 	fn read_master(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
@@ -236,6 +261,14 @@ impl Pty {
 					dprog!(config, progress, "pty", "{string:?}");
 					write!(stdout(), "{string}")?;
 					stdout().flush()?;
+
+					if [RESTORE_TERM, DISABLE_ALT_SCREEN]
+						.iter()
+						.any(|code| string.contains(code))
+						&& !string.contains(ENABLE_ALT_SCREEN)
+					{
+						progress.unhide()?;
+					}
 
 					// Don't attempt to write anything if we already wrote rawline
 					return Ok(true);
@@ -268,39 +301,57 @@ impl Pty {
 	}
 
 	fn read_status(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
-		match read_fd(&mut self.status, &mut self.status_buf)? {
-			PtyStr::Bytes(_) => bail!("{}", t!("dpkg-status-utf8")),
-			PtyStr::Str(string) => {
-				for line in string.lines() {
-					let status = DpkgStatus::try_from(line)?;
-					dprog!(config, progress, "statusfd", "{status:?}");
-
-					// For ConfFile specifically, set raw
-					if let DpkgStatusType::ConfFile = status.status_type {
-						progress.hide()?;
-					// For all other status unset raw
-					} else if progress.hidden() {
-						progress.unhide()?;
-					}
-					progress.set_position(status.percent);
+		let read = match self.status.read(&mut self.status_buf) {
+			Ok(0) => {
+				if !self.status_pending.is_empty() {
+					let line = std::mem::take(&mut self.status_pending);
+					Self::process_status_line(config, progress, &line)?;
 				}
-				Ok(true)
+				return Ok(false);
 			},
-			PtyStr::None => Ok(true),
-			PtyStr::Eof => Ok(false),
+			Ok(read) => read,
+			Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::Interrupted) => {
+				return Ok(true);
+			},
+			Err(err) => return Err(err.into()),
+		};
+
+		self.status_pending
+			.extend_from_slice(&self.status_buf[..read]);
+
+		while let Some(newline) = self.status_pending.iter().position(|byte| *byte == b'\n') {
+			let line = self.status_pending.drain(..=newline).collect::<Vec<_>>();
+			Self::process_status_line(config, progress, &line)?;
 		}
+
+		Ok(true)
 	}
 
-	/// Checks the status of the child, polls Fds and checks if they're ready.
-	fn poll(&mut self, child: Pid) -> Result<bool> {
-		// Wait for the child process to finish and get its exit code
-		let wait_status = waitpid(child, Some(WaitPidFlag::WNOHANG))?;
-		if let WaitStatus::Exited(_, exit_code) = wait_status
-			&& exit_code != 0
-		{
-			bail!("{}", t!("dpkg-exit", "code" => exit_code));
+	fn process_status_line(config: &Config, progress: &mut Progress, line: &[u8]) -> Result<()> {
+		let Ok(line) = std::str::from_utf8(line) else {
+			bail!("{}", t!("dpkg-status-utf8"));
+		};
+		let line = line.trim_end();
+		if line.is_empty() {
+			return Ok(());
 		}
 
+		let status = DpkgStatus::try_from(line)?;
+		dprog!(config, progress, "statusfd", "{status:?}");
+
+		// For ConfFile specifically, set raw
+		if let DpkgStatusType::ConfFile = status.status_type {
+			progress.hide()?;
+		// For all other status unset raw
+		} else if progress.hidden() {
+			progress.unhide()?;
+		}
+		progress.set_position(status.percent);
+		Ok(())
+	}
+
+	/// Polls Fds and checks if they're ready.
+	fn poll(&mut self) -> Result<()> {
 		// When resizing the terminal poll will be Error Interrupted
 		// Just wait until that's not the case.
 		while let Err(e) = self.poll.poll(&mut self.events, None) {
@@ -310,13 +361,7 @@ impl Pty {
 			return Err(anyhow!(e));
 		}
 
-		Ok(!self.is_read_closed())
-	}
-
-	fn is_read_closed(&self) -> bool {
-		self.events
-			.iter()
-			.any(|e| e.token() == self.tokens[1].0 && e.is_read_closed())
+		Ok(())
 	}
 
 	fn events(&self) -> Iter<'_> { self.events.iter() }
@@ -349,15 +394,8 @@ impl Pty {
 		}
 	}
 
-	fn listen_to_child(
-		&mut self,
-		config: &Config,
-		progress: &mut Progress,
-		child: Pid,
-	) -> Result<bool> {
-		if !self.poll(child).context(t!("dpkg-poll"))? {
-			return Ok(false);
-		}
+	fn listen_to_child(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
+		self.poll().context(t!("dpkg-poll"))?;
 
 		dprog!(config, progress, "pty", "{self:?}");
 
@@ -445,27 +483,14 @@ fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>> {
 	}
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 enum DpkgStatusType {
 	Status,
 	Error,
 	ConfFile,
-	#[default]
-	None,
 }
 
-impl From<&str> for DpkgStatusType {
-	fn from(value: &str) -> Self {
-		match value {
-			"pmstatus" => Self::Status,
-			"pmerror" => Self::Error,
-			"pmconffile" => Self::ConfFile,
-			_ => unreachable!(),
-		}
-	}
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct DpkgStatus {
 	status_type: DpkgStatusType,
 	_pkg_name: String,
@@ -477,13 +502,51 @@ impl TryFrom<&str> for DpkgStatus {
 	type Error = anyhow::Error;
 
 	fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-		let status: Vec<&str> = value.split(':').collect();
+		let mut fields = value.splitn(4, ':');
+		let status_type = match fields.next() {
+			Some("pmstatus") => DpkgStatusType::Status,
+			Some("pmerror") => DpkgStatusType::Error,
+			Some("pmconffile") => DpkgStatusType::ConfFile,
+			_ => bail!("Invalid dpkg status: {value:?}"),
+		};
+		let Some(pkg_name) = fields.next() else {
+			bail!("Invalid dpkg status: {value:?}");
+		};
+		let Some(percent) = fields.next() else {
+			bail!("Invalid dpkg status: {value:?}");
+		};
+		let Some(status) = fields.next() else {
+			bail!("Invalid dpkg status: {value:?}");
+		};
 
 		Ok(DpkgStatus {
-			status_type: DpkgStatusType::from(status[0]),
-			_pkg_name: status[1].into(),
-			percent: status[2].parse::<f64>()? as u64,
-			_status: status[3].into(),
+			status_type,
+			_pkg_name: pkg_name.into(),
+			percent: percent
+				.parse::<f64>()
+				.with_context(|| format!("Invalid dpkg status: {value:?}"))? as u64,
+			_status: status.into(),
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use nix::sys::signal::Signal;
+	use nix::unistd::Pid;
+
+	use super::{DpkgStatus, check_wait_status};
+
+	#[test]
+	fn invalid_dpkg_status_is_an_error() {
+		assert!(DpkgStatus::try_from("pmstatus:demo").is_err());
+		assert!(DpkgStatus::try_from("unexpected:demo:50:working").is_err());
+	}
+
+	#[test]
+	fn signaled_dpkg_is_an_error() {
+		let status = nix::sys::wait::WaitStatus::Signaled(Pid::from_raw(1), Signal::SIGTERM, false);
+
+		assert!(check_wait_status(status).is_err());
 	}
 }

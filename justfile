@@ -74,6 +74,10 @@ docker COMMAND:
 debtest:
     @just docker 'cargo build --locked --quiet && tests/deb/run'
 
+# Run terminal integration test
+term-test:
+    @just docker 'cargo build --locked --quiet && tests/deb/term/run'
+
 # Run the tests
 test +ARGS="":
     @cargo test -- --test-threads 1 {{ ARGS }}

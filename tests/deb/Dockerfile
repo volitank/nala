@@ -9,6 +9,8 @@ RUN apt-get update \
 		dpkg-dev \
 		just \
 		libapt-pkg-dev \
+		tmux \
+		whiptail \
 	&& rm -rf /var/lib/apt/lists/*
 
 RUN rustup component add clippy rustfmt \

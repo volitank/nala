@@ -47,21 +47,16 @@ impl<'a> TuiProgressRenderer<'a> {
 		})
 	}
 
-	pub(crate) fn hide(&mut self) -> Result<()> {
+	pub(crate) fn clean_up(&mut self) -> Result<()> {
 		self.terminal.clear()?;
+		write!(stdout(), "\r")?;
+		stdout().flush()?;
 		self.terminal.show_cursor()?;
 		Ok(())
 	}
 
 	pub(crate) fn unhide(&mut self) -> Result<()> {
-		writeln!(stdout(), "\n\n\n")?;
 		self.terminal.hide_cursor()?;
-		Ok(())
-	}
-
-	pub(crate) fn clean_up(&mut self) -> Result<()> {
-		self.terminal.clear()?;
-		self.terminal.show_cursor()?;
 		Ok(())
 	}
 
@@ -70,6 +65,7 @@ impl<'a> TuiProgressRenderer<'a> {
 			return Ok(());
 		}
 
+		self.terminal.autoresize()?;
 		let height = self.ansi.replace_all(msg, "").len() as f32
 			/ self.terminal.backend().size()?.width as f32;
 		let lines = (height.ceil() as u16).max(msg.lines().count() as u16);

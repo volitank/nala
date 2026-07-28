@@ -304,11 +304,6 @@ impl PlainProgress {
 		Ok(())
 	}
 
-	fn hide(&mut self) -> Result<()> {
-		self.clear_line()?;
-		Ok(())
-	}
-
 	fn print(&mut self, state: &ProgressState, msg: &str) {
 		if state.hidden() {
 			return;
@@ -331,8 +326,6 @@ impl PlainProgress {
 		self.line_rendered = true;
 		Ok(())
 	}
-
-	fn clean_up(&mut self) -> Result<()> { self.clear_line() }
 }
 
 fn progress_terminal(lines: u16) -> Result<Term> {
@@ -407,8 +400,8 @@ impl<'a> Progress<'a> {
 		}
 
 		match &mut self.kind {
-			ProgressKind::Tui { renderer, .. } => renderer.hide()?,
-			ProgressKind::Plain(inner) => inner.hide()?,
+			ProgressKind::Tui { renderer, .. } => renderer.clean_up()?,
+			ProgressKind::Plain(inner) => inner.clear_line()?,
 		}
 
 		self.state.set_hidden(true);
@@ -455,7 +448,7 @@ impl<'a> Progress<'a> {
 				renderer_result?;
 				raw_result
 			},
-			ProgressKind::Plain(inner) => inner.clean_up(),
+			ProgressKind::Plain(inner) => inner.clear_line(),
 		}
 	}
 

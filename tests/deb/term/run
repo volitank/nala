@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+nala_bin="${1:-${CARGO_TARGET_DIR:-target}/debug/nala}"
+package="nala-whiptail-test"
+work_dir="$(mktemp -d)"
+session="nala-term-test-$$"
+
+cleanup() {
+	tmux kill-session -t "${session}" 2>/dev/null || true
+	dpkg --remove "${package}" >/dev/null 2>&1 || true
+	rm -rf "${work_dir}"
+}
+trap cleanup EXIT
+
+if [[ ! -x "${nala_bin}" ]]; then
+	echo "Missing executable Nala binary: ${nala_bin}" >&2
+	exit 1
+fi
+
+pkg_dir="${work_dir}/${package}"
+deb_path="${work_dir}/${package}.deb"
+mkdir -p "${pkg_dir}/DEBIAN"
+cp tests/deb/term/control "${pkg_dir}/DEBIAN/control"
+install -m 755 tests/deb/term/postinst "${pkg_dir}/DEBIAN/postinst"
+dpkg-deb --build "${pkg_dir}" "${deb_path}" >/dev/null
+
+capture() {
+	tmux capture-pane -p -t "${session}" -S -100
+}
+
+wait_for() {
+	local text="$1"
+
+	for _ in {1..100}; do
+		if capture | grep -Fq "${text}"; then
+			return
+		fi
+		sleep 0.1
+	done
+
+	echo "Timed out waiting for: ${text}" >&2
+	capture >&2 || true
+	exit 1
+}
+
+tmux new-session -d -s "${session}" -x 100 -y 30 bash --noprofile --norc
+tmux send-keys -l -t "${session}" "PS1='nala-term-test# '"
+tmux send-keys -t "${session}" Enter
+wait_for "nala-term-test#"
+
+printf -v install_command \
+	'%q install -y %q; status=$?; printf "\\n__NALA_TERM_TEST_DONE__:%%s\\n" "$status"' \
+	"${nala_bin}" "${deb_path}"
+tmux send-keys -l -t "${session}" "${install_command}"
+tmux send-keys -t "${session}" Enter
+wait_for "Resize this dialog"
+
+tmux resize-window -t "${session}" -x 140 -y 30
+sleep 0.1
+tmux send-keys -t "${session}" Enter
+wait_for "__NALA_TERM_TEST_DONE__:0"
+
+output="$(capture)"
+grep -Eq '^Setting up:? nala-whiptail-test \(1\.0\)' <<<"${output}"
+grep -Fqx "0" <<<"${output}"
+grep -Fqx "__NALA_TERM_TEST_DONE__:0" <<<"${output}"
+grep -Fqx "nala-term-test#" <<<"${output}"
+
+echo "PASS: terminal output resumes at column zero after whiptail and resize."

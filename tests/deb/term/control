@@ -1,0 +1,6 @@
+Package: nala-whiptail-test
+Version: 1.0
+Architecture: all
+Maintainer: Nala Test
+Depends: whiptail
+Description: Exercise whiptail through Nala

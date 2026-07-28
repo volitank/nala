@@ -20,11 +20,12 @@ debian-package:
       - target/
   script:
     - apt-get update
-    - apt-get install -y --no-install-recommends eatmydata
+    - apt-get install -y --no-install-recommends eatmydata tmux
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
     - scripts/deb-build --binary --no-clean
     - tests/deb/run target/lto/nala
+    - tests/deb/term/run target/lto/nala
   artifacts:
     when: always
     expire_in: 1 week

@@ -12,3 +12,7 @@ Current package:
 
 Neither dependency is available. `apt-get install -s ./broken-or-deps.deb`
 and `nala install ./broken-or-deps.deb` should both fail with unmet dependencies.
+
+`just term-test` runs the whiptail fixture in tmux, resizes the terminal while
+the dialog is open, and verifies that package output and the shell prompt resume
+at column zero. GitLab CI runs the same test after building the Debian package.

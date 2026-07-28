@@ -1,0 +1,6 @@
+#!/bin/sh
+
+whiptail --title "Nala test" --msgbox "Resize this dialog, then press Enter." 8 50
+status=$?
+printf '%s\n' "$status"
+exit "$status"
