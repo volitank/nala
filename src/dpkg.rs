@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write, stdout};
-use std::mem::zeroed;
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -56,18 +55,23 @@ ioctl_read_bad!(tiocgwinsz, TIOCGWINSZ, winsize);
 ioctl_write_ptr_bad!(tiocswinsz, TIOCSWINSZ, winsize);
 
 /// Get Terminal Size from stdin
-unsafe fn get_winsize() -> nix::Result<winsize> {
-	let mut ws: winsize = unsafe { zeroed() };
-	unsafe { tiocgwinsz(STDIN_FD, &mut ws) }?;
-	Ok(ws)
+unsafe fn get_winsize() -> winsize {
+	let mut ws = winsize {
+		ws_row: 24,
+		ws_col: 80,
+		ws_xpixel: 0,
+		ws_ypixel: 0,
+	};
+	let _ = unsafe { tiocgwinsz(STDIN_FD, &mut ws) };
+	ws
 }
 
 extern "C" fn sigwinch_passthrough(_: i32) {
 	unsafe {
 		// Get Terminal Size from stdin.
-		let ws = get_winsize().unwrap();
+		let ws = get_winsize();
 		// Set Terminal Size for pty.
-		tiocswinsz(CHILD_FD, &ws).unwrap();
+		let _ = tiocswinsz(CHILD_FD, &ws);
 	}
 }
 
@@ -83,7 +87,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
 
 	debug!("forking");
-	let window_size = unsafe { get_winsize()? };
+	let window_size = unsafe { get_winsize() };
 	match unsafe { forkpty(&window_size, None)? } {
 		nix::pty::ForkptyResult::Child => {
 			drop(statusfd);
@@ -150,6 +154,7 @@ pub struct Pty {
 	poll: Poll,
 	events: Events,
 	tokens: [(Token, Interest); 3],
+	stdin_registered: bool,
 }
 
 impl fmt::Debug for Pty {
@@ -177,7 +182,12 @@ impl Pty {
 		let poll = Poll::new()?;
 		let events = Events::with_capacity(3);
 
-		for token in tokens {
+		let stdin_registered = poll
+			.registry()
+			.register(&mut SourceFd(&STDIN_FD), tokens[0].0, tokens[0].1)
+			.is_ok();
+
+		for token in &tokens[1..] {
 			poll.registry()
 				.register(&mut SourceFd(&(token.0.0 as i32)), token.0, token.1)?;
 		}
@@ -195,6 +205,7 @@ impl Pty {
 				poll,
 				events,
 				tokens,
+				stdin_registered,
 			})
 		}
 	}
@@ -311,7 +322,7 @@ impl Pty {
 	fn events(&self) -> Iter<'_> { self.events.iter() }
 
 	/// Stdin Fd is ready to be read.
-	fn stdin_ready(&self) -> bool { self.io_ready(0) }
+	fn stdin_ready(&self) -> bool { self.stdin_registered && self.io_ready(0) }
 
 	/// Pty master Fd is ready to be read.
 	fn ready(&self) -> bool { self.io_ready(1) }

@@ -4,7 +4,7 @@
 //! raw mode, alternate screen, mouse capture, and the shared terminal type.
 
 use std::env;
-use std::io::{IsTerminal, stdout};
+use std::io::{IsTerminal, stdin, stdout};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -45,6 +45,10 @@ pub(crate) fn use_tui(config: &Config) -> bool {
 }
 
 pub(crate) fn poll_exit_event() -> Result<bool> {
+	if !stdin().is_terminal() {
+		return Ok(false);
+	}
+
 	if event::poll(Duration::from_millis(0))?
 		&& let Event::Key(key) = event::read()?
 		&& (KeyCode::Char('q') == key.code
