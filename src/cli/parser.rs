@@ -18,7 +18,7 @@ pub struct NalaParser {
 	#[clap(global = true, short, long, action)]
 	pub verbose: bool,
 	/// Print debug statements for solving issues
-	#[clap(global = true, short, long, action)]
+	#[clap(global = true, long, action)]
 	pub debug: bool,
 
 	/// Specify a different configuration file
@@ -86,6 +86,18 @@ mod tests {
 			NalaParser::try_parse_from(["nala", "install", "--assume-yes", "--assume-no", "demo",])
 				.is_err()
 		);
+	}
+
+	#[test]
+	fn download_only_owns_short_d() {
+		let parsed = NalaParser::try_parse_from(["nala", "install", "-d", "demo"]).unwrap();
+		let Some(Commands::Install(args)) = parsed.command else {
+			panic!("expected install command");
+		};
+
+		assert!(args.transaction.download_only);
+		assert!(NalaParser::try_parse_from(["nala", "-d", "install", "demo"]).is_err());
+		assert!(NalaParser::try_parse_from(["nala", "--debug", "install", "demo"]).is_ok());
 	}
 
 	#[test]

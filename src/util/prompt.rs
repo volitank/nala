@@ -20,7 +20,9 @@ pub fn confirm(config: &Config, msg: &str) -> Result<()> {
 	std::io::stdout().flush()?;
 
 	let mut response = String::new();
-	std::io::stdin().read_line(&mut response)?;
+	if std::io::stdin().read_line(&mut response)? == 0 {
+		bail!("{}", t!("prompt-refused"));
+	}
 
 	let resp = response.to_lowercase();
 	if response_is_yes(&resp) {

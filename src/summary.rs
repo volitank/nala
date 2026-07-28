@@ -281,7 +281,7 @@ pub(crate) async fn commit_with_display_rows(
 	};
 
 	if !crate::summary::display_summary(&cache, config, &pkg_set).await? {
-		return Ok(());
+		bail!("{}", t!("prompt-refused"));
 	};
 
 	let started_at = Utc::now().to_rfc3339();

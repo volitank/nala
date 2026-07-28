@@ -6,7 +6,7 @@ use clap::Args;
 #[allow(clippy::struct_excessive_bools)]
 pub struct TransactionFlags {
 	/// Only download packages.
-	#[clap(long, action)]
+	#[clap(short = 'd', long, action)]
 	pub download_only: bool,
 
 	/// Display a simpler and more condensed transaction summary.
