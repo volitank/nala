@@ -10,7 +10,7 @@ use rust_apt::{Cache, Package, PackageSort, Version};
 use crate::cmd::Operation;
 use crate::config::{Config, Theme, color, keys};
 use crate::libnala::PackageExt;
-use crate::{debug, error, info};
+use crate::{debug, error, info, t};
 
 #[derive(Debug, Default)]
 pub struct Selection<'a> {
@@ -46,10 +46,16 @@ impl<'a> Selection<'a> {
 
 		debug!("{:#?}", self.missing);
 		for missing in &self.missing {
-			error!("'{}' was not found", color::color!(Theme::Notice, missing));
+			error!(
+				"{}",
+				t!(
+					"pkg-not-found",
+					"package" => color::color!(Theme::Notice, missing)
+				)
+			);
 		}
 
-		bail!("Some packages were not found in the cache")
+		bail!("{}", t!("pkg-not-found-cache"))
 	}
 
 	pub fn into_packages_and_missing(self) -> (Vec<Package<'a>>, Vec<String>) {
@@ -83,10 +89,13 @@ impl<'a> Selection<'a> {
 					let new_op = item.modifier.unwrap_or(default_op);
 					if existing_op != new_op {
 						bail!(
-							"Conflicting operations for '{}': {} vs {}",
-							item.pkg.name(),
-							existing_op,
-							new_op
+							"{}",
+							t!(
+								"pkg-op-conflict",
+								"package" => item.pkg.name(),
+								"operation-a" => existing_op.label(),
+								"operation-b" => new_op.label()
+							)
 						);
 					}
 
@@ -95,10 +104,13 @@ impl<'a> Selection<'a> {
 					{
 						if existing_candidate.version() != new_candidate.version() {
 							bail!(
-								"Conflicting pinned versions for '{}': {} vs {}",
-								item.pkg.name(),
-								existing_candidate.version(),
-								new_candidate.version()
+								"{}",
+								t!(
+									"pkg-version-conflict",
+									"package" => item.pkg.name(),
+									"version-a" => existing_candidate.version(),
+									"version-b" => new_candidate.version()
+								)
 							);
 						}
 					} else if existing.candidate.is_none() && item.candidate.is_some() {
@@ -121,14 +133,17 @@ impl<'a> Selection<'a> {
 			match op {
 				Operation::Install => {
 					let Some(cand) = pkg.candidate() else {
-						bail!("{} has no install candidate", pkg.name())
+						bail!("{}", t!("pkg-no-candidate", "package" => pkg.name()))
 					};
 
 					if pkg.installed().is_some_and(|inst| inst == cand) {
 						info!(
-							"{}{} is already installed and at the latest version",
-							color::primary!(pkg.name()),
-							color::ver!(cand.version())
+							"{}",
+							t!(
+								"pkg-already-latest",
+								"package" => color::primary!(pkg.name()),
+								"version" => color::ver!(cand.version())
+							)
 						);
 						continue;
 					}
@@ -136,19 +151,16 @@ impl<'a> Selection<'a> {
 					cache.resolver().clear(pkg);
 					cache.resolver().protect(pkg);
 					if !pkg.mark_install(true, true) && !pkg.mark_install(false, true) {
-						bail!("Unable to mark '{}' for installation", pkg.name());
+						bail!("{}", t!("pkg-mark-install", "package" => pkg.name()));
 					}
 				},
 				Operation::Reinstall => {
 					let Some(cand) = pkg.candidate() else {
-						bail!("{} has no install candidate", pkg.name())
+						bail!("{}", t!("pkg-no-candidate", "package" => pkg.name()))
 					};
 
 					let Some(_inst) = pkg.installed() else {
-						bail!(
-							"{} is not installed, so it cannot be reinstalled",
-							pkg.name()
-						)
+						bail!("{}", t!("pkg-reinstall-missing", "package" => pkg.name()))
 					};
 
 					debug!("Mark Reinstall: {pkg} {}", cand.version());
@@ -158,7 +170,7 @@ impl<'a> Selection<'a> {
 				},
 				Operation::Remove => {
 					let Some(_inst) = pkg.installed() else {
-						info!("{} is not installed", pkg.name());
+						info!("{}", t!("pkg-not-installed", "package" => pkg.name()));
 						continue;
 					};
 
@@ -177,7 +189,13 @@ impl<'a> Selection<'a> {
 
 pub fn log_missing_notices(missing: &[String]) {
 	for token in missing {
-		info!("'{}' was not found", color::color!(Theme::Notice, token));
+		info!(
+			"{}",
+			t!(
+				"pkg-not-found",
+				"package" => color::color!(Theme::Notice, token)
+			)
+		);
 	}
 }
 
@@ -207,15 +225,15 @@ fn build_glob_matcher(pattern: &str) -> Result<globset::GlobMatcher> {
 fn parse_version_pin(raw: &str) -> Result<(String, String, Option<Operation>)> {
 	let (without_modifier, modifier) = parse_trailing_modifier(raw);
 	let Some((name, version)) = without_modifier.split_once('=') else {
-		bail!("Invalid version pin: '{raw}'");
+		bail!("{}", t!("pkg-invalid-pin", "pin" => raw));
 	};
 
 	if name.is_empty() || version.is_empty() {
-		bail!("Invalid version pin: '{raw}'");
+		bail!("{}", t!("pkg-invalid-pin", "pin" => raw));
 	}
 
 	if contains_glob_metachar(name) {
-		bail!("Version pin requires an exact package name: '{raw}'");
+		bail!("{}", t!("pkg-pin-exact", "pin" => raw));
 	}
 
 	Ok((name.to_string(), version.to_string(), modifier))
@@ -236,7 +254,7 @@ fn find_matching_pkgs<'a>(
 		.map_or((pattern, None), |(name, arch)| (name, Some(arch)));
 
 	if name.is_empty() || pattern_arch == Some("") {
-		bail!("Invalid package name: '{pattern}'");
+		bail!("{}", t!("pkg-invalid-name", "package" => pattern));
 	}
 
 	let matcher = build_glob_matcher(name)?;
@@ -293,7 +311,7 @@ pub fn pkgs_matching_name_patterns<'a>(
 		}
 
 		if !matched {
-			bail!("Exclude pattern '{pattern}' did not match any packages");
+			bail!("{}", t!("pkg-exclude-missing", "pattern" => pattern));
 		}
 	}
 
@@ -338,7 +356,14 @@ pub fn pkgs_with_modifiers<'a>(
 			for pkg in pkgs {
 				let pkg = resolve_virtual_for_selection(pkg, config)?;
 				let Some(ver) = pkg.get_version(&version) else {
-					bail!("Unable to find version '{}' for '{}'", version, pkg.name());
+					bail!(
+						"{}",
+						t!(
+							"pkg-version-missing",
+							"version" => &version,
+							"package" => pkg.name()
+						)
+					);
 				};
 				selection.add(pkg, Some(ver), modifier);
 			}
@@ -363,7 +388,7 @@ pub fn pkgs_with_modifiers<'a>(
 		};
 
 		if fallback_pattern.is_empty() {
-			bail!("Invalid package name: '{raw}'");
+			bail!("{}", t!("pkg-invalid-name", "package" => &raw));
 		}
 
 		let fallback_matches = find_matching_pkgs(cache, config, fallback_pattern, &arches)?;

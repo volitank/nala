@@ -17,7 +17,7 @@ use crate::config::{Config, Theme, color};
 use crate::libnala::PackageTransition;
 use crate::terminal::TerminalGuard;
 use crate::tui::{style as tui_style, summary};
-use crate::util;
+use crate::{t, util};
 
 #[derive(Debug)]
 pub struct Item {
@@ -90,21 +90,31 @@ impl<'a> SummaryRow<'a> {
 		}
 	}
 
-	pub(crate) fn headers(&self) -> Vec<&'static str> {
+	pub(crate) fn headers(&self) -> Vec<String> {
 		match (
 			self.display_old_version().is_some(),
 			self.package.held_reason.is_some(),
 		) {
 			(true, true) => vec![
-				"Package:",
-				"Old Version:",
-				"New Version:",
-				"Reason:",
-				"Size:",
+				t!("table-package"),
+				t!("table-old-version"),
+				t!("table-new-version"),
+				t!("table-reason"),
+				t!("table-size"),
 			],
-			(true, false) => vec!["Package:", "Old Version:", "New Version:", "Size:"],
-			(false, true) => vec!["Package:", "Version:", "Reason:", "Size:"],
-			(false, false) => vec!["Package:", "Version:", "Size:"],
+			(true, false) => vec![
+				t!("table-package"),
+				t!("table-old-version"),
+				t!("table-new-version"),
+				t!("table-size"),
+			],
+			(false, true) => vec![
+				t!("table-package"),
+				t!("table-version"),
+				t!("table-reason"),
+				t!("table-size"),
+			],
+			(false, false) => vec![t!("table-package"), t!("table-version"), t!("table-size")],
 		}
 	}
 
@@ -118,12 +128,15 @@ impl<'a> SummaryRow<'a> {
 
 			if let Some(old) = self.display_old_version() {
 				items.push(Item::center(primary, old.to_string()));
-				let new_version = self.display_version().unwrap_or("Unknown").to_string();
+				let new_version = self
+					.display_version()
+					.map_or_else(|| t!("unknown"), str::to_string);
 				items.push(Item::center(primary, util::version_diff(old, new_version)));
 			} else {
 				items.push(Item::center(
 					primary,
-					self.display_version().unwrap_or("Unknown").to_string(),
+					self.display_version()
+						.map_or_else(|| t!("unknown"), str::to_string),
 				));
 			}
 			if let Some(reason) = &self.package.held_reason {
@@ -141,7 +154,7 @@ impl<'a> SummaryRow<'a> {
 			.get_or_try_init(|| async {
 				let uri = match self.package.get_pkg(cache)?.changelog_uri() {
 					Some(uri) => uri,
-					None => bail!("Unable to find Changelog URI"),
+					None => bail!("{}", t!("tui-changelog-missing")),
 				};
 
 				Ok(reqwest::get(uri).await?.error_for_status()?.text().await?)
@@ -213,7 +226,8 @@ impl<'a> SummaryRow<'a> {
 
 		loop {
 			terminal.draw(|f| {
-				let block = summary::header_block(config, "Nala Upgrade");
+				let title = t!("tui-upgrade-title");
+				let block = summary::header_block(config, &title);
 				let inner = block.inner(f.area());
 				let constraints = lines
 					.iter()

@@ -12,6 +12,7 @@ use ratatui::widgets::{
 
 use super::style as tui_style;
 use crate::config::{Config, Theme};
+use crate::t;
 
 struct FetchItem {
 	url: String,
@@ -178,7 +179,7 @@ impl<'a> App<'a> {
 	}
 
 	fn render_lists(&mut self, area: Rect, buf: &mut Buffer) {
-		let header = format!("  {}  ", "Nala Fetch");
+		let header = format!("  {}  ", t!("fetch-title"));
 
 		let outer_block = Block::bordered()
 			.title(header.set_style(tui_style::style(self.config, Theme::Highlight)))
@@ -211,7 +212,7 @@ impl<'a> App<'a> {
 
 		StatefulWidget::render(
 			List::new(mirror_items)
-				.block(fetch_block(block, "Mirrors:"))
+				.block(fetch_block(block, &t!("mirrors")))
 				.highlight_style(highlight),
 			mirror_area,
 			buf,
@@ -219,7 +220,7 @@ impl<'a> App<'a> {
 		);
 		StatefulWidget::render(
 			List::new(score_items)
-				.block(fetch_block(block, "Score:"))
+				.block(fetch_block(block, &t!("fetch-score")))
 				.highlight_style(highlight),
 			score_area,
 			buf,
@@ -240,17 +241,14 @@ impl Widget for &mut App<'_> {
 
 		self.render_lists(list_area, buf);
 
-		Paragraph::new("\nScore is how many milliseconds it takes to download the Release file.")
+		Paragraph::new(format!("\n{}", t!("fetch-score-help")))
 			.centered()
 			.italic()
 			.render(info_area, buf);
 
-		Paragraph::new(
-			"\nUse ↓↑ to move, Space to select/unselect, Home/End to go top/bottom, q/Enter to \
-			 exit.",
-		)
-		.centered()
-		.render(footer_area, buf);
+		Paragraph::new(format!("\n{}", t!("fetch-help")))
+			.centered()
+			.render(footer_area, buf);
 	}
 }
 

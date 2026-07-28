@@ -20,21 +20,17 @@ use rust_apt::util::DiskSpace;
 use super::style as tui_style;
 use crate::config::{Config, Theme};
 use crate::libnala::{Operation, PackageTransition};
+use crate::t;
 use crate::terminal::TerminalGuard;
 
-const SUMMARY_HELP: &[&str] = &[
-	"(↑) move up | (↓) move down",
-	"(→) next tab | (←) previous tab",
-	"(Enter) show changelog | (s) show version info",
-	"(q) quit | (y) start upgrade",
-];
-
-const HISTORY_HELP: &[&str] = &[
-	"(↑) move up | (↓) move down",
-	"(→) next tab | (←) previous tab",
-	"(Enter) show changelog | (s) show version info",
-	"(q) quit",
-];
+fn summary_help(confirm: bool) -> Vec<String> {
+	vec![
+		t!("tui-help-move"),
+		t!("tui-help-tabs"),
+		t!("tui-help-show"),
+		if confirm { t!("tui-help-confirm") } else { t!("tui-help-quit") },
+	]
+}
 
 pub struct App<'a> {
 	state: TableState,
@@ -162,8 +158,8 @@ pub struct SummaryTab<'a> {
 	disk_space: Option<Vec<String>>,
 	i: usize,
 	tabs: Vec<Operation>,
-	title: &'static str,
-	help: &'static [&'static str],
+	title: String,
+	help: Vec<String>,
 	confirm_enabled: bool,
 }
 
@@ -180,19 +176,14 @@ impl<'a> SummaryTab<'a> {
 
 		let size = cache.depcache().download_size();
 		let download_size = if size > 0 {
-			Some(vec![
-				"Total download size:".to_string(),
-				config.unit_str(size),
-			])
+			Some(vec![t!("summary-total-download"), config.unit_str(size)])
 		} else {
 			None
 		};
 
 		let disk_space = Some(match cache.depcache().disk_size() {
-			DiskSpace::Require(num) => {
-				vec!["Disk space required:".to_string(), config.unit_str(num)]
-			},
-			DiskSpace::Free(num) => vec!["Disk space to free:".to_string(), config.unit_str(num)],
+			DiskSpace::Require(num) => vec![t!("summary-disk-required"), config.unit_str(num)],
+			DiskSpace::Free(num) => vec![t!("summary-disk-free"), config.unit_str(num)],
 		});
 
 		let mut tabs = Self {
@@ -203,8 +194,8 @@ impl<'a> SummaryTab<'a> {
 			disk_space,
 			i: 0,
 			tabs: Operation::to_vec(),
-			title: "Nala Upgrade",
-			help: SUMMARY_HELP,
+			title: t!("tui-upgrade-title"),
+			help: summary_help(true),
 			confirm_enabled: true,
 		};
 
@@ -234,8 +225,8 @@ impl<'a> SummaryTab<'a> {
 			disk_space: None,
 			i: 0,
 			tabs: Operation::to_vec(),
-			title: "Nala History",
-			help: HISTORY_HELP,
+			title: t!("tui-history-title"),
+			help: summary_help(false),
 			confirm_enabled: false,
 		};
 
@@ -298,14 +289,11 @@ impl<'a> SummaryTab<'a> {
 	}
 
 	fn render_tabs(&self, area: Rect, buf: &mut Buffer) {
-		let titles: Vec<&str> = self
+		let titles: Vec<String> = self
 			.tabs
 			.iter()
-			.filter_map(
-				|op| {
-					if self.pkg_set.contains_key(op) { Some(op.as_str()) } else { None }
-				},
-			)
+			.filter(|op| self.pkg_set.contains_key(op))
+			.map(Operation::label)
 			.collect();
 
 		let tab_size = titles.iter().map(|s| s.len()).sum::<usize>() + titles.len() + 1;
@@ -386,7 +374,7 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 	type State = u8;
 
 	fn render(self, area: Rect, buf: &mut Buffer, _: &mut Self::State) {
-		let block = header_block(self.config, self.title);
+		let block = header_block(self.config, &self.title);
 
 		let mut summary = vec![];
 		for op in self.tabs.iter() {
@@ -394,7 +382,10 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 				continue;
 			};
 
-			summary.push(vec![format!("{op}:"), format!("{} Pkgs", set.items.len())]);
+			summary.push(vec![
+				format!("{}:", op.label()),
+				format!("{} {}", set.items.len(), t!("tui-pkgs")),
+			]);
 		}
 
 		summary.push(vec![]);
@@ -455,7 +446,7 @@ impl StatefulWidget for &mut SummaryTab<'_> {
 		);
 		Widget::render(t, summary_area, buf);
 
-		Paragraph::new(Text::from_iter(self.help.iter().copied()))
+		Paragraph::new(Text::from_iter(self.help.iter().map(String::as_str)))
 			.centered()
 			.style(tui_style::style(self.config, Theme::Secondary))
 			.wrap(Wrap::default())

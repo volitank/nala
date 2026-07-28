@@ -27,6 +27,7 @@ pub use upgrade::{apt_hook_with_pkgs, run_scripts};
 use crate::cli::commands::Moo;
 use crate::config::{Config, color};
 pub use crate::libnala::Operation;
+use crate::t;
 use crate::util::URL;
 
 const DEP_ITER: &[DepType] = {
@@ -65,6 +66,42 @@ fn print_info(header: &str, value: &str) {
 	println!("{header}{sep} {value}")
 }
 
+fn show_label(key: &str) -> String {
+	match key {
+		RecordField::Package => t!("show-package"),
+		RecordField::Version => t!("show-version"),
+		RecordField::Architecture => t!("show-architecture"),
+		RecordField::Priority => t!("show-priority"),
+		RecordField::Essential => t!("show-essential"),
+		RecordField::Section => t!("show-section"),
+		RecordField::Source => t!("show-source"),
+		RecordField::InstalledSize => t!("show-installed-size"),
+		RecordField::Size => t!("show-size"),
+		RecordField::Maintainer => t!("show-maintainer"),
+		RecordField::OriginalMaintainer => t!("show-original-maintainer"),
+		RecordField::Homepage => t!("show-homepage"),
+		RecordField::SHA256 => t!("show-sha256"),
+		"Archive" => t!("show-archive"),
+		"Origin" => t!("show-origin"),
+		"Codename" => t!("show-codename"),
+		"Component" => t!("show-component"),
+		"Provides" => t!("show-provides"),
+		"Description" => t!("show-description"),
+		"Attributes" => t!("show-attributes"),
+		"APT-Sources" => t!("show-apt-sources"),
+		"Depends" => t!("show-depends"),
+		"PreDepends" => t!("show-pre-depends"),
+		"Suggests" => t!("show-suggests"),
+		"Recommends" => t!("show-recommends"),
+		"Conflicts" => t!("show-conflicts"),
+		"Replaces" => t!("show-replaces"),
+		"Obsoletes" => t!("show-obsoletes"),
+		"Breaks" | "DpkgBreaks" => t!("show-breaks"),
+		"Enhances" => t!("show-enhances"),
+		_ => key.to_string(),
+	}
+}
+
 pub(crate) struct ShowVersion<'a> {
 	ver: Version<'a>,
 	records: IndexMap<&'static str, String>,
@@ -72,12 +109,12 @@ pub(crate) struct ShowVersion<'a> {
 
 impl ShowVersion<'_> {
 	pub fn new(ver: Version) -> ShowVersion {
-		let records = IndexMap::from_iter(RECORDS.iter().copied().map(|key| {
-			(
-				key,
-				ver.get_record(key).unwrap_or_else(|| "Unknown".to_string()),
-			)
-		}));
+		let records = IndexMap::from_iter(
+			RECORDS
+				.iter()
+				.copied()
+				.map(|key| (key, ver.get_record(key).unwrap_or_else(|| t!("unknown")))),
+		);
 		ShowVersion { ver, records }
 	}
 
@@ -110,35 +147,35 @@ impl ShowVersion<'_> {
 		let pkg = self.ver.parent();
 		let mut attrs = vec![];
 		if let Some(installed) = pkg.installed() {
-			attrs.push("Installed".into());
+			attrs.push(t!("show-attr-installed"));
 
 			// Version isn't downloadable, consider it locally installed
 			if !self.ver.is_downloadable() {
-				attrs.push("Local".into());
+				attrs.push(t!("show-attr-local"));
 			}
 
 			if pkg.is_auto_removable() {
-				attrs.push("Auto-Removable".into());
+				attrs.push(t!("show-attr-auto-removable"));
 			}
 
 			if pkg.is_auto_installed() {
-				attrs.push("Automatic".into());
+				attrs.push(t!("show-attr-automatic"));
 			}
 
 			if let Some(candidate) = pkg.candidate() {
 				// Version is installed, check if it's upgradable
 				if self.ver == installed && self.ver < candidate {
-					attrs.push(format!(
-						"Upgradable to: {}",
-						color::ver!(candidate.version())
+					attrs.push(t!(
+						"show-attr-upgradable-to",
+						"version" => color::ver!(candidate.version()),
 					));
 				}
 
 				// This Version isn't installed, see if it's the candidate
 				if self.ver == candidate && self.ver > installed {
-					attrs.push(format!(
-						"Upgradable from: {}",
-						color::ver!(installed.version())
+					attrs.push(t!(
+						"show-attr-upgradable-from",
+						"version" => color::ver!(installed.version()),
 					));
 				}
 			}
@@ -160,7 +197,13 @@ impl ShowVersion<'_> {
 
 		// Package File Section
 		if let Some(pkg_file) = self.ver.package_files().next() {
-			map.insert("Origin", pkg_file.origin().unwrap_or("Unknown").to_string());
+			map.insert(
+				"Origin",
+				pkg_file
+					.origin()
+					.map(str::to_string)
+					.unwrap_or_else(|| t!("unknown")),
+			);
 
 			// Check if source is local, pacstall or from a repo
 			let mut source = String::new();
@@ -185,7 +228,8 @@ impl ShowVersion<'_> {
 		}
 
 		for (key, value) in &self.pretty_map() {
-			print_info(key, value);
+			let header = show_label(key);
+			print_info(&header, value);
 		}
 
 		Ok(())
@@ -211,11 +255,9 @@ impl ShowVersion<'_> {
 		let desc = if description {
 			self.ver
 				.description()
-				.unwrap_or_else(|| "No Description".to_string())
+				.unwrap_or_else(|| t!("show-no-description"))
 		} else if summary {
-			self.ver
-				.summary()
-				.unwrap_or_else(|| "No Summary".to_string())
+			self.ver.summary().unwrap_or_else(|| t!("show-no-summary"))
 		} else {
 			"".to_string()
 		};

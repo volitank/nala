@@ -8,7 +8,7 @@ use crate::cmd::Operation;
 use crate::config::Config;
 use crate::libnala::PackageTransition;
 use crate::tui::summary::SummaryRow;
-use crate::table;
+use crate::{t, table};
 
 impl HistoryEntry {
 	/// Formats a stored UTC timestamp for local display, or returns the raw value.
@@ -35,8 +35,15 @@ impl HistoryEntry {
 
 	/// Builds the plain history list table from stored entries.
 	pub(super) fn list_table(entries: &[Self]) -> comfy_table::Table {
-		let mut table =
-			table::get_table(&["ID", "Command", "Date and Time", "Requested-By", "Altered"]);
+		let headers = [
+			t!("history-id"),
+			t!("history-command"),
+			t!("history-date-time"),
+			t!("history-requested-by"),
+			t!("history-altered"),
+		];
+		let header_refs = headers.iter().map(String::as_str).collect::<Vec<_>>();
+		let mut table = table::get_table(&header_refs);
 
 		for entry in entries {
 			let date_time = entry.started_at_display();
@@ -70,25 +77,40 @@ impl HistoryEntry {
 		entries
 			.iter()
 			.find(|entry| entry.id == id)
-			.ok_or_else(|| anyhow!("History entry with ID '{id}' does not exist"))
+			.ok_or_else(|| anyhow!(t!("history-not-found", "id" => id)))
 	}
 
 	/// Prints a plain-text detail view for this history entry.
 	pub(super) fn print_detail(&self, config: &Config) {
 		let requested_targets = if self.requested_targets.is_empty() {
-			"None".to_string()
+			t!("none")
 		} else {
 			self.requested_targets.join(", ")
 		};
 
-		println!("ID: {}", self.id);
-		println!("Status: {:?}", self.status);
-		println!("Command: {}", self.command);
-		println!("Requested-By: {}", self.requested_by);
-		println!("Started: {}", self.started_at_display());
-		println!("Finished: {}", self.finished_at_display());
-		println!("Requested Targets: {requested_targets}");
-		println!("Altered: {}", self.altered().count());
+		println!("{}: {}", t!("history-id"), self.id);
+		println!("{}: {}", t!("history-status"), self.status.label());
+		println!("{}: {}", t!("history-command"), self.command);
+		println!(
+			"{}: {}",
+			t!("history-requested-by"),
+			self.requested_by
+		);
+		println!(
+			"{}: {}",
+			t!("history-started"),
+			self.started_at_display()
+		);
+		println!(
+			"{}: {}",
+			t!("history-finished"),
+			self.finished_at_display()
+		);
+		println!(
+			"{}: {requested_targets}",
+			t!("history-targets")
+		);
+		println!("{}: {}", t!("history-altered"), self.altered().count());
 
 		let pkg_set = self.grouped_packages();
 		if pkg_set.is_empty() {
@@ -105,7 +127,7 @@ impl HistoryEntry {
 				.collect::<Vec<_>>();
 
 			println!();
-			println!("{} ({})", operation, packages.len());
+			println!("{} ({})", operation.label(), packages.len());
 
 			let mut table = table::get_table(&rows[0].headers());
 

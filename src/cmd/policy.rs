@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::config::{color, keys, Config};
 use crate::glob;
+use crate::t;
 
 const DPKG_STATUS_FILE: &str = "Debian dpkg status file";
 
@@ -56,7 +57,7 @@ struct GlobalPolicy {
 
 fn ver_string(ver: Option<&str>) -> String {
 	ver.map(|value| color::secondary!(value))
-		.unwrap_or_else(|| "none".to_string())
+		.unwrap_or_else(|| t!("policy-none"))
 }
 
 fn status_file(file: &PackageFile<'_>) -> bool {
@@ -93,7 +94,7 @@ fn release_line(file: &PackageFile<'_>) -> Option<String> {
 		return None;
 	}
 
-	Some(format!("release {}", parts.join(",")))
+	Some(format!("{} {}", t!("policy-release"), parts.join(",")))
 }
 
 fn collect_version_sources(ver: &Version<'_>) -> Vec<PolicySource> {
@@ -194,12 +195,20 @@ fn collect_global_policy(cache: &Cache) -> GlobalPolicy {
 
 fn print_package_policy(policy: &PackagePolicy) {
 	println!("{}:", color::primary!(&policy.package));
-	println!("  Installed: {}", ver_string(policy.installed.as_deref()));
-	println!("  Candidate: {}", ver_string(policy.candidate.as_deref()));
-	println!("  Version table:");
+	println!(
+		"  {} {}",
+		t!("policy-installed"),
+		ver_string(policy.installed.as_deref())
+	);
+	println!(
+		"  {} {}",
+		t!("policy-candidate"),
+		ver_string(policy.candidate.as_deref())
+	);
+	println!("  {}", t!("policy-version-table"));
 
 	if policy.versions.is_empty() {
-		println!("    {}", color::secondary!("No versions."));
+		println!("    {}", color::secondary!(t!("policy-no-versions")));
 		return;
 	}
 
@@ -226,7 +235,7 @@ fn print_global_file(file: &GlobalPolicyFile) {
 	}
 
 	if let Some(site) = &file.site {
-		println!("     origin {site}");
+		println!("     {} {site}", t!("policy-origin"));
 	}
 }
 
@@ -243,12 +252,12 @@ fn policy_global_machine(cache: &Cache) -> Result<()> {
 fn policy_global(cache: &Cache) {
 	let policy = collect_global_policy(cache);
 
-	println!("Package files:");
+	println!("{}", t!("policy-package-files"));
 	for file in &policy.package_files {
 		print_global_file(file);
 	}
 
-	println!("Pinned packages:");
+	println!("{}", t!("policy-pinned"));
 	for pin in &policy.pinned_packages {
 		print_pinned_package(pin);
 	}

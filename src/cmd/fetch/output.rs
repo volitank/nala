@@ -7,6 +7,7 @@ use tokio::time::Duration;
 
 use crate::config::{Config, Paths};
 use crate::debug;
+use crate::t;
 
 async fn check_non_free(
 	config: &Config,
@@ -88,6 +89,6 @@ pub(super) async fn write_nala_sources(
 
 	let file = config.get_file(&Paths::NalaSources);
 	fs::write(&file, nala_sources)?;
-	println!("Sources have been written to {file}");
+	println!("{}", t!("fetch-sources-written", "file" => file));
 	Ok(())
 }

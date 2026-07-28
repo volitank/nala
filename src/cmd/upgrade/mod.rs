@@ -12,6 +12,7 @@ use crate::config::{color, keys, Config};
 use crate::libnala::{package_key, PackageKey};
 use crate::util::sudo_check;
 use crate::{debug, glob, info};
+use crate::t;
 
 /// Executes an upgrade transaction after applying the selected APT upgrade
 /// mode to a fresh cache.
@@ -24,7 +25,10 @@ pub async fn upgrade(config: &Config, upgrade_type: Upgrade) -> Result<()> {
 	debug!("Running Upgrade: {upgrade_type:?}");
 	if let Err(err) = cache.upgrade(upgrade_type) {
 		if !protected.is_empty() {
-			bail!("Selected packages cannot be excluded from upgrade safely.\n{err}");
+			bail!(
+				"{}",
+				t!("upgrade-exclude-unsafe", "error" => err.to_string())
+			);
 		}
 		bail!(err);
 	}
@@ -45,9 +49,9 @@ fn protect_excluded_packages(cache: &Cache, config: &Config) -> Result<HashSet<P
 
 	for pkg in packages {
 		let reason = if pkg.is_upgradable() {
-			Some("upgrade")
+			Some(t!("upgrade-reason-upgrade"))
 		} else if pkg.is_auto_removable() {
-			Some("auto-removal")
+			Some(t!("upgrade-reason-auto-remove"))
 		} else {
 			None
 		};
@@ -57,8 +61,12 @@ fn protect_excluded_packages(cache: &Cache, config: &Config) -> Result<HashSet<P
 		};
 
 		info!(
-			"Protecting {} from {reason}",
-			color::primary!(pkg.fullname(true))
+			"{}",
+			t!(
+				"upgrade-protect",
+				"package" => color::primary!(pkg.fullname(true)),
+				"reason" => reason
+			)
 		);
 		cache.resolver().protect(&pkg);
 		pkg.mark_keep();

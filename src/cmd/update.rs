@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 use crate::config::{color, Config, Theme};
 use crate::progress::{Progress, ProgressMessage};
 use crate::terminal::poll_exit_event;
+use crate::t;
 
 pub enum Message {
 	Print(String),
@@ -85,9 +86,12 @@ pub async fn update(config: &Config) -> Result<()> {
 
 	if !upgradable.is_empty() {
 		println!(
-			"{} packages can be upgraded. Run '{}' to see them.",
-			color::color!(Theme::Notice, &format!("{}", upgradable.len())),
-			color::primary!("nala list --upgradable")
+			"{}",
+			t!(
+				"update-upgradable",
+				"count" => upgradable.len(),
+				"command" => color::primary!("nala list --upgradable")
+			)
 		);
 	}
 
@@ -146,10 +150,10 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	/// Prints out the short description and the expected size.
 	fn hit(&mut self, item: &ItemDesc) {
 		self.tx
-			.send(Message::Print(format!(
-				"{}: {}",
-				color::primary!("No Change"),
-				item.description()
+			.send(Message::Print(t!(
+				"update-item",
+				"state" => color::primary!(t!("update-no-change")),
+				"description" => item.description()
 			)))
 			.unwrap();
 	}
@@ -160,7 +164,11 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	fn fetch(&mut self, item: &ItemDesc) {
 		self.tx
 			.send(Message::Fetched((
-				format!("{}:   {}", color::secondary!("Updated"), item.description()),
+				t!(
+					"update-item",
+					"state" => color::secondary!(t!("update-updated")),
+					"description" => item.description()
+				),
 				item.owner().file_size(),
 			)))
 			.unwrap();
@@ -199,13 +207,17 @@ impl DynAcquireProgress for NalaAcquireProgress {
 				if error_text.is_empty() {
 					show_error = false;
 				}
-				color::color!(Theme::Notice, "Ignored")
+				color::color!(Theme::Notice, t!("update-ignored"))
 			},
-			_ => color::color!(Theme::Error, "Error"),
+			_ => color::color!(Theme::Error, t!("error")),
 		};
 
 		self.tx
-			.send(Message::Print(format!("{header}: {}", item.description())))
+			.send(Message::Print(t!(
+				"update-item",
+				"state" => header,
+				"description" => item.description()
+			)))
 			.unwrap();
 
 		if show_error {
@@ -240,9 +252,9 @@ impl DynAcquireProgress for NalaAcquireProgress {
 
 			let mut work_string = owner.active_subprocess();
 			if work_string.is_empty() {
-				work_string += "Downloading"
+				work_string = t!("update-downloading")
 			} else if work_string == "store" {
-				work_string = "Processing".to_string()
+				work_string = t!("update-processing")
 			}
 			work_string += ": ";
 

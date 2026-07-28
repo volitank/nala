@@ -18,6 +18,7 @@ mod dpkg;
 mod fs;
 mod glob;
 mod hashsum;
+mod i18n;
 mod libnala;
 mod progress;
 mod summary;
@@ -40,7 +41,7 @@ fn main() -> ExitCode {
 	let (args, derived, mut config) = match config::bootstrap() {
 		Ok(conf) => conf,
 		Err(err) => {
-			eprintln!("\x1b[1;91mError:\x1b[0m {err:?}");
+			eprintln!("\x1b[1;91m{}\x1b[0m {err:?}", t!("log-error"));
 			return ExitCode::FAILURE;
 		},
 	};
@@ -64,7 +65,7 @@ fn main() -> ExitCode {
 					warn!("{}", error.msg.replace("W: ", ""));
 				};
 			}
-		} else if format!("{err:?}") != "Subcommand not supplied" {
+		} else if format!("{err:?}") != t!("subcommand-missing") {
 			error!("{err:?}");
 		}
 		return ExitCode::FAILURE;
@@ -75,7 +76,7 @@ fn main() -> ExitCode {
 #[tokio::main]
 async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -> Result<()> {
 	if derived.license {
-		println!("Not Yet Implemented.");
+		println!("{}", t!("not-implemented"));
 		return Ok(());
 	}
 
@@ -138,7 +139,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 		}
 	} else {
 		NalaParser::command().print_help()?;
-		bail!("Subcommand not supplied")
+		bail!("{}", t!("subcommand-missing"))
 	}
 	Ok(())
 }

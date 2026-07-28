@@ -41,7 +41,7 @@ pub struct NalaParser {
 	#[clap(global = true, short = 'o', long, action)]
 	pub option: Vec<String>,
 
-	// Set color mode (always, never, auto)
+	/// Set color mode (always, never, auto).
 	#[clap(global = true, long, default_value = "auto")]
 	pub color: ColorChoice,
 

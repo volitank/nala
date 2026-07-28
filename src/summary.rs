@@ -11,7 +11,7 @@ use crate::download::Downloader;
 use crate::libnala::{NalaCache, Operation, PackageKey, PackageTransition, package_key};
 use crate::terminal::{TerminalGuard, use_tui};
 use crate::tui::summary::SummaryRow;
-use crate::{dpkg, error, info, table, tui, util, warn};
+use crate::{dpkg, error, info, t, table, tui, util, warn};
 
 pub async fn display_summary(
 	cache: &Cache,
@@ -20,7 +20,7 @@ pub async fn display_summary(
 ) -> Result<bool> {
 	if config.simple_summary() {
 		print_simple_summary(cache, config, pkg_set);
-		util::confirm(config, "Do you want to continue?")?;
+		util::confirm(config, &t!("prompt-continue"))?;
 		return Ok(true);
 	}
 
@@ -36,7 +36,7 @@ pub async fn display_summary(
 	}
 
 	print_full_summary(cache, config, pkg_set);
-	util::confirm(config, "Do you want to continue?")?;
+	util::confirm(config, &t!("prompt-continue"))?;
 	Ok(true)
 }
 
@@ -70,17 +70,32 @@ fn print_size_summary(cache: &Cache, config: &Config) {
 	println!();
 	if cache.depcache().download_size() > 0 {
 		println!(
-			" Total download size: {}",
-			config.unit_str(cache.depcache().download_size())
+			" {}",
+			t!(
+				"summary-total-download-value",
+				"size" => config.unit_str(cache.depcache().download_size())
+			)
 		)
 	}
 
 	match cache.depcache().disk_size() {
 		DiskSpace::Require(disk_space) => {
-			println!(" Disk space required: {}", config.unit_str(disk_space))
+			println!(
+				" {}",
+				t!(
+					"summary-disk-required-value",
+					"size" => config.unit_str(disk_space)
+				)
+			)
 		},
 		DiskSpace::Free(disk_space) => {
-			println!(" Disk space to free: {}", config.unit_str(disk_space))
+			println!(
+				" {}",
+				t!(
+					"summary-disk-free-value",
+					"size" => config.unit_str(disk_space)
+				)
+			)
 		},
 	}
 	println!();
@@ -93,8 +108,15 @@ fn print_simple_summary(
 ) {
 	let sets = sorted_summary_sets(pkg_set);
 	for (op, pkgs) in &sets {
-		let header = color::highlight!(op.as_str());
-		println!("{header}: {}", pkgs.len());
+		let header = color::highlight!(op.label());
+		println!(
+			"{}",
+			t!(
+				"summary-op-count-colon",
+				"operation" => header,
+				"count" => pkgs.len()
+			)
+		);
 		println!(
 			"  {}",
 			pkgs.iter()
@@ -130,17 +152,24 @@ fn print_full_summary(
 
 	for (op, pkgs) in tables {
 		println!("{sep}");
-		println!(" {}", color::highlight!(op.as_str()));
+		println!(" {}", color::highlight!(op.label()));
 		println!("{sep}");
 
 		println!("{pkgs}");
 	}
 	println!("{sep}");
-	println!(" Summary");
+	println!(" {}", t!("summary-title"));
 	println!("{sep}");
 
 	for (op, pkgs) in sorted_summary_sets(pkg_set) {
-		println!(" {op} {}", pkgs.len())
+		println!(
+			" {}",
+			t!(
+				"summary-op-count",
+				"operation" => op.label(),
+				"count" => pkgs.len()
+			)
+		)
 	}
 
 	print_size_summary(cache, config);
@@ -167,7 +196,7 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 		return Ok(());
 	}
 
-	warn!("The following packages are essential!");
+	warn!("{}", t!("summary-essential"));
 	eprintln!(
 		"  {}",
 		essential
@@ -181,10 +210,10 @@ fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
 		return Ok(());
 	}
 
-	error!("You have attempted to remove essential packages");
+	error!("{}", t!("summary-remove-essential"));
 
 	let switch = color::color!(Theme::Warning, "--remove-essential");
-	bail!("Use '{switch}' if you are sure.")
+	bail!("{}", t!("summary-use-switch", "switch" => switch))
 }
 
 pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
@@ -213,7 +242,7 @@ pub(crate) async fn commit_with_display_rows(
 
 	if pkgs.is_empty() {
 		if pkg_set.is_empty() {
-			println!("Nothing to do.");
+			println!("{}", t!("summary-nothing"));
 		} else {
 			print_readonly_summary(&cache, config, &pkg_set);
 		}
@@ -221,7 +250,7 @@ pub(crate) async fn commit_with_display_rows(
 	}
 
 	if pkg_set.is_empty() {
-		println!("Nothing to do.");
+		println!("{}", t!("summary-nothing"));
 		return Ok(());
 	}
 
@@ -307,13 +336,13 @@ fn check_reboot_required(config: &Config) {
 		return;
 	}
 
-	info!("A reboot is required to complete these changes.");
+	info!("{}", t!("summary-reboot"));
 
 	let pkgs_path = config.get_path(&Paths::RebootRequiredPkgs);
 	if let Ok(content) = std::fs::read_to_string(&pkgs_path) {
 		let pkgs: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
 		if !pkgs.is_empty() {
-			info!("The following packages require a reboot:");
+			info!("{}", t!("summary-reboot-packages"));
 			info!(" {}", pkgs.join(", "));
 		}
 	}

@@ -21,7 +21,7 @@ use rust_apt::progress::{AcquireProgress, InstallProgress};
 
 use crate::config::{Config, Theme, color};
 use crate::progress::Progress;
-use crate::{debug, dprog};
+use crate::{debug, dprog, t};
 
 // const CURSER_UP: &'static str = "\x1b[1A";
 // const CURSER_DOWN: &'static str = "\x1b[1B";
@@ -102,7 +102,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			})();
 
 			if let Err(err) = child_result {
-				eprintln!("Dpkg child failed: {err:?}");
+				eprintln!("{}", t!("dpkg-child-failed", "error" => format!("{err:?}")));
 				std::process::exit(1);
 			}
 
@@ -258,7 +258,7 @@ impl Pty {
 
 	fn read_status(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
 		match read_fd(&mut self.status, &mut self.status_buf)? {
-			PtyStr::Bytes(_) => bail!("Dpkg status fd returned invalid UTF-8"),
+			PtyStr::Bytes(_) => bail!("{}", t!("dpkg-status-utf8")),
 			PtyStr::Str(string) => {
 				for line in string.lines() {
 					let status = DpkgStatus::try_from(line)?;
@@ -287,7 +287,7 @@ impl Pty {
 		if let WaitStatus::Exited(_, exit_code) = wait_status
 			&& exit_code != 0
 		{
-			bail!("Dpkg exited with code: '{exit_code}'");
+			bail!("{}", t!("dpkg-exit", "code" => exit_code));
 		}
 
 		// When resizing the terminal poll will be Error Interrupted
@@ -344,13 +344,13 @@ impl Pty {
 		progress: &mut Progress,
 		child: Pid,
 	) -> Result<bool> {
-		if !self.poll(child).context("Unable to poll child")? {
+		if !self.poll(child).context(t!("dpkg-poll"))? {
 			return Ok(false);
 		}
 
 		dprog!(config, progress, "pty", "{self:?}");
 
-		let context = "Unable to read Status Fd";
+		let context = t!("dpkg-read-status");
 		if self.status_ready() && !self.read_status(config, progress).context(context)? {
 			return Ok(false);
 		}
@@ -358,11 +358,11 @@ impl Pty {
 		if self.ready() {
 			return self
 				.read_master(config, progress)
-				.context("Unable to read from pty");
+				.context(t!("dpkg-read-pty"));
 		}
 
 		if self.stdin_ready() {
-			return self.stdin_to_pty().context("Unable to send stdin to pty");
+			return self.stdin_to_pty().context(t!("dpkg-write-pty"));
 		}
 
 		Ok(true)
@@ -373,10 +373,10 @@ fn msg_formatter(line: &str) -> String {
 	let mut ret = String::new();
 
 	let replace = [
-		("Removing", "Removing:", Theme::Error),
-		("Unpacking", "Unpacking:", Theme::Primary),
-		("Setting up", "Setting up:", Theme::Primary),
-		("Processing", "Processing:", Theme::Primary),
+		("Removing", t!("dpkg-removing"), Theme::Error),
+		("Unpacking", t!("dpkg-unpacking"), Theme::Primary),
+		("Setting up", t!("dpkg-setting-up"), Theme::Primary),
+		("Processing", t!("dpkg-processing"), Theme::Primary),
 	];
 
 	for (header, change, theme) in replace {
@@ -384,7 +384,7 @@ fn msg_formatter(line: &str) -> String {
 			continue;
 		}
 
-		ret = line.replace(header, &color::color!(theme, change))
+		ret = line.replace(header, &color::color!(theme, &change))
 	}
 
 	if ret.ends_with("...") {

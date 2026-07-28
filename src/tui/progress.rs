@@ -15,17 +15,18 @@ use super::{borderless_area, frame_block};
 use crate::config::color::ansi_to_text;
 use crate::config::{Config, Theme};
 use crate::progress::{DisplayGroup, ProgressMessage, ProgressPanel, ProgressState};
+use crate::t;
 use crate::terminal::Term;
 
 struct InfoRow<'a> {
-	label: &'a str,
+	label: Cow<'a, str>,
 	value: Cow<'a, str>,
 }
 
 impl<'a> InfoRow<'a> {
-	fn new(label: &'a str, value: impl Into<Cow<'a, str>>) -> Self {
+	fn new(label: impl Into<Cow<'a, str>>, value: impl Into<Cow<'a, str>>) -> Self {
 		Self {
-			label,
+			label: label.into(),
 			value: value.into(),
 		}
 	}
@@ -133,22 +134,28 @@ fn display_lines(display: &DisplayGroup, config: &Config) -> Vec<Line<'static>> 
 
 fn info_columns(state: &ProgressState) -> (Vec<InfoRow<'_>>, Vec<InfoRow<'_>>) {
 	let mut left = if state.is_dpkg() {
-		vec![InfoRow::new("Progress", state.current_total())]
+		vec![InfoRow::new(t!("progress-label"), state.current_total())]
 	} else {
 		vec![
-			InfoRow::new("Total", state.current_total()),
-			InfoRow::new("Speed", format!("{}/s", state.unit_str(state.rate()))),
+			InfoRow::new(t!("progress-total"), state.current_total()),
+			InfoRow::new(
+				t!("progress-speed"),
+				format!("{}/s", state.unit_str(state.rate())),
+			),
 		]
 	};
 
 	let mut right = if state.is_dpkg() {
-		vec![InfoRow::new("Elapsed", time_str(state.elapsed()))]
+		vec![InfoRow::new(
+			t!("progress-elapsed"),
+			time_str(state.elapsed()),
+		)]
 	} else {
 		vec![
-			InfoRow::new("Elapsed", time_str(state.elapsed())),
+			InfoRow::new(t!("progress-elapsed"), time_str(state.elapsed())),
 			match state.eta() {
-				Some(eta) => InfoRow::new("Remaining", time_str(eta)),
-				None => InfoRow::new("Remaining", "--"),
+				Some(eta) => InfoRow::new(t!("progress-remaining"), time_str(eta)),
+				None => InfoRow::new(t!("progress-remaining"), "--"),
 			},
 		]
 	};
@@ -232,7 +239,7 @@ fn render_mirrors(f: &mut ratatui::Frame, config: &Config, area: Rect, panels: &
 		return;
 	}
 
-	let inner = borderless_area(f, area, "Mirrors:");
+	let inner = borderless_area(f, area, &t!("mirrors"));
 	let heights = panels
 		.iter()
 		.map(|panel| Constraint::Length(panel.height()))
@@ -306,7 +313,10 @@ fn render_progress_widget(
 		.filled_symbol(symbols::line::THICK.horizontal)
 		.unfilled_symbol(symbols::line::THICK.horizontal)
 		.ratio(state.ratio())
-		.label(progress_line(&ProgressMessage::empty("Progress:"), config))
+		.label(progress_line(
+			&ProgressMessage::empty(format!("{}:", t!("progress-label"))),
+			config,
+		))
 		.filled_style(super::style::style(config, Theme::ProgressFilled))
 		.unfilled_style(super::style::style(config, Theme::ProgressUnfilled));
 	bar.render(bar_slot, buf);

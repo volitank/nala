@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::color::ColorConfig;
 use super::{Switch, keys};
+use crate::t;
 use crate::util::{NumSys, UnitStr};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,11 +81,19 @@ fn default_true() -> bool { true }
 
 impl ConfigFile {
 	pub fn read(conf_file: &Path) -> Result<Self> {
-		let conf = fs::read_to_string(conf_file)
-			.with_context(|| format!("Failed to read {}, using defaults", conf_file.display()))?;
+		let conf = fs::read_to_string(conf_file).with_context(|| {
+			t!(
+				"file-read-defaults",
+				"path" => conf_file.display().to_string()
+			)
+		})?;
 
-		Self::parse(&conf)
-			.with_context(|| format!("Failed to parse {}, using defaults", conf_file.display()))
+		Self::parse(&conf).with_context(|| {
+			t!(
+				"file-parse-defaults",
+				"path" => conf_file.display().to_string()
+			)
+		})
 	}
 
 	pub fn bool(&self, key: &str) -> Option<bool> {

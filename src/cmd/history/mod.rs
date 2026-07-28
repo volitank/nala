@@ -12,8 +12,7 @@ use rust_apt::new_cache;
 use crate::cli::{History, HistoryCommand};
 use crate::config::Config;
 use crate::terminal::{use_tui, TerminalGuard};
-use crate::tui;
-use crate::util;
+use crate::{t, tui, util};
 
 /// Renders the current history command output from the stored transaction records.
 pub async fn history(config: &mut Config, args: &History) -> Result<()> {
@@ -21,10 +20,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 		util::sudo_check(config)?;
 		if clear.all {
 			let removed = clear_history(config, &[], None, true).await?;
-			println!(
-				"Cleared {removed} history entr{}.",
-				if removed == 1 { "y" } else { "ies" }
-			);
+			println!("{}", t!("history-cleared", "count" => removed));
 			return Ok(());
 		}
 	}
@@ -46,7 +42,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 
 		if let Some(history_id) = clear.history_id.as_ref() {
 			let entry = HistoryEntry::find_selector(&history_file, history_id)?;
-			println!("Cleared history entry {}.", entry.id);
+			println!("{}", t!("history-cleared-entry", "id" => entry.id));
 		}
 
 		return Ok(());
@@ -54,7 +50,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 
 	let Some(history_id) = args.history_id.as_ref() else {
 		if history_file.is_empty() {
-			println!("No history entries found.");
+			println!("{}", t!("history-empty"));
 			return Ok(());
 		}
 

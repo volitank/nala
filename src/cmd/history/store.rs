@@ -5,6 +5,7 @@ use crate::cli::HistorySelector;
 use crate::config::{Config, Paths};
 use crate::debug;
 use crate::fs::AsyncFs;
+use crate::t;
 
 fn is_history_entry_path(path: &std::path::Path) -> bool {
 	path.extension().is_some_and(|ext| ext == "json")
@@ -23,7 +24,8 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 
 	let mut history = vec![];
 	for dir_entry in
-		std::fs::read_dir(&history_db).with_context(|| format!("{}", history_db.display()))?
+		std::fs::read_dir(&history_db)
+			.with_context(|| t!("file-read", "path" => history_db.display().to_string()))?
 	{
 		let path = dir_entry?.path();
 		if !path.is_file() {
@@ -39,9 +41,11 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 		history.push(
 			serde_json::from_slice::<HistoryEntry>(
 				&std::fs::read(&path)
-					.with_context(|| format!("Unable to read '{}'", path.display()))?,
+					.with_context(|| t!("file-read", "path" => path.display().to_string()))?,
 			)
-			.with_context(|| format!("Unable to deserialize '{}'", path.display()))?,
+			.with_context(|| {
+				t!("file-deserialize", "path" => path.display().to_string())
+			})?,
 		);
 	}
 
@@ -75,7 +79,8 @@ pub async fn clear_history(
 	if clear_all {
 		let mut removed = 0;
 		for dir_entry in
-			std::fs::read_dir(&history_dir).with_context(|| format!("{}", history_dir.display()))?
+			std::fs::read_dir(&history_dir)
+				.with_context(|| t!("file-read", "path" => history_dir.display().to_string()))?
 		{
 			let path = dir_entry?.path();
 			if !path.is_file() {
@@ -86,7 +91,7 @@ pub async fn clear_history(
 			}
 
 			std::fs::remove_file(&path)
-				.with_context(|| format!("Unable to remove '{}'", path.display()))?;
+				.with_context(|| t!("file-remove", "path" => path.display().to_string()))?;
 			removed += 1;
 		}
 
@@ -94,13 +99,13 @@ pub async fn clear_history(
 	}
 
 	let Some(selector) = selector else {
-		bail!("History clear requires an entry selector or --all");
+		bail!("{}", t!("history-clear-target"));
 	};
 
 	let entry = HistoryEntry::find_selector(entries, selector)?;
 	let filename = history_dir.join(format!("{}.json", entry.id));
 	std::fs::remove_file(&filename)
-		.with_context(|| format!("Unable to remove '{}'", filename.display()))?;
+		.with_context(|| t!("file-remove", "path" => filename.display().to_string()))?;
 	Ok(1)
 }
 
@@ -110,21 +115,27 @@ impl HistoryEntry {
 		let history_dir = config.get_path(&Paths::History);
 		if !history_dir.exists() {
 			std::fs::create_dir_all(&history_dir)
-				.with_context(|| format!("Unable to create '{}'", history_dir.display()))?;
+				.with_context(|| {
+					t!("file-create", "path" => history_dir.display().to_string())
+				})?;
 		}
 
 		let mut filename = history_dir.clone();
 		filename.push(format!("{}.json", self.id));
 		let tmp_filename = filename.with_extension("json.tmp");
 
-		let mut serialized = serde_json::to_vec_pretty(self)
-			.with_context(|| format!("Unable to serialize HistoryEntry\n\n    {self:?}"))?;
+		let mut serialized =
+			serde_json::to_vec_pretty(self).context(t!("history-serialize"))?;
 		serialized.push(b'\n');
 
 		std::fs::write(&tmp_filename, serialized)
-			.with_context(|| format!("Unable to write to '{}'", tmp_filename.display()))?;
+			.with_context(|| {
+				t!("file-write", "path" => tmp_filename.display().to_string())
+			})?;
 		std::fs::rename(&tmp_filename, &filename)
-			.with_context(|| format!("Unable to replace '{}'", filename.display()))?;
+			.with_context(|| {
+				t!("file-replace", "path" => filename.display().to_string())
+			})?;
 
 		Ok(())
 	}

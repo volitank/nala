@@ -12,6 +12,7 @@ use crate::config::Config;
 use crate::terminal::{use_tui, TerminalGuard};
 use crate::util::sudo_check;
 use crate::{debug, tui};
+use crate::t;
 
 fn selected_countries(config: &Config) -> Option<HashSet<String>> {
 	let values = config.countries()?;
@@ -67,7 +68,7 @@ pub async fn fetch(config: &Config) -> Result<()> {
 	debug!("Scored Mirrors '{}'", scored.len());
 
 	if scored.is_empty() {
-		bail!("Nala was unable to find any mirrors.")
+		bail!("{}", t!("fetch-no-mirrors"))
 	}
 
 	// Only run the TUI if --auto is not on
@@ -86,7 +87,7 @@ pub async fn fetch(config: &Config) -> Result<()> {
 	};
 
 	if chosen.is_empty() {
-		bail!("No mirrors were selected.")
+		bail!("{}", t!("fetch-none-selected"))
 	}
 
 	output::write_nala_sources(config, &chosen, component, &release, &keyring).await

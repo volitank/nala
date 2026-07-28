@@ -7,7 +7,7 @@ use crate::config::{Config, keys};
 use crate::deb::DebFile;
 use crate::download::Downloader;
 use crate::util::sudo_check;
-use crate::{debug, glob, info};
+use crate::{debug, glob, info, t};
 
 /// Sort command line pkgs and download http pkgs
 ///
@@ -41,7 +41,10 @@ pub async fn split_local(config: &Config) -> Result<(Vec<String>, Vec<DebFile>)>
 
 		for uri in downloader.run(config, true).await? {
 			if config.verbose() {
-				println!("Downloaded: {:?}", uri.archive)
+				println!(
+					"{}",
+					t!("install-downloaded", "path" => format!("{:?}", uri.archive))
+				)
 			}
 			deb_files.push(DebFile::new(uri.archive.to_string_lossy().into()).await?);
 		}
@@ -65,16 +68,22 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 		};
 
 		info!(
-			"Selecting Package '{}' instead of '{}'",
-			pkg.name(),
-			deb.path
+			"{}",
+			t!(
+				"pkg-select",
+				"selected" => pkg.name(),
+				"requested" => &deb.path
+			)
 		);
 
 		let Some(ver) = pkg.get_version(deb.version()) else {
 			bail!(
-				"Could not find Version '{}' for Package '{}'",
-				deb.version(),
-				pkg.name()
+				"{}",
+				t!(
+					"pkg-version-missing",
+					"version" => deb.version(),
+					"package" => pkg.name()
+				)
 			)
 		};
 		selection.add(pkg, Some(ver), None);
@@ -100,7 +109,7 @@ pub async fn fix_broken(config: &mut Config) -> Result<()> {
 
 	let cache = new_cache!()?;
 	if !cache.fix_broken() {
-		bail!("Unable to correct broken packages")
+		bail!("{}", t!("pkg-fix-broken"))
 	}
 
 	crate::summary::commit(cache, config).await

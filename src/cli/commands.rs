@@ -62,6 +62,7 @@ pub struct List {
 	#[clap(short = 'V', long, action)]
 	pub r#virtual: bool,
 
+	/// Print machine-readable output
 	#[clap(short = 'm', long, action)]
 	pub machine: bool,
 }
@@ -88,6 +89,7 @@ pub struct Show {
 	#[clap(flatten)]
 	pub info: InfoFlags,
 
+	/// Print machine-readable output
 	#[clap(short = 'm', long, action)]
 	pub machine: bool,
 }
@@ -99,6 +101,7 @@ pub struct Policy {
 	#[clap(required = false, add = ArgValueCompleter::new(package_completion))]
 	pub pkg_names: Vec<String>,
 
+	/// Print machine-readable output
 	#[clap(short = 'm', long, action)]
 	pub machine: bool,
 }
@@ -144,8 +147,11 @@ pub struct History {
 #[derive(Subcommand, Debug)]
 #[clap(rename_all = "lower")]
 pub enum HistoryCommand {
+	/// Replay the inverse of an applied history entry
 	Undo(HistoryTransaction),
+	/// Replay an applied history entry again
 	Redo(HistoryTransaction),
+	/// Clear stored history entries
 	Clear(HistoryClear),
 }
 
@@ -198,29 +204,38 @@ impl FromStr for HistorySelector {
 	}
 }
 
+/// Fetch fast mirrors for the current distribution.
 #[derive(Args, Debug)]
 pub struct Fetch {
+	/// Include contrib and non-free repository components
 	#[clap(long, action)]
 	pub non_free: bool,
 
+	/// Only use HTTPS mirrors
 	#[clap(long, action)]
 	pub https_only: bool,
 
+	/// Include source package repositories
 	#[clap(long, action)]
 	pub sources: bool,
 
+	/// Automatically choose the specified number of mirrors
 	#[clap(long, num_args = 0..=1, default_missing_value="3")]
 	pub auto: Option<u8>,
 
+	/// Restrict mirrors to a country code
 	#[clap(short = 'c', long, action)]
 	pub country: Vec<String>,
 
+	/// Override the Debian release
 	#[clap(long, action)]
 	pub debian: Option<String>,
 
+	/// Override the Ubuntu release
 	#[clap(long, action)]
 	pub ubuntu: Option<String>,
 
+	/// Override the Devuan release
 	#[clap(long, action)]
 	pub devuan: Option<String>,
 }
@@ -299,7 +314,7 @@ pub struct Install {
 /// Using the alias `purge` is the same as running
 /// `nala remove --purge`
 pub struct Remove {
-	/// Package names to install
+	/// Package names to remove
 	#[clap(add = ArgValueCompleter::new(installed_package_completion))]
 	pub pkg_names: Vec<String>,
 

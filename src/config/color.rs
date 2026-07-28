@@ -9,6 +9,7 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::Switch;
+use crate::t;
 
 static COLOR: LazyLock<RwLock<Color>> = LazyLock::new(|| RwLock::new(Color::default()));
 
@@ -194,7 +195,7 @@ impl<'de> Deserialize<'de> for ColorCode {
 			type Value = ColorCode;
 
 			fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-				f.write_str("a color name, 0-255 index, or #RRGGBB hex string")
+				f.write_str(&t!("color-expected"))
 			}
 
 			fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
@@ -202,7 +203,7 @@ impl<'de> Deserialize<'de> for ColorCode {
 				E: de::Error,
 			{
 				if value > u8::MAX as u64 {
-					return Err(E::custom("color index must be between 0 and 255"));
+					return Err(E::custom(t!("color-index")));
 				}
 				Ok(ColorCode::Indexed(value as u8))
 			}
@@ -212,7 +213,7 @@ impl<'de> Deserialize<'de> for ColorCode {
 				E: de::Error,
 			{
 				if !(0..=u8::MAX as i64).contains(&value) {
-					return Err(E::custom("color index must be between 0 and 255"));
+					return Err(E::custom(t!("color-index")));
 				}
 				Ok(ColorCode::Indexed(value as u8))
 			}
@@ -235,7 +236,7 @@ impl<'de> Deserialize<'de> for ColorCode {
 					return Ok(color);
 				}
 
-				Err(E::custom(format!("unknown color '{value}'")))
+				Err(E::custom(t!("color-unknown", "color" => value)))
 			}
 
 			fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
@@ -255,7 +256,7 @@ impl<'de> Deserialize<'de> for ColorCode {
 						"Rgb" => {
 							let vals: Vec<u8> = map.next_value()?;
 							if vals.len() != 3 {
-								return Err(de::Error::custom("Rgb expects three components"));
+								return Err(de::Error::custom(t!("color-rgb-components")));
 							}
 							parsed = Some(ColorCode::Rgb(vals[0], vals[1], vals[2]));
 						},
@@ -269,7 +270,7 @@ impl<'de> Deserialize<'de> for ColorCode {
 						},
 					}
 				}
-				parsed.ok_or_else(|| de::Error::custom("expected Rgb or Indexed color"))
+				parsed.ok_or_else(|| de::Error::custom(t!("color-rgb-expected")))
 			}
 		}
 
@@ -355,7 +356,7 @@ impl<'de> Deserialize<'de> for Modifiers {
 			type Value = Modifiers;
 
 			fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-				f.write_str("a modifier string like \"BOLD | ITALIC\" or an array")
+				f.write_str(&t!("color-modifier-expected"))
 			}
 
 			fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
@@ -363,7 +364,7 @@ impl<'de> Deserialize<'de> for Modifiers {
 				E: de::Error,
 			{
 				parse_modifiers_from_str(value)
-					.ok_or_else(|| E::custom(format!("unknown modifier '{value}'")))
+					.ok_or_else(|| E::custom(t!("color-modifier-unknown", "modifier" => value)))
 			}
 
 			fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
@@ -380,8 +381,12 @@ impl<'de> Deserialize<'de> for Modifiers {
 				let mut mods = Modifiers::empty();
 
 				while let Some(token) = seq.next_element::<String>()? {
-					let modifier = parse_modifier_token(&token)
-						.ok_or_else(|| de::Error::custom(format!("unknown modifier '{token}'")))?;
+					let modifier = parse_modifier_token(&token).ok_or_else(|| {
+						de::Error::custom(t!(
+							"color-modifier-unknown",
+							"modifier" => &token
+						))
+					})?;
 					mods.insert(modifier);
 				}
 

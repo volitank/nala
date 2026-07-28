@@ -3,6 +3,7 @@ use rust_apt::Package;
 
 use crate::cmd::ShowVersion;
 use crate::config::{Config, color};
+use crate::t;
 
 /// List packages in a vector
 ///
@@ -34,8 +35,9 @@ pub fn list_packages(config: &Config, packages: Vec<Package>) -> Result<()> {
 			.join(", ");
 
 		println!(
-			"{} (Virtual) [{provides}]",
-			color::primary!(pkg.fullname(true))
+			"{} ({}) [{provides}]",
+			color::primary!(pkg.fullname(true)),
+			t!("list-virtual")
 		);
 	}
 

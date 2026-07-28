@@ -9,7 +9,7 @@ use tar::Archive as Tarchive;
 use tokio::fs;
 
 use super::{Decompress, Reader};
-use crate::hashsum;
+use crate::{hashsum, t};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DebFile {
@@ -60,7 +60,7 @@ impl DebFile {
 			}
 		}
 
-		let control = control.ok_or_else(|| anyhow!("control file not found in {path}"))?;
+		let control = control.ok_or_else(|| anyhow!(t!("deb-control-missing", "path" => &path)))?;
 
 		Ok(DebFile {
 			path,

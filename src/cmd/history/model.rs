@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::cli::HistorySelector;
 use crate::config::Config;
 use crate::libnala::PackageTransition;
-use crate::util;
+use crate::{t, util};
 
 /// Schema version for on-disk package transaction history entries.
 pub const HISTORY_SCHEMA_VERSION: u32 = 1;
@@ -14,6 +14,15 @@ pub enum HistoryStatus {
 	#[default]
 	Unknown,
 	Applied,
+}
+
+impl HistoryStatus {
+	pub fn label(self) -> String {
+		match self {
+			Self::Unknown => t!("unknown"),
+			Self::Applied => t!("history-status-applied"),
+		}
+	}
 }
 
 /// Stored package transaction record written by the history command path.
@@ -73,7 +82,7 @@ impl HistoryEntry {
 			HistorySelector::Last => entries
 				.iter()
 				.max_by_key(|entry| entry.id)
-				.ok_or_else(|| anyhow::anyhow!("No history entries found.")),
+				.ok_or_else(|| anyhow::anyhow!(t!("history-empty"))),
 			HistorySelector::Id(id) => Self::find(entries, *id),
 		}
 	}
