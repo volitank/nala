@@ -15,19 +15,26 @@ pub enum Language {
 	PtBr,
 }
 
+const LANGUAGE_ALIASES: &[(&[&str], Language)] = &[
+	(&["en", "en_us", "en-us", "c", "posix"], Language::EnUs),
+	(&["pt", "pt_br", "pt-br"], Language::PtBr),
+];
+
 impl Language {
 	pub fn from_locale(locale: &str) -> Self {
-		let locale = locale.split(':').next().unwrap_or(locale);
-		let locale = locale.split(['.', '@']).next().unwrap_or(locale);
-
-		if locale.eq_ignore_ascii_case("pt")
-			|| locale.eq_ignore_ascii_case("pt_BR")
-			|| locale.eq_ignore_ascii_case("pt-BR")
-		{
-			Self::PtBr
-		} else {
-			Self::EnUs
+		for locale in locale.split(':') {
+			let locale = locale.split(['.', '@']).next().unwrap_or(locale);
+			for (aliases, language) in LANGUAGE_ALIASES {
+				if aliases
+					.iter()
+					.any(|alias| locale.eq_ignore_ascii_case(alias))
+				{
+					return *language;
+				}
+			}
 		}
+
+		Self::EnUs
 	}
 }
 

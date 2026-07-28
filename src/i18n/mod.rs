@@ -14,7 +14,7 @@ pub fn translate(id: &str, args: Option<&FluentArgs>) -> String {
 
 pub(crate) fn language() -> Language {
 	*LANGUAGE.get_or_init(|| {
-		["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"]
+		["LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"]
 			.into_iter()
 			.find_map(|name| std::env::var(name).ok().filter(|locale| !locale.is_empty()))
 			.map_or(Language::EnUs, |locale| Language::from_locale(&locale))
@@ -74,7 +74,8 @@ mod tests {
 	fn brazilian_portuguese_locale_names_are_recognized() {
 		assert_eq!(Language::from_locale("pt_BR.UTF-8"), Language::PtBr);
 		assert_eq!(Language::from_locale("pt-BR"), Language::PtBr);
-		assert_eq!(Language::from_locale("pt_BR:en"), Language::PtBr);
+		assert_eq!(Language::from_locale("fr:pt_BR:en"), Language::PtBr);
+		assert_eq!(Language::from_locale("en:pt_BR"), Language::EnUs);
 		assert_eq!(Language::from_locale("C.UTF-8"), Language::EnUs);
 	}
 
