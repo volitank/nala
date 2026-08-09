@@ -76,6 +76,7 @@ mod tests {
 		assert_eq!(Language::from_locale("de_DE.UTF-8"), Language::De);
 		assert_eq!(Language::from_locale("es_ES.UTF-8"), Language::Es);
 		assert_eq!(Language::from_locale("fr_FR.UTF-8"), Language::Fr);
+		assert_eq!(Language::from_locale("ga_IE.UTF-8"), Language::Ga);
 		assert_eq!(Language::from_locale("pl_PL.UTF-8"), Language::Pl);
 		assert_eq!(Language::from_locale("pt"), Language::Pt);
 		assert_eq!(Language::from_locale("pt_BR.UTF-8"), Language::PtBr);
