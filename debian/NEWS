@@ -2,7 +2,10 @@ nala (0.17.0) unstable; urgency=medium
 
   This package now builds the Rust implementation of Nala.
 
-  /etc/nala/nala.conf and the History are incompatible.
+  /etc/nala/nala.conf uses a new, incompatible format.
+
+  Legacy Python history is read automatically and imported on the first
+  history mutation. The original history.json file is preserved.
 
  -- Blake Lee <blake@volian.org>  Wed, 20 May 2026 00:00:00 -0500
 

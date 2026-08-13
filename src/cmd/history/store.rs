@@ -1,11 +1,16 @@
-use anyhow::{bail, Context, Result};
+use std::path::Path;
 
+use anyhow::{bail, Context, Result};
+use nix::fcntl::{renameat2, RenameFlags, AT_FDCWD};
+
+use super::legacy::{legacy_history_path, read_legacy_history};
 use super::model::HistoryEntry;
 use crate::cli::HistorySelector;
 use crate::config::{Config, Paths};
-use crate::debug;
-use crate::fs::AsyncFs;
 use crate::t;
+use crate::{debug, warn};
+
+const LEGACY_HISTORY_MARKER: &str = ".legacy-history-handled";
 
 fn is_history_entry_path(path: &std::path::Path) -> bool {
 	path.extension().is_some_and(|ext| ext == "json")
@@ -16,15 +21,31 @@ fn is_history_entry_path(path: &std::path::Path) -> bool {
 }
 
 /// Reads and deserializes every stored history entry from the history directory.
-pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
+pub fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 	let history_db = config.get_path(&Paths::History);
-	if !history_db.exists() {
-		history_db.mkdir().await?;
+	let mut current = if history_db.exists() {
+		read_history_dir(&history_db)?
+	} else {
+		Vec::new()
+	};
+
+	let legacy_path = legacy_history_path(&history_db);
+	if !legacy_path.exists() || history_db.join(LEGACY_HISTORY_MARKER).exists() {
+		return Ok(current);
 	}
 
+	let mut history = read_legacy_history(&legacy_path)?;
+	history.append(&mut current);
+	for (id, entry) in (1_u32..).zip(&mut history) {
+		entry.id = id;
+	}
+	Ok(history)
+}
+
+fn read_history_dir(history_db: &Path) -> Result<Vec<HistoryEntry>> {
 	let mut history = vec![];
 	for dir_entry in
-		std::fs::read_dir(&history_db)
+		std::fs::read_dir(history_db)
 			.with_context(|| t!("file-read", "path" => history_db.display().to_string()))?
 	{
 		let path = dir_entry?.path();
@@ -54,9 +75,8 @@ pub async fn get_history(config: &Config) -> Result<Vec<HistoryEntry>> {
 }
 
 /// Returns the next transaction ID for the on-disk history store.
-pub async fn next_history_id(config: &Config) -> Result<u32> {
-	Ok(get_history(config)
-		.await?
+pub fn next_history_id(config: &Config) -> Result<u32> {
+	Ok(get_history(config)?
 		.iter()
 		.map(|entry| entry.id)
 		.max()
@@ -65,18 +85,20 @@ pub async fn next_history_id(config: &Config) -> Result<u32> {
 }
 
 /// Clears a stored history entry by durable selector, or removes all entries.
-pub async fn clear_history(
+pub fn clear_history(
 	config: &Config,
 	entries: &[HistoryEntry],
 	selector: Option<&HistorySelector>,
 	clear_all: bool,
 ) -> Result<usize> {
 	let history_dir = config.get_path(&Paths::History);
-	if !history_dir.exists() {
-		history_dir.mkdir().await?;
-	}
+	migrate_legacy_history(config)?;
 
 	if clear_all {
+		if !history_dir.exists() {
+			return Ok(0);
+		}
+
 		let mut removed = 0;
 		for dir_entry in
 			std::fs::read_dir(&history_dir)
@@ -113,15 +135,15 @@ impl HistoryEntry {
 	/// Serializes this entry into the per-transaction history store.
 	pub fn write_to_file(&self, config: &Config) -> Result<()> {
 		let history_dir = config.get_path(&Paths::History);
-		if !history_dir.exists() {
-			std::fs::create_dir_all(&history_dir)
-				.with_context(|| {
-					t!("file-create", "path" => history_dir.display().to_string())
-				})?;
-		}
+		migrate_legacy_history(config)?;
+		std::fs::create_dir_all(&history_dir)
+			.with_context(|| t!("file-create", "path" => history_dir.display().to_string()))?;
 
-		let mut filename = history_dir.clone();
-		filename.push(format!("{}.json", self.id));
+		self.write_to_dir(&history_dir)
+	}
+
+	fn write_to_dir(&self, history_dir: &Path) -> Result<()> {
+		let filename = history_dir.join(format!("{}.json", self.id));
 		let tmp_filename = filename.with_extension("json.tmp");
 
 		let mut serialized =
@@ -139,4 +161,72 @@ impl HistoryEntry {
 
 		Ok(())
 	}
+}
+
+fn migrate_legacy_history(config: &Config) -> Result<()> {
+	let history_dir = config.get_path(&Paths::History);
+	let legacy_path = legacy_history_path(&history_dir);
+	if !legacy_path.exists() || history_dir.join(LEGACY_HISTORY_MARKER).exists() {
+		return Ok(());
+	}
+
+	let entries = get_history(config)?;
+	let name = history_dir
+		.file_name()
+		.and_then(|name| name.to_str())
+		.unwrap_or("history");
+	let staging_dir =
+		history_dir.with_file_name(format!(".{name}.importing-{}", std::process::id()));
+	std::fs::create_dir(&staging_dir)
+		.with_context(|| t!("file-create", "path" => staging_dir.display().to_string()))?;
+
+	let migration = (|| -> Result<()> {
+		for entry in &entries {
+			entry.write_to_dir(&staging_dir)?;
+		}
+		let marker = staging_dir.join(LEGACY_HISTORY_MARKER);
+		std::fs::write(&marker, b"")
+			.with_context(|| t!("file-write", "path" => marker.display().to_string()))?;
+
+		if history_dir.exists() {
+			renameat2(
+				AT_FDCWD,
+				&staging_dir,
+				AT_FDCWD,
+				&history_dir,
+				RenameFlags::RENAME_EXCHANGE,
+			)
+			.with_context(|| t!("file-replace", "path" => history_dir.display().to_string()))?;
+			if let Err(error) = std::fs::remove_dir_all(&staging_dir) {
+				warn!(
+					"History migration succeeded, but the old store at '{}' could not be removed: {error}",
+					staging_dir.display()
+				);
+			}
+		} else {
+			std::fs::rename(&staging_dir, &history_dir)
+				.with_context(|| t!("file-replace", "path" => history_dir.display().to_string()))?;
+		}
+
+		Ok(())
+	})();
+
+	if let Err(error) = migration {
+		if let Err(cleanup_error) = std::fs::remove_dir_all(&staging_dir)
+			&& cleanup_error.kind() != std::io::ErrorKind::NotFound
+		{
+			warn!(
+				"Failed to clean incomplete history migration at '{}': {cleanup_error}",
+				staging_dir.display()
+			);
+		}
+		return Err(error);
+	}
+
+	debug!(
+		"Migrated combined history store with {} entries after importing '{}'",
+		entries.len(),
+		legacy_path.display()
+	);
+	Ok(())
 }

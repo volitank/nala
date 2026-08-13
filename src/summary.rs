@@ -314,7 +314,7 @@ pub(crate) async fn commit_with_display_rows(
 	if !history_packages.is_empty() {
 		let history_entry = HistoryEntry::applied(
 			config,
-			cmd::next_history_id(config).await?,
+			cmd::next_history_id(config)?,
 			started_at,
 			Utc::now().to_rfc3339(),
 			history_packages,

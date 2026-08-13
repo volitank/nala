@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local, Utc};
 
 use super::model::HistoryEntry;
@@ -23,16 +22,6 @@ impl HistoryEntry {
 			.unwrap_or_else(|_| timestamp.to_string())
 	}
 
-	/// Returns the entry start time formatted for display.
-	fn started_at_display(&self) -> String {
-		Self::format_timestamp(&self.started_at)
-	}
-
-	/// Returns the entry finish time formatted for display.
-	fn finished_at_display(&self) -> String {
-		Self::format_timestamp(&self.finished_at)
-	}
-
 	/// Builds the plain history list table from stored entries.
 	pub(super) fn list_table(entries: &[Self]) -> comfy_table::Table {
 		let headers = [
@@ -46,7 +35,7 @@ impl HistoryEntry {
 		let mut table = table::get_table(&header_refs);
 
 		for entry in entries {
-			let date_time = entry.started_at_display();
+			let date_time = Self::format_timestamp(&entry.started_at);
 			let altered = entry.altered().count();
 			let row: Vec<&dyn std::fmt::Display> = vec![
 				&entry.id,
@@ -72,14 +61,6 @@ impl HistoryEntry {
 		pkg_set
 	}
 
-	/// Selects a stored history entry by its durable transaction ID.
-	pub(super) fn find(entries: &[Self], id: u32) -> Result<&Self> {
-		entries
-			.iter()
-			.find(|entry| entry.id == id)
-			.ok_or_else(|| anyhow!(t!("history-not-found", "id" => id)))
-	}
-
 	/// Prints a plain-text detail view for this history entry.
 	pub(super) fn print_detail(&self, config: &Config) {
 		let requested_targets = if self.requested_targets.is_empty() {
@@ -99,12 +80,12 @@ impl HistoryEntry {
 		println!(
 			"{}: {}",
 			t!("history-started"),
-			self.started_at_display()
+			Self::format_timestamp(&self.started_at)
 		);
 		println!(
 			"{}: {}",
 			t!("history-finished"),
-			self.finished_at_display()
+			Self::format_timestamp(&self.finished_at)
 		);
 		println!(
 			"{}: {requested_targets}",

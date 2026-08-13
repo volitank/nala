@@ -83,7 +83,10 @@ impl HistoryEntry {
 				.iter()
 				.max_by_key(|entry| entry.id)
 				.ok_or_else(|| anyhow::anyhow!(t!("history-empty"))),
-			HistorySelector::Id(id) => Self::find(entries, *id),
+			HistorySelector::Id(id) => entries
+				.iter()
+				.find(|entry| entry.id == *id)
+				.ok_or_else(|| anyhow::anyhow!(t!("history-not-found", "id" => id))),
 		}
 	}
 }

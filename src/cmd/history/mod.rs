@@ -1,3 +1,4 @@
+mod legacy;
 mod model;
 mod replay;
 mod store;
@@ -19,13 +20,13 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 	if let Some(HistoryCommand::Clear(clear)) = &args.command {
 		util::sudo_check(config)?;
 		if clear.all {
-			let removed = clear_history(config, &[], None, true).await?;
+			let removed = clear_history(config, &[], None, true)?;
 			println!("{}", t!("history-cleared", "count" => removed));
 			return Ok(());
 		}
 	}
 
-	let history_file = get_history(config).await?;
+	let history_file = get_history(config)?;
 
 	if let Some(HistoryCommand::Undo(undo)) = &args.command {
 		let entry = HistoryEntry::find_selector(&history_file, &undo.history_id)?;
@@ -38,7 +39,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 	}
 
 	if let Some(HistoryCommand::Clear(clear)) = &args.command {
-		clear_history(config, &history_file, clear.history_id.as_ref(), clear.all).await?;
+		clear_history(config, &history_file, clear.history_id.as_ref(), clear.all)?;
 
 		if let Some(history_id) = clear.history_id.as_ref() {
 			let entry = HistoryEntry::find_selector(&history_file, history_id)?;

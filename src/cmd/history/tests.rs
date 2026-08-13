@@ -6,15 +6,6 @@ use crate::config::Config;
 use crate::libnala::{Operation, PackageState, PackageTransition};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex, MutexGuard};
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::runtime::Runtime;
-
-static HISTORY_STORE_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-fn history_store_test_lock() -> MutexGuard<'static, ()> {
-	HISTORY_STORE_TEST_LOCK.lock().unwrap()
-}
 
 #[test]
 fn entry_records_requested_targets_and_status() {
@@ -34,63 +25,16 @@ fn entry_records_requested_targets_and_status() {
 }
 
 #[test]
-fn history_entry_selects_by_recorded_id() {
-	let entries = vec![
-		HistoryEntry {
-			schema_version: HISTORY_SCHEMA_VERSION,
-			id: 4,
-			started_at: "2026-04-11T00:00:00Z".to_string(),
-			finished_at: "2026-04-11T00:01:00Z".to_string(),
-			status: HistoryStatus::Applied,
-			requested_by: "user (1000)".to_string(),
-			command: "install a".to_string(),
-			requested_targets: vec!["a".to_string()],
-			packages: vec![],
-		},
-		HistoryEntry {
-			schema_version: HISTORY_SCHEMA_VERSION,
-			id: 9,
-			started_at: "2026-04-12T00:00:00Z".to_string(),
-			finished_at: "2026-04-12T00:01:00Z".to_string(),
-			status: HistoryStatus::Applied,
-			requested_by: "user (1000)".to_string(),
-			command: "remove b".to_string(),
-			requested_targets: vec!["b".to_string()],
-			packages: vec![],
-		},
-	];
+fn history_entry_selects_by_id_or_last() {
+	let entries = vec![sample_entry(4, "install a"), sample_entry(9, "remove b")];
 
-	assert_eq!(HistoryEntry::find(&entries, 9).unwrap().command, "remove b");
-	assert!(HistoryEntry::find(&entries, 2).is_err());
-}
-
-#[test]
-fn history_entry_selects_last_by_max_recorded_id() {
-	let entries = vec![
-		HistoryEntry {
-			schema_version: HISTORY_SCHEMA_VERSION,
-			id: 4,
-			started_at: "2026-04-11T00:00:00Z".to_string(),
-			finished_at: "2026-04-11T00:01:00Z".to_string(),
-			status: HistoryStatus::Applied,
-			requested_by: "user (1000)".to_string(),
-			command: "install a".to_string(),
-			requested_targets: vec!["a".to_string()],
-			packages: vec![],
-		},
-		HistoryEntry {
-			schema_version: HISTORY_SCHEMA_VERSION,
-			id: 9,
-			started_at: "2026-04-12T00:00:00Z".to_string(),
-			finished_at: "2026-04-12T00:01:00Z".to_string(),
-			status: HistoryStatus::Applied,
-			requested_by: "user (1000)".to_string(),
-			command: "remove b".to_string(),
-			requested_targets: vec!["b".to_string()],
-			packages: vec![],
-		},
-	];
-
+	assert_eq!(
+		HistoryEntry::find_selector(&entries, &HistorySelector::Id(9))
+			.unwrap()
+			.command,
+		"remove b"
+	);
+	assert!(HistoryEntry::find_selector(&entries, &HistorySelector::Id(2)).is_err());
 	assert_eq!(
 		HistoryEntry::find_selector(&entries, &HistorySelector::Last)
 			.unwrap()
@@ -364,11 +308,8 @@ fn history_entry_json_roundtrip_preserves_recorded_fields() {
 }
 
 fn temp_history_dir() -> PathBuf {
-	let unique = SystemTime::now()
-		.duration_since(UNIX_EPOCH)
-		.unwrap()
-		.as_nanos();
-	std::env::temp_dir().join(format!("nala-history-test-{unique}"))
+	let template = std::env::temp_dir().join("nala-history-test-XXXXXX");
+	nix::unistd::mkdtemp(&template).unwrap()
 }
 
 fn sample_entry(id: u32, command: &str) -> HistoryEntry {
@@ -386,9 +327,116 @@ fn sample_entry(id: u32, command: &str) -> HistoryEntry {
 }
 
 #[test]
+fn legacy_history_converts_to_current_entries() {
+	let history_dir = temp_history_dir();
+	let legacy_path = super::legacy::legacy_history_path(&history_dir);
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+	sample_entry(1, "rust one").write_to_file(&config).unwrap();
+	sample_entry(2, "rust two").write_to_file(&config).unwrap();
+
+	let legacy = serde_json::json!({
+		"1": {
+			"Date": "2022-04-11 10:00:00 UTC",
+			"Requested-By": "user (1000)",
+			"Command": ["upgrade"],
+			"Explicit": ["installed"],
+			"Installed": [["installed", "1.0", "10"]],
+			"Upgraded": [
+				["modern-upgrade", "2.0", "11", "1.0"],
+				["numeric-modern-upgrade", "12", "2", "11"],
+				["numeric-old-modern-upgrade", "37~deb12u1", "5616", "35"],
+				["date-version-modern-upgrade", "20230311+deb12u1", "155260", "20230311"],
+				["old-upgrade", "1.0", "2.0", "12"],
+				["missing-old-version", "2.0", "13"]
+			],
+			"Downgraded": [["old-downgrade", "20.0", "10.0", "12"]]
+		},
+		"Nala": {
+			"History-Version": "1",
+			"User-Installed": ["ignored"]
+		}
+	});
+	let original = serde_json::to_vec_pretty(&legacy).unwrap();
+	let mut invalid = legacy.clone();
+	invalid["1"]["Installed"] = serde_json::json!([["invalid-install", "1", "2", "3"]]);
+	let invalid = serde_json::to_vec_pretty(&invalid).unwrap();
+	fs::write(&legacy_path, &invalid).unwrap();
+	assert!(sample_entry(3, "must not write").write_to_file(&config).is_err());
+	assert!(!history_dir.join("3.json").exists());
+	assert_eq!(fs::read(&legacy_path).unwrap(), invalid);
+
+	let mut invalid = legacy.clone();
+	invalid["1"]["Upgraded"] = serde_json::json!([["invalid", "old", "new", "size"]]);
+	let invalid = serde_json::to_vec_pretty(&invalid).unwrap();
+	fs::write(&legacy_path, &invalid).unwrap();
+	assert!(sample_entry(3, "must not write").write_to_file(&config).is_err());
+	assert!(!history_dir.join("3.json").exists());
+	assert_eq!(fs::read(&legacy_path).unwrap(), invalid);
+
+	fs::write(&legacy_path, &original).unwrap();
+
+	assert_eq!(next_history_id(&config).unwrap(), 4);
+	sample_entry(4, "install current")
+		.write_to_file(&config)
+		.unwrap();
+	let entries = get_history(&config).unwrap();
+
+	assert_eq!(entries.len(), 4);
+	assert_eq!(entries.iter().map(|entry| entry.id).collect::<Vec<_>>(), vec![1, 2, 3, 4]);
+	assert_eq!(entries[1].command, "rust one");
+	assert_eq!(entries[2].command, "rust two");
+	assert_eq!(entries[3].command, "install current");
+	assert_eq!(entries[0].status, HistoryStatus::Applied);
+	assert_eq!(entries[0].requested_targets, vec!["installed"]);
+	assert_eq!(
+		entries[0]
+			.packages
+			.iter()
+			.map(|package| (
+				package.name.as_str(),
+				package.before.version.as_deref(),
+				package.before.config_files_only,
+				package.after.version.as_deref(),
+			))
+			.collect::<Vec<_>>(),
+		vec![
+			("installed", None, true, Some("1.0")),
+			("modern-upgrade", Some("1.0"), false, Some("2.0")),
+			("numeric-modern-upgrade", Some("11"), false, Some("12")),
+			(
+				"numeric-old-modern-upgrade",
+				Some("35"),
+				false,
+				Some("37~deb12u1"),
+			),
+			(
+				"date-version-modern-upgrade",
+				Some("20230311"),
+				false,
+				Some("20230311+deb12u1"),
+			),
+			("old-upgrade", Some("1.0"), false, Some("2.0")),
+			("missing-old-version", None, false, Some("2.0")),
+			("old-downgrade", Some("20.0"), false, Some("10.0")),
+		]
+	);
+	assert!(entries[0].packages.iter().all(|package| {
+		package.before.auto_installed.is_none() && package.after.auto_installed.is_none()
+	}));
+
+	assert!(history_dir.join("1.json").exists());
+	assert!(history_dir.join("2.json").exists());
+	assert!(history_dir.join("3.json").exists());
+	assert!(history_dir.join("4.json").exists());
+	assert_eq!(fs::read(&legacy_path).unwrap(), original);
+
+	fs::remove_dir_all(history_dir).unwrap();
+	fs::remove_file(legacy_path).unwrap();
+}
+
+#[test]
 fn clear_history_removes_selected_entry_only() {
-	let _guard = history_store_test_lock();
-	let runtime = Runtime::new().unwrap();
 	let history_dir = temp_history_dir();
 	let mut config = Config::default();
 	config.set_history_dir(history_dir.to_string_lossy());
@@ -398,21 +446,20 @@ fn clear_history_removes_selected_entry_only() {
 	first.write_to_file(&config).unwrap();
 	second.write_to_file(&config).unwrap();
 
-	let entries = runtime.block_on(get_history(&config)).unwrap();
-	let removed = runtime
-		.block_on(clear_history(
-			&config,
-			&entries,
-			Some(&HistorySelector::Id(3)),
-			false,
-		))
-		.unwrap();
+	let entries = get_history(&config).unwrap();
+	let removed = clear_history(
+		&config,
+		&entries,
+		Some(&HistorySelector::Id(3)),
+		false,
+	)
+	.unwrap();
 
 	assert_eq!(removed, 1);
 	assert!(!history_dir.join("3.json").exists());
 	assert!(history_dir.join("8.json").exists());
 
-	let remaining = runtime.block_on(get_history(&config)).unwrap();
+	let remaining = get_history(&config).unwrap();
 	assert_eq!(remaining.len(), 1);
 	assert_eq!(remaining[0].id, 8);
 
@@ -421,8 +468,6 @@ fn clear_history_removes_selected_entry_only() {
 
 #[test]
 fn clear_history_supports_last_selector() {
-	let _guard = history_store_test_lock();
-	let runtime = Runtime::new().unwrap();
 	let history_dir = temp_history_dir();
 	let mut config = Config::default();
 	config.set_history_dir(history_dir.to_string_lossy());
@@ -430,15 +475,14 @@ fn clear_history_supports_last_selector() {
 	sample_entry(2, "install a").write_to_file(&config).unwrap();
 	sample_entry(9, "install b").write_to_file(&config).unwrap();
 
-	let entries = runtime.block_on(get_history(&config)).unwrap();
-	runtime
-		.block_on(clear_history(
-			&config,
-			&entries,
-			Some(&HistorySelector::Last),
-			false,
-		))
-		.unwrap();
+	let entries = get_history(&config).unwrap();
+	clear_history(
+		&config,
+		&entries,
+		Some(&HistorySelector::Last),
+		false,
+	)
+	.unwrap();
 
 	assert!(history_dir.join("2.json").exists());
 	assert!(!history_dir.join("9.json").exists());
@@ -448,8 +492,6 @@ fn clear_history_supports_last_selector() {
 
 #[test]
 fn clear_history_all_removes_every_stored_entry() {
-	let _guard = history_store_test_lock();
-	let runtime = Runtime::new().unwrap();
 	let history_dir = temp_history_dir();
 	let mut config = Config::default();
 	config.set_history_dir(history_dir.to_string_lossy());
@@ -459,24 +501,20 @@ fn clear_history_all_removes_every_stored_entry() {
 	fs::write(history_dir.join("3.json"), "{").unwrap();
 	fs::write(history_dir.join("1.json.bak"), "{}").unwrap();
 
-	let removed = runtime
-		.block_on(clear_history(&config, &[], None, true))
-		.unwrap();
+	let removed = clear_history(&config, &[], None, true).unwrap();
 
 	assert_eq!(removed, 3);
 	assert!(!history_dir.join("1.json").exists());
 	assert!(!history_dir.join("2.json").exists());
 	assert!(!history_dir.join("3.json").exists());
 	assert!(history_dir.join("1.json.bak").exists());
-	assert!(runtime.block_on(get_history(&config)).unwrap().is_empty());
+	assert!(get_history(&config).unwrap().is_empty());
 
 	fs::remove_dir_all(&history_dir).unwrap();
 }
 
 #[test]
 fn get_history_ignores_non_history_files() {
-	let _guard = history_store_test_lock();
-	let runtime = Runtime::new().unwrap();
 	let history_dir = temp_history_dir();
 	let mut config = Config::default();
 	config.set_history_dir(history_dir.to_string_lossy());
@@ -485,7 +523,7 @@ fn get_history_ignores_non_history_files() {
 	fs::write(history_dir.join("1.json.bak"), "{").unwrap();
 	fs::write(history_dir.join("notes.txt"), "{").unwrap();
 
-	let entries = runtime.block_on(get_history(&config)).unwrap();
+	let entries = get_history(&config).unwrap();
 
 	assert_eq!(entries.len(), 1);
 	assert_eq!(entries[0].id, 4);
