@@ -1,5 +1,6 @@
 use super::model::{HistoryStatus, HISTORY_SCHEMA_VERSION};
 use super::replay::ReplayAction;
+use super::store::next_history_id;
 use super::*;
 use crate::cli::HistorySelector;
 use crate::config::Config;

@@ -151,6 +151,7 @@ nala history clear --all >/dev/null
 
 echo "PASS: clear removes one imported entry or all entries without changing legacy history."
 
+dpkg --purge "${package}" >/dev/null
 history_dir="${work_dir}/conversion-failure/history"
 legacy_path="${history_dir}.json"
 mkdir -p "${history_dir}"
@@ -158,15 +159,16 @@ cp tests/deb/history/rust-v1.json "${history_dir}/7.json"
 printf '{\n' >"${legacy_path}"
 failed_legacy_hash="$(sha256sum "${legacy_path}")"
 failed_rust_hash="$(sha256sum "${history_dir}/7.json")"
-if nala history clear --all >/dev/null 2>&1; then
-	echo "Malformed legacy conversion unexpectedly succeeded." >&2
+if nala install "${package}=1.0" >/dev/null 2>&1; then
+	echo "Malformed legacy conversion unexpectedly allowed package mutation." >&2
 	exit 1
 fi
+! dpkg-query -W "${package}" >/dev/null 2>&1
 [[ "$(sha256sum "${legacy_path}")" == "${failed_legacy_hash}" ]]
 [[ "$(sha256sum "${history_dir}/7.json")" == "${failed_rust_hash}" ]]
 [[ ! -e "${history_dir}/.legacy-history-handled" ]]
 
-echo "PASS: failed conversion leaves the source and Rust store untouched."
+echo "PASS: failed conversion blocks package mutation and leaves both stores untouched."
 
 history_dir="${work_dir}/dpkg-failure/history"
 mkdir -p "${history_dir}"

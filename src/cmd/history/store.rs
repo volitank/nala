@@ -75,13 +75,19 @@ fn read_history_dir(history_db: &Path) -> Result<Vec<HistoryEntry>> {
 }
 
 /// Returns the next transaction ID for the on-disk history store.
-pub fn next_history_id(config: &Config) -> Result<u32> {
+pub(super) fn next_history_id(config: &Config) -> Result<u32> {
 	Ok(get_history(config)?
 		.iter()
 		.map(|entry| entry.id)
 		.max()
 		.unwrap_or_default()
 		+ 1)
+}
+
+/// Promotes legacy history and validates the store before package mutation.
+pub(crate) fn prepare_history_store(config: &Config) -> Result<u32> {
+	migrate_legacy_history(config)?;
+	next_history_id(config)
 }
 
 /// Clears a stored history entry by durable selector, or removes all entries.

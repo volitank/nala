@@ -297,6 +297,8 @@ pub(crate) async fn commit_with_display_rows(
 		return Ok(());
 	}
 
+	let history_id = cmd::prepare_history_store(config)?;
+
 	// TODO: There should likely be a field in the history
 	// to mark that it was a transaction that failed.
 	// The idea is to run the rest of this program,
@@ -314,7 +316,7 @@ pub(crate) async fn commit_with_display_rows(
 	if !history_packages.is_empty() {
 		let history_entry = HistoryEntry::applied(
 			config,
-			cmd::next_history_id(config)?,
+			history_id,
 			started_at,
 			Utc::now().to_rfc3339(),
 			history_packages,

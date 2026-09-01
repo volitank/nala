@@ -14,7 +14,8 @@ mod list;
 pub mod traits;
 
 use anyhow::Result;
-pub use history::{HistoryEntry, next_history_id};
+pub use history::HistoryEntry;
+pub(crate) use history::prepare_history_store;
 use indexmap::IndexMap;
 pub use install::{fix_broken, mark_cli_pkgs};
 pub use list::list_packages;

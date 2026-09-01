@@ -5,7 +5,8 @@ mod store;
 mod view;
 
 pub use model::HistoryEntry;
-pub use store::{clear_history, get_history, next_history_id};
+pub use store::{clear_history, get_history};
+pub(crate) use store::prepare_history_store;
 
 use anyhow::Result;
 use rust_apt::new_cache;
