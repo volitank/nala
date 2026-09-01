@@ -24,7 +24,7 @@ debian-package:
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
     - scripts/deb-build --binary --no-clean
-    - chmod 0755 tests/deb/packages/*/DEBIAN
+    - chmod -R go-w tests/deb/packages
     - tests/deb/run target/lto/nala
     - tests/deb/history/run target/lto/nala
     - tests/deb/term/run target/lto/nala
