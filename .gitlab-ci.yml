@@ -20,7 +20,7 @@ debian-package:
       - target/
   script:
     - apt-get update
-    - apt-get install -y --no-install-recommends dpkg-dev eatmydata python3 tmux
+    - apt-get install -y --no-install-recommends dpkg-dev eatmydata python3 tmux whiptail
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
     - scripts/deb-build --binary --no-clean

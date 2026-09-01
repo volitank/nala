@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fs::File;
-use std::io::{ErrorKind, Read, Write, stdout};
+use std::io::{ErrorKind, IsTerminal, Read, Write, stdin, stdout};
 use std::os::fd::{AsRawFd, IntoRawFd, OwnedFd, RawFd};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -11,6 +11,7 @@ use nix::fcntl::{FcntlArg, OFlag, fcntl};
 use nix::libc::{TIOCGWINSZ, TIOCSWINSZ, winsize};
 use nix::pty::forkpty;
 use nix::sys::signal::{self, SigHandler};
+use nix::sys::termios::{SetArg, Termios, cfmakeraw, tcgetattr, tcsetattr};
 use nix::sys::wait::{WaitStatus, waitpid};
 use nix::unistd::{close, dup, pipe};
 use nix::{ioctl_read_bad, ioctl_write_ptr_bad};
@@ -20,6 +21,7 @@ use rust_apt::progress::{AcquireProgress, InstallProgress};
 
 use crate::config::{Config, Theme, color};
 use crate::progress::Progress;
+use crate::terminal::use_tui;
 use crate::{debug, dprog, t};
 
 // const CURSER_UP: &'static str = "\x1b[1A";
@@ -93,6 +95,24 @@ impl Drop for SigwinchGuard {
 	fn drop(&mut self) { let _ = unsafe { signal::signal(signal::SIGWINCH, self.0) }; }
 }
 
+struct PtyInputGuard(Termios);
+
+impl PtyInputGuard {
+	fn new() -> Result<Self> {
+		let original = tcgetattr(stdin())?;
+		let output_flags = original.output_flags;
+		let mut raw_input = original.clone();
+		cfmakeraw(&mut raw_input);
+		raw_input.output_flags = output_flags;
+		tcsetattr(stdin(), SetArg::TCSANOW, &raw_input)?;
+		Ok(Self(original))
+	}
+}
+
+impl Drop for PtyInputGuard {
+	fn drop(&mut self) { let _ = tcsetattr(stdin(), SetArg::TCSANOW, &self.0); }
+}
+
 pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	// Do not run any apt scripts, Nala does this herself.
 	config.apt.clear("DPkg::Pre-Invoke");
@@ -131,6 +151,11 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			std::process::exit(0);
 		},
 		nix::pty::ForkptyResult::Parent { child, master } => {
+			let _input_mode = if stdin().is_terminal() && !use_tui(config) {
+				Some(PtyInputGuard::new()?)
+			} else {
+				None
+			};
 			let mut pty = Pty::new(writefd, statusfd, master)?;
 
 			let mut progress = Progress::new(config, true)?;

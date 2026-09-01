@@ -18,10 +18,12 @@ repo_dir="${work_dir}/repo"
 sources_list="${work_dir}/sources.list"
 config_file="${work_dir}/nala.conf"
 server_pid=
+ambient_auto=()
 
 cleanup() {
 	[[ -z "${server_pid}" ]] || kill "${server_pid}" 2>/dev/null || true
 	dpkg --purge "${package}" "${fail_package}" "${interrupt_package}" >/dev/null 2>&1 || true
+	((${#ambient_auto[@]} == 0)) || apt-mark auto "${ambient_auto[@]}" >/dev/null 2>&1 || true
 	rm -f "${interrupt_marker}"
 	rm -rf "${work_dir}"
 }
@@ -58,6 +60,10 @@ apt_options=(
 )
 
 apt-get "${apt_options[@]}" update >/dev/null
+mapfile -t ambient_auto < <(
+	LC_ALL=C apt-get -s autoremove | sed -n 's/^Remv \([^ ]*\).*/\1/p'
+)
+((${#ambient_auto[@]} == 0)) || apt-mark manual "${ambient_auto[@]}" >/dev/null
 
 nala() {
 	NALA_HISTORY_DIR="${history_dir}" "${nala_bin}" --config "${config_file}" \
