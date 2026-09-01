@@ -8,6 +8,9 @@ nala (0.17.1) unstable; urgency=medium
   * Count configured packages as altered while excluding them from undo/redo.
   * Make plain output the default while keeping the TUI opt-in.
   * Restore the full_upgrade and update_show_packages configuration behavior.
+  * Keep the dist-upgrade, uninstall, and info compatibility aliases and
+    restore search --names, --no-color, and autoremove --config.
+  * Retire --raw-dpkg, --license, and the unrelated download --fetch option.
 
   [ Bug Fixes ]
   * Support architecture-qualified package installs.
@@ -16,6 +19,9 @@ nala (0.17.1) unstable; urgency=medium
   * Reject unknown configuration fields and stop ignoring existing malformed
     or unreadable configuration files.
   * Honor CARGO_TARGET_DIR throughout Debian package builds.
+  * Limit automatic mirror selection to three by default and reject --auto 0.
+  * Support direct package URLs containing ports and servers that do not
+    provide HEAD or Content-Length responses.
 
  -- Blake Lee <blake@volian.org>  Mon, 27 Jul 2026 02:14:41 +0000
 

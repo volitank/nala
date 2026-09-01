@@ -1,3 +1,12 @@
+nala (0.17.1) unstable; urgency=medium
+
+  The Python-only --raw-dpkg mode is retired; use plain output for log-friendly
+  transactions. The no-op --license and download --fetch options are also
+  removed. License information remains available in the package copyright
+  file.
+
+ -- Blake Lee <blake@volian.org>  Tue, 01 Sep 2026 00:00:00 -0500
+
 nala (0.17.0) unstable; urgency=medium
 
   This package now builds the Rust implementation of Nala.

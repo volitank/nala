@@ -75,13 +75,9 @@ fn main() -> ExitCode {
 
 #[tokio::main]
 async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -> Result<()> {
-	if derived.license {
-		println!("{}", t!("not-implemented"));
-		return Ok(());
-	}
-
 	if let (Some((name, cmd)), Some(command)) = (args.subcommand(), derived.command) {
 		config.load_command(name, cmd)?;
+		apply_command_defaults(&command, config);
 
 		if config.debug() {
 			debug!("{config:?}");
@@ -120,7 +116,9 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 			Commands::History(args) => history(config, &args).await?,
 			Commands::Fetch(_) => fetch(config).await?,
 			Commands::Update(_) => update(config).await?,
-			Commands::Upgrade(_) => upgrade(config, upgrade_mode(config)).await?,
+			Commands::Upgrade(_) | Commands::FullUpgrade(_) | Commands::SafeUpgrade(_) => {
+				upgrade(config, upgrade_mode(config)).await?
+			},
 			Commands::Install(args) => {
 				if args.pkg_names.is_empty() && config.get_bool(keys::FIX_BROKEN, false) {
 					fix_broken(config).await?;
@@ -130,8 +128,10 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 					mark_cli_pkgs(config, operation).await?;
 				}
 			},
-			Commands::Remove(_) => mark_cli_pkgs(config, Operation::Remove).await?,
-			Commands::AutoRemove(_) => {
+			Commands::Remove(_) | Commands::Purge(_) => {
+				mark_cli_pkgs(config, Operation::Remove).await?
+			},
+			Commands::AutoRemove(_) | Commands::AutoPurge(_) => {
 				sudo_check(config)?;
 				crate::summary::commit(new_cache!()?, config).await?;
 			},
@@ -144,6 +144,16 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 	Ok(())
 }
 
+fn apply_command_defaults(command: &Commands, config: &mut Config) {
+	let key = match command {
+		Commands::FullUpgrade(_) => keys::FULL,
+		Commands::SafeUpgrade(_) => keys::SAFE,
+		Commands::Purge(_) | Commands::AutoPurge(_) => keys::PURGE,
+		_ => return,
+	};
+	config.set_bool(key, true);
+}
+
 fn upgrade_mode(config: &Config) -> Upgrade {
 	// SafeUpgrade takes precedence.
 	if config.get_bool("safe", false) {
@@ -152,5 +162,36 @@ fn upgrade_mode(config: &Config) -> Upgrade {
 		Upgrade::FullUpgrade
 	} else {
 		Upgrade::Upgrade
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use clap::Parser;
+
+	use super::*;
+
+	fn assert_command_default(command_name: &str, key: &str) {
+		let command = NalaParser::try_parse_from(["nala", command_name])
+			.unwrap()
+			.command
+			.unwrap();
+		let mut config = Config::default();
+
+		apply_command_defaults(&command, &mut config);
+
+		assert!(
+			config.get_bool(key, false),
+			"{command_name} did not set {key}"
+		);
+	}
+
+	#[test]
+	fn semantic_commands_set_their_defaults() {
+		assert_command_default("full-upgrade", keys::FULL);
+		assert_command_default("dist-upgrade", keys::FULL);
+		assert_command_default("safe-upgrade", keys::SAFE);
+		assert_command_default("purge", keys::PURGE);
+		assert_command_default("autopurge", keys::PURGE);
 	}
 }

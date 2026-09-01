@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Error, Result, bail};
+use anyhow::{Error, Result, bail};
 use rust_apt::{Version, new_cache};
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
@@ -103,6 +103,7 @@ pub enum Message {
 	Debug(String),
 	Verbose(String),
 	NonFatal((Error, usize)),
+	AddTotal(usize),
 	Update(usize),
 }
 
@@ -157,56 +158,15 @@ impl Downloader {
 	}
 
 	/// This method ingests URLs from the command line to download
-	pub async fn add_from_cmdline(&mut self, cli_uri: &str) -> Result<()> {
-		let mut parser = cli_uri.split_terminator(":");
+	pub fn add_from_cmdline(&mut self, cli_uri: &str) -> Result<()> {
+		let (uri, filename, hash) = parse_cli_uri(cli_uri)?;
 
-		let Some(protocol) = parser.next() else {
-			bail!("{}", t!("download-protocol-missing"))
-		};
-
-		// Rebuild the string to maintain order
-		let Some(uri) = parser.next().map(|u| format!("{protocol}:{u}")) else {
-			bail!("{}", t!("download-uri-missing"))
-		};
-
-		// sha512 d500faf8b2b9ee3a8fbc6a18f966076ed432894cd4d17b42514ffffac9ee81ce
-		// 945610554a11df24ded152569b77693c57c7967dd71f644af3066bf79a923bfe
-		//
-		// sha256 a694f44fa05fff6d00365bf23217d978841b9e7c8d7f48e80864df08cebef1a8
-		// md5 b9ef863f210d170d282991ad1e0676eb
-		// sha1 d1f34ed00dea59f886b9b99919dfcbbf90d69e15
-		let hash = if let Some(hashsum) = parser.next() {
-			Some(HashSum::from_str_len(hashsum.len(), hashsum.to_string())?)
-		} else {
+		if hash.is_none() {
 			warn!("{}", t!("download-hash-missing", "uri" => &uri));
-			None
-		};
-
-		let response = self.client.head(&uri).send().await?.error_for_status()?;
-
-		// Check headers for the size of the download
-		let headers = response.headers();
-
-		debug!("URL Headers for {uri} {headers:#?}");
-		let Some(content_len) = response.headers().get("content-length") else {
-			bail!(
-				"{}",
-				t!("download-content-length", "headers" => format!("{headers:#?}"))
-			);
-		};
-
-		let size = content_len
-			.to_str()
-			.with_context(|| t!("download-content-str", "headers" => format!("{headers:#?}")))?
-			.parse::<usize>()
-			.with_context(|| t!("download-content-parse", "headers" => format!("{headers:#?}")))?;
-
-		let Some(filename) = uri.split_terminator("/").last().map(|s| s.to_string()) else {
-			bail!("{}", t!("download-malformed", "uri" => &uri));
-		};
+		}
 
 		self.uris
-			.push(Uri::new(self, VecDeque::from([uri]), size, filename, hash));
+			.push(Uri::new(self, VecDeque::from([uri]), 0, filename, hash));
 
 		Ok(())
 	}
@@ -283,6 +243,7 @@ impl Downloader {
 
 			while let Ok(msg) = self.rx.try_recv() {
 				match msg {
+					Message::AddTotal(size) => progress.inc_length(size as u64),
 					Message::Update(bytes_downloaded) => progress.inc(bytes_downloaded as u64),
 					Message::Finished => {
 						current += 1;
@@ -327,5 +288,64 @@ impl Downloader {
 			bail!("{}", t!("download-failed"))
 		}
 		Ok(finished)
+	}
+}
+
+fn parse_cli_uri(cli_uri: &str) -> Result<(String, String, Option<HashSum>)> {
+	let (uri, hash) = match cli_uri.rsplit_once(':') {
+		Some((uri, digest))
+			if matches!(digest.len(), 64 | 128)
+				&& digest.bytes().all(|byte| byte.is_ascii_hexdigit()) =>
+		{
+			(
+				uri,
+				Some(HashSum::from_str_len(digest.len(), digest.to_string())?),
+			)
+		},
+		_ => (cli_uri, None),
+	};
+
+	let Ok(parsed) = reqwest::Url::parse(uri) else {
+		bail!("{}", t!("download-malformed", "uri" => cli_uri));
+	};
+	if !matches!(parsed.scheme(), "http" | "https") {
+		bail!("{}", t!("download-malformed", "uri" => cli_uri));
+	}
+
+	let Some(filename) = parsed
+		.path_segments()
+		.and_then(|mut segments| segments.next_back())
+		.filter(|filename| !filename.is_empty())
+		.map(str::to_string)
+	else {
+		bail!("{}", t!("download-malformed", "uri" => cli_uri));
+	};
+
+	Ok((parsed.to_string(), filename, hash))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn command_line_uri_preserves_ports_and_extracts_the_filename() {
+		let (uri, filename, hash) =
+			parse_cli_uri("http://[::1]:8080/packages/demo.deb?source=test").unwrap();
+
+		assert_eq!(uri, "http://[::1]:8080/packages/demo.deb?source=test");
+		assert_eq!(filename, "demo.deb");
+		assert_eq!(hash, None);
+	}
+
+	#[test]
+	fn command_line_uri_accepts_a_trailing_sha256() {
+		let digest = "a".repeat(64);
+		let input = format!("https://example.test/demo.deb:{digest}");
+		let (uri, filename, hash) = parse_cli_uri(&input).unwrap();
+
+		assert_eq!(uri, "https://example.test/demo.deb");
+		assert_eq!(filename, "demo.deb");
+		assert_eq!(hash, Some(HashSum::Sha256(digest)));
 	}
 }

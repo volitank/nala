@@ -39,6 +39,14 @@ fn remove_existing_sources(net_select: &mut HashSet<String>, sources: &HashSet<S
 	net_select.retain(|n| !remove.contains(n));
 }
 
+fn automatic_mirrors(scored: Vec<(String, u128)>, count: usize) -> Vec<String> {
+	scored
+		.into_iter()
+		.take(count)
+		.map(|(mirror, _)| mirror)
+		.collect()
+}
+
 /// The entry point for the `fetch` command.
 pub async fn fetch(config: &Config) -> Result<()> {
 	sudo_check(config)?;
@@ -71,19 +79,18 @@ pub async fn fetch(config: &Config) -> Result<()> {
 		bail!("{}", t!("fetch-no-mirrors"))
 	}
 
-	// Only run the TUI if --auto is not on
-	let chosen = if config.auto().is_some() {
+	// Only run the TUI if --auto is not on and a TUI is available.
+	let chosen = if let Some(count) = config.auto() {
 		debug!("Auto mode, not starting TUI");
-		scored.into_iter().map(|(s, _)| s).collect()
+		automatic_mirrors(scored, usize::from(count))
+	} else if !use_tui(config) {
+		debug!("Plain mode, not starting TUI");
+		automatic_mirrors(scored, 3)
 	} else {
 		debug!("Interactive mode, starting TUI");
-		if !use_tui(config) {
-			scored.into_iter().map(|(s, _)| s).collect()
-		} else {
-			let mut terminal = TerminalGuard::new()?;
-			let app = tui::fetch::App::new(config, scored);
-			app.run(terminal.terminal_mut())?
-		}
+		let mut terminal = TerminalGuard::new()?;
+		let app = tui::fetch::App::new(config, scored);
+		app.run(terminal.terminal_mut())?
 	};
 
 	if chosen.is_empty() {
@@ -91,4 +98,21 @@ pub async fn fetch(config: &Config) -> Result<()> {
 	}
 
 	output::write_nala_sources(config, &chosen, component, &release, &keyring).await
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn automatic_selection_keeps_the_fastest_requested_mirrors() {
+		let scored = vec![
+			("first".to_string(), 1),
+			("second".to_string(), 2),
+			("third".to_string(), 3),
+			("fourth".to_string(), 4),
+		];
+
+		assert_eq!(automatic_mirrors(scored, 3), ["first", "second", "third"]);
+	}
 }

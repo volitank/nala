@@ -226,11 +226,15 @@ pub(crate) async fn commit_with_display_rows(
 	protected: &HashSet<PackageKey>,
 	display_rows: impl FnOnce(&HashSet<PackageKey>) -> Vec<PackageTransition>,
 ) -> Result<()> {
+	let purge = config.get_bool("purge", false);
+	let remove_config = config.get_bool("remove_config", false);
+	if remove_config && !purge {
+		bail!("{}", t!("autoremove-config-purge"));
+	}
+
 	// Package is not really mutable in the way clippy thinks.
 	#[allow(clippy::mutable_key_type)]
 	let auto = if config.get_no_bool(keys::AUTO_REMOVE, true) {
-		let purge = config.get_bool("purge", false);
-		let remove_config = config.get_bool("remove_config", false);
 		cache.auto_remove(remove_config, purge, protected)
 	} else {
 		HashSet::new()

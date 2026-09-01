@@ -10,10 +10,6 @@ use super::commands::Commands;
 #[clap(version)]
 #[clap(about = "Commandline front-end for libapt-pkg", long_about = None)]
 pub struct NalaParser {
-	/// Print license information
-	#[clap(global = true, short, long, action)]
-	pub license: bool,
-
 	/// Disable scrolling text and print extra information
 	#[clap(global = true, short, long, action)]
 	pub verbose: bool,
@@ -44,6 +40,10 @@ pub struct NalaParser {
 	/// Set color mode (always, never, auto).
 	#[clap(global = true, long, default_value = "auto")]
 	pub color: ColorChoice,
+
+	/// Disable color output.
+	#[clap(global = true, long, action, conflicts_with = "color")]
+	pub no_color: bool,
 
 	#[clap(subcommand)]
 	pub command: Option<Commands>,
@@ -263,5 +263,66 @@ mod tests {
 			panic!("expected install command");
 		};
 		assert!(args.transaction.simple);
+	}
+
+	#[test]
+	fn compatibility_aliases_parse() {
+		assert!(matches!(
+			NalaParser::try_parse_from(["nala", "dist-upgrade"])
+				.unwrap()
+				.command,
+			Some(Commands::FullUpgrade(_))
+		));
+		assert!(matches!(
+			NalaParser::try_parse_from(["nala", "uninstall", "demo"])
+				.unwrap()
+				.command,
+			Some(Commands::Remove(_))
+		));
+		assert!(matches!(
+			NalaParser::try_parse_from(["nala", "info", "demo"])
+				.unwrap()
+				.command,
+			Some(Commands::Show(_))
+		));
+
+		for flag in ["-n", "--names", "--names-only"] {
+			let parsed = NalaParser::try_parse_from(["nala", "search", flag, "demo"]).unwrap();
+			let Some(Commands::Search(args)) = parsed.command else {
+				panic!("expected search command");
+			};
+			assert!(args.names_only);
+		}
+
+		let parsed = NalaParser::try_parse_from(["nala", "autoremove", "--config"]).unwrap();
+		let Some(Commands::AutoRemove(args)) = parsed.command else {
+			panic!("expected autoremove command");
+		};
+		assert!(args.remove_config);
+
+		let parsed = NalaParser::try_parse_from(["nala", "search", "--no-color", "demo"]).unwrap();
+		assert!(parsed.no_color);
+	}
+
+	#[test]
+	fn retired_options_are_rejected() {
+		for args in [
+			vec!["nala", "--license"],
+			vec!["nala", "install", "--raw-dpkg", "demo"],
+			vec!["nala", "download", "--fetch", "demo"],
+		] {
+			assert!(NalaParser::try_parse_from(args).is_err());
+		}
+	}
+
+	#[test]
+	fn fetch_auto_requires_a_positive_count() {
+		let parsed = NalaParser::try_parse_from(["nala", "fetch", "--auto"]).unwrap();
+		let Some(Commands::Fetch(args)) = parsed.command else {
+			panic!("expected fetch command");
+		};
+		assert_eq!(args.auto, Some(3));
+
+		assert!(NalaParser::try_parse_from(["nala", "fetch", "--auto", "0"]).is_err());
 	}
 }

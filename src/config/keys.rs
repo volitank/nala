@@ -16,6 +16,7 @@ pub const INSTALL_RECOMMENDS: &str = "install_recommends";
 pub const INSTALL_SUGGESTS: &str = "install_suggests";
 pub const MACHINE: &str = "machine";
 pub const NO_AUTO_REMOVE: &str = "no_auto_remove";
+pub const NO_COLOR: &str = "no_color";
 pub const NO_TUI: &str = "no_tui";
 pub const NO_UPDATE: &str = "no_update";
 pub const OPTION: &str = "option";

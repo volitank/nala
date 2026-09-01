@@ -70,9 +70,6 @@ pub(super) async fn write_nala_sources(
 
 	nala_sources += "URIs: ";
 	for (i, mirror) in chosen.iter().enumerate() {
-		if config.auto().is_some_and(|auto| i + 1 > auto as usize) {
-			break;
-		}
 		if i > 0 {
 			nala_sources += "      ";
 		}

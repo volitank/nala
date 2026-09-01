@@ -53,7 +53,7 @@ Package inspection:
 
 ```sh
 nala list nala
-nala search --names-only apt
+nala search --names apt
 nala show nala
 nala policy nala
 ```

@@ -54,18 +54,6 @@ impl Config {
 	}
 
 	pub fn load_args(&mut self, args: &ArgMatches) -> Result<()> {
-		for alias in [
-			("full-upgrade", keys::FULL),
-			("safe-upgrade", keys::SAFE),
-			("autopurge", keys::PURGE),
-			("purge", keys::PURGE),
-		] {
-			if std::env::args().any(|arg| arg == alias.0) {
-				self.overrides
-					.insert(alias.1.to_string(), OptType::Bool(true));
-			}
-		}
-
 		for id in args.ids() {
 			let key = id.as_str().to_string();
 			if Some(ValueSource::CommandLine) != args.value_source(&key) {
@@ -208,6 +196,10 @@ impl Config {
 	}
 
 	pub fn color_mode(&self) -> Switch {
+		if self.get_bool(keys::NO_COLOR, false) {
+			return Switch::Never;
+		}
+
 		self.overrides
 			.get(keys::COLOR)
 			.and_then(OptType::as_switch)
@@ -267,13 +259,20 @@ impl Config {
 			return matches!(
 				command,
 				Commands::Upgrade(_)
+					| Commands::FullUpgrade(_)
+					| Commands::SafeUpgrade(_)
 					| Commands::Install(_)
 					| Commands::Remove(_)
+					| Commands::Purge(_)
 					| Commands::AutoRemove(_)
+					| Commands::AutoPurge(_)
 			);
 		}
 
-		matches!(command, Commands::Upgrade(_)) && self.get_bool(keys::AUTO_UPDATE, true)
+		matches!(
+			command,
+			Commands::Upgrade(_) | Commands::FullUpgrade(_) | Commands::SafeUpgrade(_)
+		) && self.get_bool(keys::AUTO_UPDATE, true)
 	}
 
 	pub fn debug(&self) -> bool { self.get_bool(keys::DEBUG, false) }
@@ -639,5 +638,19 @@ mod test {
 		config.set_bool(keys::NO_TUI, false);
 		config.set_bool(keys::TUI, true);
 		assert_eq!(config.ui_mode(), UiMode::Tui);
+	}
+
+	#[test]
+	fn no_color_overrides_the_configured_mode() {
+		let _guard = test_lock();
+		let args = NalaParser::command()
+			.try_get_matches_from(["nala", "search", "--no-color", "demo"])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+
+		config.load_args(cmd).unwrap();
+
+		assert_eq!(config.color_mode(), Switch::Never);
 	}
 }

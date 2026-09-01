@@ -107,6 +107,10 @@ impl Uri {
 				)))?;
 
 				if hash == &HashSum::from_path(&self.archive, hash.str_type()).await? {
+					if self.size == 0 {
+						self.size = usize::try_from(std::fs::metadata(&self.archive)?.len())?;
+						self.tx.send(Message::AddTotal(self.size))?;
+					}
 					self.tx.send(Message::Update(self.size))?;
 					self.tx.send(Message::Finished)?;
 					return Ok(self);
@@ -195,6 +199,15 @@ impl Uri {
 			.error_for_status()
 			.with_context(|| t!("download-request-failed", "uri" => url))?;
 
+		if self.size == 0
+			&& let Some(size) = response
+				.content_length()
+				.and_then(|size| usize::try_from(size).ok())
+		{
+			self.size = size;
+			self.tx.send(Message::AddTotal(size))?;
+		}
+
 		// Get a mutable writer for our outfile.
 		let mut writer = self.partial.open_writer().await?;
 
@@ -217,6 +230,11 @@ impl Uri {
 			writer.write_all(&chunk).await?;
 		}
 		writer.flush().await?;
+
+		if self.size == 0 {
+			self.size = self.bytes_downloaded;
+			self.tx.send(Message::AddTotal(self.size))?;
+		}
 
 		Ok(hasher.finalize_hashsum())
 	}

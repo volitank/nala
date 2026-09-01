@@ -36,7 +36,7 @@ pub async fn split_local(config: &Config) -> Result<(Vec<String>, Vec<DebFile>)>
 	if !http_pkgs.is_empty() {
 		let mut downloader = Downloader::new(config)?;
 		for pkg in http_pkgs {
-			downloader.add_from_cmdline(&pkg).await?;
+			downloader.add_from_cmdline(&pkg)?;
 		}
 
 		for uri in downloader.run(config, true).await? {
