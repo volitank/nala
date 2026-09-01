@@ -2,6 +2,7 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export CARGO_HOME ?= $(CURDIR)/debian/cargo-home
+export CARGO_TARGET_DIR ?= $(CURDIR)/target
 export DEB_DESTDIR ?= ..
 export DH_VERBOSE = 1
 
@@ -12,7 +13,7 @@ override_dh_auto_build:
 	cargo build --locked --profile lto
 	rm -rf debian/generated-man
 	mkdir -p debian/generated-man
-	find target/lto/build -path '*/out/*.8' -exec cp {} debian/generated-man/ \;
+	find $(CARGO_TARGET_DIR)/lto/build -path '*/out/*.8' -exec cp {} debian/generated-man/ \;
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
@@ -20,7 +21,7 @@ ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 endif
 
 override_dh_auto_install:
-	install -Dm755 target/lto/nala debian/nala/usr/bin/nala
+	install -Dm755 $(CARGO_TARGET_DIR)/lto/nala debian/nala/usr/bin/nala
 
 override_dh_builddeb:
 	mkdir -p $(DEB_DESTDIR)

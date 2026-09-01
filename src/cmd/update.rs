@@ -4,7 +4,7 @@ use rust_apt::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
 use rust_apt::{new_cache, PackageSort};
 use tokio::sync::mpsc;
 
-use crate::config::{color, Config, Theme};
+use crate::config::{Config, Theme, color, keys};
 use crate::progress::{Progress, ProgressMessage};
 use crate::terminal::poll_exit_event;
 use crate::t;
@@ -84,7 +84,20 @@ pub async fn update(config: &Config) -> Result<()> {
 	let sort = PackageSort::default().upgradable();
 	let upgradable: Vec<_> = cache.packages(&sort).collect();
 
-	if !upgradable.is_empty() {
+	if config.get_bool(keys::UPDATE_SHOW_PACKAGES, false) {
+		for pkg in upgradable {
+			let (Some(installed), Some(candidate)) = (pkg.installed(), pkg.candidate()) else {
+				continue;
+			};
+
+			println!(
+				"{} {} -> {}",
+				color::primary!(pkg.to_string()),
+				color::ver!(installed.version()),
+				color::ver!(candidate.version())
+			);
+		}
+	} else if !upgradable.is_empty() {
 		println!(
 			"{}",
 			t!(
@@ -94,17 +107,6 @@ pub async fn update(config: &Config) -> Result<()> {
 			)
 		);
 	}
-
-	// Not sure yet if I want to implement this directly
-	// But here is how one might do it.
-	//
-	// for pkg in upgradable {
-	// 	let (Some(inst), Some(cand)) = (pkg.installed(), pkg.candidate()) else {
-	// 		continue;
-	// 	};
-
-	// 	println!("{pkg} ({inst}) -> ({cand})");
-	// }
 
 	Ok(())
 }

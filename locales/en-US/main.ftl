@@ -231,6 +231,7 @@ file-remove = Failed to remove { $path }
 file-read = Failed to read '{ $path }'
 file-read-defaults = Failed to read { $path }, using defaults
 file-parse-defaults = Failed to parse { $path }, using defaults
+config-parse = Failed to parse { $path }. Nala will not ignore an existing configuration file. If this followed a package upgrade, compare it with { $path }.dpkg-dist
 file-create = Unable to create '{ $path }'
 file-write = Unable to write to '{ $path }'
 file-replace = Unable to replace '{ $path }'

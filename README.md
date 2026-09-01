@@ -84,18 +84,29 @@ Most transaction commands accept shared safety and behavior flags such as
 ## Configuration
 
 Nala reads an HCL configuration file. See [`nala.conf`](nala.conf) for the
-current shape.
+current shape. The built-in defaults are used when the default file is absent;
+an existing unreadable or invalid file is reported as an error instead of
+being ignored.
 
 Top-level configuration areas:
 
-- `Nala`: transaction behavior such as auto remove, auto update, simple
-  summaries, and assume-yes defaults
+- `Nala`: transaction behavior such as auto remove, auto update, full upgrade,
+  showing upgradable packages, simple summaries, and assume-yes defaults
 - `Ui`: output mode and binary or decimal unit formatting
 - `Color`: color mode and theme entries for package summaries, progress, and
   warnings
 
 Command-line flags override configuration values for the current invocation.
 APT options can be passed through with `-o KEY=VALUE`.
+
+Plain output and binary units are the defaults. Set `Ui.mode` to `"Auto"` or
+`"Tui"`, or pass `--tui`, to opt into the terminal interface. `--no-tui`
+forces plain output for the current invocation.
+
+The Debian package manages `/etc/nala/nala.conf` as a conffile. On upgrade,
+dpkg replaces an unmodified packaged file automatically and prompts before
+replacing local changes. If the old file is kept, compare it with
+`/etc/nala/nala.conf.dpkg-dist`; Nala does not silently convert legacy TOML.
 
 ## Development
 

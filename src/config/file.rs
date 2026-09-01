@@ -11,13 +11,14 @@ use crate::util::{NumSys, UnitStr};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UiMode {
-	#[default]
 	Auto,
+	#[default]
 	Plain,
 	Tui,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct ConfigFile {
 	#[serde(rename = "Nala", default, alias = "nala")]
 	pub nala: NalaConfig,
@@ -30,6 +31,7 @@ pub struct ConfigFile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct NalaConfig {
 	#[serde(default = "default_true")]
 	pub auto_remove: bool,
@@ -39,6 +41,9 @@ pub struct NalaConfig {
 
 	#[serde(default)]
 	pub update_show_packages: bool,
+
+	#[serde(default)]
+	pub full_upgrade: bool,
 
 	#[serde(default)]
 	pub simple: bool,
@@ -53,6 +58,7 @@ impl Default for NalaConfig {
 			auto_remove: true,
 			auto_update: true,
 			update_show_packages: false,
+			full_upgrade: false,
 			simple: false,
 			assume_yes: false,
 		}
@@ -60,6 +66,7 @@ impl Default for NalaConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct UiConfig {
 	#[serde(default)]
 	pub mode: UiMode,
@@ -71,7 +78,7 @@ pub struct UiConfig {
 impl Default for UiConfig {
 	fn default() -> Self {
 		Self {
-			mode: UiMode::Auto,
+			mode: UiMode::Plain,
 			unit: NumSys::Binary,
 		}
 	}
@@ -81,16 +88,12 @@ fn default_true() -> bool { true }
 
 impl ConfigFile {
 	pub fn read(conf_file: &Path) -> Result<Self> {
-		let conf = fs::read_to_string(conf_file).with_context(|| {
-			t!(
-				"file-read-defaults",
-				"path" => conf_file.display().to_string()
-			)
-		})?;
+		let conf = fs::read_to_string(conf_file)
+			.with_context(|| t!("file-read", "path" => conf_file.display().to_string()))?;
 
 		Self::parse(&conf).with_context(|| {
 			t!(
-				"file-parse-defaults",
+				"config-parse",
 				"path" => conf_file.display().to_string()
 			)
 		})
@@ -101,6 +104,7 @@ impl ConfigFile {
 			keys::ASSUME_YES => Some(self.nala.assume_yes),
 			keys::AUTO_REMOVE => Some(self.nala.auto_remove),
 			keys::AUTO_UPDATE => Some(self.nala.auto_update),
+			keys::FULL => Some(self.nala.full_upgrade),
 			keys::SIMPLE => Some(self.nala.simple),
 			keys::UPDATE_SHOW_PACKAGES => Some(self.nala.update_show_packages),
 			_ => None,
@@ -128,9 +132,10 @@ mod tests {
 		assert!(file.nala.auto_remove);
 		assert!(file.nala.auto_update);
 		assert!(!file.nala.update_show_packages);
+		assert!(!file.nala.full_upgrade);
 		assert!(!file.nala.simple);
 		assert!(!file.nala.assume_yes);
-		assert_eq!(file.ui.mode, UiMode::Auto);
+		assert_eq!(file.ui.mode, UiMode::Plain);
 		assert_eq!(file.ui.unit, NumSys::Binary);
 		assert_eq!(file.color.mode, Switch::Auto);
 		assert_eq!(file.color.theme.primary.fg, ColorCode::LightGreen);
@@ -144,5 +149,19 @@ mod tests {
 		assert_eq!(file.ui.mode, UiMode::Plain);
 		assert!(file.nala.auto_remove);
 		assert_eq!(file.color.mode, Switch::Auto);
+	}
+
+	#[test]
+	fn rejects_unknown_and_legacy_fields() {
+		for conf in [
+			"Unknown = {}",
+			"Nala = { typo = true }",
+			"Ui = { typo = true }",
+			"Color = { typo = true }",
+			"Color = { theme = { Primary = { fg = \"Green\", typo = true } } }",
+			"[Nala]\nauto_remove = false",
+		] {
+			assert!(ConfigFile::parse(conf).is_err(), "accepted: {conf}");
+		}
 	}
 }

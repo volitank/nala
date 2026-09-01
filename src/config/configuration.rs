@@ -307,8 +307,9 @@ mod test {
 		assert!(file.nala.auto_remove);
 		assert!(file.nala.auto_update);
 		assert!(!file.nala.update_show_packages);
+		assert!(!file.nala.full_upgrade);
 		assert!(!file.nala.simple);
-		assert_eq!(file.ui.mode, UiMode::Auto);
+		assert_eq!(file.ui.mode, UiMode::Plain);
 		assert_eq!(file.ui.unit, NumSys::Binary);
 		assert_eq!(file.color.mode, Switch::Auto);
 	}
@@ -390,6 +391,16 @@ mod test {
 		let config = Config::from_file(file);
 
 		assert!(config.get_bool(keys::ASSUME_YES, false));
+	}
+
+	#[test]
+	fn full_upgrade_uses_config_default() {
+		let _guard = test_lock();
+		let mut file = ConfigFile::default();
+		file.nala.full_upgrade = true;
+		let config = Config::from_file(file);
+
+		assert!(config.get_bool(keys::FULL, false));
 	}
 
 	#[test]
@@ -620,7 +631,7 @@ mod test {
 		let _guard = test_lock();
 		let mut config = Config::default();
 
-		assert_eq!(config.ui_mode(), UiMode::Auto);
+		assert_eq!(config.ui_mode(), UiMode::Plain);
 
 		config.set_bool(keys::NO_TUI, true);
 		assert_eq!(config.ui_mode(), UiMode::Plain);

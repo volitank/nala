@@ -7,7 +7,7 @@ pub mod paths;
 
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{ArgMatches, ColorChoice, CommandFactory, FromArgMatches};
 pub use color::Theme;
 pub use configuration::Config;
@@ -86,8 +86,8 @@ impl OptType {
 	}
 }
 
-/// Parse CLI, resolve config path, and load configuration with fallback to
-/// defaults.
+/// Parse CLI, resolve the config path, and load it. Built-in defaults are used
+/// only when the default configuration file does not exist.
 pub fn bootstrap() -> Result<(ArgMatches, crate::cli::NalaParser, Config)> {
 	let args = crate::cli::NalaParser::command().get_matches();
 	let derived = crate::cli::NalaParser::from_arg_matches(&args)?;
@@ -97,15 +97,14 @@ pub fn bootstrap() -> Result<(ArgMatches, crate::cli::NalaParser, Config)> {
 		.as_deref()
 		.unwrap_or(Path::new("/etc/nala/nala.conf"));
 
-	let config = match Config::new(config_path) {
-		Ok(config) => config,
-		Err(err) => {
-			// If user explicitly asked for a config file, bubble the error.
-			if derived.config.is_some() {
-				return Err(err);
-			}
-			Config::default()
-		},
+	let config = if derived.config.is_none()
+		&& !config_path
+			.try_exists()
+			.with_context(|| crate::t!("file-read", "path" => config_path.display().to_string()))?
+	{
+		Config::default()
+	} else {
+		Config::new(config_path)?
 	};
 
 	let mut config = config;

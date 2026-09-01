@@ -490,6 +490,7 @@ pub fn ansi_to_style(mut style: RatStyle, params: &str) -> RatStyle {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Style {
 	pub fg: ColorCode,
 	pub bg: Option<ColorCode>,
@@ -636,7 +637,7 @@ impl Default for ThemePalette {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct ColorConfig {
 	pub mode: Switch,
 	pub theme: ThemePalette,

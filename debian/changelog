@@ -6,11 +6,16 @@ nala (0.17.1) unstable; urgency=medium
     maintaining a separate Nala-installed package list.
   * Restore `history info` with `history show` as a compatibility alias.
   * Count configured packages as altered while excluding them from undo/redo.
+  * Make plain output the default while keeping the TUI opt-in.
+  * Restore the full_upgrade and update_show_packages configuration behavior.
 
   [ Bug Fixes ]
   * Support architecture-qualified package installs.
   * Improve downloader retry handling.
   * Report unsatisfied install dependencies.
+  * Reject unknown configuration fields and stop ignoring existing malformed
+    or unreadable configuration files.
+  * Honor CARGO_TARGET_DIR throughout Debian package builds.
 
  -- Blake Lee <blake@volian.org>  Mon, 27 Jul 2026 02:14:41 +0000
 
