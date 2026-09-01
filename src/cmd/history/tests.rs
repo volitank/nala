@@ -509,6 +509,7 @@ fn clear_history_all_removes_every_stored_entry() {
 	sample_entry(2, "remove b").write_to_file(&config).unwrap();
 	fs::write(history_dir.join("3.json"), "{").unwrap();
 	fs::write(history_dir.join("1.json.bak"), "{}").unwrap();
+	assert!(get_history(&config).is_err());
 
 	let removed = clear_history(&config, &[], None, true).unwrap();
 
@@ -530,12 +531,47 @@ fn get_history_ignores_non_history_files() {
 
 	sample_entry(4, "install a").write_to_file(&config).unwrap();
 	fs::write(history_dir.join("1.json.bak"), "{").unwrap();
+	fs::write(history_dir.join("5.json.tmp"), "{").unwrap();
 	fs::write(history_dir.join("notes.txt"), "{").unwrap();
 
 	let entries = get_history(&config).unwrap();
 
 	assert_eq!(entries.len(), 1);
 	assert_eq!(entries[0].id, 4);
+
+	fs::remove_dir_all(&history_dir).unwrap();
+}
+
+#[test]
+fn get_history_validates_schema_version_and_filename_id() {
+	let history_dir = temp_history_dir();
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+	let path = history_dir.join("1.json");
+	sample_entry(1, "install a").write_to_file(&config).unwrap();
+
+	assert_eq!(get_history(&config).unwrap()[0].schema_version, 1);
+
+	let mut value: serde_json::Value =
+		serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+	value.as_object_mut().unwrap().remove("schema_version");
+	fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+	assert!(get_history(&config)
+		.unwrap_err()
+		.to_string()
+		.contains("no valid schema_version"));
+
+	value["schema_version"] = serde_json::json!(2);
+	fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+	let error = get_history(&config).unwrap_err().to_string();
+	assert!(error.contains("unsupported schema version 2"));
+	assert!(error.contains(path.to_str().unwrap()));
+
+	value["schema_version"] = serde_json::json!(1);
+	value["id"] = serde_json::json!(2);
+	fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+	let error = get_history(&config).unwrap_err().to_string();
+	assert!(error.contains("contains ID 2; expected 1"));
 
 	fs::remove_dir_all(&history_dir).unwrap();
 }

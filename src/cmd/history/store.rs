@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use nix::fcntl::{renameat2, RenameFlags, AT_FDCWD};
 
 use super::legacy::{legacy_history_path, read_legacy_history};
-use super::model::HistoryEntry;
+use super::model::{HistoryEntry, HISTORY_SCHEMA_VERSION};
 use crate::cli::HistorySelector;
 use crate::config::{Config, Paths};
 use crate::t;
@@ -12,12 +12,12 @@ use crate::{debug, warn};
 
 const LEGACY_HISTORY_MARKER: &str = ".legacy-history-handled";
 
-fn is_history_entry_path(path: &std::path::Path) -> bool {
-	path.extension().is_some_and(|ext| ext == "json")
-		&& path
-			.file_stem()
-			.and_then(|stem| stem.to_str())
-			.is_some_and(|stem| stem.parse::<u32>().is_ok())
+fn history_entry_id(path: &Path) -> Option<u32> {
+	if path.extension()? != "json" {
+		return None;
+	}
+
+	path.file_stem()?.to_str()?.parse().ok()
 }
 
 /// Reads and deserializes every stored history entry from the history directory.
@@ -53,25 +53,49 @@ fn read_history_dir(history_db: &Path) -> Result<Vec<HistoryEntry>> {
 			continue;
 		}
 
-		if !is_history_entry_path(&path) {
+		let Some(filename_id) = history_entry_id(&path) else {
 			debug!("Skipping non-history file '{}'", path.display());
 			continue;
-		}
+		};
 
 		debug!("File '{}' found", path.display());
-		history.push(
-			serde_json::from_slice::<HistoryEntry>(
-				&std::fs::read(&path)
-					.with_context(|| t!("file-read", "path" => path.display().to_string()))?,
-			)
-			.with_context(|| {
-				t!("file-deserialize", "path" => path.display().to_string())
-			})?,
-		);
+		history.push(read_history_entry(&path, filename_id)?);
 	}
 
 	history.sort_by_key(|entry| entry.id);
 	Ok(history)
+}
+
+fn read_history_entry(path: &Path, filename_id: u32) -> Result<HistoryEntry> {
+	let raw = std::fs::read(path)
+		.with_context(|| t!("file-read", "path" => path.display().to_string()))?;
+	let value = serde_json::from_slice::<serde_json::Value>(&raw)
+		.with_context(|| t!("file-deserialize", "path" => path.display().to_string()))?;
+	let Some(schema_version) = value.get("schema_version").and_then(|value| value.as_u64()) else {
+		bail!(
+			"History entry '{}' has no valid schema_version; expected {HISTORY_SCHEMA_VERSION}",
+			path.display()
+		);
+	};
+
+	if schema_version != u64::from(HISTORY_SCHEMA_VERSION) {
+		bail!(
+			"History entry '{}' uses unsupported schema version {schema_version}; supported version is {HISTORY_SCHEMA_VERSION}. Use a compatible Nala version or move this file aside",
+			path.display()
+		);
+	}
+
+	let entry = serde_json::from_value::<HistoryEntry>(value)
+		.with_context(|| t!("file-deserialize", "path" => path.display().to_string()))?;
+	if entry.id != filename_id {
+		bail!(
+			"History entry '{}' contains ID {}; expected {filename_id} from its filename",
+			path.display(),
+			entry.id
+		);
+	}
+
+	Ok(entry)
 }
 
 /// Returns the next transaction ID for the on-disk history store.
@@ -114,7 +138,7 @@ pub fn clear_history(
 			if !path.is_file() {
 				continue;
 			}
-			if !is_history_entry_path(&path) {
+			if history_entry_id(&path).is_none() {
 				continue;
 			}
 
