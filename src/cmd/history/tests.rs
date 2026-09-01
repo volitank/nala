@@ -88,6 +88,26 @@ fn history_package_set_groups_packages_by_operation() {
 }
 
 #[test]
+fn configure_counts_as_altered_but_not_replayable() {
+	let mut entry = sample_entry(1, "install demo");
+	let state = PackageState {
+		version: Some("1.0".to_string()),
+		auto_installed: Some(false),
+		config_files_only: false,
+	};
+	entry.packages.push(PackageTransition::transition(
+		"demo".to_string(),
+		1,
+		Operation::Configure,
+		state.clone(),
+		state,
+	));
+
+	assert_eq!(entry.altered().count(), 1);
+	assert_eq!(entry.replayable().count(), 0);
+}
+
+#[test]
 fn undo_action_purges_new_install_when_package_was_missing() {
 	let pkg = PackageTransition::transition(
 		"demo".to_string(),

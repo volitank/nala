@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::HistorySelector;
 use crate::config::Config;
-use crate::libnala::PackageTransition;
+use crate::libnala::{Operation, PackageTransition};
 use crate::{t, util};
 
 /// Schema version for on-disk package transaction history entries.
@@ -67,6 +67,13 @@ impl HistoryEntry {
 
 	/// Returns the package rows that changed system state.
 	pub fn altered(&self) -> impl Iterator<Item = &PackageTransition> {
+		self.packages
+			.iter()
+			.filter(|package| package.operation != Operation::Held)
+	}
+
+	/// Returns package rows supported by history undo and redo.
+	pub(super) fn replayable(&self) -> impl Iterator<Item = &PackageTransition> {
 		self.packages
 			.iter()
 			.filter(|package| package.operation.is_replayable())

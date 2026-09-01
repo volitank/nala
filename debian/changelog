@@ -1,5 +1,12 @@
 nala (0.17.1) unstable; urgency=medium
 
+  [ Changes ]
+  * Retire `history --installed` and `list/search -N/--nala-installed`.
+    Rust history records requested targets per transaction instead of
+    maintaining a separate Nala-installed package list.
+  * Restore `history info` with `history show` as a compatibility alias.
+  * Count configured packages as altered while excluding them from undo/redo.
+
   [ Bug Fixes ]
   * Support architecture-qualified package installs.
   * Improve downloader retry handling.

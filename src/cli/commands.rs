@@ -50,10 +50,6 @@ pub struct List {
 	#[clap(short, long, action)]
 	pub installed: bool,
 
-	/// Only include packages explicitly installed with Nala
-	#[clap(short = 'N', long, action)]
-	pub nala_installed: bool,
-
 	/// Only include packages that are upgradable
 	#[clap(short, long, action)]
 	pub upgradable: bool,
@@ -147,18 +143,21 @@ pub struct History {
 #[derive(Subcommand, Debug)]
 #[clap(rename_all = "lower")]
 pub enum HistoryCommand {
+	/// Show details for a specific history entry
+	#[clap(alias = "show")]
+	Info(HistoryTarget),
 	/// Replay the inverse of an applied history entry
-	Undo(HistoryTransaction),
+	Undo(HistoryTarget),
 	/// Replay an applied history entry again
-	Redo(HistoryTransaction),
+	Redo(HistoryTarget),
 	/// Clear stored history entries
 	Clear(HistoryClear),
 }
 
-/// Replay the inverse of a previously applied history entry.
+/// Select a stored history entry.
 #[derive(Args, Debug)]
-pub struct HistoryTransaction {
-	/// History entry ID or `last` to undo
+pub struct HistoryTarget {
+	/// History entry ID or `last`
 	#[clap(value_name = "ID|last", add = ArgValueCompleter::new(history_id_completion))]
 	pub history_id: HistorySelector,
 }

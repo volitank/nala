@@ -52,6 +52,22 @@ pub struct NalaParser {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::cli::commands::{HistoryCommand, HistorySelector};
+
+	#[test]
+	fn history_info_aliases_parse() {
+		for command in ["info", "show"] {
+			let parsed = NalaParser::try_parse_from(["nala", "history", command, "7"]).unwrap();
+			let Some(Commands::History(args)) = parsed.command else {
+				panic!("expected history command");
+			};
+			let Some(HistoryCommand::Info(target)) = args.command else {
+				panic!("expected history info command");
+			};
+
+			assert_eq!(target.history_id, HistorySelector::Id(7));
+		}
+	}
 
 	#[test]
 	fn install_reinstall_flag_parses() {

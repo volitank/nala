@@ -50,7 +50,12 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 		return Ok(());
 	}
 
-	let Some(history_id) = args.history_id.as_ref() else {
+	let history_id = match args.command.as_ref() {
+		Some(HistoryCommand::Info(info)) => Some(&info.history_id),
+		_ => args.history_id.as_ref(),
+	};
+
+	let Some(history_id) = history_id else {
 		if history_file.is_empty() {
 			println!("{}", t!("history-empty"));
 			return Ok(());
