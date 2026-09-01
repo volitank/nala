@@ -1,0 +1,3 @@
+#!/bin/sh
+touch /tmp/nala-history-interrupt.started
+sleep 30

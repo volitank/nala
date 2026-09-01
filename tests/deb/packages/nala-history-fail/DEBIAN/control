@@ -1,0 +1,5 @@
+Package: nala-history-fail
+Version: 1.0
+Architecture: all
+Maintainer: Nala Tests <noreply@example.invalid>
+Description: Nala history failed postinst fixture

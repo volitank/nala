@@ -1,0 +1,70 @@
+{
+  "4": {
+    "Date": "2025-10-29 03:45:00 EDT",
+    "Requested-By": "legacy-user (1000)",
+    "Command": [
+      "upgrade"
+    ],
+    "Altered": "1",
+    "Purged": false,
+    "Operation": "upgrade",
+    "Explicit": [],
+    "Removed": [],
+    "Auto-Removed": [],
+    "Installed": [],
+    "Reinstalled": [],
+    "Upgraded": [
+      [
+        "numeric-old-version",
+        "37~deb12u1",
+        "5616",
+        "35"
+      ]
+    ],
+    "Downgraded": []
+  },
+  "5": {
+    "Date": "2026-01-01 01:00:00 UTC",
+    "Requested-By": "legacy-user (1000)",
+    "Command": ["install", "nala-history-test"],
+    "Purged": false,
+    "Explicit": ["nala-history-test"],
+    "Removed": [], "Auto-Removed": [],
+    "Installed": [["nala-history-test", "1.0", "1024"]],
+    "Reinstalled": [], "Upgraded": [], "Downgraded": []
+  },
+  "6": {
+    "Date": "2026-01-01 02:00:00 UTC",
+    "Requested-By": "legacy-user (1000)",
+    "Command": ["remove", "nala-history-test"],
+    "Purged": false,
+    "Explicit": ["nala-history-test"],
+    "Removed": [["nala-history-test", "1.0", "1024"]],
+    "Auto-Removed": [], "Installed": [], "Reinstalled": [],
+    "Upgraded": [], "Downgraded": []
+  },
+  "7": {
+    "Date": "2026-01-01 03:00:00 UTC",
+    "Requested-By": "legacy-user (1000)",
+    "Command": ["purge", "nala-history-test"],
+    "Purged": true,
+    "Explicit": ["nala-history-test"],
+    "Removed": [["nala-history-test", "1.0", "1024"]],
+    "Auto-Removed": [], "Installed": [], "Reinstalled": [],
+    "Upgraded": [], "Downgraded": []
+  },
+  "8": {
+    "Date": "2026-01-01 04:00:00 UTC",
+    "Requested-By": "legacy-user (1000)",
+    "Command": ["upgrade"],
+    "Purged": false,
+    "Explicit": [],
+    "Removed": [], "Auto-Removed": [], "Installed": [], "Reinstalled": [],
+    "Upgraded": [["nala-history-test", "2.0", "1024", "1.0"]],
+    "Downgraded": []
+  },
+  "Nala": {
+    "History-Version": "1",
+    "User-Installed": []
+  }
+}

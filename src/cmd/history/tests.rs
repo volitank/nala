@@ -307,6 +307,14 @@ fn history_entry_json_roundtrip_preserves_recorded_fields() {
 	assert_eq!(decoded.packages[0].name, "demo");
 }
 
+#[test]
+fn history_entry_accepts_beta_altered_field() {
+	let mut value = serde_json::to_value(sample_entry(1, "upgrade")).unwrap();
+	value["altered"] = serde_json::json!(18);
+
+	assert_eq!(serde_json::from_value::<HistoryEntry>(value).unwrap().id, 1);
+}
+
 fn temp_history_dir() -> PathBuf {
 	let template = std::env::temp_dir().join("nala-history-test-XXXXXX");
 	nix::unistd::mkdtemp(&template).unwrap()

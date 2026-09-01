@@ -18,12 +18,8 @@ if [[ ! -x "${nala_bin}" ]]; then
 	exit 1
 fi
 
-pkg_dir="${work_dir}/${package}"
 deb_path="${work_dir}/${package}.deb"
-mkdir -p "${pkg_dir}/DEBIAN"
-cp tests/deb/term/control "${pkg_dir}/DEBIAN/control"
-install -m 755 tests/deb/term/postinst "${pkg_dir}/DEBIAN/postinst"
-dpkg-deb --build "${pkg_dir}" "${deb_path}" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-whiptail-test "${deb_path}" >/dev/null
 
 capture() {
 	tmux capture-pane -p -t "${session}" -S -100

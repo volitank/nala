@@ -72,7 +72,11 @@ docker COMMAND:
 
 # Run Debian package integration test
 debtest:
-    @just docker 'cargo build --locked --quiet && tests/deb/run'
+    @just docker 'cargo build --locked --quiet && tests/deb/run && tests/deb/history/run'
+
+# Run history package integration test
+history-test:
+    @just docker 'cargo build --locked --quiet && tests/deb/history/run'
 
 # Run terminal integration test
 term-test:

@@ -1,18 +1,15 @@
-# Debian Package Fixtures
+# Debian integration tests
 
-This directory holds Debian integration test package metadata.
-Generated `.deb` files are built in a temp directory by `run`.
+These tests run the built Nala binary against real APT and dpkg state in a
+disposable Debian environment. Package fixtures use ordinary `DEBIAN/`
+directories under `packages/` and are built into temporary `.deb` files.
 
-Current package:
+- `run` checks that APT and Nala reject the unsatisfiable
+  `broken-or-deps` package.
+- `history/run` exercises conversion, package lifecycle, replay, clearing, and
+  failure handling against an offline APT repository and real dpkg state.
+- `term/run` installs the whiptail fixture in tmux, resizes the terminal while
+  the dialog is open, and verifies that output resumes at column zero.
 
-- `broken-or-deps.control`
-- version `1.0`
-- architecture `all`
-- depends on `missing-a (>= 1.0) | missing-b (>= 1.0)`
-
-Neither dependency is available. `apt-get install -s ./broken-or-deps.deb`
-and `nala install ./broken-or-deps.deb` should both fail with unmet dependencies.
-
-`just term-test` runs the whiptail fixture in tmux, resizes the terminal while
-the dialog is open, and verifies that package output and the shell prompt resume
-at column zero. GitLab CI runs the same test after building the Debian package.
+Run `just debtest`, `just history-test`, or `just term-test` from the
+repository root. GitLab CI runs the same scripts against the release binary.

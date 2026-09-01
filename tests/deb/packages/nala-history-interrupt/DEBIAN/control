@@ -1,0 +1,5 @@
+Package: nala-history-interrupt
+Version: 1.0
+Architecture: all
+Maintainer: Nala Tests <noreply@example.invalid>
+Description: Nala history interrupted postinst fixture

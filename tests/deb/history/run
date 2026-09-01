@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+nala_bin="${1:-${CARGO_TARGET_DIR:-target}/debug/nala}"
+package="nala-history-test"
+fail_package="nala-history-fail"
+interrupt_package="nala-history-interrupt"
+interrupt_marker="/tmp/${interrupt_package}.started"
+
+[[ -x "${nala_bin}" ]] || { echo "Missing Nala binary: ${nala_bin}" >&2; exit 1; }
+[[ "$(id -u)" == "0" ]] || { echo "History tests need root." >&2; exit 1; }
+
+work_dir="$(mktemp -d)"
+chmod a+rx "${work_dir}"
+history_dir="${work_dir}/state/history"
+legacy_path="${history_dir}.json"
+repo_dir="${work_dir}/repo"
+sources_list="${work_dir}/sources.list"
+config_file="${work_dir}/nala.conf"
+server_pid=
+
+cleanup() {
+	[[ -z "${server_pid}" ]] || kill "${server_pid}" 2>/dev/null || true
+	dpkg --purge "${package}" "${fail_package}" "${interrupt_package}" >/dev/null 2>&1 || true
+	rm -f "${interrupt_marker}"
+	rm -rf "${work_dir}"
+}
+trap cleanup EXIT
+
+mkdir -p "${history_dir}" "${repo_dir}"
+cp tests/deb/history/legacy.json "${legacy_path}"
+cp tests/deb/history/rust-v1.json "${history_dir}/7.json"
+
+legacy_hash="$(sha256sum "${legacy_path}")"
+rust_hash="$(sha256sum "${history_dir}/7.json")"
+
+deb_path="${repo_dir}/${package}_1.0_all.deb"
+deb_v2_path="${repo_dir}/${package}_2.0_all.deb"
+fail_deb_path="${repo_dir}/${fail_package}_1.0_all.deb"
+interrupt_deb_path="${repo_dir}/${interrupt_package}_1.0_all.deb"
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-test-v1 "${deb_path}" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-test-v2 "${deb_v2_path}" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-fail "${fail_deb_path}" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-interrupt "${interrupt_deb_path}" >/dev/null
+(
+	cd "${repo_dir}"
+	dpkg-scanpackages --multiversion . /dev/null >Packages
+) 2>/dev/null
+python3 -m http.server 8765 --bind 127.0.0.1 --directory "${repo_dir}" >/dev/null 2>&1 &
+server_pid=$!
+until python3 -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8765/Packages")' 2>/dev/null; do sleep 0.1; done
+printf 'deb [trusted=yes] http://127.0.0.1:8765 ./\n' >"${sources_list}"
+printf 'Nala = { assume_yes = true }\n' >"${config_file}"
+
+apt_options=(
+	-o "Dir::Etc::sourcelist=${sources_list}"
+	-o "Dir::Etc::sourceparts=-"
+)
+
+apt-get "${apt_options[@]}" update >/dev/null
+
+nala() {
+	NALA_HISTORY_DIR="${history_dir}" "${nala_bin}" --config "${config_file}" \
+		--no-tui --color never "${apt_options[@]}" "$@"
+}
+
+history="$(runuser -u nobody -- env NALA_HISTORY_DIR="${history_dir}" \
+	"${nala_bin}" --config "${config_file}" --no-tui --color never history)"
+grep -Fq "legacy-user (1000)" <<<"${history}"
+grep -Fq "beta full-upgrade" <<<"${history}"
+[[ "$(sha256sum "${legacy_path}")" == "${legacy_hash}" ]]
+[[ "$(sha256sum "${history_dir}/7.json")" == "${rust_hash}" ]]
+[[ ! -e "${history_dir}/.legacy-history-handled" ]]
+
+nala install --assume-yes "${package}=1.0"
+[[ "$(dpkg-query -W -f='${Status} ${Version}' "${package}")" == "install ok installed 1.0" ]]
+[[ "$(sha256sum "${legacy_path}")" == "${legacy_hash}" ]]
+
+nala history >/dev/null
+python3 tests/deb/history/verify.py "${history_dir}" \
+	Upgrade Install Remove Purge Upgrade Upgrade Install
+[[ "$(sha256sum "${legacy_path}")" == "${legacy_hash}" ]]
+
+echo "PASS: real install imported mixed history without changing the legacy source."
+
+nala remove --assume-yes "${package}" >/dev/null
+[[ "$(dpkg-query -W -f='${db:Status-Abbrev}' "${package}")" == "rc " ]]
+[[ -e /etc/nala-history-test.conf ]]
+nala install --assume-yes "${package}=1.0" >/dev/null
+nala purge --assume-yes "${package}" >/dev/null
+! dpkg-query -W "${package}" >/dev/null 2>&1
+[[ ! -e /etc/nala-history-test.conf ]]
+nala install --assume-yes "${package}=1.0" >/dev/null
+apt-mark auto "${package}" >/dev/null
+nala autoremove --assume-yes >/dev/null
+[[ "$(dpkg-query -W -f='${db:Status-Abbrev}' "${package}")" == "rc " ]]
+[[ -e /etc/nala-history-test.conf ]]
+python3 tests/deb/history/verify.py "${history_dir}" \
+	Upgrade Install Remove Purge Upgrade Upgrade Install Remove Install Purge Install AutoRemove
+
+echo "PASS: remove, purge, and autoremove history match dpkg state."
+
+history_dir="${work_dir}/replay/history"
+legacy_path="${history_dir}.json"
+mkdir -p "${history_dir}"
+cp tests/deb/history/legacy.json "${legacy_path}"
+replay_hash="$(sha256sum "${legacy_path}")"
+
+dpkg -i "${deb_path}" >/dev/null
+nala history undo 2 >/dev/null
+! dpkg-query -W "${package}" >/dev/null 2>&1
+nala history redo 2 >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+
+dpkg --remove "${package}" >/dev/null
+nala history undo 3 >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+nala history redo 3 >/dev/null
+[[ "$(dpkg-query -W -f='${db:Status-Abbrev}' "${package}")" == "rc " ]]
+
+dpkg --purge "${package}" >/dev/null
+nala history undo 4 >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+nala history redo 4 >/dev/null
+! dpkg-query -W "${package}" >/dev/null 2>&1
+
+dpkg -i "${deb_v2_path}" >/dev/null
+nala history undo 5 >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+nala history redo 5 >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "2.0" ]]
+[[ "$(sha256sum "${legacy_path}")" == "${replay_hash}" ]]
+python3 tests/deb/history/verify.py "${history_dir}" \
+	Upgrade Install Remove Purge Upgrade Remove Install Install Remove Install Purge Downgrade Upgrade
+
+echo "PASS: imported install, remove, purge, and upgrade entries undo and redo."
+
+history_dir="${work_dir}/clear/history"
+legacy_path="${history_dir}.json"
+mkdir -p "${history_dir}"
+cp tests/deb/history/legacy.json "${legacy_path}"
+clear_hash="$(sha256sum "${legacy_path}")"
+nala history clear 1 >/dev/null
+[[ -e "${history_dir}/.legacy-history-handled" ]]
+[[ ! -e "${history_dir}/1.json" && -e "${history_dir}/2.json" ]]
+[[ "$(sha256sum "${legacy_path}")" == "${clear_hash}" ]]
+nala history clear --all >/dev/null
+[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+[[ -e "${history_dir}/.legacy-history-handled" ]]
+[[ "$(sha256sum "${legacy_path}")" == "${clear_hash}" ]]
+
+echo "PASS: clear removes one imported entry or all entries without changing legacy history."
+
+history_dir="${work_dir}/conversion-failure/history"
+legacy_path="${history_dir}.json"
+mkdir -p "${history_dir}"
+cp tests/deb/history/rust-v1.json "${history_dir}/7.json"
+printf '{\n' >"${legacy_path}"
+failed_legacy_hash="$(sha256sum "${legacy_path}")"
+failed_rust_hash="$(sha256sum "${history_dir}/7.json")"
+if nala history clear --all >/dev/null 2>&1; then
+	echo "Malformed legacy conversion unexpectedly succeeded." >&2
+	exit 1
+fi
+[[ "$(sha256sum "${legacy_path}")" == "${failed_legacy_hash}" ]]
+[[ "$(sha256sum "${history_dir}/7.json")" == "${failed_rust_hash}" ]]
+[[ ! -e "${history_dir}/.legacy-history-handled" ]]
+
+echo "PASS: failed conversion leaves the source and Rust store untouched."
+
+history_dir="${work_dir}/dpkg-failure/history"
+mkdir -p "${history_dir}"
+if nala install "${fail_package}" >/dev/null 2>&1; then
+	echo "Failing postinst unexpectedly succeeded." >&2
+	exit 1
+fi
+[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+dpkg --purge "${fail_package}" >/dev/null 2>&1 || true
+
+history_dir="${work_dir}/interrupted/history"
+mkdir -p "${history_dir}"
+if (
+	for _ in {1..200}; do
+		[[ ! -e "${interrupt_marker}" ]] || break
+		sleep 0.05
+	done
+	printf '\003'
+) | nala install "${interrupt_package}" >/dev/null 2>&1; then
+	echo "Interrupted postinst unexpectedly succeeded." >&2
+	exit 1
+fi
+[[ -e "${interrupt_marker}" ]]
+[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+
+echo "PASS: failed and interrupted dpkg runs record no successful history entry."

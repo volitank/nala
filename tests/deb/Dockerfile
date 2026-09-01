@@ -9,6 +9,7 @@ RUN apt-get update \
 		dpkg-dev \
 		just \
 		libapt-pkg-dev \
+		python3 \
 		tmux \
 		whiptail \
 	&& rm -rf /var/lib/apt/lists/*
