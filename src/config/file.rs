@@ -115,7 +115,7 @@ impl ConfigFile {
 
 	pub fn unit_format(&self) -> UnitStr { UnitStr::new(0, self.ui.unit) }
 
-	fn parse(conf: &str) -> Result<Self> { Ok(hcl::from_str(conf)?) }
+	fn parse(conf: &str) -> Result<Self> { Ok(toml::from_str(conf)?) }
 }
 
 #[cfg(test)]
@@ -126,7 +126,7 @@ mod tests {
 	use crate::util::NumSys;
 
 	#[test]
-	fn parses_target_hcl_shape() {
+	fn parses_target_toml_shape() {
 		let conf = include_str!("../../nala.conf");
 		let file = ConfigFile::parse(conf).unwrap();
 		assert!(file.nala.auto_remove);
@@ -145,21 +145,21 @@ mod tests {
 
 	#[test]
 	fn missing_sections_use_defaults() {
-		let file = ConfigFile::parse("Ui = { mode = \"Plain\" }").unwrap();
+		let file = ConfigFile::parse("[Ui]\nmode = \"Plain\"").unwrap();
 		assert_eq!(file.ui.mode, UiMode::Plain);
 		assert!(file.nala.auto_remove);
 		assert_eq!(file.color.mode, Switch::Auto);
 	}
 
 	#[test]
-	fn rejects_unknown_and_legacy_fields() {
+	fn rejects_unknown_and_hcl_fields() {
 		for conf in [
-			"Unknown = {}",
-			"Nala = { typo = true }",
-			"Ui = { typo = true }",
-			"Color = { typo = true }",
-			"Color = { theme = { Primary = { fg = \"Green\", typo = true } } }",
-			"[Nala]\nauto_remove = false",
+			"[Unknown]",
+			"[Nala]\ntypo = true",
+			"[Ui]\ntypo = true",
+			"[Color]\ntypo = true",
+			"[Color.theme]\nPrimary = { fg = \"Green\", typo = true }",
+			"Nala = { auto_remove = true auto_update = true }",
 		] {
 			assert!(ConfigFile::parse(conf).is_err(), "accepted: {conf}");
 		}

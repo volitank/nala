@@ -11,11 +11,12 @@ nala (0.17.0) unstable; urgency=medium
 
   This package now builds the Rust implementation of Nala.
 
-  /etc/nala/nala.conf now uses HCL. It remains a dpkg conffile: dpkg replaces
-  an unmodified packaged file automatically and prompts before replacing local
-  changes. If the old file is kept, the packaged HCL file is normally saved as
-  /etc/nala/nala.conf.dpkg-dist. Nala now refuses an existing invalid config
-  instead of silently using defaults.
+  /etc/nala/nala.conf remains TOML, with new Ui and Color sections for the Rust
+  implementation. It remains a dpkg conffile: dpkg replaces an unmodified
+  packaged file automatically and prompts before replacing local changes. If
+  the old file is kept, the packaged file is normally saved as
+  /etc/nala/nala.conf.dpkg-dist. Nala now refuses an existing invalid config or
+  retired field instead of silently using defaults.
 
   Plain output and binary units are now the defaults. The TUI is opt-in through
   Ui.mode or --tui. Legacy scrolling_text and transfer_speed_bits settings are

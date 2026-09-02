@@ -33,7 +33,7 @@ archived under [`legacy/python`](legacy/python).
 - Mirror selection through `nala fetch`, including automatic and interactive
   TUI modes
 - Machine-readable output for package info and policy views
-- HCL configuration for Nala behavior, UI mode, units, color mode, and theme
+- TOML configuration for Nala behavior, UI mode, units, color mode, and theme
 - Shell completion integration through `clap_complete`
 - Generated manpage and Markdown command documentation from the Rust CLI
 
@@ -83,7 +83,7 @@ Most transaction commands accept shared safety and behavior flags such as
 
 ## Configuration
 
-Nala reads an HCL configuration file. See [`nala.conf`](nala.conf) for the
+Nala reads a TOML configuration file. See [`nala.conf`](nala.conf) for the
 current shape. The built-in defaults are used when the default file is absent;
 an existing unreadable or invalid file is reported as an error instead of
 being ignored.
@@ -106,7 +106,7 @@ forces plain output for the current invocation.
 The Debian package manages `/etc/nala/nala.conf` as a conffile. On upgrade,
 dpkg replaces an unmodified packaged file automatically and prompts before
 replacing local changes. If the old file is kept, compare it with
-`/etc/nala/nala.conf.dpkg-dist`; Nala does not silently convert legacy TOML.
+`/etc/nala/nala.conf.dpkg-dist`; Nala rejects retired and unknown fields.
 
 ## Development
 

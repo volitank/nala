@@ -21,7 +21,7 @@ ratatui = { version = "0.30.2", default-features = false, features = ["crossterm
 comfy-table = { version = "7.2.2", features = ["tty", "custom_styling"] }
 mio = { version = "1.2.2", features = ["os-ext"] }
 indexmap = "2.14.0"
-hcl = { package = "hcl-rs", version = "0.19.7" }
+toml = "1.1.4"
 anyhow = "1.0.104"
 regex = "1.13.1"
 globset = "0.4.19"

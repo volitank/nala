@@ -30,7 +30,7 @@ nala (0.17.0) unstable; urgency=medium
   [ Changes ]
   * Switch the development package from the Python implementation to Rust.
   * Archive the Python implementation under legacy/python.
-  * Adopt the Rust HCL configuration format.
+  * Keep TOML configuration with a typed Rust schema.
   * Add Rust-based Debian packaging and command documentation.
 
  -- Blake Lee <blake@volian.org>  Wed, 20 May 2026 00:00:00 -0500
