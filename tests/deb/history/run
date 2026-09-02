@@ -15,6 +15,7 @@ chmod a+rx "${work_dir}"
 history_dir="${work_dir}/state/history"
 legacy_path="${history_dir}.json"
 repo_dir="${work_dir}/repo"
+archive_dir="${work_dir}/archives"
 sources_list="${work_dir}/sources.list"
 config_file="${work_dir}/nala.conf"
 server_pid=
@@ -25,11 +26,12 @@ cleanup() {
 	dpkg --purge "${package}" "${fail_package}" "${interrupt_package}" >/dev/null 2>&1 || true
 	((${#ambient_auto[@]} == 0)) || apt-mark auto "${ambient_auto[@]}" >/dev/null 2>&1 || true
 	rm -f "${interrupt_marker}"
+	rm -f /etc/nala-history-test.conf.dpkg-*
 	rm -rf "${work_dir}"
 }
 trap cleanup EXIT
 
-mkdir -p "${history_dir}" "${repo_dir}"
+mkdir -p "${history_dir}" "${repo_dir}" "${archive_dir}/partial"
 cp tests/deb/history/legacy.json "${legacy_path}"
 cp tests/deb/history/rust-v1.json "${history_dir}/7.json"
 
@@ -57,6 +59,7 @@ printf 'Nala = { assume_yes = true }\n' >"${config_file}"
 apt_options=(
 	-o "Dir::Etc::sourcelist=${sources_list}"
 	-o "Dir::Etc::sourceparts=-"
+	-o "Dir::Cache::Archives=${archive_dir}/"
 )
 
 apt-get "${apt_options[@]}" update >/dev/null
@@ -68,6 +71,10 @@ mapfile -t ambient_auto < <(
 nala() {
 	NALA_HISTORY_DIR="${history_dir}" "${nala_bin}" --config "${config_file}" \
 		--no-tui --color never "${apt_options[@]}" "$@"
+}
+
+history_entry_count() {
+	find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -printf x | wc -c
 }
 
 history="$(runuser -u nobody -- env NALA_HISTORY_DIR="${history_dir}" \
@@ -157,6 +164,101 @@ nala history clear --all >/dev/null
 
 echo "PASS: clear removes one imported entry or all entries without changing legacy history."
 
+dpkg --purge "${package}" >/dev/null 2>&1 || true
+history_dir="${work_dir}/operations/history"
+mkdir -p "${history_dir}"
+
+nala update >/dev/null
+[[ "$(history_entry_count)" == "0" ]]
+
+nala install "${package}=1.0" >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+nala upgrade --no-update >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "2.0" ]]
+python3 tests/deb/history/verify.py --native "${history_dir}" Install Upgrade
+python3 - "${history_dir}/2.json" <<'PY'
+import json
+import sys
+
+entry = json.load(open(sys.argv[1]))
+package, = entry["packages"]
+assert (package["name"], package["operation"]) == ("nala-history-test", "Upgrade")
+assert (package["before"]["version"], package["after"]["version"]) == ("1.0", "2.0")
+PY
+
+echo "PASS: update creates no history and Nala records the real v1-to-v2 upgrade."
+
+dpkg --purge "${package}" >/dev/null
+history_dir="${work_dir}/download/history"
+mkdir -p "${history_dir}"
+find "${archive_dir}" -maxdepth 1 -type f -name '*.deb' -delete
+
+nala install --download-only "${package}=1.0" >/dev/null
+! dpkg-query -W "${package}" >/dev/null 2>&1
+[[ "$(history_entry_count)" == "0" ]]
+[[ -f "${archive_dir}/$(basename "${deb_path}")" ]]
+
+rm -f "${archive_dir}"/*.deb
+direct_hash="$(sha256sum "${deb_v2_path}" | cut -d' ' -f1)"
+direct_url="http://127.0.0.1:8765/$(basename "${deb_v2_path}"):${direct_hash}"
+nala install "${direct_url}" >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "2.0" ]]
+python3 tests/deb/history/verify.py --native "${history_dir}" Install
+
+echo "PASS: download-only avoids mutation and direct URL installation records history."
+
+dpkg --purge "${package}" >/dev/null
+history_dir="${work_dir}/refusal/history"
+mkdir -p "${history_dir}"
+if nala install -n "${package}=1.0" >/dev/null 2>&1; then
+	echo "Assume-no unexpectedly allowed package mutation." >&2
+	exit 1
+fi
+! dpkg-query -W "${package}" >/dev/null 2>&1
+[[ "$(history_entry_count)" == "0" ]]
+
+echo "PASS: assume-no leaves package state and history untouched."
+
+history_dir="${work_dir}/hooks/history"
+mkdir -p "${history_dir}"
+
+if nala -o "DPkg::Pre-Invoke::=exit 23" install "${package}=1.0" >/dev/null 2>&1; then
+	echo "Failing pre-hook unexpectedly allowed package mutation." >&2
+	exit 1
+fi
+! dpkg-query -W "${package}" >/dev/null 2>&1
+[[ "$(history_entry_count)" == "0" ]]
+
+if nala -o "DPkg::Post-Invoke::=exit 24" install "${package}=1.0" >/dev/null 2>&1; then
+	echo "Failing post-hook unexpectedly succeeded." >&2
+	exit 1
+fi
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+python3 tests/deb/history/verify.py --native "${history_dir}" Install
+
+echo "PASS: pre-hook failure blocks mutation; post-hook failure preserves state and history."
+
+dpkg --purge "${package}" >/dev/null
+rm -f /etc/nala-history-test.conf.dpkg-*
+dpkg -i "${deb_path}" >/dev/null
+printf 'locally modified\n' >/etc/nala-history-test.conf
+history_dir="${work_dir}/conffile/history"
+legacy_path="${history_dir}.json"
+mkdir -p "${history_dir}"
+cp tests/deb/history/legacy.json "${legacy_path}"
+conffile_legacy_hash="$(sha256sum "${legacy_path}")"
+
+nala -o "Dpkg::Options::=--force-confold" upgrade --no-update >/dev/null
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "2.0" ]]
+grep -Fqx "locally modified" /etc/nala-history-test.conf
+grep -Fqx "nala history integration fixture version 2" \
+	/etc/nala-history-test.conf.dpkg-dist
+[[ "$(sha256sum "${legacy_path}")" == "${conffile_legacy_hash}" ]]
+python3 tests/deb/history/verify.py "${history_dir}" \
+	Upgrade Install Remove Purge Upgrade Upgrade
+
+echo "PASS: retained conffile survives upgrade while legacy history imports."
+
 dpkg --purge "${package}" >/dev/null
 history_dir="${work_dir}/conversion-failure/history"
 legacy_path="${history_dir}.json"
@@ -182,7 +284,7 @@ if nala install "${fail_package}" >/dev/null 2>&1; then
 	echo "Failing postinst unexpectedly succeeded." >&2
 	exit 1
 fi
-[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+[[ "$(history_entry_count)" == "0" ]]
 dpkg --purge "${fail_package}" >/dev/null 2>&1 || true
 
 history_dir="${work_dir}/interrupted/history"
@@ -198,6 +300,6 @@ if (
 	exit 1
 fi
 [[ -e "${interrupt_marker}" ]]
-[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+[[ "$(history_entry_count)" == "0" ]]
 
 echo "PASS: failed and interrupted dpkg runs record no successful history entry."

@@ -101,7 +101,11 @@ impl Config {
 				let Some((key, value)) = raw_opt.split_once("=") else {
 					bail!("{}", t!("config-option", "option" => raw_opt));
 				};
-				self.apt.set(key, value);
+				if let Some(key) = key.strip_suffix("::") {
+					self.apt.set_vector(key, &vec![value]);
+				} else {
+					self.apt.set(key, value);
+				}
 			}
 		}
 
@@ -433,6 +437,31 @@ mod test {
 		config.apt.clear("APT::Install-Recommends");
 		config.apt.clear("APT::Install-Suggests");
 		config.apt.clear("APT::Default-Release");
+	}
+
+	#[test]
+	fn apt_vector_options_append_values() {
+		let _guard = test_lock();
+		let key = "DPkg::Pre-Invoke";
+		let args = NalaParser::command()
+			.try_get_matches_from([
+				"nala",
+				"-o",
+				"DPkg::Pre-Invoke::=exit 23",
+				"-o",
+				"DPkg::Pre-Invoke::=exit 24",
+				"install",
+				"demo",
+			])
+			.unwrap();
+		let (_, cmd) = args.subcommand().unwrap();
+		let mut config = Config::default();
+		config.apt.clear(key);
+
+		config.load_args(cmd).unwrap();
+
+		assert_eq!(config.apt.find_vector(key), ["exit 23", "exit 24"]);
+		config.apt.clear(key);
 	}
 
 	#[test]

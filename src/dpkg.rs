@@ -114,11 +114,6 @@ impl Drop for PtyInputGuard {
 }
 
 pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
-	// Do not run any apt scripts, Nala does this herself.
-	config.apt.clear("DPkg::Pre-Invoke");
-	config.apt.clear("DPkg::Post-Invoke");
-	config.apt.clear("DPkg::Pre-Install-Pkgs");
-
 	debug!("run_install");
 
 	let (statusfd, writefd) = pipe()?;
@@ -129,6 +124,10 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	match unsafe { forkpty(&window_size, None)? } {
 		nix::pty::ForkptyResult::Child => {
 			drop(statusfd);
+			// Do not run any apt scripts here; Nala runs them in the parent.
+			config.apt.clear("DPkg::Pre-Invoke");
+			config.apt.clear("DPkg::Post-Invoke");
+			config.apt.clear("DPkg::Pre-Install-Pkgs");
 
 			let child_result = (|| -> Result<()> {
 				let mut progress = AcquireProgress::apt();

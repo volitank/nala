@@ -4,6 +4,7 @@ set -euo pipefail
 nala_bin="${1:-${CARGO_TARGET_DIR:-target}/debug/nala}"
 package="nala-whiptail-test"
 work_dir="$(mktemp -d)"
+history_dir="${work_dir}/history"
 session="nala-term-test-$$"
 
 cleanup() {
@@ -19,6 +20,7 @@ if [[ ! -x "${nala_bin}" ]]; then
 fi
 
 deb_path="${work_dir}/${package}.deb"
+mkdir -p "${history_dir}"
 dpkg-deb --root-owner-group --build tests/deb/packages/nala-whiptail-test "${deb_path}" >/dev/null
 
 capture() {
@@ -45,6 +47,17 @@ tmux send-keys -l -t "${session}" "PS1='nala-term-test# '"
 tmux send-keys -t "${session}" Enter
 wait_for "nala-term-test#"
 
+printf -v cancel_command \
+	'%q --history-dir %q --tui --color never install %q; status=$?; printf "\\n__NALA_TERM_CANCEL_DONE__:%%s\\n" "$status"' \
+	"${nala_bin}" "${history_dir}" "${deb_path}"
+tmux send-keys -l -t "${session}" "${cancel_command}"
+tmux send-keys -t "${session}" Enter
+wait_for "Nala Upgrade"
+tmux send-keys -t "${session}" q
+wait_for "__NALA_TERM_CANCEL_DONE__:1"
+! dpkg-query -W "${package}" >/dev/null 2>&1
+[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+
 printf -v install_command \
 	'%q install -y %q; status=$?; printf "\\n__NALA_TERM_TEST_DONE__:%%s\\n" "$status"' \
 	"${nala_bin}" "${deb_path}"
@@ -63,4 +76,5 @@ grep -Fqx "0" <<<"${output}"
 grep -Fqx "__NALA_TERM_TEST_DONE__:0" <<<"${output}"
 grep -Fqx "nala-term-test#" <<<"${output}"
 
+echo "PASS: TUI cancellation leaves package state and history untouched."
 echo "PASS: terminal output resumes at column zero after whiptail and resize."
