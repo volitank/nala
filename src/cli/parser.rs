@@ -25,11 +25,11 @@ pub struct NalaParser {
 	#[clap(global = true, long, hide = true, value_name = "DIR")]
 	pub history_dir: Option<PathBuf>,
 
-	/// Turn on tui if it's disabled in the config.
+	/// Enable optional full-screen interfaces
 	#[clap(global = true, long, action, conflicts_with = "no_tui")]
 	pub tui: bool,
 
-	/// Turn the tui off. Takes precedence over other options
+	/// Disable optional full-screen interfaces
 	#[clap(global = true, long, action, conflicts_with = "tui")]
 	pub no_tui: bool,
 

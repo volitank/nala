@@ -9,7 +9,7 @@ use crate::cmd::{self, HistoryEntry, apt_hook_with_pkgs, run_scripts};
 use crate::config::{Config, Paths, Theme, color, keys};
 use crate::download::Downloader;
 use crate::libnala::{NalaCache, Operation, PackageKey, PackageTransition, package_key};
-use crate::terminal::{TerminalGuard, use_tui};
+use crate::terminal::{TerminalGuard, use_fullscreen_ui};
 use crate::tui::summary::SummaryRow;
 use crate::{dpkg, error, info, t, table, tui, util, warn};
 
@@ -24,7 +24,7 @@ pub async fn display_summary(
 		return Ok(true);
 	}
 
-	if use_tui(config)
+	if use_fullscreen_ui(config)
 		&& !config.get_bool(keys::ASSUME_YES, false)
 		&& !config.get_bool(keys::ASSUME_NO, false)
 	{

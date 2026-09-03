@@ -65,7 +65,7 @@ run_interactive() {
 	local output="$2"
 
 	python3 tests/deb/release-info/interact.py \
-		"${output}" "${input}" "${nala[@]}" --tui update
+		"${output}" "${input}" "${nala[@]}" update
 }
 
 write_release Earth
@@ -94,6 +94,7 @@ grep -Fq "Repository:" "${work_dir}/accept.log"
 grep -Fq "Distribution:" "${work_dir}/accept.log"
 grep -Fq "Origin:" "${work_dir}/accept.log"
 grep -Fq "Accepted repository information changes" "${work_dir}/accept.log"
+grep -Fq $'\rFetched ' "${work_dir}/accept.log"
 
 write_release Venus
 "${nala[@]}" --no-tui -o Acquire::AllowReleaseInfoChange=true update \

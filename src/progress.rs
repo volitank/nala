@@ -4,17 +4,15 @@
 //! progress renderer, and the selection of the ratatui progress backend.
 
 use std::env;
-use std::io::{IsTerminal, Write, stderr, stdout};
+use std::io::{IsTerminal, Write, stderr};
 use std::time::Instant;
 
 use anyhow::Result;
-use ratatui::backend::CrosstermBackend;
-use ratatui::{Terminal, TerminalOptions, Viewport};
 use rust_apt::util::time_str;
 
 use crate::config::{Config, Theme};
 use crate::t;
-use crate::terminal::{RawModeGuard, Term, use_tui};
+use crate::terminal::use_enhanced_ui;
 use crate::tui::progress::TuiProgressRenderer;
 use crate::util::{NumSys, UnitStr};
 
@@ -328,20 +326,8 @@ impl PlainProgress {
 	}
 }
 
-fn progress_terminal(lines: u16) -> Result<Term> {
-	Ok(Terminal::with_options(
-		CrosstermBackend::new(stdout()),
-		TerminalOptions {
-			viewport: Viewport::Inline(lines),
-		},
-	)?)
-}
-
 enum ProgressKind<'a> {
-	Tui {
-		renderer: TuiProgressRenderer<'a>,
-		raw: RawModeGuard,
-	},
+	Tui(TuiProgressRenderer<'a>),
 	Plain(PlainProgress),
 }
 
@@ -357,11 +343,8 @@ impl<'a> Progress<'a> {
 	}
 
 	pub fn with_tui_lines(config: &'a Config, dpkg: bool, tui_lines: u16) -> Result<Self> {
-		let kind = if use_tui(config) {
-			let raw = RawModeGuard::new()?;
-			let terminal = progress_terminal(tui_lines)?;
-			let renderer = TuiProgressRenderer::new(config, terminal)?;
-			ProgressKind::Tui { renderer, raw }
+		let kind = if use_enhanced_ui(config) {
+			ProgressKind::Tui(TuiProgressRenderer::new(config, tui_lines)?)
 		} else {
 			ProgressKind::Plain(PlainProgress::new())
 		};
@@ -400,7 +383,7 @@ impl<'a> Progress<'a> {
 		}
 
 		match &mut self.kind {
-			ProgressKind::Tui { renderer, .. } => renderer.clean_up()?,
+			ProgressKind::Tui(renderer) => renderer.hide()?,
 			ProgressKind::Plain(inner) => inner.clear_line()?,
 		}
 
@@ -413,8 +396,8 @@ impl<'a> Progress<'a> {
 			return Ok(());
 		}
 
-		if let ProgressKind::Tui { renderer, .. } = &mut self.kind {
-			renderer.unhide()?;
+		if let ProgressKind::Tui(renderer) = &mut self.kind {
+			renderer.resume()?;
 		}
 
 		self.state.set_hidden(false);
@@ -427,10 +410,7 @@ impl<'a> Progress<'a> {
 		}
 
 		match &mut self.kind {
-			ProgressKind::Tui { renderer, raw } => {
-				renderer.clean_up()?;
-				raw.disable()?;
-			},
+			ProgressKind::Tui(renderer) => renderer.suspend()?,
 			ProgressKind::Plain(inner) => inner.clear_line()?,
 		}
 
@@ -443,9 +423,8 @@ impl<'a> Progress<'a> {
 			return Ok(());
 		}
 
-		if let ProgressKind::Tui { renderer, raw } = &mut self.kind {
-			raw.ensure_enabled()?;
-			renderer.unhide()?;
+		if let ProgressKind::Tui(renderer) = &mut self.kind {
+			renderer.resume()?;
 		}
 
 		self.state.set_hidden(false);
@@ -455,7 +434,7 @@ impl<'a> Progress<'a> {
 	pub fn print(&mut self, msg: &str) -> Result<()> {
 		let state = &self.state;
 		match &mut self.kind {
-			ProgressKind::Tui { renderer, .. } => renderer.print(state, msg),
+			ProgressKind::Tui(renderer) => renderer.print(state, msg),
 			ProgressKind::Plain(inner) => {
 				inner.print(state, msg);
 				Ok(())
@@ -466,19 +445,14 @@ impl<'a> Progress<'a> {
 	pub fn render(&mut self) -> Result<()> {
 		let state = &self.state;
 		match &mut self.kind {
-			ProgressKind::Tui { renderer, .. } => renderer.render(state),
+			ProgressKind::Tui(renderer) => renderer.render(state),
 			ProgressKind::Plain(inner) => inner.render(state),
 		}
 	}
 
 	pub fn clean_up(&mut self) -> Result<()> {
 		match &mut self.kind {
-			ProgressKind::Tui { renderer, raw } => {
-				let renderer_result = renderer.clean_up();
-				let raw_result = raw.disable();
-				renderer_result?;
-				raw_result
-			},
+			ProgressKind::Tui(renderer) => renderer.suspend(),
 			ProgressKind::Plain(inner) => inner.clear_line(),
 		}
 	}

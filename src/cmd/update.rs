@@ -8,7 +8,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::config::{Config, Theme, color, keys};
 use crate::progress::{Progress, ProgressMessage};
-use crate::terminal::{poll_exit_event, use_tui};
+use crate::terminal::{poll_exit_event, use_enhanced_ui};
 use crate::util::confirm_with_default;
 use crate::{t, tui};
 
@@ -52,7 +52,7 @@ fn release_info_decision(
 		false
 	} else {
 		progress.suspend()?;
-		let decision = if use_tui(config) {
+		let decision = if use_enhanced_ui(config) {
 			tui::release_info::confirm(config, info)
 		} else {
 			confirm_with_default(config, &t!("release-info-confirm"), false)

@@ -21,7 +21,7 @@ use rust_apt::progress::{AcquireProgress, InstallProgress};
 
 use crate::config::{Config, Theme, color};
 use crate::progress::Progress;
-use crate::terminal::use_tui;
+use crate::terminal::use_enhanced_ui;
 use crate::{debug, dprog, t};
 
 // const CURSER_UP: &'static str = "\x1b[1A";
@@ -150,7 +150,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			std::process::exit(0);
 		},
 		nix::pty::ForkptyResult::Parent { child, master } => {
-			let _input_mode = if stdin().is_terminal() && !use_tui(config) {
+			let _input_mode = if stdin().is_terminal() && !use_enhanced_ui(config) {
 				Some(PtyInputGuard::new()?)
 			} else {
 				None

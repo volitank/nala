@@ -189,7 +189,10 @@ impl Config {
 
 	pub fn ui_mode(&self) -> UiMode {
 		if self.get_bool(keys::NO_TUI, false) {
-			return UiMode::Plain;
+			return match self.file.ui.mode {
+				UiMode::Tui => UiMode::Auto,
+				mode => mode,
+			};
 		}
 
 		if self.get_bool(keys::TUI, false) {
@@ -312,7 +315,7 @@ mod test {
 		assert!(!file.nala.update_show_packages);
 		assert!(!file.nala.full_upgrade);
 		assert!(!file.nala.simple);
-		assert_eq!(file.ui.mode, UiMode::Plain);
+		assert_eq!(file.ui.mode, UiMode::Auto);
 		assert_eq!(file.ui.unit, NumSys::Binary);
 		assert_eq!(file.color.mode, Switch::Auto);
 	}
@@ -659,14 +662,32 @@ mod test {
 		let _guard = test_lock();
 		let mut config = Config::default();
 
-		assert_eq!(config.ui_mode(), UiMode::Plain);
+		assert_eq!(config.ui_mode(), UiMode::Auto);
 
 		config.set_bool(keys::NO_TUI, true);
-		assert_eq!(config.ui_mode(), UiMode::Plain);
+		assert_eq!(config.ui_mode(), UiMode::Auto);
 
 		config.set_bool(keys::NO_TUI, false);
 		config.set_bool(keys::TUI, true);
 		assert_eq!(config.ui_mode(), UiMode::Tui);
+	}
+
+	#[test]
+	fn no_tui_disables_only_optional_fullscreen_interfaces() {
+		let _guard = test_lock();
+		let mut file = ConfigFile::default();
+		file.ui.mode = UiMode::Tui;
+		let mut config = Config::from_file(file);
+
+		config.set_bool(keys::NO_TUI, true);
+		assert_eq!(config.ui_mode(), UiMode::Auto);
+
+		let mut file = ConfigFile::default();
+		file.ui.mode = UiMode::Plain;
+		let mut config = Config::from_file(file);
+
+		config.set_bool(keys::NO_TUI, true);
+		assert_eq!(config.ui_mode(), UiMode::Plain);
 	}
 
 	#[test]

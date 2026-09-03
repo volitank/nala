@@ -11,9 +11,12 @@ use crate::util::{NumSys, UnitStr};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UiMode {
-	Auto,
+	/// Inline progress and required interactive screens.
 	#[default]
+	Auto,
+	/// Static, line-oriented output.
 	Plain,
+	/// Auto mode plus optional full-screen interfaces.
 	Tui,
 }
 
@@ -78,7 +81,7 @@ pub struct UiConfig {
 impl Default for UiConfig {
 	fn default() -> Self {
 		Self {
-			mode: UiMode::Plain,
+			mode: UiMode::Auto,
 			unit: NumSys::Binary,
 		}
 	}
@@ -135,7 +138,7 @@ mod tests {
 		assert!(!file.nala.full_upgrade);
 		assert!(!file.nala.simple);
 		assert!(!file.nala.assume_yes);
-		assert_eq!(file.ui.mode, UiMode::Plain);
+		assert_eq!(file.ui.mode, UiMode::Auto);
 		assert_eq!(file.ui.unit, NumSys::Binary);
 		assert_eq!(file.color.mode, Switch::Auto);
 		assert_eq!(file.color.theme.primary.fg, ColorCode::LightGreen);
@@ -145,8 +148,8 @@ mod tests {
 
 	#[test]
 	fn missing_sections_use_defaults() {
-		let file = ConfigFile::parse("[Ui]\nmode = \"Plain\"").unwrap();
-		assert_eq!(file.ui.mode, UiMode::Plain);
+		let file = ConfigFile::parse("").unwrap();
+		assert_eq!(file.ui.mode, UiMode::Auto);
 		assert!(file.nala.auto_remove);
 		assert_eq!(file.color.mode, Switch::Auto);
 	}

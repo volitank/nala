@@ -13,7 +13,7 @@ use rust_apt::new_cache;
 
 use crate::cli::{History, HistoryCommand};
 use crate::config::Config;
-use crate::terminal::{use_tui, TerminalGuard};
+use crate::terminal::{TerminalGuard, use_fullscreen_ui};
 use crate::{t, tui, util};
 
 /// Renders the current history command output from the stored transaction records.
@@ -73,7 +73,7 @@ pub async fn history(config: &mut Config, args: &History) -> Result<()> {
 		return Ok(());
 	}
 
-	if !use_tui(config) {
+	if !use_fullscreen_ui(config) {
 		entry.print_detail(config);
 		return Ok(());
 	}

@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 
 use anyhow::Result;
-use ratatui::backend::Backend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::symbols;
-use ratatui::text::{Line, Span};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{LineGauge, Paragraph, Widget, Wrap};
-use regex::Regex;
 use rust_apt::util::time_str;
 
 use super::{borderless_area, frame_block};
@@ -15,7 +13,7 @@ use crate::config::color::ansi_to_text;
 use crate::config::{Config, Theme};
 use crate::progress::{DisplayGroup, ProgressMessage, ProgressPanel, ProgressState};
 use crate::t;
-use crate::terminal::Term;
+use crate::terminal::InlineTerminalGuard;
 
 struct InfoRow<'a> {
 	label: Cow<'a, str>,
@@ -32,50 +30,42 @@ impl<'a> InfoRow<'a> {
 }
 
 pub(crate) struct TuiProgressRenderer<'a> {
-	terminal: Term,
+	terminal: InlineTerminalGuard,
 	config: &'a Config,
-	ansi: Regex,
 }
 
 impl<'a> TuiProgressRenderer<'a> {
-	pub(crate) fn new(config: &'a Config, terminal: Term) -> Result<Self> {
+	pub(crate) fn new(config: &'a Config, lines: u16) -> Result<Self> {
 		Ok(Self {
-			terminal,
+			terminal: InlineTerminalGuard::new(lines)?,
 			config,
-			ansi: Regex::new(r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])")?,
 		})
 	}
 
-	pub(crate) fn clean_up(&mut self) -> Result<()> {
-		let origin = self.terminal.get_frame().area().as_position();
-		self.terminal.clear()?;
-		self.terminal.set_cursor_position(origin)?;
-		self.terminal.show_cursor()?;
-		Ok(())
-	}
+	pub(crate) fn hide(&mut self) -> Result<()> { self.terminal.hide() }
 
-	pub(crate) fn unhide(&mut self) -> Result<()> {
-		self.terminal.hide_cursor()?;
-		Ok(())
-	}
+	pub(crate) fn suspend(&mut self) -> Result<()> { self.terminal.suspend() }
+
+	pub(crate) fn resume(&mut self) -> Result<()> { self.terminal.resume() }
 
 	pub(crate) fn print(&mut self, state: &ProgressState, msg: &str) -> Result<()> {
 		if state.hidden() {
 			return Ok(());
 		}
 
-		self.terminal.autoresize()?;
-		let height = self.ansi.replace_all(msg, "").len() as f32
-			/ self.terminal.backend().size()?.width as f32;
-		let lines = (height.ceil() as u16).max(msg.lines().count() as u16);
+		let terminal = self.terminal.terminal_mut();
+		terminal.autoresize()?;
+		let text = ansi_to_text(msg);
+		let width = terminal.get_frame().area().width;
+		let lines = message_height(&text, width);
+		let paragraph = Paragraph::new(text)
+			.left_aligned()
+			.wrap(Wrap::default())
+			.style(super::style::style(self.config, Theme::Regular));
 
-		self.terminal.clear()?;
-		self.terminal.insert_before(lines, |buf| {
-			Paragraph::new(ansi_to_text(msg))
-				.left_aligned()
-				.wrap(Wrap::default())
-				.style(super::style::style(self.config, Theme::Regular))
-				.render(buf.area, buf);
+		terminal.clear()?;
+		terminal.insert_before(lines, move |buf| {
+			paragraph.render(buf.area, buf);
 		})?;
 		self.render(state)
 	}
@@ -88,7 +78,7 @@ impl<'a> TuiProgressRenderer<'a> {
 		let status_lines = display_lines(state.display(), self.config);
 		let (left_info, right_info) = info_columns(state);
 
-		self.terminal.draw(|f| {
+		self.terminal.terminal_mut().draw(|f| {
 			render_progress_view(
 				f,
 				f.area(),
@@ -102,6 +92,15 @@ impl<'a> TuiProgressRenderer<'a> {
 
 		Ok(())
 	}
+}
+
+fn message_height(text: &Text, width: u16) -> u16 {
+	let width = usize::from(width).max(1);
+	text.lines
+		.iter()
+		.map(|line| line.width().div_ceil(width).max(1))
+		.sum::<usize>()
+		.min(usize::from(u16::MAX)) as u16
 }
 
 fn progress_line(msg: &ProgressMessage, config: &Config) -> Line<'static> {
@@ -349,5 +348,17 @@ fn render_info_column(buf: &mut Buffer, config: &Config, area: Rect, rows: &[Inf
 		Paragraph::new(line)
 			.wrap(Wrap { trim: false })
 			.render(*slot, buf);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::message_height;
+	use crate::config::color::ansi_to_text;
+
+	#[test]
+	fn message_height_uses_display_width() {
+		let isolated = "\u{2068}1234567890\u{2069}";
+		assert_eq!(message_height(&ansi_to_text(isolated), 10), 1);
 	}
 }
