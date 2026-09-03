@@ -78,7 +78,7 @@ impl RawModeGuard {
 		Ok(())
 	}
 
-	fn ensure_enabled(&mut self) -> Result<()> {
+	pub(crate) fn ensure_enabled(&mut self) -> Result<()> {
 		if !self.active {
 			enable_raw_mode()?;
 			self.active = true;

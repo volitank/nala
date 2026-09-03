@@ -23,6 +23,20 @@ prompt-invalid = '{ $response }' is not a valid response
 prompt-refused = User refused confirmation
 prompt-continue = Do you want to continue?
 prompt-choice = [Y/n]
+prompt-choice-no = [y/N]
+
+release-info-title = Repository Information Changed
+release-info-explanation =
+    A repository's identifying information changed in its Release file.
+    Review the changes before continuing.
+release-info-repository = Repository
+release-info-distribution = Distribution
+release-info-changes = Changes
+release-info-confirm = Accept these changes and continue updating?
+release-info-help = (y) accept | (n/Enter/Esc) reject
+release-info-accepted = Accepted repository information changes for { $repository }.
+release-info-rejected = Rejected repository information changes for { $repository }.
+release-info-noninteractive = Release information changes must be accepted explicitly. Re-run with '-o Acquire::AllowReleaseInfoChange=true' to accept them.
 
 # Variables:
 #   $command (String) - Command that requires elevated privileges.

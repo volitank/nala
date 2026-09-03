@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::io::{Write, stdout};
 
 use anyhow::Result;
 use ratatui::backend::Backend;
@@ -48,9 +47,9 @@ impl<'a> TuiProgressRenderer<'a> {
 	}
 
 	pub(crate) fn clean_up(&mut self) -> Result<()> {
+		let origin = self.terminal.get_frame().area().as_position();
 		self.terminal.clear()?;
-		write!(stdout(), "\r")?;
-		stdout().flush()?;
+		self.terminal.set_cursor_position(origin)?;
 		self.terminal.show_cursor()?;
 		Ok(())
 	}

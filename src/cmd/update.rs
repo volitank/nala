@@ -1,27 +1,74 @@
+use std::io::{IsTerminal, stdin, stdout};
+
 use anyhow::Result;
-use rust_apt::progress::{AcquireProgress, DynAcquireProgress};
+use rust_apt::progress::{AcquireProgress, DynAcquireProgress, ReleaseInfoChanges};
 use rust_apt::raw::{AcqTextStatus, ItemDesc, ItemState, PkgAcquire};
-use rust_apt::{new_cache, PackageSort};
-use tokio::sync::mpsc;
+use rust_apt::{PackageSort, new_cache};
+use tokio::sync::{mpsc, oneshot};
 
 use crate::config::{Config, Theme, color, keys};
 use crate::progress::{Progress, ProgressMessage};
-use crate::terminal::poll_exit_event;
-use crate::t;
+use crate::terminal::{poll_exit_event, use_tui};
+use crate::util::confirm_with_default;
+use crate::{t, tui};
 
 pub enum Message {
 	Print(String),
 	Messages(Vec<String>),
 	UpdatePosition((u64, u64)),
 	Fetched((String, u64)),
+	ReleaseInfoChanges {
+		info: ReleaseInfoChanges,
+		reply: oneshot::Sender<bool>,
+	},
 }
 
-/// The function just runs apt's update and is designed to go into
-/// it's own little thread.
-pub async fn update_thread(acquire: NalaAcquireProgress) -> Result<()> {
+/// Runs APT's synchronous update operation on a blocking thread.
+pub fn update_thread(acquire: NalaAcquireProgress) -> Result<()> {
 	let cache = new_cache!()?;
 	cache.update(&mut AcquireProgress::new(acquire))?;
 	Ok(())
+}
+
+fn release_info_decision(
+	config: &Config,
+	progress: &mut Progress,
+	info: &ReleaseInfoChanges,
+) -> Result<bool> {
+	for change in &info.changes {
+		progress.print(&change.message)?;
+	}
+
+	if info.changes.iter().all(|change| change.default_action) {
+		return Ok(true);
+	}
+
+	let decision = if config.get_bool(keys::ASSUME_NO, false) {
+		false
+	} else if config.get_bool(keys::ASSUME_YES, false) {
+		true
+	} else if !stdin().is_terminal() || !stdout().is_terminal() {
+		progress.print(&t!("release-info-noninteractive"))?;
+		false
+	} else {
+		progress.suspend()?;
+		let decision = if use_tui(config) {
+			tui::release_info::confirm(config, info)
+		} else {
+			confirm_with_default(config, &t!("release-info-confirm"), false)
+		};
+		progress.resume()?;
+		decision?
+	};
+
+	let repository = format!("{} {}", info.uri, info.dist);
+	let message = if decision {
+		t!("release-info-accepted", "repository" => repository)
+	} else {
+		t!("release-info-rejected", "repository" => repository)
+	};
+	progress.print(&message)?;
+	Ok(decision)
 }
 
 pub async fn update(config: &Config) -> Result<()> {
@@ -29,7 +76,7 @@ pub async fn update(config: &Config) -> Result<()> {
 	let (tx, mut rx) = mpsc::unbounded_channel();
 	// Setup the acquire struct and send it to the update thread
 	let acquire = NalaAcquireProgress::new(tx);
-	let task = tokio::task::spawn(update_thread(acquire));
+	let task = tokio::task::spawn_blocking(move || update_thread(acquire));
 
 	let mut progress = Progress::new(config, false)?;
 
@@ -63,6 +110,12 @@ pub async fn update(config: &Config) -> Result<()> {
 					progress.display_mut().clear().push(msg);
 				}
 				progress.render()?;
+			},
+			Message::ReleaseInfoChanges { info, reply } => {
+				let decision = release_info_decision(config, &mut progress, &info)
+					.inspect_err(|err| eprintln!("{err}"))
+					.unwrap_or(false);
+				let _ = reply.send(decision);
 			},
 		}
 
@@ -143,8 +196,22 @@ impl DynAcquireProgress for NalaAcquireProgress {
 	/// The higher the number, the less frequent pulse updates will be.
 	///
 	/// Pulse Interval set to 0 assumes the apt defaults.
-	fn pulse_interval(&self) -> usize {
-		self.pulse_interval
+	fn pulse_interval(&self) -> usize { self.pulse_interval }
+
+	fn release_info_changes(&mut self, info: ReleaseInfoChanges) -> bool {
+		// libapt needs the answer before acquisition can continue. The update
+		// runs on a blocking thread, leaving Tokio free to display the prompt
+		// here.
+		let (reply, response) = oneshot::channel();
+		if self
+			.tx
+			.send(Message::ReleaseInfoChanges { info, reply })
+			.is_err()
+		{
+			return false;
+		}
+
+		response.blocking_recv().unwrap_or(false)
 	}
 
 	/// Called when an item is confirmed to be up-to-date.

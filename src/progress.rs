@@ -421,6 +421,37 @@ impl<'a> Progress<'a> {
 		Ok(())
 	}
 
+	pub fn suspend(&mut self) -> Result<()> {
+		if self.state.hidden() {
+			return Ok(());
+		}
+
+		match &mut self.kind {
+			ProgressKind::Tui { renderer, raw } => {
+				renderer.clean_up()?;
+				raw.disable()?;
+			},
+			ProgressKind::Plain(inner) => inner.clear_line()?,
+		}
+
+		self.state.set_hidden(true);
+		Ok(())
+	}
+
+	pub fn resume(&mut self) -> Result<()> {
+		if !self.state.hidden() {
+			return Ok(());
+		}
+
+		if let ProgressKind::Tui { renderer, raw } = &mut self.kind {
+			raw.ensure_enabled()?;
+			renderer.unhide()?;
+		}
+
+		self.state.set_hidden(false);
+		self.render()
+	}
+
 	pub fn print(&mut self, msg: &str) -> Result<()> {
 		let state = &self.state;
 		match &mut self.kind {

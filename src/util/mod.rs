@@ -27,6 +27,6 @@ pub use package::get_pkg_name;
 pub use patterns::{DOMAIN, PACSTALL, URL};
 pub(crate) use privilege::get_user;
 pub use privilege::sudo_check;
-pub use prompt::confirm;
+pub use prompt::{confirm, confirm_with_default};
 pub use units::{NumSys, UnitStr};
 pub use version::version_diff;

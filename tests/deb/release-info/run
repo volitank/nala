@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+nala_bin="${1:-${CARGO_TARGET_DIR:-target}/debug/nala}"
+
+if [[ ! -x "${nala_bin}" ]]; then
+	echo "Missing executable Nala binary: ${nala_bin}" >&2
+	exit 1
+fi
+
+work_dir="$(mktemp -d)"
+trap 'rm -rf "${work_dir}"' EXIT
+
+arch="$(dpkg --print-architecture)"
+repo_dir="${work_dir}/repo"
+dist_dir="${repo_dir}/dists/test"
+packages_dir="${dist_dir}/main/binary-${arch}"
+lists_dir="${work_dir}/lists"
+cache_dir="${work_dir}/cache"
+status_file="${work_dir}/status"
+sources_file="${work_dir}/sources.list"
+
+mkdir -p "${packages_dir}" "${lists_dir}/partial" "${cache_dir}/archives/partial"
+: >"${packages_dir}/Packages"
+: >"${status_file}"
+printf 'deb [trusted=yes] file:%s test main\n' "${repo_dir}" >"${sources_file}"
+
+write_release() {
+	local origin="$1"
+	local relative="main/binary-${arch}/Packages"
+	local packages="${dist_dir}/${relative}"
+	local size md5 sha256
+
+	size="$(stat -c %s "${packages}")"
+	md5="$(md5sum "${packages}" | cut -d ' ' -f 1)"
+	sha256="$(sha256sum "${packages}" | cut -d ' ' -f 1)"
+
+	cat >"${dist_dir}/Release" <<EOF
+Origin: ${origin}
+Label: Nala Release Test
+Suite: test
+Codename: test
+Date: $(date -Ru)
+Architectures: ${arch}
+Components: main
+MD5Sum:
+ ${md5} ${size} ${relative}
+SHA256:
+ ${sha256} ${size} ${relative}
+EOF
+}
+
+nala=(
+	"${nala_bin}"
+	--color never
+	-o "Dir::Etc::sourcelist=${sources_file}"
+	-o "Dir::Etc::sourceparts=-"
+	-o "Dir::State::status=${status_file}"
+	-o "Dir::State::lists=${lists_dir}"
+	-o "Dir::Cache=${cache_dir}"
+)
+
+run_interactive() {
+	local input="$1"
+	local output="$2"
+
+	python3 tests/deb/release-info/interact.py \
+		"${output}" "${input}" "${nala[@]}" --tui update
+}
+
+write_release Earth
+"${nala[@]}" --no-tui update >"${work_dir}/initial.log" 2>&1
+
+write_release Mars
+if "${nala[@]}" --no-tui update >"${work_dir}/noninteractive.log" 2>&1; then
+	echo "Expected a non-interactive release information change to fail" >&2
+	cat "${work_dir}/noninteractive.log" >&2
+	exit 1
+fi
+grep -Fq "changed its 'Origin' value from 'Earth' to 'Mars'" "${work_dir}/noninteractive.log"
+grep -Fq -- "-o Acquire::AllowReleaseInfoChange=true" "${work_dir}/noninteractive.log"
+
+if run_interactive "" "${work_dir}/deny.log"; then
+	echo "Expected the default answer to reject release information changes" >&2
+	cat "${work_dir}/deny.log" >&2
+	exit 1
+fi
+grep -Fq "[y/N]" "${work_dir}/deny.log"
+grep -Fq "Rejected repository information changes" "${work_dir}/deny.log"
+
+run_interactive "y" "${work_dir}/accept.log"
+grep -Fq "[y/N]" "${work_dir}/accept.log"
+grep -Fq "Repository:" "${work_dir}/accept.log"
+grep -Fq "Distribution:" "${work_dir}/accept.log"
+grep -Fq "Origin:" "${work_dir}/accept.log"
+grep -Fq "Accepted repository information changes" "${work_dir}/accept.log"
+
+write_release Venus
+"${nala[@]}" --no-tui -o Acquire::AllowReleaseInfoChange=true update \
+	>"${work_dir}/configured.log" 2>&1
+
+echo "PASS: release information changes reject safely and can be accepted interactively."
+echo "PASS: Acquire::AllowReleaseInfoChange enables non-interactive updates through -o."

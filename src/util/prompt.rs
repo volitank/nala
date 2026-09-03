@@ -8,32 +8,47 @@ use crate::t;
 
 /// Ask the user for confirmation, honoring configured prompt defaults.
 pub fn confirm(config: &Config, msg: &str) -> Result<()> {
-	if config.get_bool(keys::ASSUME_NO, false) {
-		bail!("{}", t!("prompt-refused"));
-	}
-
-	if config.get_bool(keys::ASSUME_YES, false) {
+	if confirm_with_default(config, msg, true)? {
 		return Ok(());
 	}
 
-	print!("{msg} {} ", t!("prompt-choice"));
+	bail!("{}", t!("prompt-refused"))
+}
+
+/// Ask the user a yes/no question with a configurable default.
+pub fn confirm_with_default(config: &Config, msg: &str, default_yes: bool) -> Result<bool> {
+	if config.get_bool(keys::ASSUME_NO, false) {
+		return Ok(false);
+	}
+
+	if config.get_bool(keys::ASSUME_YES, false) {
+		return Ok(true);
+	}
+
+	let choice = if default_yes { t!("prompt-choice") } else { t!("prompt-choice-no") };
+	print!("{msg} {choice} ");
 	std::io::stdout().flush()?;
 
 	let mut response = String::new();
 	if std::io::stdin().read_line(&mut response)? == 0 {
-		bail!("{}", t!("prompt-refused"));
+		return Ok(false);
 	}
 
-	let resp = response.to_lowercase();
-	if response_is_yes(&resp) {
-		return Ok(());
+	response_answer(&response, default_yes)
+		.ok_or_else(|| anyhow::anyhow!(t!("prompt-invalid", "response" => response.trim())))
+}
+
+fn response_answer(response: &str, default_yes: bool) -> Option<bool> {
+	let response = response.trim().to_lowercase();
+	if response.is_empty() {
+		return Some(default_yes);
 	}
 
-	if resp.starts_with('n') {
-		bail!("{}", t!("prompt-refused"))
+	if response_is_yes(&response) {
+		return Some(true);
 	}
 
-	bail!("{}", t!("prompt-invalid", "response" => response.trim()))
+	response.starts_with('n').then_some(false)
 }
 
 fn response_is_yes(response: &str) -> bool {
@@ -44,7 +59,7 @@ fn response_is_yes(response: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-	use super::{confirm, response_is_yes};
+	use super::{confirm, response_answer, response_is_yes};
 	use crate::config::{Config, keys};
 
 	#[test]
@@ -69,5 +84,13 @@ mod tests {
 		assert!(response_is_yes(""));
 		assert!(response_is_yes("y"));
 		assert!(!response_is_yes("n"));
+	}
+
+	#[test]
+	fn yes_no_answer_uses_requested_default() {
+		assert_eq!(response_answer("", true), Some(true));
+		assert_eq!(response_answer("", false), Some(false));
+		assert_eq!(response_answer("n", true), Some(false));
+		assert_eq!(response_answer("wat", true), None);
 	}
 }
