@@ -20,7 +20,7 @@ use rust_apt::Cache;
 use rust_apt::progress::{AcquireProgress, InstallProgress};
 
 use crate::config::{Config, Theme, color};
-use crate::progress::Progress;
+use crate::progress::{Progress, ProgressMessage};
 use crate::terminal::use_enhanced_ui;
 use crate::{debug, dprog, t};
 
@@ -157,7 +157,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			};
 			let mut pty = Pty::new(writefd, statusfd, master)?;
 
-			let mut progress = Progress::new(config, true)?;
+			let mut progress = Progress::install(config)?;
 			progress.set_position(0);
 			progress.set_length(100);
 
@@ -294,7 +294,8 @@ impl Pty {
 						progress.unhide()?;
 					}
 
-					// Don't attempt to write anything if we already wrote rawline
+					// Don't attempt to write anything if we already wrote
+					// rawline
 					return Ok(true);
 				}
 
@@ -364,13 +365,28 @@ impl Pty {
 		dprog!(config, progress, "statusfd", "{status:?}");
 
 		// For ConfFile specifically, set raw
-		if let DpkgStatusType::ConfFile = status.status_type {
+		if status.status_type == DpkgStatusType::ConfFile {
 			progress.hide()?;
 		// For all other status unset raw
 		} else if progress.hidden() {
 			progress.unhide()?;
 		}
 		progress.set_position(status.percent);
+		// libapt emits dpkg-exec bookkeeping between package events. Keep the
+		// last real package visible instead of replacing it with that marker.
+		if status.pkg_name != "dpkg-exec" {
+			progress.set_item(status.pkg_name);
+			let theme = if status.status_type == DpkgStatusType::Error {
+				Theme::Error
+			} else {
+				Theme::Primary
+			};
+			progress.set_message(
+				ProgressMessage::new(format!("{}: ", t!("progress-status")), vec![status.status])
+					.theme(theme),
+			);
+		}
+		progress.render()?;
 		Ok(())
 	}
 
@@ -507,7 +523,7 @@ fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>> {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum DpkgStatusType {
 	Status,
 	Error,
@@ -517,9 +533,9 @@ enum DpkgStatusType {
 #[derive(Debug)]
 struct DpkgStatus {
 	status_type: DpkgStatusType,
-	_pkg_name: String,
+	pkg_name: String,
 	percent: u64,
-	_status: String,
+	status: String,
 }
 
 impl TryFrom<&str> for DpkgStatus {
@@ -545,11 +561,11 @@ impl TryFrom<&str> for DpkgStatus {
 
 		Ok(DpkgStatus {
 			status_type,
-			_pkg_name: pkg_name.into(),
+			pkg_name: pkg_name.into(),
 			percent: percent
 				.parse::<f64>()
 				.with_context(|| format!("Invalid dpkg status: {value:?}"))? as u64,
-			_status: status.into(),
+			status: status.into(),
 		})
 	}
 }

@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use rust_apt::Version;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
-use tokio::time::{Duration, sleep};
 
 use super::Downloader;
 use super::downloader::Message;
@@ -97,6 +97,42 @@ impl Uri {
 		bail!("{}", t!("download-checksum", "file" => &self.filename));
 	}
 
+	/// Acquires the first available mirror after trying every candidate once.
+	async fn acquire_uri(&mut self, domains: &DomainMap) -> Option<(String, Arc<str>)> {
+		let available = domains.notified();
+		tokio::pin!(available);
+
+		loop {
+			// Register before checking so simultaneous releases wake distinct
+			// tasks.
+			available.as_mut().enable();
+
+			let candidates = self.uris.len();
+			if candidates == 0 {
+				return None;
+			}
+			self.uris.rotate_left(domains.start_index(candidates));
+			for _ in 0..candidates {
+				let url = self.uris.pop_front()?;
+				let Some(domain) = DOMAIN
+					.captures(&url)
+					.and_then(|captures| captures.get(1))
+					.map(|domain| Arc::<str>::from(domain.as_str()))
+				else {
+					continue;
+				};
+
+				if domains.add(&domain, &self.filename).await {
+					return Some((url, domain));
+				}
+				self.uris.push_back(url);
+			}
+
+			available.as_mut().await;
+			available.set(domains.notified());
+		}
+	}
+
 	pub async fn download(mut self, domains: DomainMap) -> Result<Uri> {
 		// First check if the file already exists on disk.
 		if self.archive.exists() {
@@ -111,8 +147,11 @@ impl Uri {
 						self.size = usize::try_from(std::fs::metadata(&self.archive)?.len())?;
 						self.tx.send(Message::AddTotal(self.size))?;
 					}
-					self.tx.send(Message::Update(self.size))?;
-					self.tx.send(Message::Finished)?;
+					self.tx.send(Message::Update {
+						bytes: self.size,
+						domain: None,
+					})?;
+					self.tx.send(Message::Finished(self.filename.clone()))?;
 					return Ok(self);
 				}
 			}
@@ -122,28 +161,12 @@ impl Uri {
 				.with_context(|| t!("file-remove", "path" => format!("{:?}", self.archive)))?;
 		}
 
-		// This is the string URL passed to the http client
-		while let Some(url) = self.uris.pop_front() {
+		while let Some((url, domain)) = self.acquire_uri(&domains).await {
 			self.retries = 0;
-			let Some(domain) = DOMAIN
-				.captures(&url)
-				.and_then(|c| c.get(1).map(|m| m.as_str()))
-			else {
-				continue;
-			};
-
-			// Lock the map so other threads can't mutate the data while this one does
-			if !domains.add(domain, &self.filename).await {
-				// Too many connections to this domain.
-				// Add the URL back to the queue and move to the next.
-				self.uris.push_back(url);
-				sleep(Duration::from_millis(150)).await;
-				continue;
-			}
 
 			self.tx.send(Message::Debug(t!(
 				"download-select-domain",
-				"domain" => domain,
+				"domain" => &*domain,
 				"file" => &self.filename
 			)))?;
 
@@ -156,10 +179,11 @@ impl Uri {
 				self.bytes_downloaded = 0;
 				match self.download_file(&url).await {
 					Ok(hash) => {
-						domains.remove(domain, &self.filename).await;
+						domains.remove(&domain, &self.filename).await;
 
-						// Compare the hash from downloaded file against a known good hash.
-						// Removes the file on disk if it doesn't match.
+						// Compare the hash from downloaded file against a known
+						// good hash. Removes the file on disk if it
+						// doesn't match.
 						self.check_hash(&hash).await?;
 
 						// Move the good file from partial to the archive dir.
@@ -169,19 +193,22 @@ impl Uri {
 							"uri" => &url
 						)))?;
 
-						self.tx.send(Message::Finished)?;
+						self.tx.send(Message::Finished(self.filename.clone()))?;
 						return Ok(self);
 					},
 					Err(err) => {
 						// Non fatal errors can continue operation.
 						self.retries += 1;
-						self.tx
-							.send(Message::NonFatal((err, self.bytes_downloaded)))?;
+						self.tx.send(Message::NonFatal {
+							error: err,
+							bytes: self.bytes_downloaded,
+							domain: domain.clone(),
+						})?;
 						continue;
 					},
 				}
 			}
-			domains.remove(domain, &self.filename).await;
+			domains.remove(&domain, &self.filename).await;
 		}
 		self.tx.send(Message::Exit)?;
 		bail!("{}", t!("download-no-uris", "file" => &self.filename))
@@ -189,6 +216,11 @@ impl Uri {
 
 	/// Downloads the file and returns the hash
 	pub async fn download_file(&mut self, url: &str) -> Result<HashSum> {
+		let domain = DOMAIN
+			.captures(url)
+			.and_then(|captures| captures.get(1))
+			.map(|domain| Arc::<str>::from(domain.as_str()));
+
 		// Initiate http(s) connection
 		let mut response = self
 			.client
@@ -222,7 +254,10 @@ impl Uri {
 			.with_context(|| t!("download-stream-failed", "uri" => url))?
 		{
 			// Send message to add to total progress bar.
-			self.tx.send(Message::Update(chunk.len()))?;
+			self.tx.send(Message::Update {
+				bytes: chunk.len(),
+				domain: domain.clone(),
+			})?;
 			self.bytes_downloaded += chunk.len();
 			hasher.update(&chunk);
 
@@ -285,7 +320,8 @@ impl UriFilter {
 			let package_filename = vf.lookup().filename();
 			let uri = pf.index_file().archive_uri(&package_filename);
 
-			// Any real files should be copied into the Archive directory for use
+			// Any real files should be copied into the Archive directory for
+			// use
 			if let Some(path) = uri.strip_prefix("file:").map(Path::new) {
 				let Some(filename) = path.file_name() else {
 					bail!("{}", t!("download-filename", "path" => format!("{path:?}")))
@@ -361,7 +397,10 @@ fn mirror_location(uri: &str, package_filename: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
 	use super::*;
+	use crate::config::Config;
 
 	#[test]
 	fn mirror_sources_are_normalized_and_expanded() {
@@ -391,5 +430,38 @@ mod tests {
 				"http://two/pool/nala.deb".to_string(),
 			])
 		);
+	}
+
+	#[tokio::test]
+	async fn scheduler_rotates_first_choice_across_mirrors() {
+		let downloader = Downloader::new(&Config::default()).unwrap();
+		let domains = DomainMap::default();
+		let mirrors = ["one", "two", "three", "four"];
+		let urls = mirrors.map(|mirror| format!("https://{mirror}.example/pkg.deb"));
+		let mut selected = HashMap::<String, usize>::new();
+		for package in 0..mirrors.len() * super::super::DOMAIN_CONNECTION_LIMIT {
+			let filename = format!("pkg-{package}.deb");
+			let mut uri = Uri::new(
+				&downloader,
+				urls.iter().cloned().collect(),
+				0,
+				filename,
+				None,
+			);
+			let (_, domain) =
+				tokio::time::timeout(Duration::from_millis(50), uri.acquire_uri(&domains))
+					.await
+					.unwrap()
+					.unwrap();
+			*selected.entry(domain.to_string()).or_default() += 1;
+			domains.remove(&domain, &uri.filename).await;
+		}
+
+		for mirror in mirrors {
+			assert_eq!(
+				selected.get(&format!("{mirror}.example")),
+				Some(&super::super::DOMAIN_CONNECTION_LIMIT)
+			);
+		}
 	}
 }

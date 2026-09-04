@@ -16,6 +16,8 @@ use crate::terminal::use_enhanced_ui;
 use crate::tui::progress::TuiProgressRenderer;
 use crate::util::{NumSys, UnitStr};
 
+pub(crate) const MAX_VISIBLE_MIRRORS: usize = 3;
+
 #[derive(Clone)]
 pub(crate) struct ProgressMessage {
 	header: String,
@@ -32,16 +34,12 @@ impl ProgressMessage {
 		}
 	}
 
-	pub fn empty<T: ToString>(header: T) -> Self { Self::new(header, vec![]) }
-
 	pub fn theme(mut self, theme: Theme) -> Self {
 		self.theme = theme;
 		self
 	}
 
 	pub fn regular(self) -> Self { self.theme(Theme::Regular) }
-
-	pub fn add(&mut self, value: String) { self.msg.push(value) }
 
 	pub fn header(&self) -> &str { &self.header }
 
@@ -61,90 +59,111 @@ impl ProgressMessage {
 	}
 }
 
-#[derive(Clone)]
-pub(crate) struct DisplayGroup(Vec<ProgressMessage>);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ProgressView {
+	Update,
+	Download { mirrors: usize },
+	Install,
+	MirrorScore,
+}
 
-impl DisplayGroup {
-	pub fn new() -> Self { Self(vec![]) }
-
-	pub fn clear(&mut self) -> &mut Self {
-		self.0.clear();
-		self
+impl ProgressView {
+	fn viewport_lines(self) -> u16 {
+		match self {
+			Self::Update => 7,
+			Self::Install | Self::MirrorScore => 6,
+			Self::Download { mirrors } => {
+				let visible = mirrors.min(MAX_VISIBLE_MIRRORS);
+				let overflow = usize::from(mirrors > MAX_VISIBLE_MIRRORS);
+				let table = usize::from(mirrors > 0) + visible + overflow;
+				(7 + table) as u16
+			},
+		}
 	}
 
-	pub fn push(&mut self, value: ProgressMessage) -> &mut Self {
-		self.0.push(value);
-		self
-	}
+	pub(crate) fn is_transfer(self) -> bool { matches!(self, Self::Update | Self::Download { .. }) }
+}
 
-	pub fn push_str<T: ToString>(&mut self, header: T, value: String) -> &mut Self {
-		self.push(ProgressMessage::new(header.to_string(), vec![value]))
-	}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MirrorState {
+	Starting,
+	Downloading,
+	Idle,
+}
 
-	pub(crate) fn messages(&self) -> &[ProgressMessage] { &self.0 }
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct MirrorProgress {
+	name: String,
+	active: usize,
+	limit: usize,
+	rate: Option<u64>,
+	state: MirrorState,
+}
 
-	fn plain_lines(&self) -> Vec<String> {
-		if self.0.is_empty() {
-			vec![t!("progress-working")]
+impl MirrorProgress {
+	pub(crate) fn new(
+		name: String,
+		active: usize,
+		limit: usize,
+		rate: Option<u64>,
+		seen: bool,
+	) -> Self {
+		let state = if active > 0 && rate.is_some() {
+			MirrorState::Downloading
+		} else if active > 0 || !seen {
+			MirrorState::Starting
 		} else {
-			self.0.iter().map(ProgressMessage::plain_line).collect()
-		}
-	}
-}
+			MirrorState::Idle
+		};
 
-#[derive(Clone, Debug, Default)]
-pub(crate) struct ProgressPanel {
-	title: String,
-	items: Vec<String>,
-}
-
-impl ProgressPanel {
-	pub fn new<T: ToString>(title: T) -> Self {
 		Self {
-			title: title.to_string(),
-			items: vec![],
+			name,
+			active,
+			limit,
+			rate,
+			state,
 		}
 	}
 
-	pub fn push<T: ToString>(&mut self, value: T) -> &mut Self {
-		self.items.push(value.to_string());
-		self
-	}
+	pub(crate) fn name(&self) -> &str { &self.name }
 
-	pub(crate) fn title(&self) -> &str { &self.title }
+	pub(crate) fn active(&self) -> usize { self.active }
 
-	pub(crate) fn items(&self) -> &[String] { &self.items }
+	pub(crate) fn limit(&self) -> usize { self.limit }
 
-	pub(crate) fn height(&self) -> u16 {
-		let items = self.items.len().max(1) as u16;
-		items + 1
-	}
+	pub(crate) fn rate(&self) -> Option<u64> { self.rate }
+
+	pub(crate) fn state(&self) -> MirrorState { self.state }
 }
 
 pub(crate) struct ProgressState {
 	length: u64,
 	position: u64,
+	transferred: u64,
 	started: Instant,
-	display: DisplayGroup,
-	info: Vec<(String, String)>,
-	panels: Vec<ProgressPanel>,
+	view: ProgressView,
+	message: Option<ProgressMessage>,
+	item: Option<String>,
+	items: Option<(usize, usize)>,
+	mirrors: Vec<MirrorProgress>,
 	hidden: bool,
 	unit: UnitStr,
-	dpkg: bool,
 }
 
 impl ProgressState {
-	fn new(dpkg: bool) -> Self {
+	fn new(view: ProgressView) -> Self {
 		Self {
 			length: 0,
 			position: 0,
+			transferred: 0,
 			started: Instant::now(),
-			display: DisplayGroup::new(),
-			info: vec![],
-			panels: vec![],
+			view,
+			message: None,
+			item: None,
+			items: None,
+			mirrors: vec![],
 			hidden: false,
 			unit: UnitStr::new(1, NumSys::Binary),
-			dpkg,
 		}
 	}
 
@@ -152,27 +171,42 @@ impl ProgressState {
 
 	fn inc_length(&mut self, delta: u64) { self.length = self.length.saturating_add(delta) }
 
-	fn inc(&mut self, delta: u64) { self.position = self.position.saturating_add(delta) }
+	fn inc(&mut self, delta: u64) {
+		self.position = self.position.saturating_add(delta);
+		self.transferred = self.transferred.saturating_add(delta);
+	}
 
-	fn dec(&mut self, delta: u64) { self.position = self.position.saturating_sub(delta) }
+	fn inc_cached(&mut self, delta: u64) { self.position = self.position.saturating_add(delta); }
 
-	fn set_position(&mut self, pos: u64) { self.position = pos }
+	fn dec(&mut self, delta: u64) {
+		self.position = self.position.saturating_sub(delta);
+		self.transferred = self.transferred.saturating_sub(delta);
+	}
+
+	fn set_position(&mut self, pos: u64) {
+		self.position = pos;
+		self.transferred = pos;
+	}
 
 	fn finish(&mut self) { self.position = self.length }
 
-	pub(crate) fn is_dpkg(&self) -> bool { self.dpkg }
+	pub(crate) fn view(&self) -> ProgressView { self.view }
 
-	pub(crate) fn display(&self) -> &DisplayGroup { &self.display }
+	pub(crate) fn message(&self) -> Option<&ProgressMessage> { self.message.as_ref() }
 
-	fn display_mut(&mut self) -> &mut DisplayGroup { &mut self.display }
+	fn set_message(&mut self, message: ProgressMessage) { self.message = Some(message) }
 
-	pub(crate) fn info(&self) -> &[(String, String)] { &self.info }
+	pub(crate) fn item(&self) -> Option<&str> { self.item.as_deref() }
 
-	fn set_info(&mut self, info: Vec<(String, String)>) { self.info = info }
+	fn set_item(&mut self, item: String) { self.item = Some(item) }
 
-	pub(crate) fn panels(&self) -> &[ProgressPanel] { &self.panels }
+	pub(crate) fn items(&self) -> Option<(usize, usize)> { self.items }
 
-	fn set_panels(&mut self, panels: Vec<ProgressPanel>) { self.panels = panels }
+	fn set_items(&mut self, current: usize, total: usize) { self.items = Some((current, total)) }
+
+	pub(crate) fn mirrors(&self) -> &[MirrorProgress] { &self.mirrors }
+
+	fn set_mirrors(&mut self, mirrors: Vec<MirrorProgress>) { self.mirrors = mirrors }
 
 	pub(crate) fn hidden(&self) -> bool { self.hidden }
 
@@ -181,14 +215,14 @@ impl ProgressState {
 	pub(crate) fn unit_str(&self, size: u64) -> String { self.unit.str(size) }
 
 	pub(crate) fn current_total(&self) -> String {
-		if self.dpkg {
-			format!("{}/{}", self.position, self.length)
-		} else {
+		if self.view.is_transfer() {
 			format!(
 				"{}/{}",
 				self.unit.str(self.position),
 				self.unit.str(self.length),
 			)
+		} else {
+			format!("{}/{}", self.position, self.length)
 		}
 	}
 
@@ -197,9 +231,9 @@ impl ProgressState {
 	pub(crate) fn rate(&self) -> u64 {
 		let elapsed = self.started.elapsed().as_secs_f64();
 		if elapsed <= 0.0 {
-			return self.position;
+			return self.transferred;
 		}
-		(self.position as f64 / elapsed).ceil() as u64
+		(self.transferred as f64 / elapsed).ceil() as u64
 	}
 
 	pub(crate) fn eta(&self) -> Option<u64> {
@@ -268,9 +302,11 @@ impl PlainProgress {
 			self.bar(state),
 			(state.ratio() * 100.0) as u64
 		);
-		let mut message = state.display.plain_lines().join(" | ");
+		let mut message = state
+			.message()
+			.map_or_else(|| t!("progress-working"), ProgressMessage::plain_line);
 
-		if !state.is_dpkg() {
+		if state.view().is_transfer() {
 			let rate = format!("{}/s", state.unit_str(state.rate()));
 			if !message.is_empty() {
 				message.push(' ');
@@ -278,15 +314,29 @@ impl PlainProgress {
 			message.push_str(&state.current_total());
 			message.push(' ');
 			message.push_str(&rate);
+		} else if state.view() == ProgressView::MirrorScore {
+			message.push_str(" | ");
+			message.push_str(&t!("progress-mirrors"));
+			message.push_str(": ");
+			message.push_str(&state.current_total());
 		}
 
-		for (label, value) in state.info() {
+		if let Some(item) = state.item() {
 			if !message.is_empty() {
 				message.push_str(" | ");
 			}
-			message.push_str(label);
+			message.push_str(&t!("progress-package"));
 			message.push_str(": ");
-			message.push_str(value);
+			message.push_str(item);
+		}
+
+		if let Some((current, total)) = state.items() {
+			if !message.is_empty() {
+				message.push_str(" | ");
+			}
+			message.push_str(&t!("progress-packages"));
+			message.push_str(": ");
+			message.push_str(&format!("{current}/{total}"));
 		}
 
 		line.push_str(&message);
@@ -337,22 +387,29 @@ pub(crate) struct Progress<'a> {
 }
 
 impl<'a> Progress<'a> {
-	pub fn new(config: &'a Config, dpkg: bool) -> Result<Self> {
-		let lines = if dpkg { 4 } else { 10 };
-		Self::with_tui_lines(config, dpkg, lines)
-	}
-
-	pub fn with_tui_lines(config: &'a Config, dpkg: bool, tui_lines: u16) -> Result<Self> {
+	fn new(config: &'a Config, view: ProgressView) -> Result<Self> {
 		let kind = if use_enhanced_ui(config) {
-			ProgressKind::Tui(TuiProgressRenderer::new(config, tui_lines)?)
+			ProgressKind::Tui(TuiProgressRenderer::new(config, view.viewport_lines())?)
 		} else {
 			ProgressKind::Plain(PlainProgress::new())
 		};
 
 		Ok(Self {
-			state: ProgressState::new(dpkg),
+			state: ProgressState::new(view),
 			kind,
 		})
+	}
+
+	pub fn update(config: &'a Config) -> Result<Self> { Self::new(config, ProgressView::Update) }
+
+	pub fn download(config: &'a Config, mirrors: usize) -> Result<Self> {
+		Self::new(config, ProgressView::Download { mirrors })
+	}
+
+	pub fn install(config: &'a Config) -> Result<Self> { Self::new(config, ProgressView::Install) }
+
+	pub fn mirror_score(config: &'a Config) -> Result<Self> {
+		Self::new(config, ProgressView::MirrorScore)
 	}
 
 	pub fn set_length(&mut self, len: u64) { self.state.set_length(len) }
@@ -360,6 +417,8 @@ impl<'a> Progress<'a> {
 	pub fn inc_length(&mut self, delta: u64) { self.state.inc_length(delta) }
 
 	pub fn inc(&mut self, delta: u64) { self.state.inc(delta) }
+
+	pub fn inc_cached(&mut self, delta: u64) { self.state.inc_cached(delta) }
 
 	pub fn dec(&mut self, delta: u64) { self.state.dec(delta) }
 
@@ -369,11 +428,15 @@ impl<'a> Progress<'a> {
 
 	pub fn unit_str(&self, size: u64) -> String { self.state.unit_str(size) }
 
-	pub fn display_mut(&mut self) -> &mut DisplayGroup { self.state.display_mut() }
+	pub fn set_message(&mut self, message: ProgressMessage) { self.state.set_message(message) }
 
-	pub fn set_info(&mut self, info: Vec<(String, String)>) { self.state.set_info(info) }
+	pub fn set_item(&mut self, item: String) { self.state.set_item(item) }
 
-	pub fn set_panels(&mut self, panels: Vec<ProgressPanel>) { self.state.set_panels(panels) }
+	pub fn set_items(&mut self, current: usize, total: usize) {
+		self.state.set_items(current, total)
+	}
+
+	pub fn set_mirrors(&mut self, mirrors: Vec<MirrorProgress>) { self.state.set_mirrors(mirrors) }
 
 	pub fn hidden(&self) -> bool { self.state.hidden() }
 
@@ -458,4 +521,171 @@ impl<'a> Progress<'a> {
 	}
 
 	pub fn finished_string(&self) -> String { self.state.finished_string() }
+}
+
+#[cfg(test)]
+mod tests {
+	use ratatui::buffer::Buffer;
+	use ratatui::layout::Rect;
+
+	use super::{MirrorProgress, MirrorState, ProgressMessage, ProgressState, ProgressView};
+	use crate::config::Config;
+	use crate::tui::progress::render_progress_view;
+
+	fn lines(buf: &Buffer) -> Vec<String> {
+		(0..buf.area.height)
+			.map(|y| {
+				(0..buf.area.width)
+					.map(|x| buf.cell((x, y)).unwrap().symbol())
+					.collect::<String>()
+					.trim_end()
+					.to_string()
+			})
+			.collect()
+	}
+
+	#[test]
+	fn download_view_has_no_unused_rows() {
+		let view = ProgressView::Download { mirrors: 4 };
+		let mut state = ProgressState::new(view);
+		state.set_length(100);
+		state.set_position(73);
+		state.set_items(43, 80);
+		state.set_message(ProgressMessage::new(
+			"Last completed: ",
+			vec!["libssl3t64.deb".into()],
+		));
+		state.set_mirrors(vec![
+			MirrorProgress::new("deb.debian.org".into(), 3, 3, Some(12), true),
+			MirrorProgress::new("deb.volian.org".into(), 2, 3, Some(7), true),
+			MirrorProgress::new("mirror.example".into(), 0, 3, None, false),
+			MirrorProgress::new("fallback.example".into(), 0, 3, None, false),
+		]);
+
+		let area = Rect::new(0, 0, 100, view.viewport_lines());
+		let mut buf = Buffer::empty(area);
+		render_progress_view(&mut buf, area, &Config::default(), &state);
+		let lines = lines(&buf);
+
+		assert_eq!(lines.len(), 12);
+		assert!(lines[0].contains("Downloading Packages"));
+		assert!(lines[1].contains("Connections"));
+		assert!(lines[2].contains("deb.debian.org"));
+		assert!(lines[3].contains("deb.volian.org"));
+		assert!(lines[4].contains("mirror.example"));
+		assert!(lines[5].contains("+1 more mirrors"));
+		assert!(lines[6].contains("libssl3t64.deb"));
+		assert!(lines[7].contains("Progress"));
+		assert!(lines[7].contains("73%"));
+		assert!(lines[7].starts_with('├'));
+		assert!(lines[7].ends_with('┤'));
+		assert!(lines[9].contains("Packages:"));
+		assert!(lines[9].contains("Data:"));
+		assert!(lines[10].contains("Remaining:"));
+		assert!(lines[10].contains("Speed:"));
+		assert!(lines[11].starts_with('╰'));
+		assert_eq!(lines[1].find("Connections"), lines[2].find("3/3"),);
+		assert_eq!(lines[1].find("Average"), lines[2].find("12 B/s"));
+		assert_eq!(lines[1].find("State"), lines[2].find("downloading"),);
+	}
+
+	#[test]
+	fn download_height_follows_known_mirror_count() {
+		assert_eq!(ProgressView::Download { mirrors: 0 }.viewport_lines(), 7);
+		assert_eq!(ProgressView::Download { mirrors: 1 }.viewport_lines(), 9);
+		assert_eq!(ProgressView::Download { mirrors: 3 }.viewport_lines(), 11);
+		assert_eq!(ProgressView::Download { mirrors: 8 }.viewport_lines(), 12);
+	}
+
+	#[test]
+	fn mirror_state_comes_from_real_activity() {
+		assert_eq!(
+			MirrorProgress::new("new".into(), 0, 3, None, false).state(),
+			MirrorState::Starting
+		);
+		assert_eq!(
+			MirrorProgress::new("active".into(), 1, 3, Some(5), true).state(),
+			MirrorState::Downloading
+		);
+		assert_eq!(
+			MirrorProgress::new("done".into(), 0, 3, Some(5), true).state(),
+			MirrorState::Idle
+		);
+	}
+
+	#[test]
+	fn cached_bytes_advance_progress_without_inflating_speed() {
+		let mut state = ProgressState::new(ProgressView::Download { mirrors: 1 });
+		state.inc_cached(1024);
+
+		assert_eq!(state.position, 1024);
+		assert_eq!(state.transferred, 0);
+		assert_eq!(state.rate(), 0);
+
+		state.inc(512);
+		assert_eq!(state.position, 1536);
+		assert_eq!(state.transferred, 512);
+	}
+
+	#[test]
+	fn narrow_download_view_keeps_the_mirror_state_legible() {
+		let view = ProgressView::Download { mirrors: 1 };
+		let mut state = ProgressState::new(view);
+		state.set_mirrors(vec![MirrorProgress::new(
+			"deb.debian.org".into(),
+			2,
+			3,
+			Some(1024),
+			true,
+		)]);
+
+		let area = Rect::new(0, 0, 60, view.viewport_lines());
+		let mut buf = Buffer::empty(area);
+		render_progress_view(&mut buf, area, &Config::default(), &state);
+		let lines = lines(&buf);
+
+		assert!(lines[1].contains("Active"));
+		assert!(lines[1].contains("State"));
+		assert!(lines[2].contains("deb.debian.org"));
+		assert!(lines[2].contains("2/3"));
+		assert!(lines[2].contains("downloading"));
+	}
+
+	#[test]
+	fn wide_terminal_keeps_the_progress_view_left_aligned_and_eighty_columns_wide() {
+		let view = ProgressView::Download { mirrors: 1 };
+		let state = ProgressState::new(view);
+		let area = Rect::new(0, 0, 140, view.viewport_lines());
+		let mut buf = Buffer::empty(area);
+		render_progress_view(&mut buf, area, &Config::default(), &state);
+
+		assert_eq!(buf.cell((0, 0)).unwrap().symbol(), "╭");
+		assert_eq!(buf.cell((79, 0)).unwrap().symbol(), "╮");
+		assert_eq!(buf.cell((80, 0)).unwrap().symbol(), " ");
+	}
+
+	#[test]
+	fn install_view_shows_current_package_and_status() {
+		let view = ProgressView::Install;
+		let mut state = ProgressState::new(view);
+		state.set_length(100);
+		state.set_position(40);
+		state.set_item("hello".into());
+		state.set_message(ProgressMessage::new(
+			"Status: ",
+			vec!["Configuring hello".into()],
+		));
+
+		let area = Rect::new(0, 0, 80, view.viewport_lines());
+		let mut buf = Buffer::empty(area);
+		render_progress_view(&mut buf, area, &Config::default(), &state);
+		let lines = lines(&buf);
+
+		assert_eq!(lines.len(), 6);
+		assert!(lines[1].contains("Configuring hello"));
+		assert!(lines[2].contains("40%"));
+		assert!(lines[4].contains("Package:  hello"));
+		assert!(lines[4].contains("Elapsed:"));
+		assert!(lines[5].starts_with('╰'));
+	}
 }

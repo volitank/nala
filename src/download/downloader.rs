@@ -1,18 +1,21 @@
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Error, Result, bail};
+use indexmap::{IndexMap, IndexSet};
 use rust_apt::{Version, new_cache};
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
-use super::{DomainMap, Uri, UriFilter, proxy};
+use super::{DOMAIN_CONNECTION_LIMIT, DomainMap, Uri, UriFilter, proxy};
 use crate::config::{Config, Paths, Theme, color};
 use crate::fs::AsyncFs;
 use crate::hashsum::HashSum;
-use crate::progress::Progress;
+use crate::progress::{MirrorProgress, Progress, ProgressMessage};
 use crate::terminal::poll_exit_event;
+use crate::util::DOMAIN;
 use crate::{debug, dprog, info, t, warn};
 
 pub async fn download(config: &Config) -> Result<()> {
@@ -94,17 +97,88 @@ pub fn untrusted_error(config: &Config, untrusted: Vec<String>) -> Result<()> {
 	Ok(())
 }
 
-// This is like to clear the terminal or something.
-// There may be one other thing or something.
 #[derive(Debug)]
 pub enum Message {
 	Exit,
-	Finished,
+	Finished(String),
 	Debug(String),
 	Verbose(String),
-	NonFatal((Error, usize)),
+	NonFatal {
+		error: Error,
+		bytes: usize,
+		domain: Arc<str>,
+	},
 	AddTotal(usize),
-	Update(usize),
+	Update {
+		bytes: usize,
+		domain: Option<Arc<str>>,
+	},
+}
+
+#[derive(Default)]
+struct MirrorTransfer {
+	bytes: u64,
+	started: Option<Instant>,
+	seen: bool,
+}
+
+impl MirrorTransfer {
+	fn add(&mut self, bytes: usize) {
+		self.started.get_or_insert_with(Instant::now);
+		self.bytes = self.bytes.saturating_add(bytes as u64);
+		self.seen = true;
+	}
+
+	fn remove(&mut self, bytes: usize) { self.bytes = self.bytes.saturating_sub(bytes as u64) }
+
+	fn rate(&self) -> Option<u64> {
+		let elapsed = self.started?.elapsed().as_secs_f64();
+		Some(if elapsed <= 0.0 {
+			self.bytes
+		} else {
+			(self.bytes as f64 / elapsed).ceil() as u64
+		})
+	}
+}
+
+struct MirrorTransfers(IndexMap<String, MirrorTransfer>);
+
+impl MirrorTransfers {
+	fn new(domains: &[String]) -> Self {
+		Self(
+			domains
+				.iter()
+				.cloned()
+				.map(|domain| (domain, MirrorTransfer::default()))
+				.collect(),
+		)
+	}
+
+	fn add(&mut self, domain: &str, bytes: usize) {
+		self.0.entry(domain.to_string()).or_default().add(bytes)
+	}
+
+	fn remove(&mut self, domain: &str, bytes: usize) {
+		if let Some(transfer) = self.0.get_mut(domain) {
+			transfer.remove(bytes);
+		}
+	}
+
+	fn rows(&self, active: &[(String, usize)]) -> Vec<MirrorProgress> {
+		active
+			.iter()
+			.map(|(domain, active)| {
+				let transfer = self.0.get(domain);
+				MirrorProgress::new(
+					domain.clone(),
+					*active,
+					DOMAIN_CONNECTION_LIMIT,
+					transfer.and_then(MirrorTransfer::rate),
+					transfer.is_some_and(|transfer| transfer.seen),
+				)
+			})
+			.collect()
+	}
 }
 
 pub struct Downloader {
@@ -140,7 +214,7 @@ impl Downloader {
 			archive_dir,
 			partial_dir,
 			filter: UriFilter::new(),
-			domains: DomainMap::new(),
+			domains: DomainMap::default(),
 			set: JoinSet::new(),
 			tx,
 			rx,
@@ -172,6 +246,16 @@ impl Downloader {
 	}
 
 	pub fn uris(&self) -> &Vec<Uri> { &self.uris }
+
+	fn configured_domains(&self) -> Vec<String> {
+		let mut domains = IndexSet::new();
+		for url in self.uris.iter().flat_map(|uri| &uri.uris) {
+			if let Some(domain) = DOMAIN.captures(url).and_then(|captures| captures.get(1)) {
+				domains.insert(domain.as_str().to_string());
+			}
+		}
+		domains.into_iter().collect()
+	}
 
 	pub async fn download(&mut self) -> Result<()> {
 		// Create the partial directory
@@ -221,13 +305,18 @@ impl Downloader {
 			untrusted_error(config, self.filter.untrusted.iter().cloned().collect())?;
 		}
 
-		let mut progress = Progress::with_tui_lines(config, false, 16)?;
+		let configured_domains = self.configured_domains();
+		self.domains.register(configured_domains.clone()).await;
+		let mut mirror_transfers = MirrorTransfers::new(&configured_domains);
+		let mut progress = Progress::download(config, configured_domains.len())?;
 		// Set the total downloads.
 		let mut total = 0usize;
 		for uri in &self.uris {
 			total += 1;
 			progress.inc_length(uri.size as u64)
 		}
+		progress.set_items(0, total);
+		progress.set_mirrors(mirror_transfers.rows(&self.domains.active().await));
 
 		// Start the downloads
 		self.download().await?;
@@ -244,9 +333,20 @@ impl Downloader {
 			while let Ok(msg) = self.rx.try_recv() {
 				match msg {
 					Message::AddTotal(size) => progress.inc_length(size as u64),
-					Message::Update(bytes_downloaded) => progress.inc(bytes_downloaded as u64),
-					Message::Finished => {
+					Message::Update { bytes, domain } => {
+						if let Some(domain) = domain {
+							progress.inc(bytes as u64);
+							mirror_transfers.add(&domain, bytes);
+						} else {
+							progress.inc_cached(bytes as u64);
+						}
+					},
+					Message::Finished(filename) => {
 						current += 1;
+						progress.set_message(ProgressMessage::new(
+							format!("{}: ", t!("progress-last-completed")),
+							vec![filename],
+						));
 					},
 					Message::Exit => {
 						progress.clean_up()?;
@@ -260,9 +360,14 @@ impl Downloader {
 							progress.print(&msg)?;
 						}
 					},
-					Message::NonFatal((err, bytes_downloaded)) => {
-						progress.print(&t!("download-error", "error" => format!("{err:?}")))?;
-						progress.dec(bytes_downloaded as u64)
+					Message::NonFatal {
+						error,
+						bytes,
+						domain,
+					} => {
+						progress.print(&t!("download-error", "error" => format!("{error:?}")))?;
+						progress.dec(bytes as u64);
+						mirror_transfers.remove(&domain, bytes);
 					},
 				}
 			}
@@ -275,8 +380,8 @@ impl Downloader {
 			}
 
 			if tick.elapsed() >= tick_rate {
-				progress.set_info(vec![(t!("download-items"), format!("{current}/{total}"))]);
-				progress.set_panels(self.domains.panels().await);
+				progress.set_items(current, total);
+				progress.set_mirrors(mirror_transfers.rows(&self.domains.active().await));
 
 				progress.render()?;
 				tick = Instant::now();

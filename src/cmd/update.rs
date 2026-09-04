@@ -78,7 +78,7 @@ pub async fn update(config: &Config) -> Result<()> {
 	let acquire = NalaAcquireProgress::new(tx);
 	let task = tokio::task::spawn_blocking(move || update_thread(acquire));
 
-	let mut progress = Progress::new(config, false)?;
+	let mut progress = Progress::update(config)?;
 
 	while let Some(msg) = rx.recv().await {
 		match msg {
@@ -97,17 +97,12 @@ pub async fn update(config: &Config) -> Result<()> {
 				};
 			},
 			Message::Messages(msgs) => {
-				if !msgs.is_empty() {
-					let mut iter = msgs.into_iter();
-
-					// First string is the header and always there
-					let mut msg = ProgressMessage::empty(iter.next().unwrap()).regular();
-
-					for line in iter {
-						msg.add(line);
-					}
-
-					progress.display_mut().clear().push(msg);
+				let mut iter = msgs.into_iter();
+				// First string is the header when APT has active work.
+				if let Some(header) = iter.next() {
+					progress.set_message(
+						ProgressMessage::new(header, iter.collect()).regular(),
+					);
 				}
 				progress.render()?;
 			},

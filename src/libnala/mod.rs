@@ -89,7 +89,8 @@ impl<'a> PackageExt<'a> for Package<'a> {
 
 		// If there is only one provider just select that as the target
 		if providers.len() == 1 {
-			// Unwrap should be fine here, we know that there is 1 in the Vector.
+			// Unwrap should be fine here, we know that there is 1 in the
+			// Vector.
 			let target = providers.into_iter().next().unwrap();
 			info!(
 				"{}",
@@ -283,8 +284,8 @@ impl NalaCache for Cache {
 				continue;
 			}
 
-			// TODO: Should we have --remove-config, or just do it like apt does and match
-			// on state? apt purge ~c is the equivalent.
+			// TODO: Should we have --remove-config, or just do it like apt does
+			// and match on state? apt purge ~c is the equivalent.
 			if !pkg.is_installed() && pkg.config_state() && remove_config && purge {
 				pkg.mark_delete(purge);
 				set.insert(pkg);

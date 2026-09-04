@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use anyhow::{bail, Result};
 
 use crate::config::Config;
-use crate::terminal::{TerminalGuard, use_fullscreen_ui};
+use crate::terminal::{TerminalGuard, use_enhanced_ui};
 use crate::util::sudo_check;
 use crate::{debug, tui};
 use crate::t;
@@ -83,7 +83,7 @@ pub async fn fetch(config: &Config) -> Result<()> {
 	let chosen = if let Some(count) = config.auto() {
 		debug!("Auto mode, not starting TUI");
 		automatic_mirrors(scored, usize::from(count))
-	} else if !use_fullscreen_ui(config) {
+	} else if !use_enhanced_ui(config) {
 		debug!("Plain mode, not starting TUI");
 		automatic_mirrors(scored, 3)
 	} else {

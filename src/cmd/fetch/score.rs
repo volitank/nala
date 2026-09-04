@@ -8,16 +8,16 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 
 use crate::config::Config;
-use crate::progress::Progress;
-use crate::terminal::poll_exit_event;
+use crate::progress::{Progress, ProgressMessage};
 use crate::t;
+use crate::terminal::poll_exit_event;
 
 pub(super) async fn score_mirrors(
 	config: &Config,
 	mirrors: HashSet<String>,
 	release: &str,
 ) -> Result<Vec<(String, u128)>> {
-	let mut pb = Progress::new(config, false)?;
+	let mut pb = Progress::mirror_score(config)?;
 	pb.set_length(mirrors.len() as u64);
 
 	let client = Client::builder()
@@ -41,8 +41,10 @@ pub(super) async fn score_mirrors(
 	let mut scores = vec![];
 	while let Some(res) = set.join_next().await {
 		if let Ok(Ok(response)) = res {
-			pb.display_mut()
-				.push_str(format!("{} ", t!("progress-finished")), response.0.to_string());
+			pb.set_message(ProgressMessage::new(
+				format!("{} ", t!("progress-finished")),
+				vec![response.0.to_string()],
+			));
 			scores.push(response)
 		}
 		pb.inc(1);

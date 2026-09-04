@@ -2,18 +2,32 @@ use std::borrow::Cow;
 
 use anyhow::Result;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::symbols;
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
+use ratatui::symbols::{self, border};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{LineGauge, Paragraph, Widget, Wrap};
+use ratatui::widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget, Wrap};
 use rust_apt::util::time_str;
 
-use super::{borderless_area, frame_block};
 use crate::config::color::ansi_to_text;
 use crate::config::{Config, Theme};
-use crate::progress::{DisplayGroup, ProgressMessage, ProgressPanel, ProgressState};
+use crate::progress::{
+	MAX_VISIBLE_MIRRORS, MirrorProgress, MirrorState, ProgressMessage, ProgressState, ProgressView,
+};
 use crate::t;
 use crate::terminal::InlineTerminalGuard;
+
+const WIDE_LAYOUT: u16 = 72;
+const MAX_VIEW_WIDTH: u16 = 80;
+const DIVIDER_BORDER: border::Set<'static> = border::Set {
+	top_left: "├",
+	top_right: "┤",
+	bottom_left: "",
+	bottom_right: "",
+	vertical_left: "",
+	vertical_right: "",
+	horizontal_top: symbols::line::NORMAL.horizontal,
+	horizontal_bottom: "",
+};
 
 struct InfoRow<'a> {
 	label: Cow<'a, str>,
@@ -75,19 +89,9 @@ impl<'a> TuiProgressRenderer<'a> {
 			return Ok(());
 		}
 
-		let status_lines = display_lines(state.display(), self.config);
-		let (left_info, right_info) = info_columns(state);
-
-		self.terminal.terminal_mut().draw(|f| {
-			render_progress_view(
-				f,
-				f.area(),
-				self.config,
-				state,
-				&status_lines,
-				&left_info,
-				&right_info,
-			)
+		self.terminal.terminal_mut().draw(|frame| {
+			let area = frame.area();
+			render_progress_view(frame.buffer_mut(), area, self.config, state)
 		})?;
 
 		Ok(())
@@ -118,236 +122,440 @@ fn progress_line(msg: &ProgressMessage, config: &Config) -> Line<'static> {
 	line
 }
 
-fn display_lines(display: &DisplayGroup, config: &Config) -> Vec<Line<'static>> {
-	display
-		.messages()
-		.iter()
-		.map(|msg| progress_line(msg, config))
-		.collect()
-}
-
-fn info_columns(state: &ProgressState) -> (Vec<InfoRow<'_>>, Vec<InfoRow<'_>>) {
-	let mut left = if state.is_dpkg() {
-		vec![InfoRow::new(t!("progress-label"), state.current_total())]
-	} else {
-		vec![
-			InfoRow::new(t!("progress-total"), state.current_total()),
-			InfoRow::new(
-				t!("progress-speed"),
-				format!("{}/s", state.unit_str(state.rate())),
-			),
-		]
-	};
-
-	let mut right = if state.is_dpkg() {
-		vec![InfoRow::new(
-			t!("progress-elapsed"),
-			time_str(state.elapsed()),
-		)]
-	} else {
-		vec![
-			InfoRow::new(t!("progress-elapsed"), time_str(state.elapsed())),
-			match state.eta() {
-				Some(eta) => InfoRow::new(t!("progress-remaining"), time_str(eta)),
-				None => InfoRow::new(t!("progress-remaining"), "--"),
-			},
-		]
-	};
-
-	for (index, (label, value)) in state.info().iter().enumerate() {
-		let row = InfoRow::new(label.as_str(), value.as_str());
-		if index % 2 == 0 {
-			left.push(row);
-		} else {
-			right.push(row);
-		}
+fn view_title(view: ProgressView) -> String {
+	match view {
+		ProgressView::Update => t!("progress-update-title"),
+		ProgressView::Download { .. } => t!("progress-download-title"),
+		ProgressView::Install => t!("progress-install-title"),
+		ProgressView::MirrorScore => t!("progress-score-title"),
 	}
-
-	(left, right)
 }
 
-fn render_progress_view(
-	f: &mut ratatui::Frame,
-	area: Rect,
+pub(crate) fn render_progress_view(
+	buf: &mut Buffer,
+	mut area: Rect,
 	config: &Config,
 	state: &ProgressState,
-	status_lines: &[Line<'static>],
-	left_info: &[InfoRow<'_>],
-	right_info: &[InfoRow<'_>],
 ) {
-	let block = frame_block(config);
+	area.width = area.width.min(MAX_VIEW_WIDTH);
+	let title = view_title(state.view());
+	let block = Block::bordered()
+		.border_type(BorderType::Rounded)
+		.padding(Padding::horizontal(1))
+		.style(super::style::style(config, Theme::Primary))
+		.title(
+			Line::styled(
+				format!("  {title}  "),
+				super::style::style(config, Theme::Highlight),
+			)
+			.centered(),
+		)
+		.title_alignment(Alignment::Center);
 	let inner = block.inner(area);
-	f.render_widget(block, area);
+	block.render(area, buf);
 
-	let mirror_height = mirrors_height(state.panels());
-	let status_height = status_lines.len() as u16;
-	let progress_height = progress_height(left_info, right_info);
-
-	let mut constraints = Vec::with_capacity(4);
-	if mirror_height > 0 {
-		constraints.push(Constraint::Length(mirror_height));
+	match state.view() {
+		ProgressView::Download { mirrors } => {
+			render_download(buf, config, area, inner, state, mirrors)
+		},
+		ProgressView::Update => render_update(buf, config, area, inner, state),
+		ProgressView::Install => render_install(buf, config, area, inner, state),
+		ProgressView::MirrorScore => render_mirror_score(buf, config, area, inner, state),
 	}
-	if status_height > 0 {
-		constraints.push(Constraint::Length(status_height));
-	}
-	constraints.push(Constraint::Length(progress_height));
-	constraints.push(Constraint::Min(0));
+}
 
-	let slots = Layout::vertical(constraints).split(inner);
-	let mut index = 0;
+fn render_download(
+	buf: &mut Buffer,
+	config: &Config,
+	frame: Rect,
+	area: Rect,
+	state: &ProgressState,
+	configured_mirrors: usize,
+) {
+	let visible = configured_mirrors.min(MAX_VISIBLE_MIRRORS) as u16;
+	let overflow = u16::from(configured_mirrors > MAX_VISIBLE_MIRRORS);
+	let mirror_height = u16::from(configured_mirrors > 0) + visible + overflow;
+	let [mirrors, message, progress] = Layout::vertical([
+		Constraint::Length(mirror_height),
+		Constraint::Length(1),
+		Constraint::Length(4),
+	])
+	.areas(area);
 
-	if mirror_height > 0 {
-		render_mirrors(f, config, slots[index], state.panels());
-		index += 1;
-	}
-
-	if status_height > 0 {
-		render_status(f.buffer_mut(), slots[index], status_lines);
-		index += 1;
-	}
-
-	render_progress_widget(
-		f.buffer_mut(),
+	render_mirrors(buf, config, mirrors, state, configured_mirrors);
+	render_message(
+		buf,
 		config,
-		slots[index],
-		state,
-		left_info,
-		right_info,
+		message,
+		state.message(),
+		&t!("progress-last-completed"),
 	);
+
+	let (current, total) = state.items().unwrap_or_default();
+	let left = [
+		InfoRow::new(t!("progress-packages"), format!("{current}/{total}")),
+		InfoRow::new(
+			t!("progress-remaining"),
+			state.eta().map_or_else(|| "—".to_string(), time_str),
+		),
+	];
+	let right = [
+		InfoRow::new(t!("progress-data"), state.current_total()),
+		InfoRow::new(
+			t!("progress-speed"),
+			format!("{}/s", state.unit_str(state.rate())),
+		),
+	];
+	render_progress_body(buf, config, frame, progress, state, &left, &right);
 }
 
-fn mirrors_height(panels: &[ProgressPanel]) -> u16 {
-	if panels.is_empty() {
-		0
-	} else {
-		1 + panels.iter().map(ProgressPanel::height).sum::<u16>()
-	}
+fn render_update(
+	buf: &mut Buffer,
+	config: &Config,
+	frame: Rect,
+	area: Rect,
+	state: &ProgressState,
+) {
+	let left = [
+		InfoRow::new(t!("progress-data"), state.current_total()),
+		InfoRow::new(
+			t!("progress-remaining"),
+			state.eta().map_or_else(|| "—".to_string(), time_str),
+		),
+	];
+	let right = [
+		InfoRow::new(
+			t!("progress-speed"),
+			format!("{}/s", state.unit_str(state.rate())),
+		),
+		InfoRow::new(t!("progress-elapsed"), time_str(state.elapsed())),
+	];
+	render_standard(buf, config, frame, area, state, &left, &right);
 }
 
-fn progress_height(left_info: &[InfoRow<'_>], right_info: &[InfoRow<'_>]) -> u16 {
-	(1 + left_info.len().max(right_info.len()) as u16).max(4)
+fn render_install(
+	buf: &mut Buffer,
+	config: &Config,
+	frame: Rect,
+	area: Rect,
+	state: &ProgressState,
+) {
+	let left = [InfoRow::new(
+		t!("progress-package"),
+		state.item().unwrap_or("—"),
+	)];
+	let right = [InfoRow::new(
+		t!("progress-elapsed"),
+		time_str(state.elapsed()),
+	)];
+	render_standard(buf, config, frame, area, state, &left, &right);
 }
 
-fn render_mirrors(f: &mut ratatui::Frame, config: &Config, area: Rect, panels: &[ProgressPanel]) {
-	if panels.is_empty() || area.width == 0 || area.height == 0 {
+fn render_mirror_score(
+	buf: &mut Buffer,
+	config: &Config,
+	frame: Rect,
+	area: Rect,
+	state: &ProgressState,
+) {
+	let left = [InfoRow::new(t!("progress-mirrors"), state.current_total())];
+	let right = [InfoRow::new(
+		t!("progress-elapsed"),
+		time_str(state.elapsed()),
+	)];
+	render_standard(buf, config, frame, area, state, &left, &right);
+}
+
+fn render_standard(
+	buf: &mut Buffer,
+	config: &Config,
+	frame: Rect,
+	area: Rect,
+	state: &ProgressState,
+	left: &[InfoRow<'_>],
+	right: &[InfoRow<'_>],
+) {
+	let body_height = 2 + left.len().max(right.len()) as u16;
+	let [message, progress] =
+		Layout::vertical([Constraint::Length(1), Constraint::Length(body_height)]).areas(area);
+	render_message(
+		buf,
+		config,
+		message,
+		state.message(),
+		&t!("progress-status"),
+	);
+	render_progress_body(buf, config, frame, progress, state, left, right);
+}
+
+fn render_message(
+	buf: &mut Buffer,
+	config: &Config,
+	area: Rect,
+	message: Option<&ProgressMessage>,
+	default_label: &str,
+) {
+	if area.is_empty() {
 		return;
 	}
 
-	let inner = borderless_area(f, area, &t!("mirrors"));
-	let heights = panels
-		.iter()
-		.map(|panel| Constraint::Length(panel.height()))
-		.collect::<Vec<_>>();
-	let slots = Layout::vertical(heights).split(inner);
-
-	for (panel, slot) in panels.iter().zip(slots.iter()) {
-		render_panel(f, config, *slot, panel);
-	}
+	let line = message.map_or_else(
+		|| {
+			Line::from(vec![
+				Span::styled(
+					format!(" {default_label}: "),
+					super::style::reset(config, Theme::Primary),
+				),
+				Span::styled("—", super::style::reset(config, Theme::Regular)),
+			])
+		},
+		|message| {
+			let mut line = progress_line(message, config);
+			line.spans.insert(0, Span::raw(" "));
+			line
+		},
+	);
+	Paragraph::new(line).render(area, buf);
 }
 
-fn render_panel(f: &mut ratatui::Frame, config: &Config, area: Rect, panel: &ProgressPanel) {
-	if area.width == 0 || area.height == 0 {
-		return;
-	}
-
-	let inner = borderless_area(f, area, panel.title());
-
-	if panel.items().is_empty() || inner.width == 0 || inner.height == 0 {
-		return;
-	}
-
-	let widths = vec![Constraint::Length(1); panel.items().len()];
-	let slots = Layout::vertical(widths).split(inner);
-	let key_width = panel.items().len().to_string().len() + 1;
-
-	for (slot, (index, item)) in slots.iter().zip(panel.items().iter().enumerate()) {
-		let number = (index + 1).to_string();
-		let mut line = Line::default();
-		line.push_span(
-			Span::from(number.clone()).style(super::style::reset(config, Theme::Primary)),
-		);
-		line.push_span(Span::raw(" ".repeat(key_width - number.len())));
-		line.push_span(Span::from(item.clone()).style(super::style::reset(config, Theme::Regular)));
-		Paragraph::new(line)
-			.wrap(Wrap { trim: false })
-			.render(*slot, f.buffer_mut());
-	}
-}
-
-fn render_status(buf: &mut Buffer, area: Rect, lines: &[Line<'static>]) {
-	if lines.is_empty() || area.width == 0 || area.height == 0 {
-		return;
-	}
-
-	let slots = Layout::vertical(vec![Constraint::Length(1); lines.len()]).split(area);
-	for (slot, line) in slots.iter().zip(lines.iter()) {
-		Paragraph::new(line.clone())
-			.wrap(Wrap { trim: false })
-			.render(*slot, buf);
-	}
-}
-
-fn render_progress_widget(
+fn render_mirrors(
 	buf: &mut Buffer,
 	config: &Config,
 	area: Rect,
 	state: &ProgressState,
-	left_info: &[InfoRow<'_>],
-	right_info: &[InfoRow<'_>],
+	configured: usize,
 ) {
-	if area.width == 0 || area.height == 0 {
+	if configured == 0 || area.is_empty() {
 		return;
 	}
 
-	let [bar_area, info_area] =
-		Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
-	let [bar_slot, _, _] = split_columns(bar_area);
+	let visible = configured.min(MAX_VISIBLE_MIRRORS);
+	let overflow = usize::from(configured > MAX_VISIBLE_MIRRORS);
+	let rows = Layout::vertical(vec![Constraint::Length(1); 1 + visible + overflow]).split(area);
+	render_mirror_header(buf, config, rows[0]);
 
-	let bar = LineGauge::default()
-		.filled_symbol(symbols::line::THICK.horizontal)
-		.unfilled_symbol(symbols::line::THICK.horizontal)
-		.ratio(state.ratio())
-		.label(progress_line(
-			&ProgressMessage::empty(format!("{}:", t!("progress-label"))),
-			config,
+	for (row, mirror) in rows[1..].iter().zip(state.mirrors().iter().take(visible)) {
+		render_mirror_row(buf, config, *row, state, mirror);
+	}
+
+	if overflow > 0 {
+		let hidden = configured - MAX_VISIBLE_MIRRORS;
+		let active = state
+			.mirrors()
+			.iter()
+			.map(MirrorProgress::active)
+			.sum::<usize>();
+		Paragraph::new(Line::styled(
+			format!(
+				" {}",
+				t!(
+					"progress-more-mirrors",
+					"mirrors" => hidden,
+					"connections" => active
+				)
+			),
+			super::style::reset(config, Theme::Secondary),
 		))
-		.filled_style(super::style::style(config, Theme::ProgressFilled))
-		.unfilled_style(super::style::style(config, Theme::ProgressUnfilled));
-	bar.render(bar_slot, buf);
-
-	let [left_area, right_area, _] = split_columns(info_area);
-	render_info_column(buf, config, left_area, left_info);
-	render_info_column(buf, config, right_area, right_info);
+		.render(rows[rows.len() - 1], buf);
+	}
 }
 
-fn split_columns(area: Rect) -> [Rect; 3] {
-	Layout::horizontal([Constraint::Max(32), Constraint::Max(32), Constraint::Min(0)]).areas(area)
+fn mirror_columns(area: Rect) -> Vec<Rect> {
+	if area.width >= WIDE_LAYOUT {
+		Layout::horizontal([
+			Constraint::Min(16),
+			Constraint::Length(16),
+			Constraint::Length(16),
+			Constraint::Length(14),
+		])
+		.split(area)
+		.to_vec()
+	} else {
+		Layout::horizontal([
+			Constraint::Min(12),
+			Constraint::Length(8),
+			Constraint::Length(13),
+		])
+		.split(area)
+		.to_vec()
+	}
+}
+
+fn render_mirror_header(buf: &mut Buffer, config: &Config, area: Rect) {
+	let columns = mirror_columns(area);
+	let labels = if columns.len() == 4 {
+		vec![
+			t!("progress-mirrors"),
+			t!("progress-connections"),
+			t!("progress-average"),
+			t!("progress-state"),
+		]
+	} else {
+		vec![
+			t!("progress-mirrors"),
+			t!("progress-active"),
+			t!("progress-state"),
+		]
+	};
+
+	for (column, label) in columns.into_iter().zip(labels) {
+		Paragraph::new(Line::styled(
+			format!(" {label}"),
+			super::style::reset(config, Theme::Primary),
+		))
+		.render(column, buf);
+	}
+}
+
+fn render_mirror_row(
+	buf: &mut Buffer,
+	config: &Config,
+	area: Rect,
+	state: &ProgressState,
+	mirror: &MirrorProgress,
+) {
+	let columns = mirror_columns(area);
+	let regular = super::style::reset(config, Theme::Regular);
+	Paragraph::new(Line::styled(format!(" {}", mirror.name()), regular)).render(columns[0], buf);
+
+	let active = format!("{}/{}", mirror.active(), mirror.limit());
+	Paragraph::new(Line::styled(format!(" {active}"), regular)).render(columns[1], buf);
+
+	let status = match mirror.state() {
+		MirrorState::Starting => t!("progress-starting"),
+		MirrorState::Downloading => t!("progress-downloading"),
+		MirrorState::Idle => t!("progress-idle"),
+	};
+	let status_theme = match mirror.state() {
+		MirrorState::Starting => Theme::Notice,
+		MirrorState::Downloading => Theme::Primary,
+		MirrorState::Idle => Theme::Secondary,
+	};
+
+	if columns.len() == 4 {
+		let rate = mirror.rate().map_or_else(
+			|| "—".to_string(),
+			|rate| format!("{}/s", state.unit_str(rate)),
+		);
+		Paragraph::new(Line::styled(format!(" {rate}"), regular)).render(columns[2], buf);
+		Paragraph::new(Line::styled(
+			format!(" {status}"),
+			super::style::reset(config, status_theme),
+		))
+		.render(columns[3], buf);
+	} else {
+		Paragraph::new(Line::styled(
+			format!(" {status}"),
+			super::style::reset(config, status_theme),
+		))
+		.render(columns[2], buf);
+	}
+}
+
+fn render_progress_body(
+	buf: &mut Buffer,
+	config: &Config,
+	frame: Rect,
+	area: Rect,
+	state: &ProgressState,
+	left: &[InfoRow<'_>],
+	right: &[InfoRow<'_>],
+) {
+	if area.is_empty() {
+		return;
+	}
+
+	let info_height = left.len().max(right.len()) as u16;
+	let [divider, bar, info] = Layout::vertical([
+		Constraint::Length(1),
+		Constraint::Length(1),
+		Constraint::Length(info_height),
+	])
+	.areas(area);
+	let divider = Rect::new(frame.x, divider.y, frame.width, divider.height);
+	render_progress_divider(buf, config, divider, state);
+	render_progress_bar(buf, config, bar, state.ratio());
+	render_info(buf, config, info, left, right);
+}
+
+fn render_progress_divider(buf: &mut Buffer, config: &Config, area: Rect, state: &ProgressState) {
+	let percent = (state.ratio() * 100.0) as u64;
+	Block::new()
+		.borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
+		.border_set(DIVIDER_BORDER)
+		.border_style(super::style::style(config, Theme::Primary))
+		.title(
+			Line::styled(
+				format!(" {} ", t!("progress-label")),
+				super::style::reset(config, Theme::Highlight),
+			)
+			.centered(),
+		)
+		.title(
+			Line::styled(
+				format!(" {percent}% "),
+				super::style::reset(config, Theme::Highlight),
+			)
+			.right_aligned(),
+		)
+		.render(area, buf);
+}
+
+fn render_progress_bar(buf: &mut Buffer, config: &Config, area: Rect, ratio: f64) {
+	if area.is_empty() {
+		return;
+	}
+
+	let filled = (f64::from(area.width) * ratio).round() as usize;
+	let filled = filled.min(usize::from(area.width));
+	let unfilled = usize::from(area.width) - filled;
+	let line = Line::from(vec![
+		Span::styled(
+			symbols::line::THICK.horizontal.repeat(filled),
+			super::style::style(config, Theme::ProgressFilled),
+		),
+		Span::styled(
+			symbols::line::THICK.horizontal.repeat(unfilled),
+			super::style::style(config, Theme::ProgressUnfilled),
+		),
+	]);
+	Paragraph::new(line).render(area, buf);
+}
+
+fn render_info(
+	buf: &mut Buffer,
+	config: &Config,
+	area: Rect,
+	left: &[InfoRow<'_>],
+	right: &[InfoRow<'_>],
+) {
+	let [left_area, right_area] =
+		Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(area);
+	render_info_column(buf, config, left_area, left);
+	render_info_column(buf, config, right_area, right);
 }
 
 fn render_info_column(buf: &mut Buffer, config: &Config, area: Rect, rows: &[InfoRow<'_>]) {
-	if rows.is_empty() || area.width == 0 || area.height == 0 {
-		return;
-	}
-
-	let labels = rows
+	let label_width = rows
 		.iter()
-		.map(|row| format!("  {}:", row.label))
-		.collect::<Vec<_>>();
-	let label_width = labels.iter().map(String::len).max().unwrap_or_default() + 1;
+		.map(|row| Line::raw(row.label.as_ref()).width())
+		.max()
+		.unwrap_or_default();
 	let slots = Layout::vertical(vec![Constraint::Length(1); rows.len()]).split(area);
 
-	for ((slot, label), row) in slots.iter().zip(labels.iter()).zip(rows.iter()) {
-		let mut line = Line::default();
-		line.push_span(
-			Span::from(label.clone()).style(super::style::reset(config, Theme::Primary)),
-		);
-		line.push_span(Span::raw(" ".repeat(label_width - label.len())));
-		line.push_span(
-			Span::from(row.value.as_ref()).style(super::style::reset(config, Theme::Regular)),
-		);
-		Paragraph::new(line)
-			.wrap(Wrap { trim: false })
-			.render(*slot, buf);
+	for (slot, row) in slots.iter().zip(rows) {
+		let mut line = Line::from(" ");
+		line.push_span(Span::styled(
+			format!("{}:", row.label),
+			super::style::reset(config, Theme::Primary),
+		));
+		let width = Line::raw(row.label.as_ref()).width();
+		line.push_span(Span::raw(" ".repeat(label_width - width + 2)));
+		line.push_span(Span::styled(
+			row.value.as_ref(),
+			super::style::reset(config, Theme::Regular),
+		));
+		Paragraph::new(line).render(*slot, buf);
 	}
 }
 

@@ -215,10 +215,32 @@ progress-working = Working...
 progress-nothing = Nothing to fetch
 progress-label = Progress
 progress-total = Total
+progress-data = Data
+progress-packages = Packages
+progress-package = Package
+progress-status = Status
+progress-mirrors = Mirrors
 progress-speed = Speed
 progress-elapsed = Elapsed
 progress-remaining = Remaining
 progress-finished = Finished:
+progress-update-title = Updating Package Lists
+progress-download-title = Downloading Packages
+progress-install-title = Installing Packages
+progress-score-title = Testing Mirrors
+progress-last-completed = Last completed
+progress-connections = Connections
+progress-average = Average
+progress-active = Active
+progress-state = State
+progress-starting = starting
+progress-downloading = downloading
+progress-idle = idle
+
+# Variables:
+#   $mirrors (Number) - Number of hidden mirrors.
+#   $connections (Number) - Number of active connections across all mirrors.
+progress-more-mirrors = +{ $mirrors } more mirrors · { $connections } active connections
 
 # Variables:
 #   $size (String) - Total amount fetched.

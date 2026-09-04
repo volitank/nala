@@ -20,7 +20,8 @@ pub fn list_packages(config: &Config, packages: Vec<Package>) -> Result<()> {
 		}
 
 		// Get the candidate if we're only going to show one version.
-		// Fall back to the first version in the list if there isn't a candidate.
+		// Fall back to the first version in the list if there isn't a
+		// candidate.
 		if let Some(version) = pkg.candidate().or(pkg.versions().next()) {
 			// There is a version! Let's format it
 			ShowVersion::new(version).list(config)?;
