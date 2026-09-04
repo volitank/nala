@@ -258,6 +258,11 @@ pub(crate) async fn commit_with_display_rows(
 		return Ok(());
 	}
 
+	let print_uris = config.get_bool("print_uris", false);
+	if !print_uris && !crate::summary::display_summary(&cache, config, &pkg_set).await? {
+		bail!("{}", t!("prompt-refused"));
+	};
+
 	let versions = pkgs
 		.iter()
 		.filter_map(|p| p.install_version())
@@ -276,16 +281,12 @@ pub(crate) async fn commit_with_display_rows(
 		}
 	}
 
-	if config.get_bool("print_uris", false) {
+	if print_uris {
 		for uri in downloader.uris() {
 			println!("{}", uri.to_json()?);
 		}
 		// Print uris does not go past here
 		return Ok(());
-	};
-
-	if !crate::summary::display_summary(&cache, config, &pkg_set).await? {
-		bail!("{}", t!("prompt-refused"));
 	};
 
 	let started_at = Utc::now().to_rfc3339();
