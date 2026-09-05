@@ -97,40 +97,36 @@ impl Uri {
 		bail!("{}", t!("download-checksum", "file" => &self.filename));
 	}
 
-	/// Acquires the first available mirror after trying every candidate once.
-	async fn acquire_uri(&mut self, domains: &DomainMap) -> Option<(String, Arc<str>)> {
-		let available = domains.notified();
-		tokio::pin!(available);
-
-		loop {
-			// Register before checking so simultaneous releases wake distinct
-			// tasks.
-			available.as_mut().enable();
-
-			let candidates = self.uris.len();
-			if candidates == 0 {
-				return None;
+	pub(crate) fn candidate_domains(&self) -> Vec<String> {
+		let mut domains = Vec::new();
+		for url in &self.uris {
+			if let Some(domain) = DOMAIN
+				.captures(url)
+				.and_then(|captures| captures.get(1))
+				.map(|domain| domain.as_str().to_string())
+				&& !domains.contains(&domain)
+			{
+				domains.push(domain);
 			}
-			self.uris.rotate_left(domains.start_index(candidates));
-			for _ in 0..candidates {
-				let url = self.uris.pop_front()?;
-				let Some(domain) = DOMAIN
-					.captures(&url)
-					.and_then(|captures| captures.get(1))
-					.map(|domain| Arc::<str>::from(domain.as_str()))
-				else {
-					continue;
-				};
-
-				if domains.add(&domain, &self.filename).await {
-					return Some((url, domain));
-				}
-				self.uris.push_back(url);
-			}
-
-			available.as_mut().await;
-			available.set(domains.notified());
 		}
+		domains
+	}
+
+	/// Waits until one of this package's mirrors has an available connection.
+	async fn acquire_uri(&mut self, domains: &DomainMap) -> Option<(String, Arc<str>)> {
+		let candidates = self.candidate_domains();
+		let domain = domains.acquire(&self.filename, &candidates).await?;
+		let Some(index) = self.uris.iter().position(|url| {
+			DOMAIN
+				.captures(url)
+				.and_then(|captures| captures.get(1))
+				.is_some_and(|candidate| candidate.as_str() == domain)
+		}) else {
+			domains.remove(&domain, &self.filename).await;
+			return None;
+		};
+		let url = self.uris.remove(index)?;
+		Some((url, domain.into()))
 	}
 
 	pub async fn download(mut self, domains: DomainMap) -> Result<Uri> {
@@ -151,6 +147,7 @@ impl Uri {
 						bytes: self.size,
 						domain: None,
 					})?;
+					domains.cancel(&self.filename).await;
 					self.tx.send(Message::Finished(self.filename.clone()))?;
 					return Ok(self);
 				}
@@ -318,6 +315,7 @@ impl UriFilter {
 			}
 
 			let package_filename = vf.lookup().filename();
+			let archive_base = pf.index_file().archive_uri("");
 			let uri = pf.index_file().archive_uri(&package_filename);
 
 			// Any real files should be copied into the Archive directory for
@@ -329,13 +327,15 @@ impl UriFilter {
 				path.cp(archive.join(filename)).await?;
 			}
 
-			if let Some(location) = mirror_location(&uri, &package_filename) {
+			if let Some(location) = mirror_location(&archive_base)
+				&& let Some(package_path) = uri.strip_prefix(&archive_base)
+			{
 				if !self.mirrors.contains_key(&location) {
 					self.add_to_mirrors(client, &location).await?;
 				};
 
 				if let Some(mirrors) = self.mirrors.get(&location) {
-					add_mirror_uris(mirrors, &package_filename, &mut filtered);
+					add_mirror_uris(mirrors, package_path.trim_start_matches('/'), &mut filtered);
 					continue;
 				}
 			}
@@ -378,8 +378,8 @@ fn add_mirror_uris(mirrors: &str, package_filename: &str, uris: &mut VecDeque<St
 	}
 }
 
-fn mirror_location(uri: &str, package_filename: &str) -> Option<String> {
-	let location = uri.strip_suffix(package_filename)?.strip_suffix('/')?;
+fn mirror_location(uri: &str) -> Option<String> {
+	let location = uri.trim_end_matches('/');
 
 	if let Some(location) = location.strip_prefix("mirror://") {
 		return Some(format!("http://{location}"));
@@ -404,18 +404,19 @@ mod tests {
 
 	#[test]
 	fn mirror_sources_are_normalized_and_expanded() {
-		let filename = "pool/nala.deb";
-
 		for (source, expected) in [
 			("mirror://host/list", "http://host/list"),
 			("mirror+http://host/list", "http://host/list"),
 			("mirror+https://host/list", "https://host/list"),
 			("mirror+file:/tmp/list", "file:/tmp/list"),
 		] {
-			let uri = format!("{source}/{filename}");
-			assert_eq!(mirror_location(&uri, filename).as_deref(), Some(expected));
+			assert_eq!(
+				mirror_location(&format!("{source}/")).as_deref(),
+				Some(expected)
+			);
 		}
 
+		let filename = "pool/main/z/zstd/zstd_1.5.7%2bdfsg-1_arm64.deb";
 		let mut uris = VecDeque::new();
 		add_mirror_uris(
 			"# comment\n\n https://one/\tpriority:1\nhttp://two",
@@ -426,8 +427,8 @@ mod tests {
 		assert_eq!(
 			uris,
 			VecDeque::from([
-				"https://one/pool/nala.deb".to_string(),
-				"http://two/pool/nala.deb".to_string(),
+				"https://one/pool/main/z/zstd/zstd_1.5.7%2bdfsg-1_arm64.deb".to_string(),
+				"http://two/pool/main/z/zstd/zstd_1.5.7%2bdfsg-1_arm64.deb".to_string(),
 			])
 		);
 	}
@@ -448,6 +449,9 @@ mod tests {
 				filename,
 				None,
 			);
+			domains
+				.register(&uri.filename, &uri.candidate_domains())
+				.await;
 			let (_, domain) =
 				tokio::time::timeout(Duration::from_millis(50), uri.acquire_uri(&domains))
 					.await

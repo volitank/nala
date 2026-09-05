@@ -118,21 +118,33 @@ pub enum Message {
 #[derive(Default)]
 struct MirrorTransfer {
 	bytes: u64,
-	started: Option<Instant>,
+	elapsed: Duration,
+	active_since: Option<Instant>,
 	seen: bool,
 }
 
 impl MirrorTransfer {
 	fn add(&mut self, bytes: usize) {
-		self.started.get_or_insert_with(Instant::now);
+		self.active_since.get_or_insert_with(Instant::now);
 		self.bytes = self.bytes.saturating_add(bytes as u64);
 		self.seen = true;
 	}
 
 	fn remove(&mut self, bytes: usize) { self.bytes = self.bytes.saturating_sub(bytes as u64) }
 
-	fn rate(&self) -> Option<u64> {
-		let elapsed = self.started?.elapsed().as_secs_f64();
+	fn rate(&mut self, active: bool) -> Option<u64> {
+		if !active && let Some(started) = self.active_since.take() {
+			self.elapsed += started.elapsed();
+		}
+
+		if !self.seen {
+			return None;
+		}
+		let elapsed = (self.elapsed
+			+ self
+				.active_since
+				.map_or(Duration::ZERO, |started| started.elapsed()))
+		.as_secs_f64();
 		Some(if elapsed <= 0.0 {
 			self.bytes
 		} else {
@@ -164,18 +176,14 @@ impl MirrorTransfers {
 		}
 	}
 
-	fn rows(&self, active: &[(String, usize)]) -> Vec<MirrorProgress> {
+	fn rows(&mut self, active: &[(String, usize)]) -> Vec<MirrorProgress> {
 		active
 			.iter()
 			.map(|(domain, active)| {
-				let transfer = self.0.get(domain);
-				MirrorProgress::new(
-					domain.clone(),
-					*active,
-					DOMAIN_CONNECTION_LIMIT,
-					transfer.and_then(MirrorTransfer::rate),
-					transfer.is_some_and(|transfer| transfer.seen),
-				)
+				let (rate, seen) = self.0.get_mut(domain).map_or((None, false), |transfer| {
+					(transfer.rate(*active > 0), transfer.seen)
+				});
+				MirrorProgress::new(domain.clone(), *active, DOMAIN_CONNECTION_LIMIT, rate, seen)
 			})
 			.collect()
 	}
@@ -188,7 +196,7 @@ pub struct Downloader {
 	pub(crate) archive_dir: PathBuf,
 	pub(crate) partial_dir: PathBuf,
 	/// Used to count how many connections are open to a domain.
-	/// Nala only allows 3 at a time per domain.
+	/// Nala limits concurrent connections to each domain.
 	domains: DomainMap,
 	set: JoinSet<Result<Uri>>,
 	pub(crate) tx: mpsc::UnboundedSender<Message>,
@@ -306,7 +314,11 @@ impl Downloader {
 		}
 
 		let configured_domains = self.configured_domains();
-		self.domains.register(configured_domains.clone()).await;
+		for uri in &self.uris {
+			self.domains
+				.register(&uri.filename, &uri.candidate_domains())
+				.await;
+		}
 		let mut mirror_transfers = MirrorTransfers::new(&configured_domains);
 		let mut progress = Progress::download(config, configured_domains.len())?;
 		// Set the total downloads.
@@ -432,6 +444,21 @@ fn parse_cli_uri(cli_uri: &str) -> Result<(String, String, Option<HashSum>)> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn mirror_average_stops_while_idle() {
+		let mut transfer = MirrorTransfer::default();
+		transfer.add(1024);
+		transfer.active_since = Some(Instant::now() - Duration::from_secs(1));
+
+		let rate = transfer.rate(false);
+		let elapsed = transfer.elapsed;
+		assert_eq!(transfer.rate(false), rate);
+		assert_eq!(transfer.elapsed, elapsed);
+
+		transfer.add(1024);
+		assert!(transfer.active_since.is_some());
+	}
 
 	#[test]
 	fn command_line_uri_preserves_ports_and_extracts_the_filename() {
