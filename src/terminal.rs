@@ -15,7 +15,7 @@ use crossterm::terminal::{
 	EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use crossterm::{ExecutableCommand, execute};
-use ratatui::backend::CrosstermBackend;
+use ratatui::backend::{Backend, ClearType, CrosstermBackend};
 use ratatui::{Terminal, TerminalOptions, Viewport};
 
 use crate::config::Config;
@@ -170,8 +170,13 @@ impl InlineTerminalGuard {
 
 	fn restore_viewport(&mut self) -> Result<()> {
 		let origin = self.terminal.get_frame().area().as_position();
-		self.terminal.clear()?;
 		self.terminal.set_cursor_position(origin)?;
+		self.terminal
+			.backend_mut()
+			.clear_region(ClearType::AfterCursor)?;
+		// Invalidate Ratatui's previous frame so a resumed viewport is fully
+		// redrawn without querying the terminal for its cursor position.
+		self.terminal.swap_buffers();
 		self.terminal.show_cursor()?;
 		Ok(())
 	}

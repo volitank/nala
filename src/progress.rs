@@ -494,23 +494,47 @@ impl<'a> Progress<'a> {
 		self.render()
 	}
 
-	pub fn print(&mut self, msg: &str) -> Result<()> {
-		let state = &self.state;
-		match &mut self.kind {
-			ProgressKind::Tui(renderer) => renderer.print(state, msg),
-			ProgressKind::Plain(inner) => {
-				inner.print(state, msg);
-				Ok(())
-			},
+	fn switch_to_plain(&mut self, error: &anyhow::Error) {
+		crate::debug!("Enhanced progress failed; using plain output: {error:#}");
+		let previous = std::mem::replace(&mut self.kind, ProgressKind::Plain(PlainProgress::new()));
+		if let ProgressKind::Tui(mut renderer) = previous {
+			let _ = renderer.suspend();
 		}
 	}
 
-	pub fn render(&mut self) -> Result<()> {
-		let state = &self.state;
-		match &mut self.kind {
-			ProgressKind::Tui(renderer) => renderer.render(state),
-			ProgressKind::Plain(inner) => inner.render(state),
+	pub fn print(&mut self, msg: &str) -> Result<()> {
+		let error = match &mut self.kind {
+			ProgressKind::Tui(renderer) => renderer.print(&self.state, msg).err(),
+			ProgressKind::Plain(inner) => {
+				inner.print(&self.state, msg);
+				return Ok(());
+			},
+		};
+
+		if let Some(error) = error {
+			self.switch_to_plain(&error);
+			let ProgressKind::Plain(inner) = &mut self.kind else {
+				unreachable!();
+			};
+			inner.print(&self.state, msg);
 		}
+		Ok(())
+	}
+
+	pub fn render(&mut self) -> Result<()> {
+		let error = match &mut self.kind {
+			ProgressKind::Tui(renderer) => renderer.render(&self.state).err(),
+			ProgressKind::Plain(inner) => return inner.render(&self.state),
+		};
+
+		if let Some(error) = error {
+			self.switch_to_plain(&error);
+			let ProgressKind::Plain(inner) = &mut self.kind else {
+				unreachable!();
+			};
+			return inner.render(&self.state);
+		}
+		Ok(())
 	}
 
 	pub fn clean_up(&mut self) -> Result<()> {
