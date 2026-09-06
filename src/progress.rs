@@ -524,6 +524,9 @@ impl<'a> Progress<'a> {
 }
 
 #[cfg(test)]
+mod preview;
+
+#[cfg(test)]
 mod tests {
 	use ratatui::buffer::Buffer;
 	use ratatui::layout::Rect;

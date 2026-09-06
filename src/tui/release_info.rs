@@ -27,7 +27,7 @@ pub(crate) fn confirm(config: &Config, info: &ReleaseInfoChanges) -> Result<bool
 	}
 }
 
-fn render(frame: &mut ratatui::Frame, config: &Config, info: &ReleaseInfoChanges) {
+pub(crate) fn render(frame: &mut ratatui::Frame, config: &Config, info: &ReleaseInfoChanges) {
 	let title = t!("release-info-title");
 	let block = super::summary::header_block(config, &title)
 		.border_style(tui_style::style(config, Theme::Notice));

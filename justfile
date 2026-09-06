@@ -82,6 +82,10 @@ history-test:
 term-test:
     @just docker 'cargo build --locked --quiet && tests/deb/term/run'
 
+# Print deterministic previews of the TUI screens
+tui-preview:
+    @just docker 'cargo test --locked --quiet tui_preview -- --ignored --nocapture --test-threads 1'
+
 # Run the tests
 test +ARGS="":
     @cargo test -- --test-threads 1 {{ ARGS }}
