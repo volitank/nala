@@ -98,7 +98,7 @@ fn release_line(file: &PackageFile<'_>) -> Option<String> {
 }
 
 fn collect_version_sources(ver: &Version<'_>) -> Vec<PolicySource> {
-	let mut by_index: BTreeMap<u64, PolicySource> = BTreeMap::new();
+	let mut by_index: BTreeMap<usize, PolicySource> = BTreeMap::new();
 
 	for file in ver.package_files() {
 		by_index

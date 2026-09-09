@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Result, bail};
 use globset::GlobBuilder;
 use regex::{Regex, RegexBuilder};
-use rust_apt::raw::IntoRawIter;
 use rust_apt::{Cache, Package, PackageSort, Version};
 
 use crate::cmd::Operation;
@@ -74,7 +73,7 @@ impl<'a> Selection<'a> {
 
 	pub fn mark(self, cache: &Cache, default_op: Operation, purge: bool) -> Result<()> {
 		self.check_not_found()?;
-		let _ = unsafe { cache.depcache().action_group() };
+		let _action_group = unsafe { cache.depcache().action_group() };
 		let mut merged = BTreeMap::<(String, String), ResolvedPkg<'a>>::new();
 
 		for item in self.resolved {
@@ -439,8 +438,7 @@ pub fn regex_pkgs<'a>(config: &Config, cache: &'a Cache) -> Result<Vec<Package<'
 		let Some(version) = pkg.versions().next() else {
 			continue;
 		};
-		let desc = unsafe { version.translated_desc().make_safe() };
-		let Some(desc) = desc.and_then(|d| cache.records().desc_lookup(&d).long_desc()) else {
+		let Some(desc) = version.description() else {
 			continue;
 		};
 

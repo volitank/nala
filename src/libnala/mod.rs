@@ -277,7 +277,7 @@ impl NalaCache for Cache {
 		#[allow(clippy::mutable_key_type)]
 		let mut set = HashSet::new();
 		debug!("Auto Remover:");
-		let _ = unsafe { self.depcache().action_group() };
+		let _action_group = unsafe { self.depcache().action_group() };
 		for pkg in self.iter() {
 			if protected.contains(&package_key(&pkg)) {
 				pkg.mark_keep();
