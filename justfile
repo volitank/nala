@@ -7,7 +7,7 @@ default:
 # Setup the development environment
 setup-dev:
     @echo Installing required packages from apt
-    @sudo apt-get install libapt-pkg-dev codespell -y
+    @sudo apt-get install g++ libapt-pkg-dev pkgconf codespell -y
 
     @echo Setting up toolchains
     @rustup toolchain install nightly
@@ -46,6 +46,10 @@ install: release
 deb:
     scripts/deb-build --binary --no-clean
 
+# Build the same Debian package with locked crates.io dependencies
+deb-upstream:
+    scripts/deb-build --binary --no-clean --upstream-cargo
+
 # Build source Debian artifacts
 deb-source:
     scripts/deb-build --source
@@ -58,33 +62,44 @@ deb-release:
 deb-release-sign KEY:
     scripts/deb-build --release --key-id {{ KEY }}
 
-# Run a command in the Debian test container
-docker COMMAND:
-    @docker build --quiet -f tests/deb/Dockerfile -t nala-debtest tests/deb
+# Start a Debian Sid shell with the strict package build dependencies installed
+sid:
+    @docker build --quiet -f tests/deb/Dockerfile -t nala-sid tests/deb
+    @docker run --rm -it \
+        -e TERM="${TERM:-dumb}" \
+        -v "$PWD:/work" \
+        -w /work \
+        nala-sid \
+        bash -lc 'apt-get update && apt-get build-dep -y --no-install-recommends . && exec bash'
+
+# Run a command in the Debian Sid test container
+[private]
+sid-run COMMAND:
+    @docker build --quiet -f tests/deb/Dockerfile -t nala-sid tests/deb
     @docker run --rm \
         -e CARGO_TARGET_DIR=/target \
         -e TERM="${TERM:-dumb}" \
         -v "$PWD:/work" \
-        -v nala-debtest-target:/target \
+        -v nala-sid-target:/target \
         -w /work \
-        nala-debtest \
+        nala-sid \
         sh -c '{{ COMMAND }}'
 
 # Run Debian package integration test
 debtest:
-    @just docker 'cargo build --locked --quiet && tests/deb/run && tests/deb/history/run'
+    @just sid-run 'cargo build --locked --quiet && tests/deb/run && tests/deb/history/run'
 
 # Run history package integration test
 history-test:
-    @just docker 'cargo build --locked --quiet && tests/deb/history/run'
+    @just sid-run 'cargo build --locked --quiet && tests/deb/history/run'
 
 # Run terminal integration test
 term-test:
-    @just docker 'cargo build --locked --quiet && tests/deb/term/run'
+    @just sid-run 'cargo build --locked --quiet && tests/deb/term/run'
 
 # Print deterministic previews of the TUI screens
 tui-preview:
-    @just docker 'cargo test --locked --quiet tui_preview -- --ignored --nocapture --test-threads 1'
+    @just sid-run 'cargo test --locked --quiet tui_preview -- --ignored --nocapture --test-threads 1'
 
 # Run the tests
 test +ARGS="":

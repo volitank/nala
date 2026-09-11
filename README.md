@@ -14,7 +14,7 @@ models, and terminal UI paths for high-information workflows.
 This repository is in transition from the original Python implementation to the
 Rust implementation. The active application code lives under `src/`. Python-era
 source, Poetry metadata, translation files, RST docs, and screenshots are
-archived under [`legacy/python`](legacy/python).
+archived under `legacy/python`.
 
 ## Features
 
@@ -99,21 +99,37 @@ Top-level configuration areas:
 Command-line flags override configuration values for the current invocation.
 APT options can be passed through with `-o KEY=VALUE`.
 
-Plain output and binary units are the defaults. Set `Ui.mode` to `"Auto"` or
-`"Tui"`, or pass `--tui`, to opt into the terminal interface. `--no-tui`
-forces plain output for the current invocation.
+`Ui.mode` defaults to `"Auto"`, which uses enhanced inline views when the
+terminal supports them. `"Tui"` enables the optional full-screen interfaces,
+while `"Plain"` disables the enhanced terminal UI. `--tui` selects TUI mode for
+the current invocation; `--no-tui` returns a configured TUI mode to automatic
+inline behavior.
 
 The Debian package manages `/etc/nala/nala.conf` as a conffile. On upgrade,
 dpkg replaces an unmodified packaged file automatically and prompts before
 replacing local changes. If the old file is kept, compare it with
 `/etc/nala/nala.conf.dpkg-dist`; Nala rejects retired and unknown fields.
 
+## Cargo Installation
+
+The Debian package is the complete installation: it includes Nala's system
+configuration, manpages, and shell completions. A binary-only canary can also
+be installed from crates.io on Debian Sid:
+
+```sh
+sudo apt-get install g++ libapt-pkg-dev pkgconf
+cargo install nala --locked
+```
+
+Cargo installs only the `nala` executable. Nala uses its built-in configuration
+defaults when `/etc/nala/nala.conf` is absent.
+
 ## Development
 
 Install system requirements first:
 
 ```sh
-sudo apt-get install libapt-pkg-dev codespell
+sudo apt-get install g++ libapt-pkg-dev pkgconf codespell
 ```
 
 Build and test:

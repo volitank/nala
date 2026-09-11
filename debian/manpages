@@ -1,1 +1,1 @@
-debian/generated-man/*.8
+debian/cargo_out_dir/*.8

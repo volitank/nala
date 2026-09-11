@@ -1,0 +1,8 @@
+tar-ignore = .git
+tar-ignore = .cargo
+tar-ignore = dist
+tar-ignore = target
+tar-ignore = debian/cargo_home
+tar-ignore = debian/cargo_registry
+tar-ignore = debian/cargo_out_dir
+tar-ignore = debian/generated-man

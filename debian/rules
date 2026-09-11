@@ -1,19 +1,21 @@
 #!/usr/bin/make -f
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-export CARGO_HOME ?= $(CURDIR)/debian/cargo-home
-export CARGO_TARGET_DIR ?= $(CURDIR)/target
 export DEB_DESTDIR ?= ..
-export DH_VERBOSE = 1
+
+ifneq (,$(filter upstream-cargo,$(DEB_BUILD_PROFILES)))
+export CARGO_HOME ?= $(CURDIR)/debian/cargo_home
+export CARGO_TARGET_DIR ?= $(CURDIR)/target
+export CARGO_PROFILE_LTO_DEBUG = 2
 
 %:
 	dh $@
 
 override_dh_auto_build:
 	cargo build --locked --profile lto
-	rm -rf debian/generated-man
-	mkdir -p debian/generated-man
-	find $(CARGO_TARGET_DIR)/lto/build -path '*/out/*.8' -exec cp {} debian/generated-man/ \;
+	rm -rf debian/cargo_out_dir
+	mkdir -p debian/cargo_out_dir
+	find $(CARGO_TARGET_DIR)/lto/build -path '*/out/*.8' -exec cp {} debian/cargo_out_dir/ \;
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
@@ -23,13 +25,42 @@ endif
 override_dh_auto_install:
 	install -Dm755 $(CARGO_TARGET_DIR)/lto/nala debian/nala/usr/bin/nala
 
-override_dh_builddeb:
-	mkdir -p $(DEB_DESTDIR)
-	dh_builddeb --destdir=$(DEB_DESTDIR)
+# dh-cargo populates these fields for strict Debian builds. Crates.io
+# dependencies have no Debian source packages to record in the online build.
+override_dh_gencontrol:
+	dh_gencontrol -- \
+		-Vcargo:Built-Using= \
+		-Vcargo:Static-Built-Using= \
+		-Vcargo:X-Cargo-Built-Using=
 
 override_dh_auto_clean:
 ifeq ($(NO_CLEAN),1)
 	@echo "Skipping Cargo build cache cleanup because NO_CLEAN=1"
 else
-	rm -rf debian/cargo-home debian/generated-man target
+	rm -rf debian/cargo_home debian/cargo_out_dir target
 endif
+
+else
+
+%:
+	dh $@ --buildsystem cargo
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	dh_auto_test --buildsystem cargo -- test -- --test-threads 1
+endif
+
+override_dh_auto_clean:
+ifeq ($(NO_CLEAN),1)
+	@echo "Skipping Cargo build cache cleanup because NO_CLEAN=1"
+	rm -rf debian/cargo_home debian/cargo_registry debian/cargo_out_dir
+	rm -f .cargo-checksum.json
+else
+	dh_auto_clean --buildsystem cargo
+endif
+
+endif
+
+override_dh_builddeb:
+	mkdir -p $(DEB_DESTDIR)
+	dh_builddeb --destdir=$(DEB_DESTDIR)

@@ -1,5 +1,4 @@
 Source: nala
-Priority: optional
 Section: admin
 Maintainer: Volian Developers <volian-devel@volian.org>
 Uploaders: Blake Lee <blake@volian.org>
@@ -7,18 +6,75 @@ Build-Depends:
   debhelper-compat (= 13),
   ca-certificates,
   python3,
-  cargo,
-  rustc,
+  dh-cargo (>= 25) <!upstream-cargo>,
+  cargo:native,
+  rustc:native,
+  libstd-rust-dev,
   libapt-pkg-dev,
-  pkg-config,
+  pkgconf,
   libssl-dev,
-  bash-completion,
   dh-sequence-bash-completion,
+  librust-anyhow-1+default-dev (>= 1.0.103) <!upstream-cargo>,
+  librust-ar-0.9+default-dev <!upstream-cargo>,
+  librust-async-compression-0.4+default-dev (>= 0.4.27) <!upstream-cargo>,
+  librust-async-compression-0.4+gzip-dev (>= 0.4.27) <!upstream-cargo>,
+  librust-async-compression-0.4+tokio-dev (>= 0.4.27) <!upstream-cargo>,
+  librust-async-compression-0.4+xz-dev (>= 0.4.27) <!upstream-cargo>,
+  librust-async-compression-0.4+zstd-dev (>= 0.4.27) <!upstream-cargo>,
+  librust-chrono-0.4+default-dev (>= 0.4.45) <!upstream-cargo>,
+  librust-clap-4+default-dev (>= 4.6.5) <!upstream-cargo>,
+  librust-clap-4+derive-dev (>= 4.6.5) <!upstream-cargo>,
+  librust-clap-complete-4+default-dev (>= 4.6.8) <!upstream-cargo>,
+  librust-clap-complete-4+unstable-dynamic-dev (>= 4.6.8) <!upstream-cargo>,
+  librust-clap-mangen-0.3+default-dev <!upstream-cargo>,
+  librust-comfy-table-7+custom-styling-dev (>= 7.2.2) <!upstream-cargo>,
+  librust-comfy-table-7+default-dev (>= 7.2.2) <!upstream-cargo>,
+  librust-comfy-table-7+tty-dev (>= 7.2.2) <!upstream-cargo>,
+  librust-crossterm-0.29+default-dev <!upstream-cargo>,
+  librust-fluent-0.17+default-dev <!upstream-cargo>,
+  librust-globset-0.4+default-dev (>= 0.4.20) <!upstream-cargo>,
+  librust-indexmap-2+default-dev (>= 2.14.0) <!upstream-cargo>,
+  librust-mio-1+default-dev (>= 1.2.0) <!upstream-cargo>,
+  librust-mio-1+os-ext-dev (>= 1.2.0) <!upstream-cargo>,
+  librust-nix+default-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+default-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-nix+fs-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+fs-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-nix+ioctl-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+ioctl-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-nix+process-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+process-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-nix+signal-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+signal-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-nix+term-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+term-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-nix+user-dev (<< 0.32) <!upstream-cargo>,
+  librust-nix+user-dev (>= 0.30.1) <!upstream-cargo>,
+  librust-ratatui-0.30+crossterm-0-29-dev (>= 0.30.2) <!upstream-cargo>,
+  librust-regex-1+default-dev (>= 1.13.1) <!upstream-cargo>,
+  librust-reqwest-0.13+default-dev (>= 0.13.4) <!upstream-cargo>,
+  librust-reqwest-0.13+json-dev (>= 0.13.4) <!upstream-cargo>,
+  librust-rust-apt-0.11+default-dev (>= 0.11.2) <!upstream-cargo>,
+  librust-rust-apt-0.11+serde-dev (>= 0.11.2) <!upstream-cargo>,
+  librust-serde-1+default-dev (>= 1.0.229) <!upstream-cargo>,
+  librust-serde-1+derive-dev (>= 1.0.229) <!upstream-cargo>,
+  librust-serde-json-1+default-dev (>= 1.0.151) <!upstream-cargo>,
+  librust-sha2-0.11+default-dev <!upstream-cargo>,
+  librust-tar-0.4-dev (>= 0.4.45) <!upstream-cargo>,
+  librust-tokio-1+default-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-tokio-1+fs-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-tokio-1+io-util-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-tokio-1+macros-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-tokio-1+rt-multi-thread-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-tokio-1+sync-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-tokio-1+time-dev (>= 1.53.1) <!upstream-cargo>,
+  librust-toml-1+default-dev (>= 1.1.4) <!upstream-cargo>,
 Rules-Requires-Root: no
-Standards-Version: 4.6.2
+Standards-Version: 4.7.4
 Homepage: https://gitlab.com/volian/nala
 Vcs-Git: https://gitlab.com/volian/nala.git
 Vcs-Browser: https://gitlab.com/volian/nala
+X-Cargo-Crate: nala
 
 Package: nala
 Architecture: any
@@ -26,6 +82,8 @@ Depends:
   ${shlibs:Depends},
   ${misc:Depends},
   apt,
+Built-Using: ${cargo:Built-Using}
+Static-Built-Using: ${cargo:Static-Built-Using}
 Description: Commandline frontend for the APT package manager
  Nala is a frontend for the APT package manager. It keeps APT's package
  semantics while presenting package operations in a clearer, more inspectable

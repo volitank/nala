@@ -1,11 +1,19 @@
 [package]
 name = "nala"
-version = "0.17.1"
+version = "0.17.2"
 edition = "2024"
 license = "GPL-3.0-only"
-repository = "https://gitlab.com/volian/nala/-/tree/nala-rs"
+repository = "https://gitlab.com/volian/nala"
 readme = "README.md"
 description = "Commandline frontend for the APT package manager"
+include = [
+	"/src/**",
+	"/locales/**",
+	"/build.rs",
+	"/nala.conf",
+	"/README.md",
+	"/LICENSE",
+]
 
 [dependencies]
 rust-apt = { version = "0.11.2", features = ["serde"] }

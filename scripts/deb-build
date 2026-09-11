@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--out-dir", default="dist/debian")
 	parser.add_argument("--no-clean", action="store_true", help="preserve build caches")
 	parser.add_argument("--nocheck", action="store_true", help="set DEB_BUILD_OPTIONS=nocheck")
+	parser.add_argument(
+		"--upstream-cargo",
+		action="store_true",
+		help="build the same package with locked crates.io dependencies",
+	)
 	parser.add_argument("--sign", action="store_true", help="sign build outputs")
 	parser.add_argument("--key-id", help="sign build outputs with this key")
 	return parser.parse_args()
@@ -47,7 +52,11 @@ def collect_artifacts(marker: Path, out_dir: Path) -> None:
 
 def build(kind: str, args: argparse.Namespace, out_dir: Path) -> None:
 	with tempfile.NamedTemporaryFile() as marker:
+		lockfile = Path("Cargo.lock")
+		lockfile_contents = lockfile.read_bytes() if lockfile.exists() else None
 		cmd = ["dpkg-buildpackage", "-S" if kind == "source" else "-b"]
+		if args.upstream_cargo:
+			cmd.append("-Pupstream-cargo")
 		if args.key_id:
 			cmd.append(f"--sign-keyid={args.key_id}")
 		elif not args.sign:
@@ -57,7 +66,6 @@ def build(kind: str, args: argparse.Namespace, out_dir: Path) -> None:
 		env["DEB_DESTDIR"] = ".."
 		if args.no_clean:
 			env["NO_CLEAN"] = "1"
-			env.setdefault("CARGO_HOME", str(Path.home() / ".cargo"))
 		if args.nocheck:
 			options = env.get("DEB_BUILD_OPTIONS", "").split()
 			if "nocheck" not in options:
@@ -65,7 +73,11 @@ def build(kind: str, args: argparse.Namespace, out_dir: Path) -> None:
 			env["DEB_BUILD_OPTIONS"] = " ".join(options)
 
 		print(f"Building {kind} package...")
-		subprocess.run(cmd, check=True, env=env)
+		try:
+			subprocess.run(cmd, check=True, env=env)
+		finally:
+			if lockfile_contents is not None:
+				lockfile.write_bytes(lockfile_contents)
 		collect_artifacts(Path(marker.name), out_dir)
 
 

@@ -2,9 +2,7 @@ stages:
   - build
 variables:
   DEBIAN_FRONTEND: noninteractive
-  CARGO_HOME: $CI_PROJECT_DIR/.cargo
   CACHE_COMPRESSION_LEVEL: fastest
-  PATH: "${CARGO_HOME}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 debian-package:
   stage: build
@@ -14,21 +12,19 @@ debian-package:
     fallback_keys:
       - "${CI_DEFAULT_BRANCH}"
     paths:
-      - .cargo/registry/cache/
-      - .cargo/registry/index/
-      - .cargo/git/db/
       - target/
   script:
     - apt-get update
-    - apt-get install -y --no-install-recommends dpkg-dev eatmydata python3 tmux whiptail
+    - apt-get install -y --no-install-recommends dpkg-dev eatmydata lintian python3 tmux whiptail
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
     - scripts/deb-build --binary --no-clean
+    - lintian dist/debian/*.changes
     - chmod -R go-w tests/deb/packages
-    - tests/deb/run target/lto/nala
-    - tests/deb/history/run target/lto/nala
-    - tests/deb/term/run target/lto/nala
-    - tests/deb/release-info/run target/lto/nala
+    - tests/deb/run debian/nala/usr/bin/nala
+    - tests/deb/history/run debian/nala/usr/bin/nala
+    - tests/deb/term/run debian/nala/usr/bin/nala
+    - tests/deb/release-info/run debian/nala/usr/bin/nala
   artifacts:
     when: always
     expire_in: 1 week
