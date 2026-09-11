@@ -56,6 +56,7 @@ inherits = "release"
 # But it does reduce the binary size. true = "fat", can also use "thin"
 # This save a LOT of binary size.
 lto = true
+opt-level = "s"
 
 # Can't really tell if this changes anything
 # This seems useless, at least in terms of file size.
