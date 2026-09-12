@@ -7,10 +7,15 @@ variables:
 debian-package:
   stage: build
   image: debian:sid
+  parallel:
+    matrix:
+      - RUNNER_ARCH: [amd64, arm64]
+  tags:
+    - "${RUNNER_ARCH}"
   cache:
-    key: "${CI_COMMIT_REF_SLUG}"
+    key: "${CI_COMMIT_REF_SLUG}-${RUNNER_ARCH}"
     fallback_keys:
-      - "${CI_DEFAULT_BRANCH}"
+      - "${CI_DEFAULT_BRANCH}-${RUNNER_ARCH}"
     paths:
       - target/
   script:
