@@ -25,7 +25,7 @@ pub struct TransactionFlags {
 	#[clap(long, action)]
 	pub allow_unauthenticated: bool,
 
-	/// Assume yes for all prompts.
+	/// Assume yes for prompts; implicit autoremove is skipped.
 	#[clap(short = 'y', long, action, conflicts_with = "assume_no")]
 	pub assume_yes: bool,
 
@@ -88,7 +88,7 @@ pub struct InfoFlags {
 
 #[derive(Args, Default, Debug)]
 pub struct AutoRemoveFlags {
-	/// Additionally remove unnecessary packages.
+	/// Additionally remove unnecessary packages, including with --assume-yes.
 	#[clap(
 		long,
 		visible_alias = "autoremove",

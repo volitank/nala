@@ -232,9 +232,15 @@ pub(crate) async fn commit_with_display_rows(
 		bail!("{}", t!("autoremove-config-purge"));
 	}
 
+	let auto_remove_requested = config.get_no_bool(keys::AUTO_REMOVE, true);
+	let auto_remove = config.should_auto_remove();
+	if auto_remove_requested && !auto_remove {
+		info!("{}", t!("autoremove-assume-yes"));
+	}
+
 	// Package is not really mutable in the way clippy thinks.
 	#[allow(clippy::mutable_key_type)]
-	let auto = if config.get_no_bool(keys::AUTO_REMOVE, true) {
+	let auto = if auto_remove {
 		cache.auto_remove(remove_config, purge, protected)
 	} else {
 		HashSet::new()

@@ -6,7 +6,7 @@ pub fn version_diff(old: &str, new: String) -> String {
 		// If there isn't a revision these shouldn't ever match
 		// If they do match then only the revision has changed
 		if old_ver.0 == new_ver.0 {
-			return format!("{}-{}", new_ver.0, color::color!(Theme::Notice, new_ver.0));
+			return format!("{}-{}", new_ver.0, color::color!(Theme::Notice, new_ver.1));
 		}
 	}
 
@@ -39,4 +39,14 @@ pub fn version_diff(old: &str, new: String) -> String {
 		})
 		.collect::<Vec<_>>()
 		.join(".")
+}
+
+#[cfg(test)]
+mod tests {
+	use super::version_diff;
+
+	#[test]
+	fn revision_only_diff_uses_the_new_revision() {
+		assert_eq!(version_diff("1.2-1", "1.2-2".into()), "1.2-2");
+	}
 }

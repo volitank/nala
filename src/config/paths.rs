@@ -27,7 +27,7 @@ pub enum Paths {
 	/// Default dir `/etc/apt/sources.list.d/`
 	SourceParts,
 	/// Nala Sources file is generated from the `fetch` command.
-	/// Default file `/etc/apt/sources.list.d/nala-sources.list`
+	/// Default file `/etc/apt/sources.list.d/nala.sources`
 	NalaSources,
 	/// File indicating a reboot is needed
 	RebootRequired,

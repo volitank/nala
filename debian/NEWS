@@ -1,3 +1,15 @@
+nala (0.17.2) unstable; urgency=medium
+
+  Automatic removal remains enabled for interactive transactions. When
+  --assume-yes is active, implicit autoremove is skipped unless --autoremove is
+  also given. The explicit autoremove and autopurge commands are unaffected.
+
+  Ui.mode now defaults to Auto, which uses enhanced inline progress where the
+  terminal supports it. Full-screen interfaces remain opt-in through Ui.mode =
+  "Tui" or --tui; Ui.mode = "Plain" remains available for static output.
+
+ -- Blake Lee <blake@volian.org>  Fri, 12 Sep 2026 00:00:00 -0500
+
 nala (0.17.1) unstable; urgency=medium
 
   The Python-only --raw-dpkg mode is retired; use plain output for log-friendly

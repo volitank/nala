@@ -4,6 +4,11 @@ nala (0.17.2) UNRELEASED; urgency=medium
   * Build the official package with Rust crates from Debian Sid.
   * Keep crates.io dependency builds available through the upstream-cargo
     build profile.
+  * Use enhanced inline progress by default while keeping full-screen
+    interfaces optional.
+  * Skip implicit autoremove under --assume-yes unless --autoremove is given.
+  * Fix revision-only version differences and stale nala.sources references.
+  * Document checksummed direct URL installs.
 
  -- Blake Lee <blake@volian.org>  Thu, 10 Sep 2026 00:38:59 -0500
 

@@ -81,6 +81,16 @@ Most transaction commands accept shared safety and behavior flags such as
 `--download-only`, `--simple`, `--update`, `--no-update`, `--assume-yes`,
 `--assume-no`, `--purge`, and `--allow-unauthenticated`.
 
+Automatic removal remains enabled for interactive transactions. Under
+`--assume-yes`, Nala skips implicit autoremove unless `--autoremove` is also
+passed; the explicit `autoremove` and `autopurge` commands are unaffected.
+
+Direct URL installs may include a trailing SHA-256 or SHA-512 digest:
+
+```sh
+nala install 'https://example.org/package.deb:HEX_DIGEST'
+```
+
 ## Configuration
 
 Nala reads a TOML configuration file. See [`nala.conf`](nala.conf) for the

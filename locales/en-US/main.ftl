@@ -85,6 +85,7 @@ summary-remove-essential = You have attempted to remove essential packages
 #   $switch (String) - Command-line switch that permits essential package removal.
 summary-use-switch = Use '{ $switch }' if you are sure.
 autoremove-config-purge = --remove-config must be used with --purge or autopurge.
+autoremove-assume-yes = Skipping automatic autoremove under --assume-yes. Use --autoremove to enable it.
 
 summary-reboot = A reboot is required to complete these changes.
 summary-reboot-packages = The following packages require a reboot:

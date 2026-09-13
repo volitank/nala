@@ -257,6 +257,22 @@ impl Config {
 
 	pub fn simple_summary(&self) -> bool { self.get_bool(keys::SIMPLE, false) }
 
+	/// Whether this transaction should remove unused packages.
+	///
+	/// Explicit autoremove commands always do. Otherwise, assume-yes suppresses
+	/// implicit removal unless the command line explicitly enabled it.
+	pub fn should_auto_remove(&self) -> bool {
+		if matches!(self.command.as_str(), "autoremove" | "autopurge") {
+			return true;
+		}
+
+		if !self.get_no_bool(keys::AUTO_REMOVE, true) {
+			return false;
+		}
+
+		!self.get_bool(keys::ASSUME_YES, false) || self.overrides.contains_key(keys::AUTO_REMOVE)
+	}
+
 	pub fn update_early(&self, command: &Commands) -> bool {
 		if self.get_bool(keys::NO_UPDATE, false) {
 			return false;
@@ -486,6 +502,39 @@ mod test {
 
 		assert!(config.get_bool(keys::REMOVE_ESSENTIAL, false));
 		assert!(!config.get_no_bool(keys::AUTO_REMOVE, true));
+	}
+
+	#[test]
+	fn assume_yes_requires_explicit_auto_remove() {
+		let _guard = test_lock();
+
+		for (args, expected) in [
+			(&["nala", "upgrade"][..], true),
+			(&["nala", "upgrade", "-y"][..], false),
+			(&["nala", "upgrade", "-y", "--autoremove"][..], true),
+			(&["nala", "autoremove", "-y"][..], true),
+		] {
+			let args = NalaParser::command().try_get_matches_from(args).unwrap();
+			let (name, command) = args.subcommand().unwrap();
+			let mut config = Config::default();
+			config.load_command(name, command).unwrap();
+
+			assert_eq!(config.should_auto_remove(), expected);
+		}
+
+		let mut file = ConfigFile::default();
+		file.nala.assume_yes = true;
+		assert!(!Config::from_file(file).should_auto_remove());
+
+		let args = NalaParser::command()
+			.try_get_matches_from(["nala", "autoremove", "-y"])
+			.unwrap();
+		let (name, command) = args.subcommand().unwrap();
+		let mut file = ConfigFile::default();
+		file.nala.auto_remove = false;
+		let mut config = Config::from_file(file);
+		config.load_command(name, command).unwrap();
+		assert!(config.should_auto_remove());
 	}
 
 	#[test]
