@@ -80,6 +80,10 @@ summary-op-count-colon = { $operation }: { $count }
 summary-nothing = Nothing to do.
 summary-essential = The following packages are essential!
 summary-remove-essential = You have attempted to remove essential packages
+summary-protected = The following packages are essential or protected!
+summary-remove-protected = You have attempted to remove essential or protected packages
+summary-downgrade-assume-yes = Packages would be downgraded under --assume-yes. Use '-o APT::Get::allow-downgrades=true' if you are sure.
+summary-held-assume-yes = Held packages would be changed under --assume-yes. Use '-o APT::Get::allow-change-held-packages=true' if you are sure.
 
 # Variables:
 #   $switch (String) - Command-line switch that permits essential package removal.
@@ -200,6 +204,12 @@ download-content-parse = Parsing content-length failed: { $headers }
 #   $file (String) - Downloaded filename.
 download-checksum = Checksum did not match for { $file }
 download-no-uris = No URIs could be downloaded for { $file }
+
+# Variables:
+#   $path (String) - Archive directory.
+#   $required (String) - Space required for missing archives.
+#   $available (String) - Space currently available.
+download-no-space = Not enough free space in { $path }: { $required } required, { $available } available.
 
 # Variables:
 #   $path (String) - Path without a valid filename.

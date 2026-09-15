@@ -1,0 +1,6 @@
+Package: nala-protected-test
+Version: 1.0
+Architecture: all
+Maintainer: Nala Tests <noreply@example.invalid>
+Protected: yes
+Description: Nala protected package safety fixture

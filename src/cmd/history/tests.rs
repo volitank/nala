@@ -1,6 +1,6 @@
 use super::model::{HistoryStatus, HISTORY_SCHEMA_VERSION};
 use super::replay::ReplayAction;
-use super::store::next_history_id;
+use super::store::{cleanup_stale_history, next_history_id};
 use super::*;
 use crate::cli::HistorySelector;
 use crate::config::Config;
@@ -592,6 +592,30 @@ fn get_history_validates_schema_version_and_filename_id() {
 	fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
 	let error = get_history(&config).unwrap_err().to_string();
 	assert!(error.contains("contains ID 2; expected 1"));
+
+	fs::remove_dir_all(&history_dir).unwrap();
+}
+
+#[test]
+fn stale_history_cleanup_only_removes_nala_temporary_state() {
+	let history_dir = temp_history_dir();
+	let mut config = Config::default();
+	config.set_history_dir(history_dir.to_string_lossy());
+
+	fs::write(history_dir.join("5.json.tmp"), "{").unwrap();
+	fs::write(history_dir.join("notes.tmp"), "keep").unwrap();
+	let staging = history_dir.with_file_name(format!(
+		".{}.importing-123",
+		history_dir.file_name().unwrap().to_string_lossy()
+	));
+	fs::create_dir(&staging).unwrap();
+	fs::write(staging.join("1.json"), "{}").unwrap();
+
+	cleanup_stale_history(&config).unwrap();
+
+	assert!(!history_dir.join("5.json.tmp").exists());
+	assert!(history_dir.join("notes.tmp").exists());
+	assert!(!staging.exists());
 
 	fs::remove_dir_all(&history_dir).unwrap();
 }

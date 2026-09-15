@@ -12,6 +12,57 @@ use crate::{debug, warn};
 
 const LEGACY_HISTORY_MARKER: &str = ".legacy-history-handled";
 
+/// Removes temporary history state left by an interrupted Nala mutation.
+pub(crate) fn cleanup_stale_history(config: &Config) -> Result<()> {
+	let history_dir = config.get_path(&Paths::History);
+	if history_dir.exists() {
+		for entry in std::fs::read_dir(&history_dir)
+			.with_context(|| t!("file-read", "path" => history_dir.display().to_string()))?
+		{
+			let path = entry?.path();
+			let Some(stem) = path
+				.file_name()
+				.and_then(|name| name.to_str())
+				.and_then(|name| name.strip_suffix(".json.tmp"))
+			else {
+				continue;
+			};
+			if path.is_file() && stem.parse::<u32>().is_ok() {
+				std::fs::remove_file(&path)
+					.with_context(|| t!("file-remove", "path" => path.display().to_string()))?;
+			}
+		}
+	}
+
+	let Some(parent) = history_dir.parent() else {
+		return Ok(());
+	};
+	if !parent.exists() {
+		return Ok(());
+	}
+	let name = history_dir
+		.file_name()
+		.and_then(|name| name.to_str())
+		.unwrap_or("history");
+	let prefix = format!(".{name}.importing-");
+	for entry in std::fs::read_dir(parent)
+		.with_context(|| t!("file-read", "path" => parent.display().to_string()))?
+	{
+		let path = entry?.path();
+		if path.is_dir()
+			&& path
+				.file_name()
+				.and_then(|name| name.to_str())
+				.is_some_and(|name| name.starts_with(&prefix))
+		{
+			std::fs::remove_dir_all(&path)
+				.with_context(|| t!("file-remove", "path" => path.display().to_string()))?;
+		}
+	}
+
+	Ok(())
+}
+
 fn history_entry_id(path: &Path) -> Option<u32> {
 	if path.extension()? != "json" {
 		return None;
@@ -194,6 +245,7 @@ impl HistoryEntry {
 }
 
 fn migrate_legacy_history(config: &Config) -> Result<()> {
+	cleanup_stale_history(config)?;
 	let history_dir = config.get_path(&Paths::History);
 	let legacy_path = legacy_history_path(&history_dir);
 	if !legacy_path.exists() || history_dir.join(LEGACY_HISTORY_MARKER).exists() {

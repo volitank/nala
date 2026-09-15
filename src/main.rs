@@ -2,12 +2,12 @@ use std::process::ExitCode;
 
 use anyhow::{Result, bail};
 use clap::{ArgMatches, CommandFactory};
-use cli::Commands;
+use cli::{Commands, HistoryCommand};
 use cmd::Operation;
 use rust_apt::cache::Upgrade;
 use rust_apt::error::AptErrors;
 use rust_apt::new_cache;
-use util::sudo_check;
+use util::{AptLockGuard, sudo_check};
 
 mod cli;
 mod cmd;
@@ -78,6 +78,12 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 	if let (Some((name, cmd)), Some(command)) = (args.subcommand(), derived.command) {
 		config.load_command(name, cmd)?;
 		apply_command_defaults(&command, config);
+		let _apt_lock = if command_mutates(&command) {
+			sudo_check(config)?;
+			Some(AptLockGuard::acquire()?)
+		} else {
+			None
+		};
 
 		if config.debug() {
 			debug!("{config:?}");
@@ -144,6 +150,32 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 	Ok(())
 }
 
+fn command_mutates(command: &Commands) -> bool {
+	match command {
+		Commands::Clean(_)
+		| Commands::Fetch(_)
+		| Commands::Update(_)
+		| Commands::Upgrade(_)
+		| Commands::FullUpgrade(_)
+		| Commands::SafeUpgrade(_)
+		| Commands::Install(_)
+		| Commands::Remove(_)
+		| Commands::Purge(_)
+		| Commands::AutoRemove(_)
+		| Commands::AutoPurge(_) => true,
+		Commands::History(args) => matches!(
+			args.command.as_ref(),
+			Some(HistoryCommand::Undo(_) | HistoryCommand::Redo(_) | HistoryCommand::Clear(_))
+		),
+		Commands::List(_)
+		| Commands::Search(_)
+		| Commands::Show(_)
+		| Commands::Policy(_)
+		| Commands::Download(_)
+		| Commands::Moo(_) => false,
+	}
+}
+
 fn apply_command_defaults(command: &Commands, config: &mut Config) {
 	let key = match command {
 		Commands::FullUpgrade(_) => keys::FULL,
@@ -193,5 +225,48 @@ mod tests {
 		assert_command_default("safe-upgrade", keys::SAFE);
 		assert_command_default("purge", keys::PURGE);
 		assert_command_default("autopurge", keys::PURGE);
+	}
+
+	#[test]
+	fn mutation_commands_are_the_only_commands_that_take_the_apt_lock() {
+		for args in [
+			&["nala", "clean"][..],
+			&["nala", "fetch"][..],
+			&["nala", "update"][..],
+			&["nala", "upgrade"][..],
+			&["nala", "full-upgrade"][..],
+			&["nala", "safe-upgrade"][..],
+			&["nala", "install", "demo"][..],
+			&["nala", "remove", "demo"][..],
+			&["nala", "purge", "demo"][..],
+			&["nala", "autoremove"][..],
+			&["nala", "autopurge"][..],
+			&["nala", "history", "undo", "last"][..],
+			&["nala", "history", "redo", "last"][..],
+			&["nala", "history", "clear", "--all"][..],
+		] {
+			let command = NalaParser::try_parse_from(args).unwrap().command.unwrap();
+			assert!(
+				command_mutates(&command),
+				"{args:?} did not take the APT lock"
+			);
+		}
+
+		for args in [
+			&["nala", "list"][..],
+			&["nala", "search"][..],
+			&["nala", "show"][..],
+			&["nala", "policy"][..],
+			&["nala", "download", "demo"][..],
+			&["nala", "history"][..],
+			&["nala", "history", "info", "last"][..],
+			&["nala", "moo"][..],
+		] {
+			let command = NalaParser::try_parse_from(args).unwrap().command.unwrap();
+			assert!(
+				!command_mutates(&command),
+				"{args:?} unexpectedly took the APT lock"
+			);
+		}
 	}
 }

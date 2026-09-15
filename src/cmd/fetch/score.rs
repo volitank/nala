@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use reqwest::Client;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
@@ -51,7 +51,8 @@ pub(super) async fn score_mirrors(
 		pb.render()?;
 		if poll_exit_event()? {
 			pb.clean_up()?;
-			std::process::exit(1);
+			set.shutdown().await;
+			bail!("{}", t!("download-exit"));
 		}
 	}
 	pb.clean_up()?;

@@ -28,6 +28,7 @@ debian-package:
     - chmod -R go-w tests/deb/packages
     - tests/deb/run debian/nala/usr/bin/nala
     - tests/deb/history/run debian/nala/usr/bin/nala
+    - tests/deb/safety/run debian/nala/usr/bin/nala
     - tests/deb/term/run debian/nala/usr/bin/nala
     - tests/deb/release-info/run debian/nala/usr/bin/nala
   artifacts:

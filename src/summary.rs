@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Result, bail};
 use chrono::Utc;
 use rust_apt::util::DiskSpace;
-use rust_apt::{Cache, Package};
+use rust_apt::{Cache, Package, PkgSelectedState};
 
 use crate::cmd::{self, HistoryEntry, apt_hook_with_pkgs, run_scripts};
 use crate::config::{Config, Paths, Theme, color, keys};
@@ -186,34 +186,78 @@ fn add_display_rows(
 	}
 }
 
-fn check_essential(config: &Config, pkgs: &Vec<Package>) -> Result<()> {
-	let essential = pkgs
+fn package_is_protected(package: &Package<'_>) -> bool {
+	package.is_essential()
+		|| package.versions().any(|version| {
+			version.version_files().any(|file| {
+				["Important", "Protected"].iter().any(|field| {
+					file.lookup()
+						.get_field((*field).to_string())
+						.is_some_and(|value| value.eq_ignore_ascii_case("yes"))
+				})
+			})
+		})
+}
+
+fn check_protected(config: &Config, pkgs: &[Package<'_>]) -> Result<()> {
+	let protected = pkgs
 		.iter()
-		.filter(|p| p.is_essential() && p.marked_delete())
+		.filter(|package| package.marked_delete() && package_is_protected(package))
 		.collect::<Vec<_>>();
 
-	if essential.is_empty() {
+	if protected.is_empty() {
 		return Ok(());
 	}
 
-	warn!("{}", t!("summary-essential"));
+	warn!("{}", t!("summary-protected"));
 	eprintln!(
 		"  {}",
-		essential
+		protected
 			.iter()
 			.map(|p| p.name())
 			.collect::<Vec<_>>()
 			.join(", ")
 	);
 
-	if config.get_bool(keys::REMOVE_ESSENTIAL, false) {
+	if config.get_bool(keys::REMOVE_ESSENTIAL, false)
+		|| config.apt.bool("APT::Get::allow-remove-essential", false)
+		|| config.apt.bool("APT::Get::Force-Yes", false)
+	{
 		return Ok(());
 	}
 
-	error!("{}", t!("summary-remove-essential"));
+	error!("{}", t!("summary-remove-protected"));
 
 	let switch = color::color!(Theme::Warning, "--remove-essential");
 	bail!("{}", t!("summary-use-switch", "switch" => switch))
+}
+
+fn check_unattended_safety(config: &Config, pkgs: &[Package<'_>]) -> Result<()> {
+	if !config.get_bool(keys::ASSUME_YES, false) || config.apt.bool("APT::Get::Force-Yes", false) {
+		return Ok(());
+	}
+
+	if !config.apt.bool("APT::Get::allow-downgrades", false)
+		&& pkgs.iter().any(|package| {
+			matches!(
+				(package.installed(), package.install_version()),
+				(Some(installed), Some(target)) if target < installed
+			)
+		}) {
+		bail!("{}", t!("summary-downgrade-assume-yes"));
+	}
+
+	if !config
+		.apt
+		.bool("APT::Get::allow-change-held-packages", false)
+		&& pkgs.iter().any(|package| {
+			package.selected_state() == PkgSelectedState::Hold
+				&& package.install_version() != package.installed()
+		}) {
+		bail!("{}", t!("summary-held-assume-yes"));
+	}
+
+	Ok(())
 }
 
 pub async fn commit(cache: Cache, config: &Config) -> Result<()> {
@@ -248,7 +292,9 @@ pub(crate) async fn commit_with_display_rows(
 
 	let (pkgs, mut pkg_set) = cache.sort_changes(auto)?;
 	add_display_rows(&mut pkg_set, &pkgs, display_rows);
-	check_essential(config, &pkgs)?;
+	run_scripts(config, "APT::Install::Pre-Invoke")?;
+	check_protected(config, &pkgs)?;
+	check_unattended_safety(config, &pkgs)?;
 
 	if pkgs.is_empty() {
 		if pkg_set.is_empty() {
@@ -256,11 +302,13 @@ pub(crate) async fn commit_with_display_rows(
 		} else {
 			print_readonly_summary(&cache, config, &pkg_set);
 		}
+		run_scripts(config, "APT::Install::Post-Invoke-Success")?;
 		return Ok(());
 	}
 
 	if pkg_set.is_empty() {
 		println!("{}", t!("summary-nothing"));
+		run_scripts(config, "APT::Install::Post-Invoke-Success")?;
 		return Ok(());
 	}
 
@@ -321,22 +369,30 @@ pub(crate) async fn commit_with_display_rows(
 
 	config.apt.set("Dpkg::Use-Pty", "0");
 
-	dpkg::run_install(cache, config)?;
+	let install_result = dpkg::run_install(cache, config);
+	let history_result = if install_result.is_ok() {
+		let history_packages = pkg_set.into_values().flatten().collect::<Vec<_>>();
+		if history_packages.is_empty() {
+			Ok(())
+		} else {
+			HistoryEntry::applied(
+				config,
+				history_id,
+				started_at,
+				Utc::now().to_rfc3339(),
+				history_packages,
+			)
+			.write_to_file(config)
+		}
+	} else {
+		Ok(())
+	};
+	let post_invoke_result = run_scripts(config, "DPkg::Post-Invoke");
 
-	let history_packages = pkg_set.into_values().flatten().collect::<Vec<_>>();
-	if !history_packages.is_empty() {
-		let history_entry = HistoryEntry::applied(
-			config,
-			history_id,
-			started_at,
-			Utc::now().to_rfc3339(),
-			history_packages,
-		);
-
-		history_entry.write_to_file(config)?;
-	}
-
-	run_scripts(config, "DPkg::Post-Invoke")?;
+	install_result?;
+	history_result?;
+	post_invoke_result?;
+	run_scripts(config, "APT::Install::Post-Invoke-Success")?;
 
 	check_reboot_required(config);
 

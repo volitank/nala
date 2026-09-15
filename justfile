@@ -87,11 +87,15 @@ sid-run COMMAND:
 
 # Run Debian package integration test
 debtest:
-    @just sid-run 'cargo build --locked --quiet && tests/deb/run && tests/deb/history/run'
+    @just sid-run 'cargo build --locked --quiet && tests/deb/run && tests/deb/history/run && tests/deb/safety/run'
 
 # Run history package integration test
 history-test:
     @just sid-run 'cargo build --locked --quiet && tests/deb/history/run'
+
+# Run transaction safety integration tests
+safety-test:
+    @just sid-run 'cargo build --locked --quiet && tests/deb/safety/run'
 
 # Run terminal integration test
 term-test:

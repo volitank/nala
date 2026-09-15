@@ -5,7 +5,7 @@ use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{close, dup2_raw, fork, pipe, ForkResult};
 use rust_apt::raw::quote_string;
@@ -39,12 +39,9 @@ struct HookAction<'a> {
 pub fn run_scripts(config: &Config, key: &str) -> Result<()> {
 	for hook in config.apt.find_vector(key) {
 		debug!("Running {hook}");
-		let mut child = Command::new("sh").arg("-c").arg(hook).spawn()?;
-
-		let exit = child.wait()?;
-		if !exit.success() {
-			// TODO: Figure out how to return the ExitStatus from main.
-			std::process::exit(exit.code().unwrap());
+		let status = Command::new("sh").arg("-c").arg(&hook).status()?;
+		if !status.success() {
+			bail!("Hook '{hook}' failed with {status}");
 		}
 	}
 	config.apt.clear(key);
@@ -250,7 +247,7 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 					.arg("-c")
 					.arg(&hook)
 					.env("APT_HOOK_INFO_FD", info_fd.to_string());
-				if key == "DPkg::Pre-Install-Pkgs" {
+				if key == "DPkg::Pre-Install-Pkgs" && rust_apt::util::apt_is_locked() {
 					command.env("DPKG_FRONTEND_LOCKED", "true");
 				}
 
@@ -285,11 +282,15 @@ pub fn apt_hook_with_pkgs(config: &Config, pkgs: &Vec<Package>, key: &str) -> Re
 				debug!("Waiting for Child");
 
 				// Wait for the child process to finish and get its exit code
-				let wait_status = waitpid(child, None)?;
-				if let WaitStatus::Exited(_, exit_code) = wait_status
-					&& exit_code != 0
-				{
-					std::process::exit(exit_code);
+				match waitpid(child, None)? {
+					WaitStatus::Exited(_, 0) => {},
+					WaitStatus::Exited(_, exit_code) => {
+						bail!("Hook '{hook}' exited with status {exit_code}");
+					},
+					WaitStatus::Signaled(_, signal, _) => {
+						bail!("Hook '{hook}' was terminated by {signal}");
+					},
+					status => bail!("Hook '{hook}' ended unexpectedly: {status:?}"),
 				}
 			},
 		}

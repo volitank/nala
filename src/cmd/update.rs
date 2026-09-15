@@ -114,8 +114,8 @@ pub async fn update(config: &Config) -> Result<()> {
 			},
 		}
 
-		// Exit immediately.
-		// This is the only way to stop apt's update
+		// The blocking libapt update has no cancellation callback. Exiting the
+		// process is the only way to stop it without leaving it running unlocked.
 		if poll_exit_event()? {
 			progress.clean_up()?;
 			std::process::exit(1);

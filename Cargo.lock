@@ -1968,9 +1968,9 @@ checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
 
 [[package]]
 name = "rust-apt"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af431210fe16248c18124b83da8dcb809f55625eb847b899dfe2ef7060ca04bf"
+checksum = "6f3baa272fd784ce1a791ea2ef2f599fca23fbbbced7782a05c6f5007431ec79"
 dependencies = [
  "cxx",
  "cxx-build",

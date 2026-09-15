@@ -115,6 +115,10 @@ impl Drop for PtyInputGuard {
 
 pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 	debug!("run_install");
+	// Keep the frontend lock in the parent, but let dpkg acquire its own lock.
+	if rust_apt::util::apt_is_locked() {
+		rust_apt::util::apt_unlock_inner();
+	}
 
 	let (statusfd, writefd) = pipe()?;
 	fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;

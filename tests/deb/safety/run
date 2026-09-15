@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+nala_bin="${1:-${CARGO_TARGET_DIR:-target}/debug/nala}"
+package="nala-history-test"
+protected_package="nala-protected-test"
+fail_package="nala-history-fail"
+
+[[ -x "${nala_bin}" ]] || { echo "Missing Nala binary: ${nala_bin}" >&2; exit 1; }
+[[ "$(id -u)" == "0" ]] || { echo "Safety tests need root." >&2; exit 1; }
+
+work_dir="$(mktemp -d)"
+repo_dir="${work_dir}/repo"
+space_repo_dir="${work_dir}/space-repo"
+archive_dir="${work_dir}/archives"
+history_dir="${work_dir}/history"
+sources_list="${work_dir}/sources.list"
+space_sources_list="${work_dir}/space-sources.list"
+config_file="${work_dir}/nala.conf"
+server_pid=
+
+cleanup() {
+	[[ -z "${server_pid}" ]] || kill "${server_pid}" 2>/dev/null || true
+	apt-mark unhold "${package}" >/dev/null 2>&1 || true
+	dpkg --purge "${package}" "${protected_package}" "${fail_package}" >/dev/null 2>&1 || true
+	rm -rf "${work_dir}"
+}
+trap cleanup EXIT
+
+mkdir -p "${repo_dir}" "${space_repo_dir}" "${archive_dir}/partial" "${history_dir}"
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-test-v1 \
+	"${repo_dir}/${package}_1.0_all.deb" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-test-v2 \
+	"${repo_dir}/${package}_2.0_all.deb" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-protected-test \
+	"${repo_dir}/${protected_package}_1.0_all.deb" >/dev/null
+dpkg-deb --root-owner-group --build tests/deb/packages/nala-history-fail \
+	"${repo_dir}/${fail_package}_1.0_all.deb" >/dev/null
+(
+	cd "${repo_dir}"
+	dpkg-scanpackages --multiversion . /dev/null >Packages
+) 2>/dev/null
+
+cp "${repo_dir}/${package}_1.0_all.deb" "${space_repo_dir}/"
+(
+	cd "${space_repo_dir}"
+	dpkg-scanpackages . /dev/null >Packages
+	sed -i 's/^Size: .*/Size: 999999999999999/' Packages
+) 2>/dev/null
+
+python3 -m http.server 8766 --bind 127.0.0.1 --directory "${work_dir}" >/dev/null 2>&1 &
+server_pid=$!
+until python3 -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8766/repo/Packages")' 2>/dev/null; do sleep 0.1; done
+printf 'deb [trusted=yes] http://127.0.0.1:8766/repo ./\n' >"${sources_list}"
+printf 'deb [trusted=yes] http://127.0.0.1:8766/space-repo ./\n' >"${space_sources_list}"
+printf 'Nala = { assume_yes = true }\n' >"${config_file}"
+
+apt_options=(
+	-o "Dir::Etc::sourcelist=${sources_list}"
+	-o "Dir::Etc::sourceparts=-"
+	-o "Dir::Cache::Archives=${archive_dir}/"
+)
+
+apt-get "${apt_options[@]}" update >/dev/null
+
+nala() {
+	NALA_HISTORY_DIR="${history_dir}" "${nala_bin}" --config "${config_file}" \
+		--no-tui --color never "${apt_options[@]}" "$@"
+}
+
+expect_failure() {
+	local message="$1"
+	shift
+	if "$@" >"${work_dir}/failure.log" 2>&1; then
+		echo "${message}" >&2
+		cat "${work_dir}/failure.log" >&2
+		exit 1
+	fi
+}
+
+dpkg -i "${repo_dir}/${package}_2.0_all.deb" >/dev/null
+expect_failure "Unattended downgrade unexpectedly succeeded." \
+	nala install --assume-yes "${package}=1.0"
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "2.0" ]]
+nala -o "APT::Get::allow-downgrades=true" install --assume-yes "${package}=1.0" >/dev/null
+
+apt-mark hold "${package}" >/dev/null
+expect_failure "Unattended held-package change unexpectedly succeeded." \
+	nala install --assume-yes "${package}=2.0"
+[[ "$(dpkg-query -W -f='${Version}' "${package}")" == "1.0" ]]
+nala -o "APT::Get::allow-change-held-packages=true" install --assume-yes \
+	"${package}=2.0" >/dev/null
+apt-mark unhold "${package}" >/dev/null
+
+dpkg -i "${repo_dir}/${protected_package}_1.0_all.deb" >/dev/null
+expect_failure "Protected package removal unexpectedly succeeded." \
+	nala remove --assume-yes "${protected_package}"
+dpkg-query -W "${protected_package}" >/dev/null
+nala remove --assume-yes --remove-essential "${protected_package}" >/dev/null
+
+echo "PASS: unattended downgrades, held changes, and protected removals require explicit intent."
+
+dpkg --purge "${package}" >/dev/null 2>&1 || true
+expect_failure "Failing APT pre-hook unexpectedly allowed package mutation." \
+	nala -o "APT::Install::Pre-Invoke::=exit 23" install "${package}=1.0"
+! dpkg-query -W "${package}" >/dev/null 2>&1
+
+expect_failure "Signaled pre-install hook unexpectedly allowed package mutation." \
+	nala -o 'DPkg::Pre-Install-Pkgs::=kill -TERM $$' install "${package}=1.0"
+! dpkg-query -W "${package}" >/dev/null 2>&1
+
+nala -o 'DPkg::Pre-Install-Pkgs::=test "$DPKG_FRONTEND_LOCKED" = true' \
+	install "${package}=1.0" >/dev/null
+
+post_marker="${work_dir}/post-invoke"
+expect_failure "Failing dpkg transaction unexpectedly succeeded." \
+	nala -o "DPkg::Post-Invoke::=touch ${post_marker}" install "${fail_package}"
+[[ -e "${post_marker}" ]]
+dpkg --purge "${fail_package}" >/dev/null 2>&1 || true
+
+success_marker="${work_dir}/post-success"
+dpkg --purge "${package}" >/dev/null
+nala -o "APT::Install::Post-Invoke-Success::=touch ${success_marker}" \
+	install "${package}=1.0" >/dev/null
+[[ -e "${success_marker}" ]]
+
+echo "PASS: APT and dpkg hooks fail closed and run in the expected lifecycle order."
+
+dpkg --purge "${package}" >/dev/null
+space_options=(
+	-o "Dir::Etc::sourcelist=${space_sources_list}"
+	-o "Dir::Etc::sourceparts=-"
+	-o "Dir::Cache::Archives=${archive_dir}/"
+)
+apt-get "${space_options[@]}" update >/dev/null
+expect_failure "Archive free-space preflight unexpectedly allowed the download." \
+	NALA_HISTORY_DIR="${history_dir}" "${nala_bin}" --config "${config_file}" \
+		--no-tui --color never "${space_options[@]}" install "${package}=1.0"
+! dpkg-query -W "${package}" >/dev/null 2>&1
+
+echo "PASS: insufficient archive space blocks downloads before package mutation."
+
+lock_marker="${work_dir}/lock-held"
+NALA_HISTORY_DIR="${history_dir}" "${nala_bin}" --config "${config_file}" \
+	--no-tui --color never "${apt_options[@]}" \
+	-o "APT::Install::Pre-Invoke::=touch ${lock_marker}; sleep 2" \
+	install "${repo_dir}/${package}_1.0_all.deb" >/dev/null 2>&1 &
+first_pid=$!
+for _ in {1..100}; do
+	[[ ! -e "${lock_marker}" ]] || break
+	sleep 0.05
+done
+[[ -e "${lock_marker}" ]]
+expect_failure "A second Nala mutation unexpectedly acquired the frontend lock." nala clean
+wait "${first_pid}"
+nala clean >/dev/null
+
+echo "PASS: one frontend lock covers planning through transaction completion."

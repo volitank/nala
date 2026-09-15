@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Error, Result, bail};
 use indexmap::{IndexMap, IndexSet};
+use nix::sys::statvfs::statvfs;
 use rust_apt::{Version, new_cache};
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
@@ -313,6 +314,25 @@ impl Downloader {
 			untrusted_error(config, self.filter.untrusted.iter().cloned().collect())?;
 		}
 
+		self.archive_dir.mkdir().await?;
+		let mut required = 0_u64;
+		for uri in &self.uris {
+			required = required.saturating_add(uri.required_download_size().await?);
+		}
+		let fs = statvfs(&self.archive_dir)?;
+		let available = (fs.blocks_available() as u64).saturating_mul(fs.fragment_size() as u64);
+		if required > available {
+			bail!(
+				"{}",
+				t!(
+					"download-no-space",
+					"path" => self.archive_dir.display().to_string(),
+					"required" => config.unit_str(required),
+					"available" => config.unit_str(available)
+				)
+			);
+		}
+
 		let configured_domains = self.configured_domains();
 		for uri in &self.uris {
 			self.domains
@@ -387,8 +407,7 @@ impl Downloader {
 			if poll_exit_event()? {
 				progress.clean_up()?;
 				self.set.shutdown().await;
-				info!("{}", t!("download-exit"));
-				return Ok(vec![]);
+				bail!("{}", t!("download-exit"));
 			}
 
 			if tick.elapsed() >= tick_rate {

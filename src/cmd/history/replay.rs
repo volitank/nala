@@ -75,6 +75,16 @@ impl HistoryEntry {
 			bail!(err);
 		}
 
+		// Replaying an exact recorded version is explicit downgrade intent.
+		if cache.iter().any(|package| {
+			matches!(
+				(package.installed(), package.install_version()),
+				(Some(installed), Some(target)) if target < installed
+			)
+		}) {
+			config.apt.set("APT::Get::allow-downgrades", "true");
+		}
+
 		crate::summary::commit(cache, config).await
 	}
 }

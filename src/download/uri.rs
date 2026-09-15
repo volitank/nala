@@ -35,6 +35,19 @@ pub struct Uri {
 }
 
 impl Uri {
+	pub(crate) async fn required_download_size(&self) -> Result<u64> {
+		if !self.archive.exists() {
+			return Ok(self.size as u64);
+		}
+
+		let Some(hash) = &self.hash else {
+			return Ok(self.size as u64);
+		};
+
+		let actual = HashSum::from_path(&self.archive, hash.str_type()).await?;
+		Ok(if &actual == hash { 0 } else { self.size as u64 })
+	}
+
 	pub async fn from_version<'a>(
 		downloader: &mut Downloader,
 		version: &'a Version<'a>,

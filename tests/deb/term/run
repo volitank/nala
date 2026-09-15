@@ -6,9 +6,11 @@ package="nala-whiptail-test"
 work_dir="$(mktemp -d)"
 history_dir="${work_dir}/history"
 session="nala-term-test-$$"
+server_pid=
 
 cleanup() {
 	tmux kill-session -t "${session}" 2>/dev/null || true
+	[[ -z "${server_pid}" ]] || kill "${server_pid}" 2>/dev/null || true
 	dpkg --remove "${package}" >/dev/null 2>&1 || true
 	rm -rf "${work_dir}"
 }
@@ -58,6 +60,51 @@ wait_for "__NALA_TERM_CANCEL_DONE__:1"
 ! dpkg-query -W "${package}" >/dev/null 2>&1
 [[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
 
+slow_src="${work_dir}/slow-package"
+cp -a tests/deb/packages/nala-whiptail-test "${slow_src}"
+mkdir -p "${slow_src}/usr/share/nala-term-test"
+dd if=/dev/urandom of="${slow_src}/usr/share/nala-term-test/payload" bs=1M count=6 status=none
+slow_deb="${work_dir}/${package}_slow.deb"
+dpkg-deb --root-owner-group --build "${slow_src}" "${slow_deb}" >/dev/null
+python3 -c '
+import http.server
+import sys
+import time
+
+class SlowHandler(http.server.SimpleHTTPRequestHandler):
+    def copyfile(self, source, output):
+        try:
+            while chunk := source.read(65536):
+                output.write(chunk)
+                output.flush()
+                time.sleep(0.03)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def log_message(self, *_):
+        pass
+
+http.server.ThreadingHTTPServer(
+    ("127.0.0.1", 8767),
+    lambda *args, **kwargs: SlowHandler(*args, directory=sys.argv[1], **kwargs),
+).serve_forever()
+' "${work_dir}" &
+server_pid=$!
+until python3 -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8767/")' 2>/dev/null; do sleep 0.1; done
+slow_hash="$(sha256sum "${slow_deb}" | cut -d' ' -f1)"
+slow_url="http://127.0.0.1:8767/$(basename "${slow_deb}"):${slow_hash}"
+
+printf -v download_cancel_command \
+	'%q --history-dir %q --tui --color never install -y %q; status=$?; printf "\n__NALA_DOWNLOAD_CANCEL_DONE__:%%s\n" "$status"' \
+	"${nala_bin}" "${history_dir}" "${slow_url}"
+tmux send-keys -l -t "${session}" "${download_cancel_command}"
+tmux send-keys -t "${session}" Enter
+wait_for "Downloading Packages"
+tmux send-keys -t "${session}" q
+wait_for "__NALA_DOWNLOAD_CANCEL_DONE__:1"
+! dpkg-query -W "${package}" >/dev/null 2>&1
+[[ -z "$(find "${history_dir}" -maxdepth 1 -type f -name '[0-9]*.json' -print -quit)" ]]
+
 printf -v install_command \
 	'%q install -y %q; status=$?; printf "\\n__NALA_TERM_TEST_DONE__:%%s\\n" "$status"' \
 	"${nala_bin}" "${deb_path}"
@@ -77,4 +124,5 @@ grep -Fqx "__NALA_TERM_TEST_DONE__:0" <<<"${output}"
 grep -Fqx "nala-term-test#" <<<"${output}"
 
 echo "PASS: TUI cancellation leaves package state and history untouched."
+echo "PASS: download cancellation stops before libapt or dpkg can resume the transaction."
 echo "PASS: terminal output resumes at column zero after whiptail and resize."
