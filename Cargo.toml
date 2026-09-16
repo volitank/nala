@@ -31,7 +31,7 @@ ar = "0.9.0"
 fluent = "0.17.0"
 
 # Minimum versions available in Debian Sid.
-reqwest = { version = "0.13.4", features = ["json"] }
+reqwest = { version = "0.13.4", features = ["json", "socks"] }
 clap = { version = "4.6.5", features = ["derive"] }
 clap_complete = { version = "4.6.8", features = ["unstable-dynamic"] }
 comfy-table = { version = "7.2.2", features = ["tty", "custom_styling"] }

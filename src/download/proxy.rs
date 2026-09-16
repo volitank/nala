@@ -1,67 +1,92 @@
 use std::collections::HashMap;
+use std::process::Command;
+use std::sync::Mutex;
 
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 use tokio::sync::mpsc;
 
 use super::downloader::Message;
 use crate::config::Config;
 
-#[derive(Debug, Eq, Hash, PartialEq)]
-enum Proto {
-	Http(reqwest::Url),
-	Https(reqwest::Url),
-	None,
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ProxySetting {
+	Proxy(reqwest::Url),
+	Direct,
 }
 
-impl Proto {
-	fn new(proto: &str, domain: reqwest::Url) -> Self {
-		match proto {
-			"http" => Self::Http(domain),
-			"https" => Self::Https(domain),
-			_ => panic!("Protocol '{proto}' is not supported!"),
+impl ProxySetting {
+	fn from_apt(value: &str) -> Result<Self> {
+		if value.eq_ignore_ascii_case("direct") || value.eq_ignore_ascii_case("false") {
+			return Ok(Self::Direct);
 		}
+		let proxy = reqwest::Url::parse(value)?;
+		if !matches!(proxy.scheme(), "http" | "https" | "socks5h") {
+			bail!("Unsupported proxy scheme '{}'", proxy.scheme());
+		}
+		Ok(Self::Proxy(proxy))
 	}
 
-	fn maybe_proxy(&self, url: &reqwest::Url) -> Option<reqwest::Url> {
-		match (self, url.scheme()) {
-			// The protocol and proxy config match.
-			(Proto::Http(proxy), "http") => Some(proxy.clone()),
-			(Proto::Https(proxy), "https") => Some(proxy.clone()),
-
-			// The protocol and config doesn't match.
-			(Proto::Http(_), "https") => None,
-			(Proto::Https(_), "http") => None,
-
-			// For other URL schemes such as socks or ftp
-			// We will just proxy them
-			(Proto::Http(proxy), _) => Some(proxy.clone()),
-			(Proto::Https(proxy), _) => Some(proxy.clone()),
-			// This one should never actually be reached
-			(Proto::None, _) => None,
-		}
-	}
-
-	/// Used to get the default for all http/https if configured
 	fn proxy(&self) -> Option<reqwest::Url> {
 		match self {
-			Proto::Http(proxy) => Some(proxy.clone()),
-			Proto::Https(proxy) => Some(proxy.clone()),
-			Proto::None => None,
+			Self::Proxy(proxy) => Some(proxy.clone()),
+			Self::Direct => None,
 		}
 	}
+}
+
+fn auto_detect_proxy(
+	command: &str,
+	proto: &str,
+	url: &reqwest::Url,
+) -> Result<Option<ProxySetting>> {
+	let output = Command::new(command)
+		.arg(url.as_str())
+		.output()
+		.with_context(|| format!("Failed to execute proxy auto-detect command '{command}'"))?;
+
+	if !output.status.success() {
+		bail!(
+			"Proxy auto-detect command '{command}' exited with {}",
+			output.status
+		);
+	}
+	parse_auto_detect_output(proto, &output.stdout)
+}
+
+fn parse_auto_detect_output(proto: &str, output: &[u8]) -> Result<Option<ProxySetting>> {
+	let Some(line) = std::str::from_utf8(output)?.lines().next() else {
+		return Ok(None);
+	};
+	let proxy = line.trim();
+	if proxy.is_empty() {
+		return Ok(None);
+	}
+	if proxy == "DIRECT" {
+		return Ok(Some(ProxySetting::Direct));
+	}
+
+	let proxy = reqwest::Url::parse(proxy)?;
+	if !matches!(proxy.scheme(), "http" | "https" | "socks5h") {
+		bail!("Proxy auto-detect command returned incompatible proxy '{proxy}' for {proto}");
+	}
+	Ok(Some(ProxySetting::Proxy(proxy)))
 }
 
 pub fn build_proxy(config: &Config, tx: mpsc::UnboundedSender<Message>) -> Result<reqwest::Proxy> {
-	let mut map: HashMap<String, Proto> = HashMap::new();
+	let mut map: HashMap<String, ProxySetting> = HashMap::new();
+	let mut auto_detect = HashMap::new();
 
 	for proto in ["http", "https"] {
+		let modern = format!("Acquire::{proto}::Proxy-Auto-Detect");
+		let legacy = format!("Acquire::{proto}::ProxyAutoDetect");
+		if let Some(command) = config.apt.get(&modern).or_else(|| config.apt.get(&legacy)) {
+			auto_detect.insert(proto.to_string(), command);
+		}
+
 		if let Some(proxy_config) = config.apt.tree(&format!("Acquire::{proto}::Proxy")) {
 			// Check first for a proxy for everything
 			if let Some(proxy) = proxy_config.value() {
-				map.insert(
-					proto.to_string(),
-					Proto::new(proto, reqwest::Url::parse(&proxy)?),
-				);
+				map.insert(proto.to_string(), ProxySetting::from_apt(&proxy)?);
 			}
 
 			// Check for specific domain proxies
@@ -71,12 +96,10 @@ pub fn build_proxy(config: &Config, tx: mpsc::UnboundedSender<Message>) -> Resul
 						continue;
 					};
 
-					let lower = proxy.to_lowercase();
-					if ["direct", "false"].contains(&lower.as_str()) {
-						map.insert(domain, Proto::None);
-						continue;
-					}
-					map.insert(domain, Proto::new(proto, reqwest::Url::parse(&proxy)?));
+					map.insert(
+						format!("{proto}://{domain}"),
+						ProxySetting::from_apt(&proxy)?,
+					);
 				}
 			}
 		}
@@ -101,40 +124,69 @@ pub fn build_proxy(config: &Config, tx: mpsc::UnboundedSender<Message>) -> Resul
 		}
 	}
 
-	fn get_proxy(
-		map: &HashMap<String, Proto>,
-		domain: &str,
-		url: &reqwest::Url,
-	) -> Option<reqwest::Url> {
-		// Returns None if the domain is not in the map.
-		// But checking for a default is still required.
-		if let Some(proto) = map.get(domain) {
-			if proto == &Proto::None {
-				// This domain is specifically set to not use a proxy.
-				return None;
-			}
+	let debug = config.debug();
+	let detected = Mutex::new(HashMap::<String, Option<ProxySetting>>::new());
+	Ok(reqwest::Proxy::custom(move |url| {
+		let domain = url.host_str()?;
+		let key = format!("{}://{domain}", url.scheme());
 
-			// We have to check the maybe proxy as it is based on
-			// the protocol of the URL matching the config.
-			// The proxy function below will not account for that.
-			if let Some(proxy) = proto.maybe_proxy(url) {
-				return Some(proxy);
+		// An explicit host setting always takes precedence over auto-detection.
+		if let Some(setting) = map.get(&key) {
+			let proxy = setting.proxy();
+			send_debug(&tx, debug, domain, proxy.as_ref());
+			return proxy;
+		}
+
+		if let Some(command) = auto_detect.get(url.scheme()) {
+			let proxy = detected
+				.lock()
+				.unwrap()
+				.entry(key)
+				.or_insert_with(|| match auto_detect_proxy(command, url.scheme(), url) {
+					Ok(proxy) => proxy,
+					Err(error) => {
+						if debug {
+							let _ = tx.send(Message::Debug(error.to_string()));
+						}
+						None
+					},
+				})
+				.clone();
+
+			if let Some(proxy) = proxy {
+				let proxy = proxy.proxy();
+				send_debug(&tx, debug, domain, proxy.as_ref());
+				return proxy;
 			}
 		}
 
-		// Check for http/s default proxy.
-		map.get(url.scheme())?.proxy()
-	}
-
-	let debug = config.debug();
-	Ok(reqwest::Proxy::custom(move |url| {
-		let domain = url.host_str()?;
-
-		if let Some(proxy) = get_proxy(&map, domain, url) {
-			send_debug(&tx, debug, domain, Some(&proxy));
-			return Some(proxy);
+		if let Some(setting) = map.get(url.scheme()) {
+			let proxy = setting.proxy();
+			send_debug(&tx, debug, domain, proxy.as_ref());
+			return proxy;
 		}
 		send_debug(&tx, debug, domain, None);
 		None
 	}))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn auto_detect_output_matches_apt() {
+		assert_eq!(parse_auto_detect_output("http", b"").unwrap(), None);
+		assert_eq!(
+			parse_auto_detect_output("http", b"DIRECT\n").unwrap(),
+			Some(ProxySetting::Direct)
+		);
+		assert_eq!(
+			parse_auto_detect_output("http", b"http://proxy.example:3142\n").unwrap(),
+			Some(ProxySetting::Proxy(
+				reqwest::Url::parse("http://proxy.example:3142").unwrap()
+			))
+		);
+		assert!(parse_auto_detect_output("http", b"ftp://proxy.example\n").is_err());
+	}
 }

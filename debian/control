@@ -54,6 +54,7 @@ Build-Depends:
   librust-regex-1+default-dev (>= 1.13.1) <!upstream-cargo>,
   librust-reqwest-0.13+default-dev (>= 0.13.4) <!upstream-cargo>,
   librust-reqwest-0.13+json-dev (>= 0.13.4) <!upstream-cargo>,
+  librust-reqwest-0.13+socks-dev (>= 0.13.4) <!upstream-cargo>,
   librust-rust-apt-0.11+default-dev (>= 0.11.3) <!upstream-cargo>,
   librust-rust-apt-0.11+serde-dev (>= 0.11.3) <!upstream-cargo>,
   librust-serde-1+default-dev (>= 1.0.229) <!upstream-cargo>,
