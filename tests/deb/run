@@ -56,3 +56,61 @@ for fixture in tests/deb/packages/broken-*; do
 
 	echo "PASS: apt and nala reject ${case_name}."
 done
+
+repo_dir="${work_dir}/repo"
+lists_dir="${work_dir}/lists"
+archive_dir="${work_dir}/archives"
+sources_list="${work_dir}/sources.list"
+main_deb="${work_dir}/recommends-or-main.deb"
+apt_log="${work_dir}/recommends-or.apt.log"
+nala_log="${work_dir}/recommends-or.nala.log"
+
+mkdir -p "${repo_dir}" "${lists_dir}/partial" "${archive_dir}/partial"
+dpkg-deb --root-owner-group --build tests/deb/packages/recommends-or-main \
+	"${main_deb}" >/dev/null
+for package in recommends-or-bad recommends-or-good; do
+	dpkg-deb --root-owner-group --build "tests/deb/packages/${package}" \
+		"${repo_dir}/${package}_1.0_all.deb" >/dev/null
+done
+(
+	cd "${repo_dir}"
+	dpkg-scanpackages . /dev/null >Packages
+) 2>/dev/null
+printf 'deb [trusted=yes] file:%s ./\n' "${repo_dir}" >"${sources_list}"
+
+apt_options=(
+	-o "Dir::Etc::sourcelist=${sources_list}"
+	-o "Dir::Etc::sourceparts=-"
+	-o "Dir::State::lists=${lists_dir}"
+	-o "Dir::Cache::Archives=${archive_dir}/"
+)
+if ! apt-get "${apt_options[@]}" update >"${work_dir}/apt-update.log" 2>&1; then
+	cat "${work_dir}/apt-update.log" >&2
+	exit 1
+fi
+apt-get "${apt_options[@]}" install -s "${main_deb}" >"${apt_log}" 2>&1
+
+grep -Fq "recommends-or-good" "${apt_log}"
+if grep -Fq "recommends-or-bad" "${apt_log}"; then
+	echo "APT selected the broken recommendation alternative." >&2
+	cat "${apt_log}" >&2
+	exit 1
+fi
+
+nala_status=0
+"${nala_bin}" --no-tui --color never "${apt_options[@]}" \
+	install --assume-no "${main_deb}" >"${nala_log}" 2>&1 || nala_status=$?
+
+if [[ "${nala_status}" == "0" ]]; then
+	echo "Expected Nala --assume-no to refuse the planned transaction." >&2
+	cat "${nala_log}" >&2
+	exit 1
+fi
+grep -Fq "recommends-or-good" "${nala_log}"
+if grep -Fq "recommends-or-bad" "${nala_log}"; then
+	echo "Nala selected the broken recommendation alternative." >&2
+	cat "${nala_log}" >&2
+	exit 1
+fi
+
+echo "PASS: apt and nala select the valid recommendation alternative."

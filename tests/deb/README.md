@@ -4,8 +4,8 @@ These tests run the built Nala binary against real APT and dpkg state in a
 disposable Debian Sid environment. Package fixtures use ordinary `DEBIAN/`
 directories under `packages/` and are built into temporary `.deb` files.
 
-- `run` checks that APT and Nala reject the unsatisfiable
-  `broken-or-deps` package.
+- `run` checks that APT and Nala reject unsatisfiable dependency alternatives
+  and select a valid fallback recommendation.
 - `history/run` exercises conversion, package lifecycle, replay, clearing, and
   failure handling against an offline APT repository and real dpkg state.
 - `term/run` installs the whiptail fixture in tmux, resizes the terminal while

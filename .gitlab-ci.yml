@@ -44,24 +44,38 @@ debian-sid-package:
       - dist/debian/*
       - build.log
 
-upstream-cargo-smoke:
+ubuntu-24.04-upstream-package:
   stage: build
-  image: debian:sid
+  image: ubuntu:24.04
   tags:
     - amd64
   cache:
-    key: "${CI_COMMIT_REF_SLUG}-upstream-amd64"
+    key: "${CI_COMMIT_REF_SLUG}-ubuntu-24.04-upstream-amd64"
     fallback_keys:
-      - "${CI_DEFAULT_BRANCH}-upstream-amd64"
+      - "${CI_DEFAULT_BRANCH}-ubuntu-24.04-upstream-amd64"
     paths:
       - target/
   script:
     - apt-get update
-    - apt-get install -y --no-install-recommends dpkg-dev eatmydata
+    - apt-get install -y --no-install-recommends ca-certificates curl dpkg-dev eatmydata
     - eatmydata apt-get build-dep -y --no-install-recommends -Pupstream-cargo .
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    - export PATH="${HOME}/.cargo/bin:${PATH}"
+    - rm -rf dist/debian debian/cargo_home debian/cargo_registry debian/cargo_out_dir
     - |
       if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --no-clean --upstream-cargo >build.log 2>&1; then
         tail -n 200 build.log
         exit 1
       fi
     - tail -n 40 build.log
+    - chmod -R go-w tests/deb/packages
+    - tests/deb/run debian/nala/usr/bin/nala
+    - apt-get install -y ./dist/debian/nala_*.deb
+    - nala --version
+  artifacts:
+    name: "nala-ubuntu-24.04-amd64-${CI_COMMIT_SHORT_SHA}"
+    when: always
+    expire_in: 1 week
+    paths:
+      - dist/debian/*
+      - build.log
