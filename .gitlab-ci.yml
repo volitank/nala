@@ -4,7 +4,7 @@ variables:
   DEBIAN_FRONTEND: noninteractive
   CACHE_COMPRESSION_LEVEL: fastest
 
-debian-package:
+debian-sid-package:
   stage: build
   image: debian:sid
   parallel:
@@ -23,7 +23,12 @@ debian-package:
     - apt-get install -y --no-install-recommends dpkg-dev eatmydata lintian python3 tmux whiptail
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
-    - scripts/deb-build --binary --no-clean
+    - |
+      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --no-clean >build.log 2>&1; then
+        tail -n 200 build.log
+        exit 1
+      fi
+    - tail -n 40 build.log
     - lintian dist/debian/*.changes
     - chmod -R go-w tests/deb/packages
     - tests/deb/run debian/nala/usr/bin/nala
@@ -32,7 +37,31 @@ debian-package:
     - tests/deb/term/run debian/nala/usr/bin/nala
     - tests/deb/release-info/run debian/nala/usr/bin/nala
   artifacts:
+    name: "nala-debian-${RUNNER_ARCH}-${CI_COMMIT_SHORT_SHA}"
     when: always
     expire_in: 1 week
     paths:
       - dist/debian/*
+      - build.log
+
+upstream-cargo-smoke:
+  stage: build
+  image: debian:sid
+  tags:
+    - amd64
+  cache:
+    key: "${CI_COMMIT_REF_SLUG}-upstream-amd64"
+    fallback_keys:
+      - "${CI_DEFAULT_BRANCH}-upstream-amd64"
+    paths:
+      - target/
+  script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends dpkg-dev eatmydata
+    - eatmydata apt-get build-dep -y --no-install-recommends -Pupstream-cargo .
+    - |
+      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --no-clean --upstream-cargo >build.log 2>&1; then
+        tail -n 200 build.log
+        exit 1
+      fi
+    - tail -n 40 build.log
