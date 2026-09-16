@@ -1,0 +1,9 @@
+Package: recommends-or-bad
+Version: 1.0
+Section: misc
+Priority: optional
+Architecture: all
+Maintainer: Nala Test Fixture <nala@example.invalid>
+Depends: recommends-or-missing
+Description: Uninstallable recommendation fixture
+ This package makes the first recommendation alternative fail.
