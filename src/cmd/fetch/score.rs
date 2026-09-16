@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, ensure};
 use reqwest::Client;
+use rust_apt::tagfile::parse_tagfile;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio::time::Duration;
@@ -72,7 +73,7 @@ async fn score_mirror(
 	let url = score_url(&url, https_only);
 
 	let before = std::time::Instant::now();
-	client
+	let body = client
 		.get(format!("{url}/dists/{release}/Release"))
 		.send()
 		.await?
@@ -80,7 +81,25 @@ async fn score_mirror(
 		.bytes()
 		.await?;
 	let after = before.elapsed().as_millis();
+	validate_release(&body)?;
 	Ok((url, after))
+}
+
+fn validate_release(body: &[u8]) -> Result<()> {
+	let sections = parse_tagfile(std::str::from_utf8(body)?)?;
+	let [release] = sections.as_slice() else {
+		bail!("invalid Release file")
+	};
+
+	ensure!(
+		release.get("Architectures").is_some()
+			&& release.get("Components").is_some()
+			&& ["SHA256", "SHA512"]
+				.iter()
+				.any(|field| release.get(field).is_some()),
+		"invalid Release file"
+	);
+	Ok(())
 }
 
 fn score_url(url: &str, https_only: bool) -> String {
@@ -88,4 +107,22 @@ fn score_url(url: &str, https_only: bool) -> String {
 		return url.replacen("http://", "https://", 1);
 	}
 	url.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn release_validation_rejects_non_release_content() {
+		let release = b"Origin: Debian\nSuite: stable\nArchitectures: amd64 arm64\nComponents: main\nSHA256:\n abc 123 file\n";
+		let weak_release = b"Origin: Debian\nSuite: stable\nArchitectures: amd64 arm64\nComponents: main\nMD5Sum:\n abc 123 file\n";
+		let html = b"<!doctype html>\n<html><body>Domain for sale</body></html>";
+		let garbage = b"Title: Domain for sale\nDescription: This is valid RFC 822, but not a Release file.\n";
+
+		assert!(validate_release(release).is_ok());
+		assert!(validate_release(weak_release).is_err());
+		assert!(validate_release(html).is_err());
+		assert!(validate_release(garbage).is_err());
+	}
 }
