@@ -52,6 +52,7 @@ def collect_artifacts(marker: Path, out_dir: Path) -> None:
 
 def build(kind: str, args: argparse.Namespace, out_dir: Path) -> None:
 	with tempfile.NamedTemporaryFile() as marker:
+		# dh-cargo removes Cargo.lock for strict Debian builds; keep the upstream lock intact.
 		lockfile = Path("Cargo.lock")
 		lockfile_contents = lockfile.read_bytes() if lockfile.exists() else None
 		cmd = ["dpkg-buildpackage", "-S" if kind == "source" else "-b"]

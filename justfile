@@ -42,9 +42,9 @@ release:
 install: release
     sudo cp target/lto/nala /usr/bin/nala
 
-# Build the Debian package while keeping build caches
+# Build the strict Debian package from a clean target directory
 deb:
-    scripts/deb-build --binary --no-clean
+    scripts/deb-build --binary
 
 # Build the same Debian package with locked crates.io dependencies
 deb-upstream:

@@ -12,19 +12,13 @@ debian-sid-package:
       - RUNNER_ARCH: [amd64, arm64]
   tags:
     - "${RUNNER_ARCH}"
-  cache:
-    key: "${CI_COMMIT_REF_SLUG}-${RUNNER_ARCH}"
-    fallback_keys:
-      - "${CI_DEFAULT_BRANCH}-${RUNNER_ARCH}"
-    paths:
-      - target/
   script:
     - apt-get update
     - apt-get install -y --no-install-recommends dpkg-dev eatmydata lintian python3 tmux whiptail
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
     - |
-      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --no-clean >build.log 2>&1; then
+      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary >build.log 2>&1; then
         tail -n 200 build.log
         exit 1
       fi
