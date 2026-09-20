@@ -1,3 +1,4 @@
+mod auth;
 pub mod downloader;
 pub mod proxy;
 pub mod uri;

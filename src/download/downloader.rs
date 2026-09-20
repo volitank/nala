@@ -10,6 +10,7 @@ use rust_apt::{Version, new_cache};
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
+use super::auth::AuthConf;
 use super::{DOMAIN_CONNECTION_LIMIT, DomainMap, Uri, UriFilter, proxy};
 use crate::config::{Config, Paths, Theme, color};
 use crate::fs::AsyncFs;
@@ -192,6 +193,7 @@ impl MirrorTransfers {
 
 pub struct Downloader {
 	pub(crate) client: reqwest::Client,
+	pub(super) auth: AuthConf,
 	uris: Vec<Uri>,
 	pub(crate) filter: UriFilter,
 	pub(crate) archive_dir: PathBuf,
@@ -211,6 +213,7 @@ impl Downloader {
 
 		let (tx, rx) = mpsc::unbounded_channel();
 		let proxy = proxy::build_proxy(config, tx.clone())?;
+		let auth = AuthConf::load(config);
 
 		Ok(Downloader {
 			client: reqwest::Client::builder()
@@ -218,6 +221,7 @@ impl Downloader {
 				.read_timeout(Duration::from_secs(120))
 				.proxy(proxy)
 				.build()?,
+			auth,
 			uris: vec![],
 			// TODO: Make these directories configurable?
 			archive_dir,

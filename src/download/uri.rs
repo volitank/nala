@@ -9,6 +9,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 
 use super::Downloader;
+use super::auth::AuthConf;
 use super::downloader::Message;
 use crate::config::{Theme, color};
 use crate::download::DomainMap;
@@ -30,6 +31,8 @@ pub struct Uri {
 	bytes_downloaded: usize,
 	#[serde(skip)]
 	pub client: reqwest::Client,
+	#[serde(skip)]
+	auth: AuthConf,
 	#[serde(skip)]
 	pub tx: mpsc::UnboundedSender<Message>,
 }
@@ -55,7 +58,7 @@ impl Uri {
 	) -> Result<Uri> {
 		let uris = downloader
 			.filter
-			.uris(version, archive, &downloader.client)
+			.uris(version, archive, &downloader.client, &downloader.auth)
 			.await?;
 		let size = version.size() as usize;
 		let filename = get_pkg_name(version);
@@ -82,6 +85,7 @@ impl Uri {
 			retries: 0,
 			bytes_downloaded: 0,
 			client: downloader.client.clone(),
+			auth: downloader.auth.clone(),
 			tx: downloader.tx.clone(),
 		}
 	}
@@ -233,8 +237,8 @@ impl Uri {
 
 		// Initiate http(s) connection
 		let mut response = self
-			.client
-			.get(url)
+			.auth
+			.get(&self.client, url)
 			.send()
 			.await
 			.context(t!("download-get"))?
@@ -311,6 +315,7 @@ impl UriFilter {
 		version: &'a Version<'a>,
 		archive: &Path,
 		client: &reqwest::Client,
+		auth: &AuthConf,
 	) -> Result<VecDeque<String>> {
 		let mut filtered = VecDeque::new();
 
@@ -344,7 +349,7 @@ impl UriFilter {
 				&& let Some(package_path) = uri.strip_prefix(&archive_base)
 			{
 				if !self.mirrors.contains_key(&location) {
-					self.add_to_mirrors(client, &location).await?;
+					self.add_to_mirrors(client, auth, &location).await?;
 				};
 
 				if let Some(mirrors) = self.mirrors.get(&location) {
@@ -358,14 +363,18 @@ impl UriFilter {
 		Ok(filtered)
 	}
 
-	async fn add_to_mirrors(&mut self, client: &reqwest::Client, location: &str) -> Result<()> {
+	async fn add_to_mirrors(
+		&mut self,
+		client: &reqwest::Client,
+		auth: &AuthConf,
+		location: &str,
+	) -> Result<()> {
 		self.mirrors.insert(
 			location.to_string(),
 			match location.strip_prefix("file:") {
 				Some(path) => Path::new(path).read_string().await?,
 				None => {
-					client
-						.get(location)
+					auth.get(client, location)
 						.send()
 						.await?
 						.error_for_status()?
