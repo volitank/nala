@@ -15,6 +15,7 @@ static PT_BR_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static RU_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static SV_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static TR_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
+static UK_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static ZH_CN_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 
 const EN_US: &str = include_str!("../../locales/en-US/main.ftl");
@@ -29,6 +30,7 @@ const PT_BR: &str = include_str!("../../locales/pt-BR/main.ftl");
 const RU: &str = include_str!("../../locales/ru/main.ftl");
 const SV: &str = include_str!("../../locales/sv/main.ftl");
 const TR: &str = include_str!("../../locales/tr/main.ftl");
+const UK: &str = include_str!("../../locales/uk/main.ftl");
 const ZH_CN: &str = include_str!("../../locales/zh-CN/main.ftl");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,6 +47,7 @@ pub enum Language {
 	Ru,
 	Sv,
 	Tr,
+	Uk,
 	ZhCn,
 }
 
@@ -61,6 +64,7 @@ const LANGUAGE_ALIASES: &[(&[&str], Language)] = &[
 	(&["ru", "ru_ru", "ru-ru"], Language::Ru),
 	(&["sv", "sv_se", "sv-se"], Language::Sv),
 	(&["tr", "tr_tr", "tr-tr"], Language::Tr),
+	(&["uk", "uk_ua", "uk-ua"], Language::Uk),
 	(&["zh", "zh_cn", "zh-cn"], Language::ZhCn),
 ];
 
@@ -124,6 +128,7 @@ fn bundle(language: Language) -> &'static FluentBundle<FluentResource> {
 		Language::Ru => RU_BUNDLE.get_or_init(|| build_bundle("ru", Some(RU))),
 		Language::Sv => SV_BUNDLE.get_or_init(|| build_bundle("sv", Some(SV))),
 		Language::Tr => TR_BUNDLE.get_or_init(|| build_bundle("tr", Some(TR))),
+		Language::Uk => UK_BUNDLE.get_or_init(|| build_bundle("uk", Some(UK))),
 		Language::ZhCn => ZH_CN_BUNDLE.get_or_init(|| build_bundle("zh-CN", Some(ZH_CN))),
 	}
 }
@@ -162,7 +167,7 @@ macro_rules! t {
 mod tests {
 	use std::collections::BTreeSet;
 
-	use super::{BN, DE, EN_US, ES, FR, GA, Language, PL, PT, PT_BR, RU, SV, TR, ZH_CN, bundle};
+	use super::{BN, DE, EN_US, ES, FR, GA, Language, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN, bundle};
 
 	fn message_ids(source: &str) -> BTreeSet<&str> {
 		source
@@ -180,7 +185,7 @@ mod tests {
 	fn localized_catalogs_only_override_english_messages() {
 		let english = message_ids(EN_US);
 
-		for source in [BN, DE, ES, FR, GA, PL, PT, PT_BR, RU, SV, TR, ZH_CN] {
+		for source in [BN, DE, ES, FR, GA, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN] {
 			assert!(message_ids(source).is_subset(&english));
 		}
 	}
@@ -200,6 +205,7 @@ mod tests {
 			Language::Ru,
 			Language::Sv,
 			Language::Tr,
+			Language::Uk,
 			Language::ZhCn,
 		] {
 			assert!(bundle(language).get_message("summary-title").is_some());

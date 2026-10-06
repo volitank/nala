@@ -84,6 +84,7 @@ mod tests {
 		assert_eq!(Language::from_locale("ru_RU.UTF-8"), Language::Ru);
 		assert_eq!(Language::from_locale("sv_SE.UTF-8"), Language::Sv);
 		assert_eq!(Language::from_locale("tr_TR.UTF-8"), Language::Tr);
+		assert_eq!(Language::from_locale("uk_UA.UTF-8"), Language::Uk);
 		assert_eq!(Language::from_locale("zh_CN.UTF-8"), Language::ZhCn);
 		assert_eq!(Language::from_locale("fr:pt_BR:en"), Language::Fr);
 		assert_eq!(Language::from_locale("xx:pt_BR:en"), Language::PtBr);
