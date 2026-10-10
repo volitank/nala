@@ -311,21 +311,99 @@ impl NalaCache for Cache {
 
 #[cfg(test)]
 mod tests {
+	use std::fs;
+	use std::path::PathBuf;
+
+	use rust_apt::config::Config;
+
 	use super::*;
 
 	#[test]
 	fn sort_changes_classifies_reinstall_before_keep() {
-		let cache = rust_apt::new_cache!().unwrap();
-		let pkg = cache.get("apt").unwrap();
+		struct Fixture {
+			dir: PathBuf,
+			previous: Vec<(&'static str, Option<String>)>,
+		}
+
+		impl Drop for Fixture {
+			fn drop(&mut self) {
+				let config = Config::new();
+				for (key, value) in &self.previous {
+					if let Some(value) = value {
+						config.set(key, value);
+					} else {
+						config.clear(key);
+					}
+				}
+				fs::remove_dir_all(&self.dir).ok();
+			}
+		}
+
+		// Rebuilders may have no APT indexes or downloadable installed
+		// packages.
+		let dir =
+			nix::unistd::mkdtemp(&std::env::temp_dir().join("nala-reinstall-test-XXXXXX")).unwrap();
+		let config = Config::new();
+		let settings = [
+			("Dir::Etc::sourcelist", "-".to_string()),
+			("Dir::Etc::sourceparts", "-".to_string()),
+			("Dir::Etc::preferences", "-".to_string()),
+			("Dir::Etc::preferencesparts", "-".to_string()),
+			(
+				"Dir::State::status",
+				dir.join("status").to_str().unwrap().to_string(),
+			),
+			(
+				"Dir::State::lists",
+				dir.join("lists").to_str().unwrap().to_string(),
+			),
+			(
+				"Dir::State::extended_states",
+				dir.join("extended_states").to_str().unwrap().to_string(),
+			),
+			("Dir::Cache::pkgcache", String::new()),
+			("Dir::Cache::srcpkgcache", String::new()),
+		];
+		let fixture = Fixture {
+			dir,
+			previous: settings
+				.iter()
+				.map(|(key, _)| (*key, config.contains(key).then(|| config.find(key, ""))))
+				.collect(),
+		};
+		fs::create_dir(fixture.dir.join("lists")).unwrap();
+		let package = "Package: nala-reinstall-test\nVersion: 1.0\nArchitecture: all\nMaintainer: \
+		               Nala tests <blake@volian.org>\nInstalled-Size: 1\nDescription: Reinstall \
+		               test fixture\n";
+		fs::write(
+			fixture.dir.join("status"),
+			format!("{package}Status: install ok installed\n\n"),
+		)
+		.unwrap();
+		let packages = fixture.dir.join("Packages");
+		fs::write(
+			&packages,
+			format!("{package}Filename: nala-reinstall-test_1.0_all.deb\nSize: 1\n\n"),
+		)
+		.unwrap();
+		for (key, value) in &settings {
+			config.set(key, value);
+		}
+		let cache = rust_apt::new_cache!(&[packages.to_str().unwrap()]).unwrap();
+		assert_eq!(cache.iter().count(), 1);
+		let pkg = cache.get("nala-reinstall-test").unwrap();
 
 		cache.resolver().clear(&pkg);
 		cache.resolver().protect(&pkg);
 		pkg.mark_reinstall(true);
 		cache.resolve(false).unwrap();
+		assert!(pkg.marked_reinstall());
+		assert!(matches!(pkg.marked(), Marked::Keep));
 
 		let (_, pkg_set) = cache.sort_changes(HashSet::new()).unwrap();
 		let reinstall = pkg_set.get(&Operation::Reinstall).unwrap();
 
-		assert!(reinstall.iter().any(|package| package.name == "apt"));
+		assert_eq!(reinstall.len(), 1);
+		assert_eq!(reinstall[0].name, "nala-reinstall-test");
 	}
 }

@@ -460,19 +460,19 @@ mod tests {
 	#[test]
 	fn version_pin_requires_exact_name() {
 		let err = parse_version_pin("acl*=2.3.2-2").unwrap_err();
-		assert!(
-			err.to_string()
-				.contains("Version pin requires an exact package name")
+		assert_eq!(
+			err.to_string(),
+			t!("pkg-pin-exact", "pin" => "acl*=2.3.2-2")
 		);
 	}
 
 	#[test]
 	fn version_pin_rejects_empty_name_or_version() {
 		let err = parse_version_pin("=1.2.3").unwrap_err();
-		assert!(err.to_string().contains("Invalid version pin"));
+		assert_eq!(err.to_string(), t!("pkg-invalid-pin", "pin" => "=1.2.3"));
 
 		let err = parse_version_pin("acl=").unwrap_err();
-		assert!(err.to_string().contains("Invalid version pin"));
+		assert_eq!(err.to_string(), t!("pkg-invalid-pin", "pin" => "acl="));
 	}
 
 	#[test]

@@ -82,6 +82,6 @@ mod tests {
 
 		let err = data.decompress().await.unwrap_err();
 
-		assert!(err.to_string().contains("Archive type is not supported"));
+		assert_eq!(err.to_string(), t!("archive-unsupported"));
 	}
 }

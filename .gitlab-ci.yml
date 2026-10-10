@@ -36,6 +36,7 @@ debian-sid-package:
         exit 1
       fi
     - tail -n 40 build.log
+    - (cd "$build_dir/nala" && dh_auto_configure --buildsystem cargo && LC_ALL=de_DE.UTF-8 APT_CONFIG="$CI_PROJECT_DIR/tests/empty-apt.conf" dh_auto_test --buildsystem cargo -- test -- --test-threads 1)
     - apt-get install -y --no-install-recommends lintian tmux whiptail ca-certificates curl
     - lintian dist/debian/*.changes
     - cd "$build_dir/nala"
@@ -83,6 +84,7 @@ ubuntu-24.04-upstream-package:
         exit 1
       fi
     - tail -n 40 build.log
+    - LC_ALL=de_DE.UTF-8 APT_CONFIG="$CI_PROJECT_DIR/tests/empty-apt.conf" cargo test --locked --profile lto -- --test-threads 1
     - chmod -R go-w tests/deb/packages
     - tests/deb/run debian/nala/usr/bin/nala
     - apt-get install -y ./dist/debian/nala_*.deb

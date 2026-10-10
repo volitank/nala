@@ -557,6 +557,7 @@ mod tests {
 
 	use super::{MirrorProgress, MirrorState, ProgressMessage, ProgressState, ProgressView};
 	use crate::config::Config;
+	use crate::t;
 	use crate::tui::progress::render_progress_view;
 
 	fn lines(buf: &Buffer) -> Vec<String> {
@@ -569,6 +570,18 @@ mod tests {
 					.to_string()
 			})
 			.collect()
+	}
+
+	fn visible_label(label: &str, width: u16) -> String {
+		let mut buf = Buffer::empty(Rect::new(0, 0, width, 1));
+		buf.set_stringn(
+			0,
+			0,
+			label,
+			width as usize,
+			ratatui::style::Style::default(),
+		);
+		lines(&buf).remove(0)
 	}
 
 	#[test]
@@ -595,25 +608,51 @@ mod tests {
 		let lines = lines(&buf);
 
 		assert_eq!(lines.len(), 12);
-		assert!(lines[0].contains("Downloading Packages"));
-		assert!(lines[1].contains("Connections"));
+		assert!(lines[0].contains(&visible_label(&t!("progress-download-title"), 77)));
+		assert!(lines[1].contains(&visible_label(&t!("progress-connections"), 15)));
 		assert!(lines[2].contains("deb.debian.org"));
 		assert!(lines[3].contains("deb.volian.org"));
 		assert!(lines[4].contains("mirror.example"));
-		assert!(lines[5].contains("+1 more mirrors"));
+		assert!(lines[5].contains(&visible_label(
+			&t!("progress-more-mirrors", "mirrors" => 1, "connections" => 5),
+			77,
+		)));
 		assert!(lines[6].contains("libssl3t64.deb"));
-		assert!(lines[7].contains("Progress"));
+		assert!(lines[7].contains(&visible_label(&t!("progress-label"), 77)));
 		assert!(lines[7].contains("73%"));
 		assert!(lines[7].starts_with('├'));
 		assert!(lines[7].ends_with('┤'));
-		assert!(lines[9].contains("Packages:"));
-		assert!(lines[9].contains("Data:"));
-		assert!(lines[10].contains("Remaining:"));
-		assert!(lines[10].contains("Speed:"));
+		assert!(lines[9].contains(&visible_label(&format!("{}:", t!("progress-packages")), 77)));
+		assert!(lines[9].contains(&visible_label(&format!("{}:", t!("progress-data")), 77)));
+		assert!(lines[10].contains(&visible_label(
+			&format!("{}:", t!("progress-remaining")),
+			77
+		)));
+		assert!(lines[10].contains(&visible_label(&format!("{}:", t!("progress-speed")), 77)));
 		assert!(lines[11].starts_with('╰'));
-		assert_eq!(lines[1].find("Connections"), lines[2].find("3/3"),);
-		assert_eq!(lines[1].find("Average"), lines[2].find("12 B/s"));
-		assert_eq!(lines[1].find("State"), lines[2].find("downloading"),);
+		let column = |row: u16, label: &str| {
+			let index = lines[row as usize].find(label)?;
+			let mut bytes = 0;
+			for x in 0..buf.area.width {
+				if bytes == index {
+					return Some(x);
+				}
+				bytes += buf.cell((x, row))?.symbol().len();
+			}
+			None
+		};
+		assert_eq!(
+			column(1, &visible_label(&t!("progress-connections"), 15)),
+			column(2, "3/3")
+		);
+		assert_eq!(
+			column(1, &visible_label(&t!("progress-average"), 15)),
+			column(2, "12 B/s")
+		);
+		assert_eq!(
+			column(1, &visible_label(&t!("progress-state"), 13)),
+			column(2, &visible_label(&t!("progress-downloading"), 13))
+		);
 	}
 
 	#[test]
@@ -671,11 +710,12 @@ mod tests {
 		render_progress_view(&mut buf, area, &Config::default(), &state);
 		let lines = lines(&buf);
 
-		assert!(lines[1].contains("Active"));
-		assert!(lines[1].contains("State"));
+		assert!(lines[1].contains(&visible_label(&t!("progress-active"), 7)));
+		assert!(lines[1].contains(&visible_label(&t!("progress-state"), 12)));
 		assert!(lines[2].contains("deb.debian.org"));
 		assert!(lines[2].contains("2/3"));
-		assert!(lines[2].contains("downloading"));
+		// Long translations are clipped to the fixed state column.
+		assert!(lines[2].contains(&visible_label(&t!("progress-downloading"), 12)));
 	}
 
 	#[test]
@@ -711,8 +751,11 @@ mod tests {
 		assert_eq!(lines.len(), 6);
 		assert!(lines[1].contains("Configuring hello"));
 		assert!(lines[2].contains("40%"));
-		assert!(lines[4].contains("Package:  hello"));
-		assert!(lines[4].contains("Elapsed:"));
+		assert!(lines[4].contains(&visible_label(
+			&format!("{}:  hello", t!("progress-package")),
+			77
+		)));
+		assert!(lines[4].contains(&visible_label(&format!("{}:", t!("progress-elapsed")), 77)));
 		assert!(lines[5].starts_with('╰'));
 	}
 }

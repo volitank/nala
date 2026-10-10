@@ -213,14 +213,14 @@ mod tests {
 
 		info!("Test");
 
-		let expected = "Notice: Test\n";
+		let expected = format!("{} Test\n", super::Level::Notice.label());
 		let output = logger.read_exact(expected.len()).unwrap();
 
 		assert_eq!(std::str::from_utf8(&output).unwrap(), expected);
 
 		// Test that debug does not work
 		debug!("Test");
-		assert!(logger.read_exact("Debug: Test\n".len()).is_err());
+		assert!(logger.read_exact(1).is_err());
 	}
 
 	#[test]
@@ -228,13 +228,13 @@ mod tests {
 		let mut logger = LoggerTest::new(Level::Debug);
 
 		debug!("Test");
-		let debug_expected = "Debug: Test\n";
+		let debug_expected = format!("{} Test\n", super::Level::Debug.label());
 		let output = logger.read_exact(debug_expected.len()).unwrap();
 		assert_eq!(std::str::from_utf8(&output).unwrap(), debug_expected);
 
 		// Test that info during debug does work
 		info!("Test");
-		let notice_expected = "Notice: Test\n";
+		let notice_expected = format!("{} Test\n", super::Level::Notice.label());
 		let output = logger.read_exact(notice_expected.len()).unwrap();
 		assert_eq!(std::str::from_utf8(&output).unwrap(), notice_expected);
 	}
