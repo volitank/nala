@@ -1,8 +1,9 @@
 # Releasing Nala
 
-Update `Cargo.toml`, Nala's `Cargo.lock` entry, `debian/changelog`, and
-`debian/NEWS` together. The Cargo version and Debian version must match the
-release tag, for example `0.18.0` and `v0.18.0`.
+Update `Cargo.toml`, Nala's `Cargo.lock` entry, and `debian/changelog` together.
+Add a `debian/NEWS` entry only for user-facing changes that need an upgrade
+notice, such as configuration migration. The Cargo version and Debian version
+must match the release tag, for example `0.18.0` and `v0.18.0`.
 
 After committing and pushing, let the branch pipeline pass before pushing the
 release tag. CI runs the same three package jobs for tags: Debian Sid on amd64

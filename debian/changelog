@@ -1,3 +1,15 @@
+nala (0.18.1) unstable; urgency=medium
+
+  * Fix rebuilder test failures by using a private installed-status and
+    package-index fixture instead of assuming apt is installed on the host.
+  * Make output assertions independent of the builder's locale, accounting
+    for translated labels, clipping, and Unicode terminal widths.
+  * Add German-locale and empty-host-APT-cache unit-test checks to package CI.
+  * Keep optimized LTO settings as the default for Debian rebuilds while
+    using faster unoptimized builds with debug checks for branch CI.
+
+ -- Blake Lee <blake@volian.org>  Sat, 10 Oct 2026 12:42:57 -0500
+
 nala (0.18.0) unstable; urgency=medium
 
   * Release the Rust implementation for Debian Sid, replacing Python Nala.
