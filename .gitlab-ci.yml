@@ -1,5 +1,6 @@
 stages:
   - build
+  - release
 variables:
   DEBIAN_FRONTEND: noninteractive
   CACHE_COMPRESSION_LEVEL: fastest
@@ -14,22 +15,38 @@ debian-sid-package:
     - "${RUNNER_ARCH}"
   script:
     - apt-get update
-    - apt-get install -y --no-install-recommends dpkg-dev eatmydata lintian python3 tmux whiptail
+    - apt-get install -y --no-install-recommends dpkg-dev eatmydata
     - eatmydata apt-get build-dep -y --no-install-recommends .
     - rm -rf dist/debian
+    - build_dir="$(mktemp -d)"
+    - trap 'rm -rf "$build_dir"' EXIT
     - |
-      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary >build.log 2>&1; then
+      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --source >"$build_dir/source-build.log" 2>&1; then
+        cp "$build_dir/source-build.log" source-build.log
+        tail -n 200 source-build.log
+        exit 1
+      fi
+      mv "$build_dir/source-build.log" source-build.log
+    - tail -n 40 source-build.log
+    - dpkg-source -x dist/debian/*.dsc "$build_dir/nala"
+    - |
+      if ! (cd "$build_dir/nala" && DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --out-dir "$CI_PROJECT_DIR/dist/debian") >build.log 2>&1; then
         tail -n 200 build.log
         exit 1
       fi
     - tail -n 40 build.log
+    - apt-get install -y --no-install-recommends lintian tmux whiptail ca-certificates curl
     - lintian dist/debian/*.changes
+    - cd "$build_dir/nala"
     - chmod -R go-w tests/deb/packages
     - tests/deb/run debian/nala/usr/bin/nala
     - tests/deb/history/run debian/nala/usr/bin/nala
     - tests/deb/safety/run debian/nala/usr/bin/nala
     - tests/deb/term/run debian/nala/usr/bin/nala
     - tests/deb/release-info/run debian/nala/usr/bin/nala
+    - cd "$CI_PROJECT_DIR"
+    - python3 tests/ci-release-assets.py
+    - scripts/ci-release-assets "sid-${RUNNER_ARCH}"
   artifacts:
     name: "nala-debian-${RUNNER_ARCH}-${CI_COMMIT_SHORT_SHA}"
     when: always
@@ -37,6 +54,7 @@ debian-sid-package:
     paths:
       - dist/debian/*
       - build.log
+      - source-build.log
 
 ubuntu-24.04-upstream-package:
   stage: build
@@ -66,6 +84,8 @@ ubuntu-24.04-upstream-package:
     - tests/deb/run debian/nala/usr/bin/nala
     - apt-get install -y ./dist/debian/nala_*.deb
     - nala --version
+    - python3 tests/ci-release-assets.py
+    - scripts/ci-release-assets ubuntu-24.04-amd64
   artifacts:
     name: "nala-ubuntu-24.04-amd64-${CI_COMMIT_SHORT_SHA}"
     when: always
@@ -73,3 +93,46 @@ ubuntu-24.04-upstream-package:
     paths:
       - dist/debian/*
       - build.log
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/cli:latest
+  tags:
+    - amd64
+  dependencies: []
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+  script:
+    - |
+      awk '/^nala \(/ { if (entry++) exit; next } /^ -- / { exit } { print }' debian/changelog > release-notes.md
+      cat >> release-notes.md <<'EOF'
+
+      Downloads include Debian Sid packages (amd64/arm64) and an Ubuntu 24.04 package (amd64).
+      Use the package built for your distribution; the Sid build requires libapt-pkg7.0.
+      Complete Sid bundles include unsigned .dsc/source archives, .changes, .buildinfo, debug packages, and build logs.
+      These CI downloads are unsigned; Debian archive uploads are signed separately by the maintainer.
+      EOF
+  release:
+    name: 'Nala $CI_COMMIT_TAG'
+    tag_name: '$CI_COMMIT_TAG'
+    description: './release-notes.md'
+    assets:
+      links:
+        - name: 'Debian Sid — amd64 .deb'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-amd64.deb'
+          link_type: package
+        - name: 'Debian Sid — arm64 .deb'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-arm64.deb'
+          link_type: package
+        - name: 'Ubuntu 24.04 — amd64 .deb'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-ubuntu-24.04-amd64.deb'
+          link_type: package
+        - name: 'Debian Sid — amd64 complete source/build bundle'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-amd64.tar.gz'
+          link_type: package
+        - name: 'Debian Sid — arm64 complete source/build bundle'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-arm64.tar.gz'
+          link_type: package
+        - name: 'Ubuntu 24.04 — amd64 complete build bundle'
+          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-ubuntu-24.04-amd64.tar.gz'
+          link_type: package

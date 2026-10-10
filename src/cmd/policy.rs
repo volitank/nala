@@ -65,6 +65,15 @@ fn status_file(file: &PackageFile<'_>) -> bool {
 		.is_some_and(|kind| kind == DPKG_STATUS_FILE)
 }
 
+fn describe_file(file: &PackageFile<'_>) -> String {
+	// The dpkg status database has no repository index to describe.
+	if status_file(file) {
+		return file.filename().unwrap_or(DPKG_STATUS_FILE).to_string();
+	}
+
+	file.index_file().describe(true).trim().to_string()
+}
+
 fn include_global_file(file: &PackageFile<'_>) -> bool {
 	file.is_downloadable() || status_file(file)
 }
@@ -105,7 +114,7 @@ fn collect_version_sources(ver: &Version<'_>) -> Vec<PolicySource> {
 			.entry(file.index())
 			.or_insert_with(|| PolicySource {
 				priority: file.priority(),
-				source: file.index_file().describe(true).trim().to_string(),
+				source: describe_file(&file),
 			});
 	}
 
@@ -157,7 +166,7 @@ fn collect_global_file(file: &PackageFile<'_>) -> Option<GlobalPolicyFile> {
 
 	Some(GlobalPolicyFile {
 		priority: file.priority(),
-		source: file.index_file().describe(true).trim().to_string(),
+		source: describe_file(file),
 		release: release_line(file),
 		site: file
 			.site()

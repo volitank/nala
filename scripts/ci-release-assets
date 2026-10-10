@@ -1,0 +1,41 @@
+#!/bin/sh
+# Keep tagged downloads in the package registry, independent of CI artifact expiry.
+set -eu
+
+tag=${CI_COMMIT_TAG:-}
+if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+	exit 0
+fi
+
+target=$1
+case "$target" in
+	sid-amd64|sid-arm64|ubuntu-24.04-amd64) ;;
+	*) echo "Unknown release target: $target" >&2; exit 1 ;;
+esac
+
+version=$(dpkg-parsechangelog -SVersion)
+cargo_version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' Cargo.toml | head -n 1)
+test "$tag" = "v$version"
+test "$cargo_version" = "$version"
+set -- dist/debian/nala_*.deb
+test "$#" -eq 1
+test -f "$1"
+test "$(dpkg-deb -f "$1" Package)" = nala
+test "$(dpkg-deb -f "$1" Version)" = "$version"
+test "$(dpkg-deb -f "$1" Architecture)" = "${target##*-}"
+
+release_dir=$(mktemp -d)
+trap 'rm -rf "$release_dir"' EXIT
+name="nala-${tag}-${target}"
+cp "$1" "$release_dir/$name.deb"
+set -- dist/debian build.log
+if test -f source-build.log; then
+	set -- "$@" source-build.log
+fi
+tar -czf "$release_dir/$name.tar.gz" "$@"
+
+for file in "$release_dir"/*; do
+	curl --fail --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+		--upload-file "$file" \
+		"${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${tag}/${file##*/}"
+done

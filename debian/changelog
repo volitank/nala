@@ -1,3 +1,27 @@
+nala (0.18.0) unstable; urgency=medium
+
+  * Release the Rust implementation for Debian Sid, replacing Python Nala.
+  * Serialize mutating operations with APT's frontend lock from planning
+    through transaction completion.
+  * Enforce archive-space, held-package, downgrade, and protected-package
+    safeguards; propagate hook failures and preserve failed history records.
+  * Handle cancellation and terminal cleanup safely.
+  * Avoid invalid repository-index lookups for installed-package status
+    in text and JSON policy output.
+  * Support private repository downloads with APT auth.conf credentials.
+  * Honor APT proxy auto-detection and per-host direct connections.
+  * Reject failed HTTP responses and malformed Release files when scoring
+    mirrors.
+  * Add Ukrainian and Georgian translations and complete all active catalogs.
+  * Derive confirmation hints and accepted keys from the translations in
+    both plain output and the release-information TUI.
+  * Document Python configuration migration and legacy history preservation
+    in NEWS; remove misleading Cargo installation advice from README.
+  * Build with Debian Sid's packaged Rust dependencies and validate package
+    operations through the Debian integration suites.
+
+ -- Blake Lee <blake@volian.org>  Fri, 09 Oct 2026 21:34:18 -0500
+
 nala (0.17.2) UNRELEASED; urgency=medium
 
   * Prepare the next Rust canary release.

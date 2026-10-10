@@ -165,3 +165,5 @@ a reboot as required.
 
 - Official repository: <https://gitlab.com/volian/nala>
 - Issues: <https://gitlab.com/volian/nala/-/issues>
+- Releases and package downloads: <https://gitlab.com/volian/nala/-/releases>
+- Release workflow: [RELEASING.md](RELEASING.md)

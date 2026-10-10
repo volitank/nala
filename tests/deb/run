@@ -18,6 +18,38 @@ work_dir="$(mktemp -d)"
 trap 'rm -rf "${work_dir}"' EXIT
 chmod a+rx "${work_dir}"
 
+policy_status="${work_dir}/policy.status"
+dpkg-query --status dpkg >"${policy_status}"
+mkdir "${work_dir}/policy-lists"
+policy_options=(
+	-o "Dir::State::status=${policy_status}"
+	-o "Dir::State::lists=${work_dir}/policy-lists"
+	-o "Dir::Etc::sourcelist=/dev/null"
+	-o "Dir::Etc::sourceparts=-"
+)
+for format in text json; do
+	format_options=()
+	if [[ "${format}" == json ]]; then
+		format_options=(--machine)
+	fi
+	"${nala_bin}" --no-tui --color never "${policy_options[@]}" \
+		policy "${format_options[@]}" dpkg >"${work_dir}/policy-${format}-package"
+	"${nala_bin}" --no-tui --color never "${policy_options[@]}" \
+		policy "${format_options[@]}" >"${work_dir}/policy-${format}-global"
+	grep -Fq "${policy_status}" "${work_dir}/policy-${format}-package"
+	grep -Fq "${policy_status}" "${work_dir}/policy-${format}-global"
+done
+python3 - "${work_dir}" "${policy_status}" <<'PY'
+import json, pathlib, sys
+root, status = pathlib.Path(sys.argv[1]), sys.argv[2]
+package = json.loads((root / "policy-json-package").read_text())
+assert package[0]["versions"][0]["sources"] == [{"priority": 100, "source": status}]
+global_policy = json.loads((root / "policy-json-global").read_text())
+assert global_policy["package_files"][0]["source"] == status
+assert global_policy["package_files"][0]["downloadable"] is False
+PY
+echo "PASS: text and JSON policy describe the installed-only status database."
+
 for fixture in tests/deb/packages/broken-*; do
 	case_name="$(basename "${fixture}")"
 	deb_path="${work_dir}/${case_name}.deb"

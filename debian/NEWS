@@ -1,4 +1,6 @@
-nala (0.17.2) unstable; urgency=medium
+nala (0.18.0) unstable; urgency=medium
+
+  This release replaces Python Nala with the Rust implementation in Debian.
 
   Automatic removal remains enabled for interactive transactions. When
   --assume-yes is active, implicit autoremove is skipped unless --autoremove is
@@ -24,6 +26,18 @@ nala (0.17.2) unstable; urgency=medium
   editing to check the configuration. Legacy history.json is read automatically
   and imported on the first history mutation; the original file is preserved
   and should not be deleted during configuration migration.
+
+ -- Blake Lee <blake@volian.org>  Fri, 09 Oct 2026 21:34:18 -0500
+
+nala (0.17.2) unstable; urgency=medium
+
+  Automatic removal remains enabled for interactive transactions. When
+  --assume-yes is active, implicit autoremove is skipped unless --autoremove is
+  also given. The explicit autoremove and autopurge commands are unaffected.
+
+  Ui.mode now defaults to Auto, which uses enhanced inline progress where the
+  terminal supports it. Full-screen interfaces remain opt-in through Ui.mode =
+  "Tui" or --tui; Ui.mode = "Plain" remains available for static output.
 
  -- Blake Lee <blake@volian.org>  Fri, 12 Sep 2026 00:00:00 -0500
 
