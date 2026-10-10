@@ -14,6 +14,7 @@ debian-sid-package:
   tags:
     - "${RUNNER_ARCH}"
   script:
+    - . scripts/ci-build-profile
     - apt-get update
     - apt-get install -y --no-install-recommends dpkg-dev eatmydata
     - eatmydata apt-get build-dep -y --no-install-recommends .
@@ -46,6 +47,7 @@ debian-sid-package:
     - tests/deb/release-info/run debian/nala/usr/bin/nala
     - cd "$CI_PROJECT_DIR"
     - python3 tests/ci-release-assets.py
+    - python3 tests/ci-build-profile.py
     - scripts/ci-release-assets "sid-${RUNNER_ARCH}"
   artifacts:
     name: "nala-debian-${RUNNER_ARCH}-${CI_COMMIT_SHORT_SHA}"
@@ -68,6 +70,7 @@ ubuntu-24.04-upstream-package:
     paths:
       - target/
   script:
+    - . scripts/ci-build-profile
     - apt-get update
     - apt-get install -y --no-install-recommends ca-certificates curl dpkg-dev eatmydata
     - eatmydata apt-get build-dep -y --no-install-recommends -Pupstream-cargo .
@@ -85,6 +88,7 @@ ubuntu-24.04-upstream-package:
     - apt-get install -y ./dist/debian/nala_*.deb
     - nala --version
     - python3 tests/ci-release-assets.py
+    - python3 tests/ci-build-profile.py
     - scripts/ci-release-assets ubuntu-24.04-amd64
   artifacts:
     name: "nala-ubuntu-24.04-amd64-${CI_COMMIT_SHORT_SHA}"

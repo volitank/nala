@@ -48,9 +48,8 @@ clap = { version = "4.6.5", features = ["derive"] }
 clap_complete = { version = "4.6.8", features = ["unstable-dynamic"] }
 clap_mangen = "0.3.0"
 
-[profile.lto]
+[profile.release]
 # A profile with various additional optimizations
-inherits = "release"
 
 # It isn't clear that lto makes anything faster yet
 # But it does reduce the binary size. true = "fat", can also use "thin"
@@ -66,3 +65,6 @@ opt-level = "s"
 # Saves about 1MB at the time of writing.
 # Probably not good enough for not having the trace.
 # panic = "abort"
+
+[profile.lto]
+inherits = "release"

@@ -13,7 +13,8 @@ directories under `packages/` and are built into temporary `.deb` files.
   the dialog is open, and verifies that output resumes at column zero.
 
 Run `just debtest`, `just history-test`, or `just term-test` from the
-repository root. GitLab CI runs the same scripts against the release binary.
+repository root. GitLab CI runs the same scripts against the packaged binary:
+unoptimized on branches and optimized with LTO on tags.
 
 Run `just sid` for an interactive Sid shell with Nala's strict Debian build
 dependencies installed. Its `target` directory belongs to the source bind

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Source this in package jobs; keep dh-cargo's release output paths in debug CI.
+if test -n "${CI_COMMIT_TAG:-}"; then
+	opt_level=s
+	lto=true
+	debug_checks=false
+else
+	opt_level=0
+	lto=off
+	debug_checks=true
+fi
+
+for profile in RELEASE LTO; do
+	export "CARGO_PROFILE_${profile}_OPT_LEVEL=$opt_level"
+	export "CARGO_PROFILE_${profile}_LTO=$lto"
+	export "CARGO_PROFILE_${profile}_DEBUG_ASSERTIONS=$debug_checks"
+	export "CARGO_PROFILE_${profile}_OVERFLOW_CHECKS=$debug_checks"
+done
+echo "CI Cargo settings: opt-level=$opt_level, lto=$lto, debug checks=$debug_checks"
+unset opt_level lto debug_checks profile

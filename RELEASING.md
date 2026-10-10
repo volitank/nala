@@ -8,6 +8,12 @@ After committing and pushing, let the branch pipeline pass before pushing the
 release tag. CI runs the same three package jobs for tags: Debian Sid on amd64
 and arm64, and the upstream-Cargo package on Ubuntu 24.04 amd64.
 
+Branch jobs use unoptimized builds with debug assertions and overflow checks.
+Tag jobs use size optimization and LTO; prerelease tags also use these settings
+but do not publish a release. CI overrides Cargo's `release`/`lto` settings
+without changing the output paths expected by Debian's packaging helpers.
+Normal optimized builds outside CI use the same LTO settings as tag builds.
+
 Each Sid job builds an unsigned source package, extracts its `.dsc`, rebuilds
 the binary package, and runs Lintian and the Debian integration suites. Ubuntu
 24.04 uses its own libapt-pkg and locked upstream Cargo dependencies, runs the
@@ -55,4 +61,5 @@ To check the publication helper locally without uploads:
 
 ```sh
 python3 tests/ci-release-assets.py
+python3 tests/ci-build-profile.py
 ```
