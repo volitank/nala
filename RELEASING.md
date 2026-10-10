@@ -11,9 +11,7 @@ and arm64, and the upstream-Cargo package on Ubuntu 24.04 amd64.
 
 Branch jobs use unoptimized builds with debug assertions and overflow checks.
 Tag jobs use size optimization and LTO; prerelease tags also use these settings
-but do not publish a release. CI overrides Cargo's `release`/`lto` settings
-without changing the output paths expected by Debian's packaging helpers.
-Normal optimized builds outside CI use the same LTO settings as tag builds.
+but do not publish a release.
 
 Each Sid job builds an unsigned source package, extracts its `.dsc`, rebuilds
 the binary package, and runs Lintian and the Debian integration suites. Ubuntu
@@ -57,10 +55,3 @@ source/build logs and Lintian results, then sign the source `.changes` with
 and `.buildinfo`. Upload that signed source with the usual Debian tooling.
 Do not mix the two architecture bundles or upload the Ubuntu package to Sid.
 The GitLab release job does not sign or upload anything to Debian or Volian.
-
-To check the publication helper locally without uploads:
-
-```sh
-python3 tests/ci-release-assets.py
-python3 tests/ci-build-profile.py
-```

@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+target=${1:-}
+case "$target" in sid|ubuntu) ;; *) echo "Usage: scripts/ci-image sid|ubuntu" >&2; exit 2 ;; esac
+case "${RUNNER_ARCH:-}" in amd64|arm64) ;; *) echo "Invalid RUNNER_ARCH" >&2; exit 2 ;; esac
+test "$target:$RUNNER_ARCH" != ubuntu:arm64 || { echo "Ubuntu CI is amd64 only" >&2; exit 2; }
+: "${CI_PROJECT_DIR:?}" "${CI_REGISTRY:?}" "${CI_REGISTRY_IMAGE:?}" "${CI_PIPELINE_ID:?}"
+: "${CI_REGISTRY_USER:?}" "${CI_REGISTRY_PASSWORD:?}" "${NALA_CI_IMAGE_VERSION:?}"
+cd "$CI_PROJECT_DIR"
+umask 077
+export DOCKER_CONFIG
+DOCKER_CONFIG=$(mktemp -d)
+trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+auth=$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')
+printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$CI_REGISTRY" "$auth" > "$DOCKER_CONFIG/config.json"
+unset auth
+export BUILDKITD_FLAGS="--oci-worker-no-process-sandbox --oci-worker-snapshotter=native --root=$CI_PROJECT_DIR/.buildkit"
+image="$CI_REGISTRY_IMAGE/ci/$target-$RUNNER_ARCH"
+buildctl-daemonless.sh build --frontend dockerfile.v0 \
+	--local context=. --local dockerfile=ci \
+	--opt "target=$target" --opt "platform=linux/$RUNNER_ARCH" \
+	--opt "build-arg:CI_IMAGE_VERSION=$NALA_CI_IMAGE_VERSION" \
+	--import-cache "type=registry,ref=$image:cache-$NALA_CI_IMAGE_VERSION" \
+	--export-cache type=inline \
+	--output "type=image,\"name=$image:$CI_PIPELINE_ID,$image:cache-$NALA_CI_IMAGE_VERSION\",push=true"

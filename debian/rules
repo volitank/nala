@@ -2,6 +2,7 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DEB_DESTDIR ?= ..
+.PHONY: override_dh_auto_test
 
 ifneq (,$(filter upstream-cargo,$(DEB_BUILD_PROFILES)))
 export CARGO_HOME ?= $(CURDIR)/debian/cargo_home
@@ -20,6 +21,9 @@ override_dh_auto_build:
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	cargo test --locked --profile lto -- --test-threads 1
+ifeq ($(NALA_CI_LOCALE_CHECK),1)
+	LC_ALL=de_DE.UTF-8 APT_CONFIG="$(CURDIR)/tests/empty-apt.conf" cargo test --locked --profile lto -- --test-threads 1
+endif
 endif
 
 override_dh_auto_install:
@@ -42,12 +46,20 @@ endif
 
 else
 
+# Branch CI shares dependency compilation between tests and the binary.
+ifeq ($(NALA_CI_TEST_PROFILE),release)
+ci_test_profile = --release
+endif
+
 %:
 	dh $@ --buildsystem cargo
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	dh_auto_test --buildsystem cargo -- test -- --test-threads 1
+	dh_auto_test --buildsystem cargo -- test $(ci_test_profile) -- --test-threads 1
+ifeq ($(NALA_CI_LOCALE_CHECK),1)
+	LC_ALL=de_DE.UTF-8 APT_CONFIG="$(CURDIR)/tests/empty-apt.conf" dh_auto_test --buildsystem cargo -- test $(ci_test_profile) -- --test-threads 1
+endif
 endif
 
 override_dh_auto_clean:

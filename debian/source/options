@@ -1,5 +1,6 @@
 tar-ignore = .git
 tar-ignore = .cargo
+tar-ignore = .cache
 tar-ignore = dist
 tar-ignore = target
 tar-ignore = debian/cargo_home

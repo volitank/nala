@@ -1,0 +1,5 @@
+**
+!ci/
+!ci/Dockerfile
+!debian/
+!debian/control

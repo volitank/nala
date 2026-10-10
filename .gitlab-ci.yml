@@ -1,43 +1,109 @@
 stages:
+  - images
   - build
   - release
 variables:
   DEBIAN_FRONTEND: noninteractive
+  # Bump to refresh installed dependencies and invalidate compiler caches.
+  NALA_CI_IMAGE_VERSION: "2026-10-10-1"
+  CACHE_COMPRESSION_FORMAT: tarzstd
   CACHE_COMPRESSION_LEVEL: fastest
 
-debian-sid-package:
-  stage: build
-  image: debian:sid
+ci-dependency-image:
+  stage: images
+  image:
+    name: moby/buildkit:v0.27.1-rootless@sha256:5616ed4e78a3552f3575864c8ab585c882b892c4e93b6a7b6ac8afbc98bd2f7a
+    entrypoint: [""]
+  variables:
+    FF_USE_ADVANCED_POD_SPEC_CONFIGURATION: "true"
   parallel:
     matrix:
-      - RUNNER_ARCH: [amd64, arm64]
+      - CI_IMAGE_TARGET: [sid]
+        RUNNER_ARCH: [amd64, arm64]
+      - CI_IMAGE_TARGET: [ubuntu]
+        RUNNER_ARCH: [amd64]
   tags:
     - "${RUNNER_ARCH}"
   script:
+    - scripts/ci-image "$CI_IMAGE_TARGET"
+
+.package-job:
+  stage: build
+  tags:
+    - "${RUNNER_ARCH}"
+  variables:
+    RUNNER_ARCH: amd64
+    NALA_CI_LOCALE_CHECK: "1"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      variables:
+        NALA_CI_BUILD_MODE: lto
+        NALA_CI_TEST_PROFILE: ""
+        NALA_TARGET_CACHE_POLICY: pull
+    - when: on_success
+      variables:
+        NALA_CI_BUILD_MODE: debug
+        NALA_CI_TEST_PROFILE: release
+        NALA_TARGET_CACHE_POLICY: pull-push
+
+  before_script:
     - . scripts/ci-build-profile
-    - apt-get update
-    - apt-get install -y --no-install-recommends dpkg-dev eatmydata
-    - eatmydata apt-get build-dep -y --no-install-recommends .
+    - rustc --version && cargo --version
+    - python3 tests/ci-release-assets.py
+    - python3 tests/ci-build-profile.py
+    - python3 tests/ci-packaging.py
+    - python3 tests/ci-images.py
     - rm -rf dist/debian
-    - build_dir="$(mktemp -d)"
+    - |
+      build_package() {
+        log=$1; shift
+        if ! DEB_BUILD_OPTIONS=terse scripts/deb-build "$@" >"$log" 2>&1; then
+          tail -n 200 "$log"
+          return 1
+        fi
+        tail -n 40 "$log"
+      }
+  artifacts:
+    name: "nala-${PACKAGE_TARGET}-${CI_COMMIT_SHORT_SHA}"
+    when: always
+    expire_in: 1 week
+    paths:
+      - dist/debian/*
+      - '*build.log'
+
+debian-sid-package:
+  extends: .package-job
+  image: "$CI_REGISTRY_IMAGE/ci/sid-${RUNNER_ARCH}:$CI_PIPELINE_ID"
+  variables:
+    PACKAGE_TARGET: "sid-${RUNNER_ARCH}"
+  parallel:
+    matrix:
+      - RUNNER_ARCH: [amd64, arm64]
+  cache:
+    key:
+      prefix: "sid-${RUNNER_ARCH}-${NALA_CI_IMAGE_VERSION}-${NALA_CI_BUILD_MODE}"
+      files:
+        - Cargo.lock
+        - debian/control
+    policy: "$NALA_TARGET_CACHE_POLICY"
+    paths:
+      - target/
+  script:
+    - dpkg-checkbuilddeps
+    - if test -n "${CI_COMMIT_TAG:-}"; then rm -rf target; fi
+    - build_dir="$CI_PROJECT_DIR/dist/ci-build"
+    - rm -rf "$build_dir"
+    - mkdir -p "$build_dir"
     - trap 'rm -rf "$build_dir"' EXIT
     - |
-      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --source >"$build_dir/source-build.log" 2>&1; then
+      if ! build_package "$build_dir/source-build.log" --source --no-clean; then
         cp "$build_dir/source-build.log" source-build.log
-        tail -n 200 source-build.log
         exit 1
       fi
       mv "$build_dir/source-build.log" source-build.log
-    - tail -n 40 source-build.log
     - dpkg-source -x dist/debian/*.dsc "$build_dir/nala"
-    - |
-      if ! (cd "$build_dir/nala" && DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --out-dir "$CI_PROJECT_DIR/dist/debian") >build.log 2>&1; then
-        tail -n 200 build.log
-        exit 1
-      fi
-    - tail -n 40 build.log
-    - (cd "$build_dir/nala" && dh_auto_configure --buildsystem cargo && LC_ALL=de_DE.UTF-8 APT_CONFIG="$CI_PROJECT_DIR/tests/empty-apt.conf" dh_auto_test --buildsystem cargo -- test -- --test-threads 1)
-    - apt-get install -y --no-install-recommends lintian tmux whiptail ca-certificates curl
+    - if test -d target; then mv target "$build_dir/nala/target"; fi
+    - (cd "$build_dir/nala" && build_package "$CI_PROJECT_DIR/build.log" --binary --no-clean --out-dir "$CI_PROJECT_DIR/dist/debian")
     - lintian dist/debian/*.changes
     - cd "$build_dir/nala"
     - chmod -R go-w tests/deb/packages
@@ -47,58 +113,41 @@ debian-sid-package:
     - tests/deb/term/run debian/nala/usr/bin/nala
     - tests/deb/release-info/run debian/nala/usr/bin/nala
     - cd "$CI_PROJECT_DIR"
-    - python3 tests/ci-release-assets.py
-    - python3 tests/ci-build-profile.py
-    - scripts/ci-release-assets "sid-${RUNNER_ARCH}"
-  artifacts:
-    name: "nala-debian-${RUNNER_ARCH}-${CI_COMMIT_SHORT_SHA}"
-    when: always
-    expire_in: 1 week
-    paths:
-      - dist/debian/*
-      - build.log
-      - source-build.log
+    - mv "$build_dir/nala/target" target
+    - scripts/ci-release-assets "$PACKAGE_TARGET"
 
 ubuntu-24.04-upstream-package:
-  stage: build
-  image: ubuntu:24.04
-  tags:
-    - amd64
+  extends: .package-job
+  image: "$CI_REGISTRY_IMAGE/ci/ubuntu-amd64:$CI_PIPELINE_ID"
+  variables:
+    CARGO_HOME: "$CI_PROJECT_DIR/.cache/cargo"
+    PACKAGE_TARGET: ubuntu-24.04-amd64
   cache:
-    key: "${CI_COMMIT_REF_SLUG}-ubuntu-24.04-upstream-amd64"
-    fallback_keys:
-      - "${CI_DEFAULT_BRANCH}-ubuntu-24.04-upstream-amd64"
-    paths:
-      - target/
+    - key:
+        prefix: "ubuntu-amd64-${NALA_CI_IMAGE_VERSION}-registry"
+        files:
+          - Cargo.lock
+      paths:
+        - .cache/cargo/registry/
+      policy: "$NALA_TARGET_CACHE_POLICY"
+    - key:
+        prefix: "ubuntu-amd64-${NALA_CI_IMAGE_VERSION}-${NALA_CI_BUILD_MODE}"
+        files:
+          - Cargo.lock
+          - Cargo.toml
+      policy: "$NALA_TARGET_CACHE_POLICY"
+      paths:
+        - target/
   script:
-    - . scripts/ci-build-profile
-    - apt-get update
-    - apt-get install -y --no-install-recommends ca-certificates curl dpkg-dev eatmydata
-    - eatmydata apt-get build-dep -y --no-install-recommends -Pupstream-cargo .
-    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-    - export PATH="${HOME}/.cargo/bin:${PATH}"
-    - rm -rf dist/debian debian/cargo_home debian/cargo_registry debian/cargo_out_dir
-    - |
-      if ! DEB_BUILD_OPTIONS=terse scripts/deb-build --binary --no-clean --upstream-cargo >build.log 2>&1; then
-        tail -n 200 build.log
-        exit 1
-      fi
-    - tail -n 40 build.log
-    - LC_ALL=de_DE.UTF-8 APT_CONFIG="$CI_PROJECT_DIR/tests/empty-apt.conf" cargo test --locked --profile lto -- --test-threads 1
+    - dpkg-checkbuilddeps -Pupstream-cargo
+    - if test -n "${CI_COMMIT_TAG:-}"; then rm -rf target "$CARGO_HOME/registry"; fi
+    - rm -rf debian/cargo_home debian/cargo_registry debian/cargo_out_dir
+    - build_package build.log --binary --no-clean --upstream-cargo
     - chmod -R go-w tests/deb/packages
     - tests/deb/run debian/nala/usr/bin/nala
-    - apt-get install -y ./dist/debian/nala_*.deb
+    - dpkg -i ./dist/debian/nala_*.deb
     - nala --version
-    - python3 tests/ci-release-assets.py
-    - python3 tests/ci-build-profile.py
-    - scripts/ci-release-assets ubuntu-24.04-amd64
-  artifacts:
-    name: "nala-ubuntu-24.04-amd64-${CI_COMMIT_SHORT_SHA}"
-    when: always
-    expire_in: 1 week
-    paths:
-      - dist/debian/*
-      - build.log
+    - scripts/ci-release-assets "$PACKAGE_TARGET"
 
 release:
   stage: release
@@ -106,6 +155,8 @@ release:
   tags:
     - amd64
   dependencies: []
+  variables:
+    RELEASE_ASSET_URL: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}'
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
   script:
@@ -125,20 +176,20 @@ release:
     assets:
       links:
         - name: 'Debian Sid — amd64 .deb'
-          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-amd64.deb'
+          url: '${RELEASE_ASSET_URL}-sid-amd64.deb'
           link_type: package
         - name: 'Debian Sid — arm64 .deb'
-          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-arm64.deb'
+          url: '${RELEASE_ASSET_URL}-sid-arm64.deb'
           link_type: package
         - name: 'Ubuntu 24.04 — amd64 .deb'
-          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-ubuntu-24.04-amd64.deb'
+          url: '${RELEASE_ASSET_URL}-ubuntu-24.04-amd64.deb'
           link_type: package
         - name: 'Debian Sid — amd64 complete source/build bundle'
-          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-amd64.tar.gz'
+          url: '${RELEASE_ASSET_URL}-sid-amd64.tar.gz'
           link_type: package
         - name: 'Debian Sid — arm64 complete source/build bundle'
-          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-sid-arm64.tar.gz'
+          url: '${RELEASE_ASSET_URL}-sid-arm64.tar.gz'
           link_type: package
         - name: 'Ubuntu 24.04 — amd64 complete build bundle'
-          url: '${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/nala/${CI_COMMIT_TAG}/nala-${CI_COMMIT_TAG}-ubuntu-24.04-amd64.tar.gz'
+          url: '${RELEASE_ASSET_URL}-ubuntu-24.04-amd64.tar.gz'
           link_type: package
