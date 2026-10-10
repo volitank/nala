@@ -25,7 +25,7 @@ subcommand-missing = Subcomando não fornecido
 prompt-invalid = '{ $response }' não é uma resposta válida
 prompt-refused = O usuário recusou a confirmação
 prompt-continue = Você quer continuar?
-prompt-choice = [S/n]
+prompt-choice = S/s N/n
 
 # Variables:
 #   $command (String) - Command that requires elevated privileges.
@@ -473,8 +473,6 @@ install-downloaded = Baixado: { $path }
 
 ## Additional messages
 
-prompt-choice-no = [s/N]
-
 release-info-title = Informações do Repositório Alteradas
 
 release-info-explanation =
@@ -489,7 +487,7 @@ release-info-changes = Alterações
 
 release-info-confirm = Aceitar estas alterações e continuar a atualização?
 
-release-info-help = (y) aceitar | (n/Enter/Esc) rejeitar
+release-info-help = ({ $yes }) aceitar | ({ $no }/Enter/Esc) rejeitar
 
 release-info-accepted = Alterações nas informações do repositório { $repository } aceitas.
 

@@ -22,7 +22,7 @@ subcommand-missing = Níor soláthraíodh fo-ordú
 prompt-invalid = Ní freagra bailí é '{ $response }'
 prompt-refused = Udhiúltaigh an ser deimhniú
 prompt-continue = Ar mhaith leat leanúint ar aghaidh?
-prompt-choice = [T/n]
+prompt-choice = T/t N/n
 
 # Variables:
 #   $command (String) - Command that requires elevated privileges.
@@ -470,8 +470,6 @@ install-downloaded = Íoslódáilte: { $path }
 
 ## Additional messages
 
-prompt-choice-no = [y/N]
-
 release-info-title = Athraíodh Eolas na Stórlainne
 
 release-info-explanation =
@@ -486,7 +484,7 @@ release-info-changes = Athruithe
 
 release-info-confirm = Glacadh leis na hathruithe seo agus leanúint leis an nuashonrú?
 
-release-info-help = (y) glac | (n/Enter/Esc) diúltaigh
+release-info-help = ({ $yes }) glac | ({ $no }/Enter/Esc) diúltaigh
 
 release-info-accepted = Glacadh le hathruithe ar eolas na stórlainne { $repository }.
 

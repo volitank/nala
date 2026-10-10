@@ -28,5 +28,6 @@ pub use patterns::{DOMAIN, PACSTALL, URL};
 pub use privilege::sudo_check;
 pub(crate) use privilege::{AptLockGuard, get_user};
 pub use prompt::{confirm, confirm_with_default};
+pub(crate) use prompt::{confirmation_choice, confirmation_keys, response_answer};
 pub use units::{NumSys, UnitStr};
 pub use version::version_diff;

@@ -223,8 +223,6 @@ prompt-invalid = '{ $response }' geçerli bir yanıt değil
 
 prompt-refused = Kullanıcı onay vermedi
 
-prompt-choice-no = [y/N]
-
 release-info-title = Depo Bilgileri Değişti
 
 release-info-explanation =
@@ -239,7 +237,7 @@ release-info-changes = Değişiklikler
 
 release-info-confirm = Bu değişiklikler kabul edilip güncellemeye devam edilsin mi?
 
-release-info-help = (y) kabul et | (n/Enter/Esc) reddet
+release-info-help = ({ $yes }) kabul et | ({ $no }/Enter/Esc) reddet
 
 release-info-accepted = { $repository } deposunun bilgi değişiklikleri kabul edildi.
 

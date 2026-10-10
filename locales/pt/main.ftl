@@ -229,8 +229,6 @@ prompt-invalid = '{ $response }' não é uma resposta válida
 
 prompt-refused = O utilizador recusou a confirmação
 
-prompt-choice-no = [y/N]
-
 release-info-title = Informações do Repositório Alteradas
 
 release-info-explanation =
@@ -245,7 +243,7 @@ release-info-changes = Alterações
 
 release-info-confirm = Aceitar estas alterações e continuar a atualização?
 
-release-info-help = (y) aceitar | (n/Enter/Esc) rejeitar
+release-info-help = ({ $yes }) aceitar | ({ $no }/Enter/Esc) rejeitar
 
 release-info-accepted = Alterações às informações do repositório { $repository } aceites.
 

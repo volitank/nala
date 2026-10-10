@@ -213,8 +213,6 @@ prompt-invalid = „{ $response }” nie jest prawidłową odpowiedzią
 
 prompt-refused = Użytkownik odmówił potwierdzenia
 
-prompt-choice-no = [y/N]
-
 release-info-title = Zmieniono informacje o repozytorium
 
 release-info-explanation =
@@ -229,7 +227,7 @@ release-info-changes = Zmiany
 
 release-info-confirm = Zaakceptować te zmiany i kontynuować aktualizację?
 
-release-info-help = (y) zaakceptuj | (n/Enter/Esc) odrzuć
+release-info-help = ({ $yes }) zaakceptuj | ({ $no }/Enter/Esc) odrzuć
 
 release-info-accepted = Zaakceptowano zmiany informacji o repozytorium { $repository }.
 

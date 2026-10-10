@@ -63,9 +63,12 @@ nala=(
 run_interactive() {
 	local input="$1"
 	local output="$2"
+	local prompt="${3:-[y/N]}"
+	local mode="${4:---tui}"
+	local language="${5:-${LC_ALL:-C.UTF-8}}"
 
-	python3 tests/deb/release-info/interact.py \
-		"${output}" "${input}" "${nala[@]}" update
+	env LC_ALL="${language}" python3 tests/deb/release-info/interact.py \
+		"${output}" "${input}" "${prompt}" "${nala[@]}" "${mode}" update
 }
 
 write_release Earth
@@ -100,5 +103,24 @@ write_release Venus
 "${nala[@]}" --no-tui -o Acquire::AllowReleaseInfoChange=true update \
 	>"${work_dir}/configured.log" 2>&1
 
+for mode in --no-tui --tui; do
+	for language in tr_TR.UTF-8 ru_RU.UTF-8; do
+		if [[ "${language}" == tr_TR.UTF-8 ]]; then
+			yes_key=e no_key=h prompt='[e/H]'
+		else
+			yes_key=д no_key=н prompt='[д/Н]'
+		fi
+		write_release "${language}-${mode}"
+		if run_interactive "${no_key}" "${work_dir}/localized-deny.log" "${prompt}" "${mode}" "${language}"; then
+			echo "Expected localized rejection for ${language} ${mode}" >&2
+			exit 1
+		fi
+		grep -Fq "${prompt}" "${work_dir}/localized-deny.log"
+		run_interactive "${yes_key}" "${work_dir}/localized-accept.log" "${prompt}" "${mode}" "${language}"
+		grep -Fq "${prompt}" "${work_dir}/localized-accept.log"
+	done
+done
+
 echo "PASS: release information changes reject safely and can be accepted interactively."
 echo "PASS: Acquire::AllowReleaseInfoChange enables non-interactive updates through -o."
+echo "PASS: Turkish and Russian keys match the plain and TUI confirmation hints."

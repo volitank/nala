@@ -199,8 +199,6 @@ prompt-invalid = «{ $response }» — недопустимый ответ
 
 prompt-refused = Пользователь отказался от подтверждения
 
-prompt-choice-no = [y/N]
-
 release-info-title = Информация о репозитории изменена
 
 release-info-explanation =
@@ -215,7 +213,7 @@ release-info-changes = Изменения
 
 release-info-confirm = Принять эти изменения и продолжить обновление?
 
-release-info-help = (y) принять | (n/Enter/Esc) отклонить
+release-info-help = ({ $yes }) принять | ({ $no }/Enter/Esc) отклонить
 
 release-info-accepted = Изменения информации о репозитории { $repository } приняты.
 

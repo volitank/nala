@@ -12,7 +12,7 @@ import termios
 
 
 def main() -> int:
-    output_path, response, *command = sys.argv[1:]
+    output_path, response, prompt, *command = sys.argv[1:]
     pid, fd = pty.fork()
 
     if pid == 0:
@@ -43,7 +43,7 @@ def main() -> int:
         output.extend(chunk)
         if b"\x1b[6n" in chunk:
             os.write(fd, b"\x1b[1;1R")
-        if not replied and b"[y/N]" in output:
+        if not replied and prompt.encode() in output:
             os.write(fd, response.encode() + b"\r")
             replied = True
 

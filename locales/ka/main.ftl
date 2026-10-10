@@ -22,7 +22,7 @@ subcommand-missing = ქვებრძანება მოწოდებუ�
 prompt-invalid = '{ $response }' სწორი პასუხი არაა
 prompt-refused = მომხმარებელმა უარი თქვა თანხმობაზე
 prompt-continue = გააგრძელებთ?
-prompt-choice = [Y/n]
+prompt-choice = Y/y N/n
 
 # Variables:
 #   $command (String) - Command that requires elevated privileges.
@@ -470,8 +470,6 @@ install-downloaded = გადმოწერილია: { $path }
 
 ## Additional messages
 
-prompt-choice-no = [y/N]
-
 release-info-title = რეპოზიტორიის ინფორმაცია შეიცვალა
 
 release-info-explanation =
@@ -486,7 +484,7 @@ release-info-changes = ცვლილებები
 
 release-info-confirm = მივიღოთ ეს ცვლილებები და გავაგრძელოთ განახლება?
 
-release-info-help = (y) მიღება | (n/Enter/Esc) უარყოფა
+release-info-help = ({ $yes }) მიღება | ({ $no }/Enter/Esc) უარყოფა
 
 release-info-accepted = მიღებულია რეპოზიტორიის ინფორმაციის ცვლილებები: { $repository }.
 

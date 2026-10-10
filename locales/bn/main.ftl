@@ -57,9 +57,7 @@ prompt-invalid = '{ $response }' একটি বৈধ উত্তর নয�
 
 prompt-refused = ব্যবহারকারী নিশ্চিত করতে অস্বীকৃতি জানিয়েছেন
 
-prompt-choice = [Y/n]
-
-prompt-choice-no = [y/N]
+prompt-choice = Y/y N/n
 
 release-info-title = রিপোজিটরির তথ্য পরিবর্তিত হয়েছে
 
@@ -75,7 +73,7 @@ release-info-changes = পরিবর্তন
 
 release-info-confirm = এই পরিবর্তনগুলো গ্রহণ করে আপডেট চালিয়ে যাবেন?
 
-release-info-help = (y) গ্রহণ | (n/Enter/Esc) প্রত্যাখ্যান
+release-info-help = ({ $yes }) গ্রহণ | ({ $no }/Enter/Esc) প্রত্যাখ্যান
 
 release-info-accepted = { $repository } রিপোজিটরির তথ্যের পরিবর্তনগুলো গ্রহণ করা হয়েছে।
 

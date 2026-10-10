@@ -227,8 +227,6 @@ prompt-invalid = “{ $response }”不是有效的回答
 
 prompt-refused = 用户拒绝确认
 
-prompt-choice-no = [y/N]
-
 release-info-title = 软件源信息已更改
 
 release-info-explanation =
@@ -243,7 +241,7 @@ release-info-changes = 更改
 
 release-info-confirm = 接受这些更改并继续更新吗？
 
-release-info-help = (y) 接受 | (n/Enter/Esc) 拒绝
+release-info-help = ({ $yes }) 接受 | ({ $no }/Enter/Esc) 拒绝
 
 release-info-accepted = 已接受软件源 { $repository } 的信息更改。
 

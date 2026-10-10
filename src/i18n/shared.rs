@@ -201,6 +201,29 @@ mod tests {
 	}
 
 	#[test]
+	fn every_catalog_has_valid_confirmation_keys() {
+		for source in [
+			EN_US, BN, DE, ES, FR, GA, KA, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN,
+		] {
+			let choice = source
+				.lines()
+				.find_map(|line| line.strip_prefix("prompt-choice = "))
+				.unwrap();
+			let keys = crate::util::confirmation_keys(choice);
+			assert_eq!(
+				choice,
+				format!(
+					"{}/{} {}/{}",
+					keys.0.to_uppercase(),
+					keys.0,
+					keys.1.to_uppercase(),
+					keys.1
+				)
+			);
+		}
+	}
+
+	#[test]
 	fn missing_localized_messages_fall_back_to_english() {
 		let bundle = build_bundle("de", Some("summary-title = Zusammenfassung"));
 		for (id, expected) in [

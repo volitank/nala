@@ -229,8 +229,6 @@ prompt-invalid = '{ $response }' är inte ett giltigt svar
 
 prompt-refused = Användaren avböjde bekräftelsen
 
-prompt-choice-no = [y/N]
-
 release-info-title = Förrådsinformationen har ändrats
 
 release-info-explanation =
@@ -245,7 +243,7 @@ release-info-changes = Ändringar
 
 release-info-confirm = Godkänna ändringarna och fortsätta uppdateringen?
 
-release-info-help = (y) godkänn | (n/Enter/Esc) avvisa
+release-info-help = ({ $yes }) godkänn | ({ $no }/Enter/Esc) avvisa
 
 release-info-accepted = Ändringarna av förrådsinformationen för { $repository } godkändes.
 

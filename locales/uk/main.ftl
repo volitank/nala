@@ -22,9 +22,7 @@ subcommand-missing = Підкоманду не знайдено
 prompt-invalid = '{ $response }' - неочікувана відповідь
 prompt-refused = Користувач відхилив дію
 prompt-continue = Бажаєте продовжити?
-prompt-choice = [Y/n]
-prompt-choice-no = [y/N]
-
+prompt-choice = Y/y N/n
 release-info-title = Інформацію про репозиторій змінено
 release-info-explanation =
     Ідентифікаційні дані репозиторію змінено у файлі випуску.
@@ -33,7 +31,7 @@ release-info-repository = Репозиторій
 release-info-distribution = Дистрибутив
 release-info-changes = Зміни
 release-info-confirm = Підтвердити зміни та продовжити?
-release-info-help = (y) підтвердити | (n/Enter/Esc) відхилити
+release-info-help = ({ $yes }) підтвердити | ({ $no }/Enter/Esc) відхилити
 release-info-accepted = Прийнято зміни інформації про репозиторій для { $repository }.
 release-info-rejected = Відхилено зміни інформації про репозиторій для { $repository }.
 release-info-noninteractive = Зміни інформації про випуск потрібно підтвердити явно. Запустіть повторно з '-o Acquire::AllowReleaseInfoChange=true', щоб прийняти їх.
