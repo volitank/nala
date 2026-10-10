@@ -9,6 +9,7 @@ static DE_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static ES_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static FR_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static GA_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
+static KA_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static PL_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static PT_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static PT_BR_BUNDLE: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
@@ -24,6 +25,7 @@ const DE: &str = include_str!("../../locales/de/main.ftl");
 const ES: &str = include_str!("../../locales/es/main.ftl");
 const FR: &str = include_str!("../../locales/fr/main.ftl");
 const GA: &str = include_str!("../../locales/ga/main.ftl");
+const KA: &str = include_str!("../../locales/ka/main.ftl");
 const PL: &str = include_str!("../../locales/pl/main.ftl");
 const PT: &str = include_str!("../../locales/pt/main.ftl");
 const PT_BR: &str = include_str!("../../locales/pt-BR/main.ftl");
@@ -41,6 +43,7 @@ pub enum Language {
 	Es,
 	Fr,
 	Ga,
+	Ka,
 	Pl,
 	Pt,
 	PtBr,
@@ -58,6 +61,7 @@ const LANGUAGE_ALIASES: &[(&[&str], Language)] = &[
 	(&["es", "es_es", "es-es"], Language::Es),
 	(&["fr", "fr_fr", "fr-fr"], Language::Fr),
 	(&["ga", "ga_ie", "ga-ie"], Language::Ga),
+	(&["ka", "ka_ge", "ka-ge"], Language::Ka),
 	(&["pl", "pl_pl", "pl-pl"], Language::Pl),
 	(&["pt", "pt_pt", "pt-pt"], Language::Pt),
 	(&["pt_br", "pt-br"], Language::PtBr),
@@ -122,6 +126,7 @@ fn bundle(language: Language) -> &'static FluentBundle<FluentResource> {
 		Language::Es => ES_BUNDLE.get_or_init(|| build_bundle("es", Some(ES))),
 		Language::Fr => FR_BUNDLE.get_or_init(|| build_bundle("fr", Some(FR))),
 		Language::Ga => GA_BUNDLE.get_or_init(|| build_bundle("Ga", Some(GA))),
+		Language::Ka => KA_BUNDLE.get_or_init(|| build_bundle("ka", Some(KA))),
 		Language::Pl => PL_BUNDLE.get_or_init(|| build_bundle("pl", Some(PL))),
 		Language::Pt => PT_BUNDLE.get_or_init(|| build_bundle("pt-PT", Some(PT))),
 		Language::PtBr => PT_BR_BUNDLE.get_or_init(|| build_bundle("pt-BR", Some(PT_BR))),
@@ -167,7 +172,9 @@ macro_rules! t {
 mod tests {
 	use std::collections::BTreeSet;
 
-	use super::{BN, DE, EN_US, ES, FR, GA, Language, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN, bundle};
+	use super::{
+		BN, DE, EN_US, ES, FR, GA, KA, Language, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN, bundle,
+	};
 
 	fn message_ids(source: &str) -> BTreeSet<&str> {
 		source
@@ -185,7 +192,7 @@ mod tests {
 	fn localized_catalogs_only_override_english_messages() {
 		let english = message_ids(EN_US);
 
-		for source in [BN, DE, ES, FR, GA, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN] {
+		for source in [BN, DE, ES, FR, GA, KA, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN] {
 			assert!(message_ids(source).is_subset(&english));
 		}
 	}
@@ -199,6 +206,7 @@ mod tests {
 			Language::Es,
 			Language::Fr,
 			Language::Ga,
+			Language::Ka,
 			Language::Pl,
 			Language::Pt,
 			Language::PtBr,

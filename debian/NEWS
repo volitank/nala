@@ -8,6 +8,23 @@ nala (0.17.2) unstable; urgency=medium
   terminal supports it. Full-screen interfaces remain opt-in through Ui.mode =
   "Tui" or --tui; Ui.mode = "Plain" remains available for static output.
 
+  Upgrading from Python Nala replaces an untouched packaged configuration
+  automatically. If a locally modified /etc/nala/nala.conf is kept, it must
+  be migrated before Rust Nala will run. Preserve a copy before editing and
+  use /etc/nala/nala.conf.dpkg-dist as a reference:
+
+  * Rename Nala.simple_summary to Nala.simple, keeping the boolean value.
+  * Remove Nala.filesize_binary. Set Ui.unit to "Binary" for the old true
+    value, or "Decimal" for false.
+  * Remove Nala.scrolling_text. Set Ui.mode to "Plain" for static output or
+    "Auto" for enhanced inline output.
+  * Remove Nala.transfer_speed_bits. Transfer rates use bytes per second.
+
+  Other supported Nala settings keep their names. Run `nala history` after
+  editing to check the configuration. Legacy history.json is read automatically
+  and imported on the first history mutation; the original file is preserved
+  and should not be deleted during configuration migration.
+
  -- Blake Lee <blake@volian.org>  Fri, 12 Sep 2026 00:00:00 -0500
 
 nala (0.17.1) unstable; urgency=medium

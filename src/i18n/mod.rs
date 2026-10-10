@@ -77,6 +77,9 @@ mod tests {
 		assert_eq!(Language::from_locale("es_ES.UTF-8"), Language::Es);
 		assert_eq!(Language::from_locale("fr_FR.UTF-8"), Language::Fr);
 		assert_eq!(Language::from_locale("ga_IE.UTF-8"), Language::Ga);
+		assert_eq!(Language::from_locale("ka"), Language::Ka);
+		assert_eq!(Language::from_locale("ka_GE.UTF-8"), Language::Ka);
+		assert_eq!(Language::from_locale("ka-GE"), Language::Ka);
 		assert_eq!(Language::from_locale("pl_PL.UTF-8"), Language::Pl);
 		assert_eq!(Language::from_locale("pt"), Language::Pt);
 		assert_eq!(Language::from_locale("pt_BR.UTF-8"), Language::PtBr);
@@ -113,6 +116,25 @@ mod tests {
 		assert_eq!(
 			translate(Language::PtBr, "update-downloading", None),
 			"Baixando"
+		);
+	}
+
+	#[test]
+	fn georgian_messages_use_translations_and_english_fallback() {
+		assert_eq!(
+			translate(Language::Ka, "history-empty", None),
+			"ისტორიის ჩანაწერები აღმოჩენილი არაა."
+		);
+
+		let mut args = FluentArgs::new();
+		args.set("count", 2);
+		assert_eq!(
+			translate(Language::Ka, "history-cleared", Some(&args)),
+			"გასუფთავდა \u{2068}2\u{2069} ისტორიის ჩანაწერი."
+		);
+		assert_eq!(
+			translate(Language::Ka, "summary-protected", None),
+			"The following packages are essential or protected!"
 		);
 	}
 

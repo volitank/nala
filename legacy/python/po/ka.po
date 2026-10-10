@@ -1,0 +1,1538 @@
+# Georgian translation for nala
+# Copyright (C) 2024 Blake Lee
+# This file is distributed under the same license as the nala project.
+# Ekaterine Papava <papava.e@gtu.ge>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: nala 0.15.2\n"
+"Report-Msgid-Bugs-To: https://gitlab.com/volian/nala/-/issues\n"
+"POT-Creation-Date: 2024-06-03 00:23-0500\n"
+"PO-Revision-Date: 2026-04-05 15:27+0200\n"
+"Last-Translator: Ekaterine Papava <papava.e@gtu.ge>\n"
+"Language-Team: Georgian <(nothing)>\n"
+"Language: ka\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+"X-Generator: Poedit 3.9\n"
+
+#: nala/options.py:60
+msgid "{notice} Unable to read config file: {filename}. Using defaults"
+msgstr ""
+"{notice} ვერ წავიკითხე კონფიგურაციის ფაილი: {filename}. გამოიყენება "
+"ნაგულისხმევი მნიშვნელობები"
+
+#: nala/options.py:73
+msgid "{error} Config key '{key}' should be a bool not {value}"
+msgstr ""
+"{error} კონფიგურაციის გასაღები '{key}' უნდა იყოს ლოგიკური და არა {value}"
+
+#: nala/options.py:350
+msgid "{error} Option {option}: Configuration item must have a '='"
+msgstr "{error} პარამეტრი {option}: კონფიგურაციის ელემენტს უნდა ჰქონდეს '='"
+
+#: nala/options.py:393
+msgid ""
+"It seems the system has no license file\n"
+"The full GPLv3 can be found at:\n"
+"https://www.gnu.org/licenses/gpl-3.0.txt"
+msgstr ""
+"როგორც ჩანს, სისტემას ლიცენზიის ფაილი არ აქვს\n"
+"GPLv3-ის სრული ტექსტი შეგიძლიათ იპოვოთ მისამართზე:\n"
+"https://www.gnu.org/licenses/gpl-3.0.txt"
+
+#: nala/options.py:433
+msgid "Show program's version number and exit."
+msgstr "პროგრამის ვერსიის ნომრის ჩვენება და გასვლა."
+
+#: nala/options.py:441
+msgid "Reads the GPLv3 which Nala is licensed under."
+msgstr "წაიკითხავს GPLv3-ს, რომლითაც Nala ვრცელდება."
+
+#: nala/options.py:450
+msgid "Disable scrolling text and print extra information."
+msgstr "ტექსტის გადახვევის გამორთვა და დამატებითი ინფორმაციის გამოტანა."
+
+#: nala/options.py:458
+msgid "Logs extra information for debugging."
+msgstr "ჟურნალში ჩაწერს გამართვისთვის საჭირო დამატებით ინფორმაციას."
+
+#: nala/options.py:466
+msgid "Toggle autoremoving packages."
+msgstr "პაკეტების ავტოწაშლის გადართვა."
+
+#: nala/options.py:473
+msgid "Toggle installing recommended packages."
+msgstr "რეკომენდებული პაკეტების დაყენების გადართვა."
+
+#: nala/options.py:480
+msgid "Toggle installing suggested packages."
+msgstr "ნარჩევი პაკეტების დაყენების გადართვა."
+
+#: nala/options.py:488
+msgid "Set the default release to install packages from."
+msgstr "ნაგულისხმევი გამოცემის დაყენება პაკეტების იქიდან დასაყენებლად."
+
+#: nala/options.py:495
+msgid "Toggle full-upgrade"
+msgstr "სრული განახლების გადართვა"
+
+#: nala/options.py:502
+msgid "Force color or no color."
+msgstr "ნაძალადევი ფერადობა, ან შავთეთრობა."
+
+#: nala/options.py:508
+msgid "Toggle updating the package list."
+msgstr "პაკეტების სიის განახლების გადართვა."
+
+#: nala/options.py:515
+msgid "Toggle a more condensed transaction summary."
+msgstr "უფრო შემჭიდროვებული ტრანზაქციის შეჯამების გადართვა."
+
+#: nala/options.py:523
+msgid "Purge any packages that would be removed."
+msgstr "ყველა წაშლადი პაკეტის მოსუფთავება."
+
+#: nala/options.py:529
+msgid "Purge packages not installed that have config files."
+msgstr ""
+"პაკეტების მოსუფთავება, რომლებიც დაყენებული არაა, მაგრამ აქვს კონფიგურაციის "
+"ფაილები."
+
+#: nala/options.py:537
+msgid "Allow the removal of essential packages."
+msgstr "ძირითადი პაკეტების წაშლის დაშვება."
+
+#: nala/options.py:546
+msgid "Toggle fix broken packages."
+msgstr "გაფუჭებული პაკეტების გასწორების გადართვა."
+
+#: nala/options.py:555
+msgid "Assume 'yes' or 'no' to all prompts."
+msgstr "'დიახის' ან 'არას' პასუხი ყველა კითხვაზე."
+
+#: nala/options.py:564
+msgid "Set options like Dpkg::Options::=\"--force-confnew\"."
+msgstr "დააყენეთ პარამეტრები, როგორიცაა Dpkg::Options::=\"--force-confnew\"."
+
+#: nala/options.py:572
+msgid "Skips all formatting and you get raw dpkg output."
+msgstr ""
+"გამოტოვებს ყველა დაფორმატებას და თქვენ მიიღებთ dpkg-ის დაუმუშავებელ "
+"ინფორმაციას."
+
+#: nala/options.py:581
+msgid "Show all versions of a package."
+msgstr "პაკეტის ყველა ვერსიის ჩვენება."
+
+#: nala/options.py:590
+msgid "Show all architectures of a package."
+msgstr "პაკეტის ყველა არქიტექტურის ჩვენება."
+
+#: nala/options.py:599
+msgid "Packages are only retrieved, not unpacked or installed."
+msgstr "ხდება პაკეტების, მხოლოდ, მიღება, მაგრამ არა გაშლა, ან დაყენება."
+
+#: nala/options.py:608
+msgid "Search only package names."
+msgstr "მხოლოდ, პაკეტის სახელების ძებნა."
+
+#: nala/options.py:617
+msgid "Only installed packages."
+msgstr "მხოლოდ დაყენებული პაკეტები."
+
+#: nala/options.py:625
+msgid "Only packages explicitly installed with Nala."
+msgstr "მხოლოდ Nala-ით დაყენებული პაკეტები."
+
+#: nala/options.py:634
+msgid "Only upgradable packages."
+msgstr "მხოლოდ, განახლებადი პაკეტები."
+
+#: nala/options.py:651
+msgid "Only virtual packages."
+msgstr "მხოლოდ ვირტუალური პაკეტები."
+
+#: nala/options.py:659
+msgid "Print the full description of each package."
+msgstr "თითოეული პაკეტის სრული აღწერის გამოტანა."
+
+#: nala/options.py:665
+msgid "Remove package lists located in `/var/lib/apt/lists/`."
+msgstr "Remove package lists located in `/var/lib/apt/lists/`."
+
+#: nala/options.py:671
+msgid "Remove `nala-sources.list`."
+msgstr "`nala-sources.list`-ის წაშლა."
+
+#: nala/options.py:675
+msgid "Run fetch uninteractively. Will still prompt for overwrite"
+msgstr "გამოთხოვის არაინტერაქტიულად გაშვება. თავზე გადაწერას გკითხავთ"
+
+#: nala/options.py:684
+msgid "Show this message and exit."
+msgstr "ამ შეტყობინების ჩვენება და გასვლა."
+
+#. Answers for the Question prompt "[Y/n]"
+#: nala/utils.py:66
+msgid "Y/y N/n"
+msgstr "Y/y N/n"
+
+#: nala/utils.py:128
+msgid "Terminal can't support dialog, falling back to readline"
+msgstr "ტერმინალს დიალოგის მხარდაჭერა არ აქვს. გადავერთვები readline-ზე"
+
+#: nala/utils.py:313
+msgid ""
+"{command} is not a command\n"
+"Did you mean {correction}?"
+msgstr ""
+"{command} ბრძანება არაა\n"
+"გულისხმობდით ბრძანებას {correction}?"
+
+#: nala/utils.py:346
+msgid ""
+"{error} Some packages are unable to be authenticated. Use '-o "
+"APT::Get::AllowUnauthenticated=true' with `--yes`"
+msgstr ""
+"{error} ზოგიერთი პაკეტის ავთენტიკაცია შეუძლებელია. გამოიყენეთ '-o "
+"APT::Get::AllowUnauthenticated=true' და `--yes`"
+
+#: nala/utils.py:361
+msgid "{error} failed regex compilation '{error_msg} at position {position}'"
+msgstr ""
+"{error} რეგგამოსის კომპილაცია ჩავარდა '{error_msg} პოზიციასთან {position}'"
+
+#: nala/utils.py:372
+msgid "{error} Nala needs root to fix broken packages"
+msgstr "{error} Nala-ს გაფუჭებული პაკეტების გასასწორებლად root სჭირდება"
+
+#: nala/utils.py:377
+msgid "{error} Nala needs root to {command}"
+msgstr "{error} Nala-ს სჭირდება root ბრძანებისთვის {command}"
+
+#: nala/utils.py:402
+msgid "{error} Nala is already running another instance {last_pid}"
+msgstr "{error} Nala-ის სხვა ასლი უკვე გაშვებულია {last_pid}"
+
+#: nala/utils.py:438
+msgid "Removing files in {dir}"
+msgstr "იშლება ფაილები საქარალდეში {dir}"
+
+#: nala/utils.py:441
+msgid "Removed: {filename}"
+msgstr "წაიშალა: {filename}"
+
+#: nala/utils.py:459 nala/utils.py:477
+msgid "{error} can't find version for {package}"
+msgstr "{error} ვერ ვიპოვე ვერსია პაკეტისთვის {package}"
+
+#: nala/__main__.py:44
+msgid "Exiting at your request."
+msgstr "გასვლა თქვენი მოთხოვნით."
+
+#: nala/__main__.py:50
+msgid "{error} No space left on device."
+msgstr "{error} მოწყობილობაზე ადგილი აღარ დარჩა."
+
+#. The following are the headers for the transaction summary.
+#. Package:        Version:     Size:
+#. ansible-core    2.12.4-1    1.2 MB
+#: nala/summary.py:39
+msgid "Package/Version/Size/Old Version/New Version/Either"
+msgstr "პაკეტი/ვერსია/ზომა/ძველი ვერსია/ახალი ვერსია/ან"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Auto-Purge 20 Packages" ]
+#: nala/summary.py:44
+msgid "Auto-Purge/Auto-Purging/Auto-Purged"
+msgstr "ავტოგასუფთავება/მიმდინარეობს ავტოგასუფთავება/ავტოგასუფთავებულია"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Auto-Remove 20 Packages" ]
+#: nala/summary.py:49
+msgid "Auto-Remove/Auto-Removing/Auto-Removed"
+msgstr "ავტოწაშლა/მიმდინარეობს ავტოწაშლა/ავტოწაშლილია"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Remove 20 Packages" ]
+#: nala/summary.py:54
+msgid "Remove/Removing/Removed"
+msgstr "წაშლა/იშლება/წაიშალა"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Purge 20 Packages" ]
+#: nala/summary.py:59
+msgid "Purge/Purging/Purged"
+msgstr "გასუფთავება/სუფთავდება/გასუფთავდა"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Install 20 Packages" ]
+#: nala/summary.py:64
+msgid "Install/Installing/Installed"
+msgstr "დაყენება/მიმდინარეობს დაყენება/დაყენებულია"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Reinstall 20 Packages" ]
+#: nala/summary.py:69
+msgid "Reinstall/Reinstalling/Reinstalled"
+msgstr "თავიდან დაყენება/მიმდინარეობს თავიდან დაყენება/თავიდან დაყენებულია"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Upgrade 20 Packages" ]
+#: nala/summary.py:74
+msgid "Upgrade/Upgrading/Upgraded"
+msgstr "განახლება/მიმდინარეობს განახლება/განახლებულია"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Downgrade 20 Packages" ]
+#: nala/summary.py:79
+msgid "Downgrade/Downgrading/Downgraded"
+msgstr "ვერსიის დაწევა/მიმდინარეობს ვერსიის დაწევა/ვერსია დაწეულია"
+
+#. Verb Tenses are [ "Present/Present Participle/Past" ]
+#. This ends up looking like [ "Configure 20 Packages" ]
+#: nala/summary.py:84
+msgid "Configure/Configuring/Configured"
+msgstr "მორგება/მიმდინარეობს მორგება/მორგებულია"
+
+#: nala/summary.py:276 nala/summary.py:295
+msgid "Recommended, Will Not Be Installed"
+msgstr "რეკომენდებულია. დაყენებული არ იქნება"
+
+#: nala/summary.py:277 nala/summary.py:299
+msgid "Suggested, Will Not Be Installed"
+msgstr "ნარჩევია. დაყენებული არ იქნება"
+
+#: nala/summary.py:279 nala/summary.py:297
+msgid "Kept Back, Will Not Be Upgraded"
+msgstr "შენარჩუნებულია. არ განახლდება"
+
+#: nala/summary.py:279 nala/summary.py:297
+msgid "Kept Back"
+msgstr "შესანარჩუნებელია"
+
+#: nala/summary.py:281
+msgid "Auto-Removable, Will Not Be Removed"
+msgstr "ავტოწაშლადი. არ წაიშლება"
+
+#: nala/summary.py:373 nala/summary.py:484
+msgid "Summary"
+msgstr "შეჯამება"
+
+#. This ends up looking like [ "Configure 20 Packages" ]
+#: nala/summary.py:386
+msgid "Packages"
+msgstr "პაკეტები"
+
+#: nala/summary.py:397 nala/summary.py:490
+msgid "Total download size"
+msgstr "ჩამოტვირთვის სრული ზომა"
+
+#: nala/summary.py:399 nala/summary.py:492
+msgid "Disk space to free"
+msgstr "გასათავისუფლებელი ადგილი დისკზე"
+
+#: nala/summary.py:401 nala/summary.py:494
+msgid "Disk space required"
+msgstr "აუცილებელი ადგილი დისკზე"
+
+#: nala/summary.py:405 nala/summary.py:498
+msgid "Nala will only download the packages"
+msgstr "Nala მხოლოდ გადმოწერს პაკეტებს"
+
+#: nala/install.py:129
+msgid "Purging configuration files for {package}"
+msgstr "კონფიგურაციის ფაილების მოსუფთავება პაკეტისთვის {package}"
+
+#: nala/install.py:209
+msgid "{notice} Selected packages cannot be excluded from upgrade safely."
+msgstr "{notice} არჩეული პაკეტების განახლებიდან უსაფრთხოდ ამოღება შეუძლებელია."
+
+#: nala/install.py:231
+msgid "{error} Unable to calculate how to protect the selected packages"
+msgstr ""
+"{error} გამოთვლა, როგორ უნდა იქნეს არჩეული პაკეტების დაცვა, შეუძლებელია"
+
+#: nala/error.py:581 nala/install.py:235 nala/nala.py:307
+msgid "{error} You have held broken packages"
+msgstr "{error} თქვენ გაქვთ შენარჩუნებული გაფუჭებული პაკეტები"
+
+#: nala/install.py:237
+msgid "{notice} The following packages need to be protected as well:"
+msgstr "{notice} ასევე მოხდება შემდეგი პაკეტების დაცვა:"
+
+#: nala/install.py:431
+msgid "Log Started: [{date}]"
+msgstr "ჟურნალის დასაწყისი: [{date}]"
+
+#: nala/install.py:445
+msgid "Log Ended: [{date}]"
+msgstr "ჟურნალის დასასრული: [{date}]"
+
+#: nala/install.py:508
+msgid "{error} Fetching packages has failed!"
+msgstr "{error} პაკეტის გამოთხოვა ჩავარდა!"
+
+#: nala/install.py:511 nala/install.py:1179
+msgid "Exiting due to SIGINT"
+msgstr "მივიღე SIGINT. გასვლა"
+
+#: nala/install.py:522
+msgid "{notice} A reboot is required."
+msgstr "{notice} საჭიროა გადატვირთვა."
+
+#: nala/install.py:523
+msgid "Finished Successfully"
+msgstr "წარმატებით დასრულდა"
+
+#: nala/install.py:600
+msgid "{notice} The following will be installed to satisfy {package}:"
+msgstr ""
+"{notice} {package}-ის დასაკმაყოფილებლად მოხდება შემდეგი პაკეტების დაყენება:"
+
+#: nala/install.py:643
+msgid ""
+"{notice} Newer version {package} {version} exists in the cache.\n"
+"You should consider using `{command}`"
+msgstr ""
+"{notice} კეშში არსებობს უფრო ახალი ვერსია {package} {version}.\n"
+"უნდა იყენებდეთ ბრძანებას `{command}`"
+
+#: nala/install.py:686
+msgid "{notice} {deb} has taken priority over {package} from the cache."
+msgstr ""
+"{notice} {deb}-ს აქვს უფრო მაღალი პრიორიეტეტი, ვიდრე პაკეტს {package} "
+"კეშიდან."
+
+#: nala/downloader.py:250 nala/install.py:706
+msgid ""
+"{error} No content length in response from {url}\n"
+"  Ensure the URL points to a Debian Package"
+msgstr ""
+"{error} {url}-ის პასუხში შემცველობის სიგრძე მითითებული არაა\n"
+"  დარწმუნდით, რომ ბმული Debian-ის პაკეტზე მიუთითებს"
+
+#: nala/install.py:742
+msgid "{notice} {filename} can't be hashsum verified."
+msgstr "{notice} {filename}-ის ჰეშის ჯამის გადათვლა შეუძლებელია."
+
+#: nala/install.py:747 nala/install.py:1220
+msgid "Do you want to continue?"
+msgstr "გნებავთ, გააგრძელოთ?"
+
+#: nala/fetch.py:904 nala/install.py:748 nala/install.py:1221
+msgid "Abort."
+msgstr "შეწყვეტა."
+
+#: nala/install.py:791
+msgid "{error} Hash does not match the '{hash_type}' Length"
+msgstr "{error} ჰეში '{hash_type}'-ის სიგრძეს არ ემთხვევა"
+
+#: nala/install.py:798
+msgid "{error} Hash Type '{hash_type}' specified with no hash"
+msgstr ""
+"{error} მითითებულია ჰეშის ტიპი'{hash_type}', მაგრამ ჰეში აღმოჩენილი არაა"
+
+#: nala/install.py:805
+msgid "{error} Hash Type '{hash_type}' is unsupported"
+msgstr "{error} ჰეშის ტიპი '{hash_type}' მხარდაჭერილი არაა"
+
+#: nala/install.py:963
+msgid "{error} Version {version} not found for package {package}"
+msgstr "{error} ვერსია {version} აღმოჩენილი არაა პაკეტისთვის {package}"
+
+#: nala/install.py:1019 nala/install.py:1033
+msgid "Virtual Package"
+msgstr "ვირტუალური პაკეტი"
+
+#: nala/install.py:1076
+msgid "{notice} {package} is not installed"
+msgstr "{notice} {package} დაყენებული არაა"
+
+#: nala/install.py:1091
+msgid "{package} is already at the latest version {version}"
+msgstr "{package} უკვე უახლესი ვერსიითაა: {version}"
+
+#: nala/install.py:1145
+msgid "{notice} The following packages require a reboot."
+msgstr "{notice} შემდეგ პაკეტებს გადატვირთვა სჭირდება."
+
+#: nala/install.py:1160
+msgid "Notices:"
+msgstr "შენიშვნები:"
+
+#: nala/install.py:1208
+msgid ""
+"{error} It can be dangerous to continue without a terminal. Use `--assume-"
+"yes`"
+msgstr ""
+"{error} ტერმინალის გარეშე გაგრძელება საშიშია. გამოიყენეთ `--assume-yes`"
+
+#: nala/install.py:1215
+msgid "{warning} Using {switch} can be very dangerous!"
+msgstr "{warning} პარამეტრის {switch} გამოყენება ძალიან საშიშია!"
+
+#: nala/cache.py:272 nala/install.py:1233
+msgid "All packages are up to date."
+msgstr "ყველა პაკეტი განახლებულია."
+
+#: nala/install.py:1236
+msgid "Nothing for Nala to do."
+msgstr "Nala-მა არაფერი უნდა გააკეთოს."
+
+#: nala/install.py:1239
+msgid "Nothing for Nala to remove."
+msgstr "Nala-მა არაფერი უნდა წაშალოს."
+
+#: nala/install.py:1242
+msgid "Nothing for Nala to fix."
+msgstr "Nala-მა არაფერი უნდა გაასწოროს."
+
+#: nala/error.py:45 nala/show.py:112
+msgid "Depends:"
+msgstr "დამოკიდებულია:"
+
+#: nala/error.py:47
+msgid "Either:"
+msgstr "ან:"
+
+#: nala/error.py:49 nala/show.py:138
+msgid "Breaks:"
+msgstr "აფუჭებს:"
+
+#: nala/error.py:51 nala/show.py:136
+msgid "Conflicts:"
+msgstr "კონფლიქტები:"
+
+#: nala/error.py:53
+msgid "{package} is only referenced by name, no packages provides it"
+msgstr ""
+"{package}-ს, მხოლოდ, სახელით მიმართავენ. პაკეტი, რომელიც მას მოგაწვდით, არ "
+"არსებობს"
+
+#: nala/error.py:55
+msgid "{dependency} will break {package} {version}"
+msgstr "{dependency} გააფუჭებს პაკეტს {package} {version}"
+
+#: nala/error.py:57
+msgid "{dependency} conflicts with {package} {version}"
+msgstr "{dependency} კონფლიქტშია პაკეტთან {package} {version}"
+
+#: nala/error.py:60
+msgid ""
+"{error} python-apt gave us {apt_err} This isn't a proper error as it's empty"
+msgstr ""
+"{error} python-apt-მა მოგვაწოდა {apt_err}. ეს არასწორი შეცდომაა, რადგან ის "
+"ცარიელია"
+
+#: nala/error.py:122
+msgid ""
+"{notice} Some index files failed to download. They have been ignored, or old "
+"ones used instead."
+msgstr ""
+"{notice} ზოგიერთი ინდექსის ფაილის გადმოწერა ჩავარდა. ისინი გამოტოვებულია, ან "
+"მათ მაგიერ ძველი ვერსია იქნება გამოყენებული."
+
+#: nala/error.py:137
+msgid "{error} Installation has failed."
+msgstr "{error} დაყენება ჩავარდა."
+
+#: nala/error.py:139
+msgid "If you'd like to file a bug report please include '{debug_file}'"
+msgstr ""
+"თუ აპირებთ, შეავსოთ ანგარიში შეცდომის შესახებ, ასევე ჩასვით '{debug_file}'"
+
+#: nala/error.py:160
+msgid "Are you root?"
+msgstr "root ბრძანდებით?"
+
+#: nala/error.py:169
+msgid "{error} The following packages are essential!"
+msgstr "{error} შემდეგი პაკეტები ძირითადია!"
+
+#: nala/error.py:174
+msgid "{error} You have attempted to remove essential packages"
+msgstr "{error} თქვენ დააპირეთ, წაშალოთ ძირითადი პაკეტი"
+
+#: nala/error.py:179
+msgid "{error} Please use {switch} if you are sure you want to."
+msgstr "{error} თუ დარწმუნებული ბრძანდებით, გამოიყენეთ პარამეტრი {switch}."
+
+#: nala/error.py:191
+msgid "{error} {package} has no installation candidate."
+msgstr "{error} {package}-ს დაყენების კანდიდატი არ გააჩნია."
+
+#: nala/error.py:197 nala/show.py:331
+msgid "{error} {package} not found"
+msgstr "{error} {package} აღმოჩენილი არაა"
+
+#: nala/error.py:231
+msgid ""
+"{error} {apt_error}\n"
+"  Unsupported File: {filename}"
+msgstr ""
+"{error} {apt_error}\n"
+"  მხარდაუჭერელი ფაილი: {filename}"
+
+#: nala/error.py:239
+msgid ""
+"{error} {apt_error}\n"
+"  Could not read meta data from {filename}"
+msgstr ""
+"{error} {apt_error}\n"
+"  შეუძლებელია მეტამონაცემების წაკითხვა ფაილიდან {filename}"
+
+#: nala/error.py:299
+msgid "The following packages were kept back:"
+msgstr "შემდეგი პაკეტები გადადებულია:"
+
+#: nala/error.py:305
+msgid "The following were held due to exclusions:"
+msgstr "შემდეგი პაკეტები შენარჩუნებულია გამორიცხვის გამო:"
+
+#: nala/error.py:307
+msgid "Nala was unable to determine why these were held:"
+msgstr "Nala-მა ვერ გაარკვია, რატომ მოხდა ამათი შენარჩუნება:"
+
+#: nala/error.py:387
+msgid "{package} but it isn't in the cache"
+msgstr "{package} მაგრამ ის კეშში არაა"
+
+#: nala/error.py:400
+msgid "{package} but the cache version is {version}"
+msgstr "{package} მაგრამ კეშის ვერსიაა {version}"
+
+#: nala/error.py:405
+msgid "{package} but it cannot be installed"
+msgstr "{package} მაგრამ მისი დაყენება შეუძლებელია"
+
+#: nala/error.py:518
+msgid "{package} has been unmarked."
+msgstr "{package}-ზე მარკერი მოიხსნა."
+
+#: nala/error.py:523
+msgid "Try {switch} if you're sure they can be installed."
+msgstr ""
+"თუ დარწმუნებული ბრძანდებით, რომ მათი დაყენება შესაძლებელია, სცადეთ {switch}."
+
+#: nala/error.py:528
+msgid "{error} Some packages were unable to be installed."
+msgstr "{error} ზოგიერთი პაკეტის დაყენება შეუძლებელია."
+
+#: nala/error.py:552
+msgid "Installed packages that depend on {package}"
+msgstr "დაყენებული პაკეტი, რომლებიც დამოკიდებულია პაკეტზე {package}"
+
+#: nala/error.py:565
+msgid "{package} is an Essential package!"
+msgstr "{package} ძირითადი პაკეტია!"
+
+#: nala/error.py:577
+msgid "{notice} The information above may be able to help"
+msgstr "{notice} ინფორმაცია ზემოთ შეიძლება დაგეხმაროთ"
+
+#: nala/fetch.py:81
+msgid ""
+"Nala will fetch mirrors with the lowest latency.\n"
+"\n"
+"For Debian https://mirror-master.debian.org/status/Mirrors.masterlist\n"
+"\n"
+"For Ubuntu https://launchpad.net/ubuntu/+archivemirrors-rss"
+msgstr ""
+"Nala გამოითხოვს სარკეებს უმდაბლესი დაყოვნებით.\n"
+"\n"
+"Debian-ისთვის https://mirror-master.debian.org/status/Mirrors.masterlist\n"
+"\n"
+"Ubuntu-ისთვის https://launchpad.net/ubuntu/+archivemirrors-rss"
+
+#: nala/fetch.py:289
+msgid "Are these mirrors okay?"
+msgstr "მოგწონთ ეს სარკეები?"
+
+#: nala/fetch.py:303
+msgid "Mirrors you want to keep, separated by space or comma {selection}:"
+msgstr ""
+"სარკეები, რომლებიც გნებავთ, შეინარჩუნოთ. გამოყოფილი ჰარეთი, ან მძიმით "
+"{selection}:"
+
+#: nala/fetch.py:325
+msgid "{error} Index {index} doesn't exist."
+msgstr "{error} ინდექსი {index} არ არსებობს."
+
+#: nala/fetch.py:335
+msgid "{error} {value_error}"
+msgstr "{error} {value_error}"
+
+#: nala/fetch.py:345
+msgid "{error} Parser: {parser}"
+msgstr "{error}-ის დამმუშავებელი: {parser}"
+
+#: nala/fetch.py:376
+msgid "Fetching {distro} mirrors"
+msgstr "{distro}-ის სარკეების გამოთხოვა"
+
+#: nala/fetch.py:424
+msgid "{error} Internal Error. Distro detection must be broken"
+msgstr "{error} შიდა შეცდომა. დისტრიბუტივის ამოცნობა გაფუჭებულია"
+
+#: nala/fetch.py:439
+msgid "{error} unable to connect to {mirror}"
+msgstr "{error} დაკავშირების შეცდომა სარკესთან {mirror}"
+
+#: nala/fetch.py:455
+msgid "Parsing mirror list"
+msgstr "სარკეების სიის დამუშავება"
+
+#: nala/fetch.py:660
+msgid "Score is how many milliseconds it takes to download the Release file"
+msgstr "რეიტინგი, რამდენი მილიწამი დასჭირდება Release ფაილის გადმოწერას"
+
+#: nala/fetch.py:755
+msgid "{notice} Nala was unable to fetch {num} mirrors."
+msgstr "{notice} Nala-მა ვერ გამოითხოვა {num} სარკე."
+
+#: nala/fetch.py:766
+msgid "Sources have been written to {file}"
+msgstr "წყაროები ჩაიწერა ფაილში {file}"
+
+#: nala/fetch.py:795
+msgid "{error} There was an issue detecting release."
+msgstr "{error} რელიზის დადგენა შეუძლებელია."
+
+#: nala/fetch.py:802
+msgid "{error} {distro} {release} is unsupported."
+msgstr "{error} {distro} {release} მხარდაჭერილი არაა."
+
+#: nala/fetch.py:806
+msgid "You can specify Ubuntu or Debian manually."
+msgstr "Ubuntu-ის, ან Debian-ის მითითება ხელითაც შეგიძლიათ."
+
+#: nala/fetch.py:812
+msgid "Fetch fast mirrors to speed up downloads."
+msgstr "გამოითხოვეთ სწრაფი სარკეები გადმოწერების ასაჩქარებლად."
+
+#: nala/fetch.py:817
+msgid "Choose the Debian release."
+msgstr "აირჩიეთ Debian-ის რელიზი."
+
+#: nala/fetch.py:819
+msgid "Choose the Ubuntu release."
+msgstr "აირჩიეთ Ubuntu-ის რელიზი."
+
+#: nala/fetch.py:822
+msgid "Choose the Devuan release."
+msgstr "აირჩიეთ Devuan-ის რელიზი."
+
+#: nala/fetch.py:826
+msgid "Number of mirrors to fetch. [defaults: 16, --auto(3)]"
+msgstr "გამოსათხოვი სარკეების რაოდენობა. [ნაგულისხმევი: 16, --auto(3)]"
+
+#: nala/fetch.py:833
+msgid "Add the source repos for the mirrors if it exists."
+msgstr "წყარო რეპოების დამატება სარკეებისთვის, თუ არსებობს."
+
+#: nala/fetch.py:836
+msgid "Add contrib and non-free repos."
+msgstr "მოხალისეებისა და არათავისუფალი რეპოზიტორიების დამატება."
+
+#: nala/fetch.py:841
+msgid "Run fetch uninteractively. Will still prompt for overwrite."
+msgstr "გამოთხოვის არაინტერაქტიულად გაშვება. თავზე გადაწერას გკითხავთ."
+
+#: nala/fetch.py:850
+msgid "Choose only mirrors of a specific ISO country code."
+msgstr "მხოლოდ, სპეციფიკური ISO ქყვენის კოდის სარკეების არჩევა."
+
+#: nala/fetch.py:879
+msgid "{error} Nala was unable to find any mirrors."
+msgstr "{error} Nala-მა სარკეები ვერ იპოვა."
+
+#: nala/fetch.py:900
+msgid ""
+"{file} already exists.\n"
+"Continue and overwrite it?"
+msgstr ""
+"{file} უკვე არსებობს.\n"
+"გავაგრძელო და გადავაწერო თავზე?"
+
+#. This is for `nala show`
+#. header info looks like "Package: steam:i386"
+#: nala/show.py:44
+msgid "{header} {info}"
+msgstr "{header} {info}"
+
+#: nala/show.py:57
+msgid "{pkg_name} has no candidate"
+msgstr "{pkg_name}-ს კანტიდატი არ აქვს"
+
+#: nala/show.py:74
+msgid "Homepage:"
+msgstr "საწყისი გვერდი:"
+
+#: nala/show.py:77
+msgid "Download-Size:"
+msgstr "გადმოწერის ზომა:"
+
+#: nala/show.py:80
+msgid "APT-Sources:"
+msgstr "APT-ის წყაროები:"
+
+#: nala/show.py:84
+msgid "Description:"
+msgstr "აღწერა:"
+
+#: nala/show.py:95
+msgid "Provides:"
+msgstr "მომწოდებელია:"
+
+#: nala/show.py:101
+msgid "Enhances:"
+msgstr "ზრდის:"
+
+#: nala/show.py:109
+msgid "Pre-Depends:"
+msgstr "წინაწარდამოკიდებულია:"
+
+#: nala/show.py:116
+msgid "Recommends:"
+msgstr "რეკომენდაციას უწევს:"
+
+#: nala/show.py:121
+msgid "Suggests:"
+msgstr "გირჩევთ:"
+
+#: nala/show.py:132
+msgid "Replaces:"
+msgstr "ანაცვლებს:"
+
+#: nala/show.py:144 nala/show.py:145
+msgid "yes"
+msgstr "დიახ"
+
+#: nala/show.py:144 nala/show.py:145
+msgid "no"
+msgstr "არა"
+
+#: nala/show.py:149
+msgid "Package:"
+msgstr "პაკეტი:"
+
+#: nala/show.py:151
+msgid "Version:"
+msgstr "ვერსია:"
+
+#: nala/show.py:154
+msgid "Architecture:"
+msgstr "არქიტექტურა:"
+
+#: nala/show.py:156
+msgid "Installed:"
+msgstr "დაყენებულია:"
+
+#: nala/show.py:157
+msgid "Priority:"
+msgstr "პრიორიტეტი:"
+
+#: nala/show.py:158
+msgid "Essential:"
+msgstr "ძირითადი:"
+
+#: nala/show.py:159
+msgid "Section:"
+msgstr "სექცია:"
+
+#: nala/show.py:160
+msgid "Source:"
+msgstr "წყარო:"
+
+#: nala/show.py:163
+msgid "Origin:"
+msgstr "საწყისი:"
+
+#: nala/show.py:164
+msgid "Maintainer:"
+msgstr "წამყვანი პროგრამისტი:"
+
+#: nala/show.py:168
+msgid "Original-Maintainer:"
+msgstr "ორიგინალი-წამყვანი:"
+
+#: nala/show.py:172
+msgid "Bugs:"
+msgstr "შეცდომები:"
+
+#: nala/show.py:175
+msgid "Installed-Size:"
+msgstr "დაყენებული ზომა:"
+
+#: nala/show.py:267
+msgid "local install"
+msgstr "ლოკალურად დაყენება"
+
+#: nala/show.py:309
+msgid ""
+"{notice} There are {num} additional records. Please use the {switch} switch "
+"to see them."
+msgstr ""
+"{notice} არსებობს {num} დამატებითი ჩანაწერი. მათ სანახავად გამოიყენეთ "
+"პარამეტრი {switch}."
+
+#: nala/show.py:325
+msgid "{error} {package} has no version to show"
+msgstr "{error} {package}-ის საჩვენებელი ვერსიები არ აქვს"
+
+#: nala/cache.py:47
+msgid "The following {total} packages can be upgraded:"
+msgstr "მოხდება სულ {total} პაკეტის განახლება:"
+
+#: nala/cache.py:48
+msgid "Not candidate version"
+msgstr "კანდიდატი ვერსიის გარეშე"
+
+#: nala/cache.py:130
+msgid "{error} unable to find any packages by globbing {pkg}"
+msgstr "{error} {pkg}-ის globbing-ით პაკეტები აღმოჩენილი არაა"
+
+#: nala/cache.py:194
+msgid "{warn} Virtual Packages like {package} can't be removed."
+msgstr "{warn} {package}-ის მსგავს პაკეტებს ვერ წაშლით."
+
+#: nala/cache.py:225
+msgid "Protecting {package} from upgrade"
+msgstr "პაკეტის {package} დაცვა განახლებისგან"
+
+#: nala/cache.py:233
+msgid "Protecting {package} from auto-removal"
+msgstr "პაკეტის {package} დაცვა ავტოწაშლიდან"
+
+#: nala/cache.py:263
+msgid "{total} packages can be upgraded. Run '{command}' to see them."
+msgstr ""
+"შესაძლებელია {total} პაკეტის განახლება. სანახავად გაუშვით ბრძანება "
+"'{command}'."
+
+#: nala/cache.py:299
+msgid "{package} is a virtual package provided by:"
+msgstr "{package} ვირტუალური პაკეტია, რომელსაც მოგაწვდით:"
+
+#: nala/cache.py:313
+msgid "You should select just one."
+msgstr "მხოლოდ, ერთხელ უნდა აირჩიოთ."
+
+#: nala/cache.py:319
+msgid ""
+"{notice} Selecting {provider}\n"
+"  Instead of virtual package {package}"
+msgstr ""
+"{notice} არჩეულია {provider}\n"
+"  ვირტუალური პაკეტის {package} მაგიერ"
+
+#: nala/history.py:85
+msgid ""
+"{error} '{command}' for operations other than install or remove are not "
+"currently supported"
+msgstr ""
+"{error} '{command}' დაყენების და წაშლის ოპერაციებისთვის გარდა მხარდაჭერილი "
+"არაა"
+
+#: nala/history.py:89
+msgid ""
+"Show transaction history.\n"
+"\n"
+"Running `nala history` with no subcommands prints an overview of all "
+"transactions."
+msgstr ""
+"ტრანზაქციების ისტორიის ჩვენება.\n"
+"\n"
+"'nala history'-ის გაშვება ქვებრძანებების გარეშე ყველა ტრანზაქციის მიმოხილვას "
+"გამოიტანს."
+
+#: nala/history.py:104
+msgid "{error} History file seems corrupt. You should try removing {file}"
+msgstr ""
+"{error} როგორც ჩანს, ისტორიის ფაილი დაზიანებულია. სცადეთ, წაშალოთ ფაილი "
+"{file}"
+
+#: nala/history.py:123 nala/history.py:321 nala/history.py:342
+msgid "{error} No history exists."
+msgstr "{error} ისტორია არ არსებობს."
+
+#: nala/history.py:127
+msgid "{error} Transaction {num} doesn't exist."
+msgstr "{error} ტრანზაქცია {num} არ არსებობს."
+
+#: nala/history.py:294
+msgid "Transaction number"
+msgstr "ტრანზაქციის ნომერი"
+
+#: nala/history.py:306
+msgid "Show packages that were explicitly installed with Nala"
+msgstr "მხოლოდ Nala-ით დაყენებული პაკეტების ჩვენება"
+
+#: nala/history.py:360
+msgid "Show information about a specific transaction."
+msgstr "ინფორმაციის ჩვენება მითითებული ტრანზაქციის შესახებ."
+
+#: nala/history.py:400
+msgid "Nala needs root to clear history"
+msgstr "Nala-ს ისტორიის გასუფთავება სჭირდება"
+
+#: nala/history.py:402
+msgid "Nala needs root to redo history"
+msgstr "Nala-ს ისტორიის გამეორება სჭირდება"
+
+#: nala/history.py:403
+msgid "Nala needs root to undo history"
+msgstr "Nala-ს ისტორიის გაუქმება სჭირდება"
+
+#: nala/history.py:417
+msgid "History has been cleared"
+msgstr "ისტორია გაწმინდა"
+
+#: nala/history.py:421
+msgid "Clear a transaction or the entire history."
+msgstr "ტრანზაქციის, ან მთელი ისტორიის გასუფთავება."
+
+#: nala/history.py:426
+msgid "Clear the entire history."
+msgstr "ისტორიის სრულად გასუფთავება."
+
+#: nala/history.py:435
+msgid "No history exists to clear"
+msgstr "გასასუფთავებელი ისტორიის გარეშე"
+
+#: nala/history.py:440
+msgid "{error} ID: {hist_id} does not exist in the history"
+msgstr "{error} ID: {hist_id} არ არსებობს ისტორიაში"
+
+#: nala/history.py:455
+msgid "History has been altered"
+msgstr "ისტორია შეიცვალა"
+
+#: nala/history.py:458
+msgid "Undo a transaction."
+msgstr "ტრანზაქციის გაუქმება."
+
+#: nala/history.py:459
+msgid "Redo a transaction."
+msgstr "ტრანზაქციის გამეორება."
+
+#: nala/history.py:502
+msgid "{warning} This history entry was a purge."
+msgstr "{warning} ეს ისტორიის ჩანაწერი გასუფთავება იყო."
+
+#: nala/history.py:506
+msgid "Do you want to continue with purge enabled?"
+msgstr "გნებავთ გაგრძელება ისე, რომ მოსუფთავება ჩართული იყოს?"
+
+#: nala/dpkg.py:92
+msgid "Updated:"
+msgstr "განახლდა:"
+
+#: nala/dpkg.py:93
+msgid "Downloaded:"
+msgstr "გადმოწერილია:"
+
+#: nala/dpkg.py:94
+msgid "Ignored:"
+msgstr "იგნორი:"
+
+#: nala/dpkg.py:95
+msgid "No Change:"
+msgstr "ცვლილებების გარეშე:"
+
+#. Spacing of following status messages
+#. is to allow the urls to be properly aligned
+#. Especially if your status would come after the package
+#. You do not have to follow this scheme
+#. but do note that the headers will be colored regardless
+#. No Change: http://deb.volian.org/volian scar InRelease
+#. Ignored:   http://deb.volian.org/volian scar InRelease
+#. Updated:   http://deb.volian.org/volian scar InRelease
+#: nala/dpkg.py:105
+msgid "{no_change} {info}"
+msgstr "{no_change} {info}"
+
+#: nala/dpkg.py:106
+msgid "{no_change} {info} [{size}]"
+msgstr "{no_change} {info} [{size}]"
+
+#: nala/dpkg.py:107
+msgid "{ignored}   {info}"
+msgstr "{ignored}   {info}"
+
+#: nala/dpkg.py:108
+msgid "{updated}   {info}"
+msgstr "{updated}   {info}"
+
+#: nala/dpkg.py:109
+msgid "{updated}   {info} [{size}]"
+msgstr "{updated}   {info} [{size}]"
+
+#: nala/dpkg.py:111
+msgid "Removing:"
+msgstr "წაშლა:"
+
+#: nala/dpkg.py:112
+msgid "Unpacking:"
+msgstr "გაშლა:"
+
+#: nala/dpkg.py:113
+msgid "Setting up:"
+msgstr "მორგება:"
+
+#: nala/dpkg.py:114
+msgid "Processing:"
+msgstr "დამუშავება:"
+
+#. Spacing of following status messages
+#. is to allow dpkg messages to be properly aligned
+#. Especially if your status would come after the package
+#. You do not have to follow this scheme
+#. but do note that the headers will be colored regardless
+#. Unpacking:   neofetch (7.1.0-3)
+#. Setting up:  neofetch (7.1.0-3)
+#. Removing:    neofetch (7.1.0-3)
+#. Processing:  triggers for man-db (2.10.2-1)
+#. You can change the headers and positions as you would like,
+#: nala/dpkg.py:127
+msgid "{setting_up} {dpkg_msg}"
+msgstr "{setting_up} {dpkg_msg}"
+
+#: nala/dpkg.py:128
+msgid "{processing} {dpkg_msg}"
+msgstr "{processing} {dpkg_msg}"
+
+#: nala/dpkg.py:129
+msgid "{unpacking}  {dpkg_msg}"
+msgstr "{unpacking}  {dpkg_msg}"
+
+#. That's the end of alignment spacing
+#: nala/dpkg.py:131
+msgid "{removing}   {dpkg_msg}"
+msgstr "{removing}   {dpkg_msg}"
+
+#. This translation is separate from the one below
+#. Because we do a check specifically on this string
+#: nala/dpkg.py:135
+msgid "Fetched"
+msgstr "გამოთხოვილია"
+
+#. Fetched 81.0 MB in 6s (1448 kB/s)
+#: nala/dpkg.py:137
+msgid "{fetched} {size} in {elapsed} ({speed}/s)"
+msgstr "{fetched} {size} {elapsed}-ში ({speed}/წმ)"
+
+#: nala/dpkg.py:163
+#, python-format
+msgid "%c%s... Done"
+msgstr "%c%s... დასრულდა"
+
+#: nala/dpkg.py:386
+msgid " [Working]"
+msgstr " [ვმუშაობ]"
+
+#: nala/dpkg.py:872
+msgid "Purging Packages"
+msgstr "პაკეტების მოსუფთავება"
+
+#: nala/dpkg.py:874
+msgid "Removing Packages"
+msgstr "პაკეტების წაშლა"
+
+#: nala/dpkg.py:876
+msgid "Updating Packages"
+msgstr "პაკეტების განახლება"
+
+#: nala/dpkg.py:878
+msgid "Installing Packages"
+msgstr "პაკეტების დაყენება"
+
+#: nala/dpkg.py:881
+msgid "History Undo"
+msgstr "ისტორია გაუქმება"
+
+#: nala/dpkg.py:883
+msgid "History Redo"
+msgstr "ისტორია გამეორება"
+
+#: nala/dpkg.py:888
+msgid "Fetching Missed Packages"
+msgstr "ნაკლული პაკეტების გამოთხოვა"
+
+#: nala/dpkg.py:890
+msgid "Fixing Broken Packages"
+msgstr "გაფუჭებული პაკეტების გასწორება"
+
+#: nala/dpkg.py:891
+msgid "Updating Package List"
+msgstr "პაკეტების სიის განახლება"
+
+#: nala/dpkg.py:987
+msgid "{warning} Quitting now could break your system!"
+msgstr "{warning} ახლა გასვლა თქვენს სისტემას გააფუჭებს!"
+
+#: nala/dpkg.py:991
+msgid "Ctrl+C twice quickly will exit"
+msgstr "Ctrl+C ორჯერ სწრაფად გასასვლელად"
+
+#: nala/downloader.py:87
+msgid "Starting Downloads"
+msgstr "გადმოწერების დაწყება"
+
+#: nala/downloader.py:89
+msgid "Starting Download:"
+msgstr "გადმოწერების დაწყება:"
+
+#. "Starting Download: http://deb.debian.org/debian 3MB"
+#. "Starting Download:" will be colored blue
+#: nala/downloader.py:92
+msgid "{starting_download} {url} {size}"
+msgstr "{starting_download} {url} {size}"
+
+#: nala/downloader.py:94
+msgid "Download Complete:"
+msgstr "გადმოწერა დასრულდა:"
+
+#. "Download Complete: http://deb.debian.org/debian"
+#. "Download Complete:" will be colored green
+#: nala/downloader.py:97
+msgid "{download_complete} {url}"
+msgstr "{download_complete} {url}"
+
+#: nala/downloader.py:99
+msgid "Total Packages:"
+msgstr "პაკეტები სულ:"
+
+#. "Total Packages: 30/100"
+#. "Starting Download:" will be colored green
+#: nala/downloader.py:102
+msgid "{total_packages} {current}/{total}"
+msgstr "{total_packages} {current}/{total}"
+
+#: nala/downloader.py:104
+msgid "Last Completed:"
+msgstr "ბოლო დასრულება:"
+
+#: nala/downloader.py:105
+msgid "{last_completed} {package}"
+msgstr "{last_completed} {package}"
+
+#: nala/downloader.py:108
+msgid "{notice} Nala has removed {filename}"
+msgstr "{notice} Nala-მა წაშალა {filename}"
+
+#: nala/downloader.py:109
+msgid "{error} Failed to move archive file, {str_err}: '{file1}' -> '{file2}'"
+msgstr ""
+"{error} გადატანის შეცდომა არქივის ფაილისთვის, {str_err}: '{file1}' -> "
+"'{file2}'"
+
+#: nala/downloader.py:112
+msgid "{error} {filename} does not exist!"
+msgstr "{error} {filename} არ არსებობს!"
+
+#: nala/downloader.py:113
+msgid ""
+"{error} Hash Sum does not match: {filename}\n"
+"  Expected Hash: {expected}\n"
+"  Received Hash: {received}"
+msgstr ""
+"{error} ჰეშების ჯამი არ ემთხვევა: {filename}\n"
+"  მოველოდი ჰეშს: {expected}\n"
+"  მიღებულია ჰეში: {received}"
+
+#: nala/downloader.py:118
+msgid ""
+"{error} File has unexpected size: {filename}\n"
+"  Expected Size: {expected}\n"
+"  Received Size: {received}"
+msgstr ""
+"{error} ფაილის ზომა მოულოდნელია: {filename}\n"
+"  მოსალოდნელი ზომა: {expected}\n"
+"  მიღებული ზომა: {received}"
+
+#: nala/downloader.py:232
+msgid ""
+"{error} Improper Hash Syntax\n"
+"  Try "
+"'{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
+msgstr ""
+"{error} არასწორი ჰეშის სინტაქსი\n"
+"  სცადეთ "
+"'{url}:sha256:510b0c4f8fc3e7bd7182b53c0b81c1a113bea9fd3c18219eac0e18e601dc8d17'"
+
+#: nala/downloader.py:298
+msgid "Exiting due to {signal}"
+msgstr "გასვლა სიგნალით {signal}"
+
+#: nala/downloader.py:329
+msgid "{error} Using SOCKS proxy, but the 'socksio' package is not installed."
+msgstr ""
+"{error} გამოიყენება SOCKS პროქსი, მაგრამ პაკეტი 'socksio' დაყენებული არაა."
+
+#: nala/downloader.py:334
+msgid "{error} Install using 'nala install python3-socksio'"
+msgstr "{error} დააყენეთ ბრძანებით 'nala install python3-socksio'"
+
+#: nala/downloader.py:384
+msgid "Downloading"
+msgstr "მიმდინარეობს გადმოწერა"
+
+#: nala/downloader.py:511
+msgid "{error} No more mirrors available for {filename}"
+msgstr "{error} ფაილისთვის {filename} მეტი სარკე ხელმისაწვდომი არაა"
+
+#: nala/downloader.py:527
+msgid "{notice} Trying next url: {url}"
+msgstr "{notice} შემდეგი ბმულის ცდა: {url}"
+
+#: nala/downloader.py:536
+msgid "{warning} The following packages cannot be authenticated!"
+msgstr "{warning} შემდეგი პაკეტების ავთენტიკაცია შეუძლებელია!"
+
+#: nala/downloader.py:543
+msgid "{error} Some packages were unable to be authenticated"
+msgstr "{error} ზოგიერთი პაკეტის ავთენტიკაცია შეუძლებელია"
+
+#: nala/downloader.py:548
+msgid ""
+"{notice} Configuration is set to allow installation of unauthenticated "
+"packages."
+msgstr ""
+"{notice} კონფიგურაციაში აყენია, რომ ავთენტიკაცია არგავლილი პაკეტების "
+"დაყენება მაინც მოხდება."
+
+#: nala/downloader.py:558
+msgid "{error} {url} timed out"
+msgstr "{error} {url}-ის მოლოდინის ვადა ამოიწურა"
+
+#: nala/downloader.py:653
+msgid "Failed to check hash"
+msgstr "ჰეშის შემოწმება ჩავარდა"
+
+#: nala/downloader.py:732
+msgid "{error} {filename} can't be checked for integrity."
+msgstr "{error} {filename}-ის შემოწმება მთლიანობაზე შეუძლებელია."
+
+#: nala/downloader.py:736
+msgid "There are no hashes available for this package."
+msgstr "ამ პაკეტისთვის ჰეშები ხელმისაწვდომი არაა."
+
+#: nala/downloader.py:866
+msgid "{error} unable to connect to {url}"
+msgstr "{error} შეუძლებელია ბმულთან {url} დაკავშირება"
+
+#: nala/downloader.py:887
+msgid "Download complete and in download only mode."
+msgstr "მითითებულია მხოლოდ-გადმოწერის რეჟიმი და გადმოწერა დასრულდა."
+
+#: nala/downloader.py:892
+msgid "{error} Download failure. The following downloads failed:"
+msgstr "{error} გადმოწერის შეცდომა. ჩავარდა შემდეგი გადმოწერები:"
+
+#: nala/downloader.py:901
+msgid "In download only mode. Not falling back to apt_pkg."
+msgstr "მხოლოდ-გადმოწერის რეჟიმში. apt_pkg-ზე გადართვა არ მოხდება."
+
+#: nala/downloader.py:903
+msgid "{warning} Falling back to apt_pkg. The following downloads failed:"
+msgstr "{warning} apt_pkg-ზე გადართვა. ჩავარდა შემდეგი გადმოწერები:"
+
+#: nala/search.py:109
+msgid "{package} [local]"
+msgstr "{package} [ლოკალური]"
+
+#. Formatting looks as below:
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed and upgradable to 2:8.2.4659-1
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:121
+msgid "is installed and upgradable to {version}"
+msgstr "დაყენებულია და განახლებადია ვერსიამდე {version}"
+
+#. vim 2:8.2.4659-1 [Debian/sid main]
+#. ├── is upgradable from 2:8.2.3995-1+b2
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:130
+msgid "is upgradable from {version}"
+msgstr "განახლებადია ვერსიიდან {version}"
+
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed
+#. └── Vi IMproved - enhanced vi editor
+#: nala/search.py:137
+msgid "is installed"
+msgstr "დაყენებულია"
+
+#. vim 2:8.2.3995-1+b2 [Debian/sid main]
+#. ├── is installed
+#. └── No Description
+#: nala/search.py:152
+msgid "No Description"
+msgstr "აღწერის გარეშე"
+
+#: nala/rich.py:231
+msgid "Time Remaining:"
+msgstr "დარჩენილი დრო:"
+
+#: nala/rich.py:242
+msgid "Running dpkg"
+msgstr "Dpkg გაშვებულია"
+
+#: nala/rich.py:253
+msgid "Testing Mirrors"
+msgstr "სარკეების შემოწმება"
+
+#: nala/nala.py:127
+msgid "There are broken packages that need to be fixed!"
+msgstr "არსებობს გაფუჭებული პაკეტები, რომლებსაც გასწორება სჭირდება!"
+
+#: nala/nala.py:129
+msgid "You can use {switch} if you'd like to try without fixing them."
+msgstr "თუ გნებავთ, სცადოთ მათი გასწორების გარეშე, გამოიყენეთ {switch}."
+
+#: nala/nala.py:174
+msgid "{error} Missing packages to install"
+msgstr "{error} დასაყენებლად ნაკლული პაკეტები"
+
+#: nala/nala.py:235
+msgid "Update package list."
+msgstr "პაკეტების სიის განახლება."
+
+#: nala/nala.py:253
+msgid "Upgrade the system by removing/installing/upgrading packages."
+msgstr "სისტემის განახლება პაკეტების წაშლით/დაყენებით/განახლებით."
+
+#: nala/nala.py:255
+msgid "Upgrade the system by upgrading packages only."
+msgstr "სისტემის განახლება პაკეტების, მხოლოდ, განახლებიტ."
+
+#: nala/nala.py:260
+msgid "Specify packages to exclude during upgrade. Accepts glob*"
+msgstr "მიუთითეთ განახლებისას ამოსაღები პაკეტები. იღებს გლობს*"
+
+#: nala/nala.py:302
+msgid "Would you like us to protect these and try again?"
+msgstr "გნებავთ, დავიცვათ ესენი და თავიდან ვცადო?"
+
+#: nala/nala.py:350
+msgid "Install packages."
+msgstr "პაკეტების დაყენება."
+
+#: nala/nala.py:356
+msgid "Package(s) to install"
+msgstr "დასაყენებელი პაკეტ(ებ)-ი"
+
+#: nala/nala.py:381
+msgid "Remove packages."
+msgstr "პაკეტების წაშლა."
+
+#: nala/nala.py:382
+msgid "Purge packages."
+msgstr "გასასუფთავებელი პაკეტები."
+
+#: nala/nala.py:388
+msgid "Package(s) to remove/purge"
+msgstr "პაკეტები წასაშლელად/გასასუფთავებლად"
+
+#: nala/nala.py:411
+msgid "Autoremove packages that are no longer needed."
+msgstr "არასაჭირო პაკეტების ავტომატური წაშლა."
+
+#: nala/nala.py:412
+msgid "Autopurge packages that are no longer needed."
+msgstr "არასაჭირო პაკეტების ავტომატური გასუფთავება."
+
+#: nala/nala.py:433
+msgid "{error} {config} must be used with either {autoremove} or {autopurge}."
+msgstr ""
+"{error} {config} უნდა იყოს გამოყენებული პარამეტრთან {autoremove} ან "
+"{autopurge} ერთად."
+
+#: nala/nala.py:448
+msgid "Show package details."
+msgstr "პაკეტის დეტალების ჩვენება."
+
+#: nala/nala.py:453
+msgid "Package(s) to show"
+msgstr "საჩვენებელი პაკეტ(ებ)-ი"
+
+#: nala/nala.py:485
+msgid "Search package names and descriptions."
+msgstr "პაკეტის სახელებისა და აღწერების ძებნა."
+
+#: nala/nala.py:489
+msgid "Regex or word to search for"
+msgstr "რეგგამოსი ან სიტყვა მოსაძებნად"
+
+#: nala/nala.py:533
+msgid "{error} {regex} not found."
+msgstr "{error} {regex} აღმოჩენილი არაა."
+
+#: nala/nala.py:540
+msgid "List packages based on package names."
+msgstr "პაკეტის სახელზე დაფუძნებული პაკეტების სია."
+
+#: nala/nala.py:544
+msgid "Package(s) to list."
+msgstr "ჩამოსათვლელი პაკეტ(ებ)-ი."
+
+#: nala/nala.py:594
+msgid "Nothing was found to list."
+msgstr "ჩამოსათვლელი არაფერია."
+
+#: nala/nala.py:597
+msgid "Clear out the local archive of downloaded package files."
+msgstr "გადმოწერილი პაკეტის ფაილების ლოკალური არქივის გასუფთავება."
+
+#: nala/nala.py:611
+msgid "Package lists have been cleaned"
+msgstr "პაკეტის სიები გასუფთავდა"
+
+#: nala/nala.py:615
+msgid "Nala sources.list has been cleaned"
+msgstr "Nala-ის ფაილი sources.list გასუფთავდა"
+
+#: nala/nala.py:621
+msgid ""
+"Removing {cache}\n"
+"Removing {src_cache}"
+msgstr ""
+"იშლება {cache}\n"
+"იშლება {src_cache}"
+
+#: nala/nala.py:628
+msgid "Cache has been cleaned"
+msgstr "კეში გასუფთავდა"
+
+#: nala/nala.py:631
+msgid "I beg, pls moo"
+msgstr "გეხვეწები, დაიზმუვლე"
+
+#: nala/nala.py:639
+msgid "I can't moo for I'm a cat"
+msgstr "მე არ შემიძლია დავიზმუვლო მისთვის ვინც ამბობს, რომ კატაა"
+
+#: nala/nala.py:642
+msgid "What did you expect to update?"
+msgstr "რის განახლებას ელოდით?"
+
+#: nala/nala.py:646
+msgid "What did you expect no-update to do?"
+msgstr "რის განახლებას არ ელოდით?"
+
+#: nala/constants.py:91
+msgid "Error:"
+msgstr "შეცდომა:"
+
+#: nala/constants.py:92
+msgid "Warning:"
+msgstr "გაფრთხილება:"
+
+#: nala/constants.py:93
+msgid "Notice:"
+msgstr "შეტყობინება:"

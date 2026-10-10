@@ -35,7 +35,7 @@ archived under `legacy/python`.
 - Machine-readable output for package info and policy views
 - TOML configuration for Nala behavior, UI mode, units, color mode, and theme
 - Shell completion integration through `clap_complete`
-- Generated manpage and Markdown command documentation from the Rust CLI
+- Generated manpages from the Rust CLI
 
 ## Commands
 
@@ -119,20 +119,6 @@ The Debian package manages `/etc/nala/nala.conf` as a conffile. On upgrade,
 dpkg replaces an unmodified packaged file automatically and prompts before
 replacing local changes. If the old file is kept, compare it with
 `/etc/nala/nala.conf.dpkg-dist`; Nala rejects retired and unknown fields.
-
-## Cargo Installation
-
-The Debian package is the complete installation: it includes Nala's system
-configuration, manpages, and shell completions. A binary-only canary can also
-be installed from crates.io on Debian Sid:
-
-```sh
-sudo apt-get install g++ libapt-pkg-dev pkgconf
-cargo install nala --locked
-```
-
-Cargo installs only the `nala` executable. Nala uses its built-in configuration
-defaults when `/etc/nala/nala.conf` is absent.
 
 ## Development
 
