@@ -467,3 +467,81 @@ upgrade-config-missing = კონფიგურაციის ხის გ�
 ## Install
 
 install-downloaded = გადმოწერილია: { $path }
+
+## Additional messages
+
+prompt-choice-no = [y/N]
+
+release-info-title = რეპოზიტორიის ინფორმაცია შეიცვალა
+
+release-info-explanation =
+    რეპოზიტორიის საიდენტიფიკაციო ინფორმაცია მის Release ფაილში შეიცვალა.
+    გაგრძელებამდე გადახედეთ ცვლილებებს.
+
+release-info-repository = რეპოზიტორია
+
+release-info-distribution = დისტრიბუტივი
+
+release-info-changes = ცვლილებები
+
+release-info-confirm = მივიღოთ ეს ცვლილებები და გავაგრძელოთ განახლება?
+
+release-info-help = (y) მიღება | (n/Enter/Esc) უარყოფა
+
+release-info-accepted = მიღებულია რეპოზიტორიის ინფორმაციის ცვლილებები: { $repository }.
+
+release-info-rejected = უარყოფილია რეპოზიტორიის ინფორმაციის ცვლილებები: { $repository }.
+
+release-info-noninteractive = Release ინფორმაციის ცვლილებები აშკარად უნდა მიიღოთ. მათ მისაღებად თავიდან გაუშვით პარამეტრით '-o Acquire::AllowReleaseInfoChange=true'.
+
+summary-protected = შემდეგი პაკეტები აუცილებელია ან დაცულია!
+
+summary-remove-protected = თქვენ სცადეთ აუცილებელი ან დაცული პაკეტების წაშლა
+
+summary-downgrade-assume-yes = --assume-yes პარამეტრით პაკეტების ვერსიები დაქვეითდება. თუ დარწმუნებული ხართ, გამოიყენეთ '-o APT::Get::allow-downgrades=true'.
+
+summary-held-assume-yes = --assume-yes პარამეტრით შეჩერებული პაკეტები შეიცვლება. თუ დარწმუნებული ხართ, გამოიყენეთ '-o APT::Get::allow-change-held-packages=true'.
+
+autoremove-config-purge = --remove-config უნდა გამოიყენოთ --purge ან autopurge პარამეტრთან ერთად.
+
+autoremove-assume-yes = --assume-yes პარამეტრით ავტომატური წაშლა გამოტოვებულია. ჩასართავად გამოიყენეთ --autoremove.
+
+download-no-space = { $path }-ში საკმარისი თავისუფალი ადგილი არაა: საჭიროა { $required }, ხელმისაწვდომია { $available }.
+
+progress-data = მონაცემები
+
+progress-packages = პაკეტები
+
+progress-package = პაკეტი
+
+progress-status = სტატუსი
+
+progress-mirrors = სარკეები
+
+progress-update-title = პაკეტების სიების განახლება
+
+progress-download-title = პაკეტების გადმოწერა
+
+progress-install-title = პაკეტების დაყენება
+
+progress-score-title = სარკეების შემოწმება
+
+progress-last-completed = ბოლო დასრულებული
+
+progress-connections = კავშირები
+
+progress-average = საშუალო
+
+progress-active = აქტიური
+
+progress-state = მდგომარეობა
+
+progress-starting = იწყება
+
+progress-downloading = მიმდინარეობს გადმოწერა
+
+progress-idle = უმოქმედო
+
+progress-more-mirrors = კიდევ +{ $mirrors } სარკე · { $connections } აქტიური კავშირი
+
+config-parse = { $path }-ის დამუშავება ვერ მოხერხდა. Nala არსებული კონფიგურაციის ფაილს არ უგულებელყოფს. თუ ეს პაკეტის განახლების შემდეგ მოხდა, შეადარეთ ის { $path }.dpkg-dist ფაილს

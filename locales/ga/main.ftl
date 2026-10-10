@@ -467,3 +467,81 @@ upgrade-config-missing = Gan crann cumraíochta!
 ## Install
 
 install-downloaded = Íoslódáilte: { $path }
+
+## Additional messages
+
+prompt-choice-no = [y/N]
+
+release-info-title = Athraíodh Eolas na Stórlainne
+
+release-info-explanation =
+    Athraíodh eolas aitheantais stórlainne ina comhad Release.
+    Athbhreithnigh na hathruithe sula leanann tú ar aghaidh.
+
+release-info-repository = Stórlann
+
+release-info-distribution = Dáileadh
+
+release-info-changes = Athruithe
+
+release-info-confirm = Glacadh leis na hathruithe seo agus leanúint leis an nuashonrú?
+
+release-info-help = (y) glac | (n/Enter/Esc) diúltaigh
+
+release-info-accepted = Glacadh le hathruithe ar eolas na stórlainne { $repository }.
+
+release-info-rejected = Diúltaíodh d'athruithe ar eolas na stórlainne { $repository }.
+
+release-info-noninteractive = Ní mór glacadh go sainráite le hathruithe ar eolas Release. Rith arís le '-o Acquire::AllowReleaseInfoChange=true' chun glacadh leo.
+
+summary-protected = Tá na pacáistí seo a leanas riachtanach nó cosanta!
+
+summary-remove-protected = Rinne tú iarracht pacáistí riachtanacha nó cosanta a bhaint
+
+summary-downgrade-assume-yes = Dhéanfaí pacáistí a íosghrádú le --assume-yes. Úsáid '-o APT::Get::allow-downgrades=true' má tá tú cinnte.
+
+summary-held-assume-yes = Dhéanfaí pacáistí coinnithe a athrú le --assume-yes. Úsáid '-o APT::Get::allow-change-held-packages=true' má tá tú cinnte.
+
+autoremove-config-purge = Ní mór --remove-config a úsáid le --purge nó autopurge.
+
+autoremove-assume-yes = Ag scipeáil baint uathoibríoch le --assume-yes. Úsáid --autoremove chun í a chumasú.
+
+download-no-space = Níl dóthain spáis shaor in { $path }: { $required } ag teastáil, { $available } ar fáil.
+
+progress-data = Sonraí
+
+progress-packages = Pacáistí
+
+progress-package = Pacáiste
+
+progress-status = Stádas
+
+progress-mirrors = Scátháin
+
+progress-update-title = Ag Nuashonrú Liostaí Pacáistí
+
+progress-download-title = Ag Íoslódáil Pacáistí
+
+progress-install-title = Ag Suiteáil Pacáistí
+
+progress-score-title = Ag Tástáil Scátháin
+
+progress-last-completed = An ceann deireanach críochnaithe
+
+progress-connections = Naisc
+
+progress-average = Meán
+
+progress-active = Gníomhach
+
+progress-state = Staid
+
+progress-starting = ag tosú
+
+progress-downloading = ag íoslódáil
+
+progress-idle = díomhaoin
+
+progress-more-mirrors = +{ $mirrors } scáthán eile · { $connections } nasc gníomhach
+
+config-parse = Theip ar pharsáil { $path }. Ní dhéanfaidh Nala neamhaird de chomhad cumraíochta atá ann cheana. Má tharla sé seo tar éis nuashonrú pacáiste, cuir é i gcomparáid le { $path }.dpkg-dist

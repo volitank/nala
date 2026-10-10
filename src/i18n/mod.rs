@@ -96,14 +96,14 @@ mod tests {
 	}
 
 	#[test]
-	fn missing_localized_messages_fall_back_to_english() {
+	fn german_messages_are_translated() {
 		assert_eq!(
 			translate(Language::De, "history-empty", None),
 			"Es existiert kein Verlauf."
 		);
-		assert_eq!(
+		assert_ne!(
 			translate(Language::De, "history-clear-target", None),
-			"History clear requires an entry selector or --all"
+			translate(Language::EnUs, "history-clear-target", None)
 		);
 	}
 
@@ -120,7 +120,7 @@ mod tests {
 	}
 
 	#[test]
-	fn georgian_messages_use_translations_and_english_fallback() {
+	fn georgian_messages_are_formatted() {
 		assert_eq!(
 			translate(Language::Ka, "history-empty", None),
 			"ისტორიის ჩანაწერები აღმოჩენილი არაა."
@@ -134,7 +134,7 @@ mod tests {
 		);
 		assert_eq!(
 			translate(Language::Ka, "summary-protected", None),
-			"The following packages are essential or protected!"
+			"შემდეგი პაკეტები აუცილებელია ან დაცულია!"
 		);
 	}
 

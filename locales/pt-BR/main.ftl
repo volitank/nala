@@ -470,3 +470,81 @@ upgrade-config-missing = Nenhuma árvore de configuração!
 ## Install
 
 install-downloaded = Baixado: { $path }
+
+## Additional messages
+
+prompt-choice-no = [s/N]
+
+release-info-title = Informações do Repositório Alteradas
+
+release-info-explanation =
+    As informações de identificação de um repositório foram alteradas no arquivo Release.
+    Revise as alterações antes de continuar.
+
+release-info-repository = Repositório
+
+release-info-distribution = Distribuição
+
+release-info-changes = Alterações
+
+release-info-confirm = Aceitar estas alterações e continuar a atualização?
+
+release-info-help = (y) aceitar | (n/Enter/Esc) rejeitar
+
+release-info-accepted = Alterações nas informações do repositório { $repository } aceitas.
+
+release-info-rejected = Alterações nas informações do repositório { $repository } rejeitadas.
+
+release-info-noninteractive = As alterações nas informações do Release devem ser aceitas explicitamente. Execute novamente com '-o Acquire::AllowReleaseInfoChange=true' para aceitá-las.
+
+summary-protected = Os seguintes pacotes são essenciais ou protegidos!
+
+summary-remove-protected = Você tentou remover pacotes essenciais ou protegidos
+
+summary-downgrade-assume-yes = Os pacotes teriam suas versões reduzidas com --assume-yes. Use '-o APT::Get::allow-downgrades=true' se tiver certeza.
+
+summary-held-assume-yes = Os pacotes retidos seriam alterados com --assume-yes. Use '-o APT::Get::allow-change-held-packages=true' se tiver certeza.
+
+autoremove-config-purge = --remove-config deve ser usado com --purge ou autopurge.
+
+autoremove-assume-yes = Ignorando a remoção automática com --assume-yes. Use --autoremove para ativá-la.
+
+download-no-space = Não há espaço livre suficiente em { $path }: necessário { $required }, disponível { $available }.
+
+progress-data = Dados
+
+progress-packages = Pacotes
+
+progress-package = Pacote
+
+progress-status = Status
+
+progress-mirrors = Espelhos
+
+progress-update-title = Atualizando Listas de Pacotes
+
+progress-download-title = Baixando Pacotes
+
+progress-install-title = Instalando Pacotes
+
+progress-score-title = Testando Espelhos
+
+progress-last-completed = Último concluído
+
+progress-connections = Conexões
+
+progress-average = Média
+
+progress-active = Ativo
+
+progress-state = Estado
+
+progress-starting = iniciando
+
+progress-downloading = baixando
+
+progress-idle = ocioso
+
+progress-more-mirrors = +{ $mirrors } espelhos adicionais · { $connections } conexões ativas
+
+config-parse = Falha ao interpretar { $path }. O Nala não ignorará um arquivo de configuração existente. Se isso ocorreu após a atualização de um pacote, compare-o com { $path }.dpkg-dist

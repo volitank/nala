@@ -172,8 +172,11 @@ macro_rules! t {
 mod tests {
 	use std::collections::BTreeSet;
 
+	use fluent::FluentArgs;
+
 	use super::{
-		BN, DE, EN_US, ES, FR, GA, KA, Language, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN, bundle,
+		BN, DE, EN_US, ES, FR, GA, KA, Language, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN,
+		build_bundle, bundle,
 	};
 
 	fn message_ids(source: &str) -> BTreeSet<&str> {
@@ -189,16 +192,41 @@ mod tests {
 	}
 
 	#[test]
-	fn localized_catalogs_only_override_english_messages() {
+	fn localized_catalogs_cover_all_english_messages() {
 		let english = message_ids(EN_US);
 
 		for source in [BN, DE, ES, FR, GA, KA, PL, PT, PT_BR, RU, SV, TR, UK, ZH_CN] {
-			assert!(message_ids(source).is_subset(&english));
+			assert_eq!(message_ids(source), english);
 		}
 	}
 
 	#[test]
-	fn every_catalog_builds() {
+	fn missing_localized_messages_fall_back_to_english() {
+		let bundle = build_bundle("de", Some("summary-title = Zusammenfassung"));
+		for (id, expected) in [
+			("summary-title", "Zusammenfassung"),
+			("history-empty", "No history entries found."),
+		] {
+			let message = bundle.get_message(id).unwrap();
+			let mut errors = Vec::new();
+			assert_eq!(
+				bundle.format_pattern(message.value().unwrap(), None, &mut errors),
+				expected
+			);
+			assert!(errors.is_empty());
+		}
+	}
+
+	#[test]
+	fn every_catalog_builds_and_formats_all_messages() {
+		let mut args = FluentArgs::new();
+		for variable in EN_US.split('$').skip(1) {
+			let name: String = variable
+				.chars()
+				.take_while(|char| char.is_ascii_alphanumeric() || *char == '-')
+				.collect();
+			args.set(name, "test");
+		}
 		for language in [
 			Language::Bn,
 			Language::De,
@@ -216,7 +244,28 @@ mod tests {
 			Language::Uk,
 			Language::ZhCn,
 		] {
-			assert!(bundle(language).get_message("summary-title").is_some());
+			let bundle = bundle(language);
+			for number in [0.0, 1.0, 2.0, 5.0, 11.0, 21.0, 101.0, 1.5] {
+				for name in [
+					"count",
+					"id",
+					"percentage",
+					"mirrors",
+					"connections",
+					"retries",
+					"code",
+				] {
+					args.set(name, number);
+				}
+				for id in message_ids(EN_US) {
+					let message = bundle.get_message(id).unwrap();
+					let mut errors = Vec::new();
+					let output =
+						bundle.format_pattern(message.value().unwrap(), Some(&args), &mut errors);
+					assert!(errors.is_empty(), "{language:?}/{id}/{number}: {errors:?}");
+					assert!(!output.is_empty(), "{language:?}/{id}/{number}");
+				}
+			}
 		}
 	}
 }

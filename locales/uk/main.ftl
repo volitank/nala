@@ -507,3 +507,17 @@ upgrade-config-missing = Дерево конфігурації відсутнє!
 ## Install
 
 install-downloaded = Завантажено: { $path }
+
+## Additional messages
+
+summary-protected = Наведені нижче пакунки є необхідними або захищеними!
+
+summary-remove-protected = Ви спробували видалити необхідні або захищені пакунки
+
+summary-downgrade-assume-yes = З параметром --assume-yes версії пакунків буде понижено. Якщо ви впевнені, використайте '-o APT::Get::allow-downgrades=true'.
+
+summary-held-assume-yes = З параметром --assume-yes утримувані пакунки буде змінено. Якщо ви впевнені, використайте '-o APT::Get::allow-change-held-packages=true'.
+
+autoremove-assume-yes = Автоматичне видалення з параметром --assume-yes пропущено. Щоб увімкнути його, використайте --autoremove.
+
+download-no-space = Недостатньо вільного місця в { $path }: потрібно { $required }, доступно { $available }.
