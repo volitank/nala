@@ -143,7 +143,7 @@ fn parse_hex_color(s: &str) -> Option<ColorCode> {
 
 fn fg_bg_codes(color: ColorCode) -> Option<(&'static str, &'static str)> {
 	Some(match color {
-		ColorCode::Reset => ("0", "49"),
+		ColorCode::Reset => ("39", "49"),
 		ColorCode::Black => ("30", "40"),
 		ColorCode::Red => ("31", "41"),
 		ColorCode::Green => ("32", "42"),
@@ -503,8 +503,6 @@ impl Style {
 		Self { fg, bg, modifier }
 	}
 
-	pub fn default() -> Self { Self::no_bold(ColorCode::White) }
-
 	pub fn bold(color: ColorCode) -> Self { Self::new(Modifiers::BOLD, color, None) }
 
 	pub fn no_bold(color: ColorCode) -> Self { Self::new(Modifiers::empty(), color, None) }
@@ -539,7 +537,7 @@ impl Style {
 }
 
 impl Default for Style {
-	fn default() -> Self { Self::no_bold(ColorCode::White) }
+	fn default() -> Self { Self::no_bold(ColorCode::Reset) }
 }
 
 impl fmt::Display for Style {
@@ -591,9 +589,9 @@ impl ThemePalette {
 
 	fn default_secondary() -> Style { Style::bold(ColorCode::LightBlue) }
 
-	fn default_highlight() -> Style { Style::bold(ColorCode::White) }
+	fn default_highlight() -> Style { Style::bold(ColorCode::Reset) }
 
-	fn default_regular() -> Style { Style::no_bold(ColorCode::White) }
+	fn default_regular() -> Style { Style::no_bold(ColorCode::Reset) }
 
 	fn default_progress_filled() -> Style { Style::bold(ColorCode::LightGreen) }
 
@@ -726,8 +724,9 @@ mod tests {
 	#[test]
 	fn color_is_passthrough_when_disabled() {
 		let color = Color::new(Switch::Never, ThemePalette::default());
-		let out = color.color_with_target(Theme::Primary, "hi", Target::Stdout);
-		assert_eq!(out, "hi");
+		for theme in [Theme::Primary, Theme::Regular, Theme::Highlight] {
+			assert_eq!(color.color_with_target(theme, "hi", Target::Stdout), "hi");
+		}
 	}
 
 	#[test]

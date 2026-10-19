@@ -125,7 +125,7 @@ impl ConfigFile {
 mod tests {
 	use super::{ConfigFile, UiMode};
 	use crate::config::Switch;
-	use crate::config::color::{ColorCode, Modifiers};
+	use crate::config::color::{ColorCode, Modifiers, ThemePalette};
 	use crate::util::NumSys;
 
 	#[test]
@@ -144,6 +144,7 @@ mod tests {
 		assert_eq!(file.color.theme.primary.fg, ColorCode::LightGreen);
 		assert!(file.color.theme.primary.modifier.contains(Modifiers::BOLD));
 		assert_eq!(file.color.theme.error.fg, ColorCode::LightRed);
+		assert_eq!(file.color.theme, ThemePalette::default());
 	}
 
 	#[test]

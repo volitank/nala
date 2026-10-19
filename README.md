@@ -109,6 +109,11 @@ Top-level configuration areas:
 Command-line flags override configuration values for the current invocation.
 APT options can be passed through with `-o KEY=VALUE`.
 
+`Color.theme.Regular` and `Color.theme.Highlight` use `fg = "Reset"` by
+default, following the terminal's foreground color on light and dark themes.
+`Highlight` is bold; `Regular` uses `modifier = ""`. Both can be overridden
+with named colors, 256-color indexes, or hex colors in `nala.conf`.
+
 `Ui.mode` defaults to `"Auto"`, which uses enhanced inline views when the
 terminal supports them. `"Tui"` enables the optional full-screen interfaces,
 while `"Plain"` disables the enhanced terminal UI. `--tui` selects TUI mode for
