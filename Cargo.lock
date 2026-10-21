@@ -1531,7 +1531,6 @@ dependencies = [
  "fluent",
  "globset",
  "indexmap",
- "mio",
  "nix",
  "ratatui",
  "regex",

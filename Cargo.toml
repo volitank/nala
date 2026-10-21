@@ -36,9 +36,8 @@ clap = { version = "4.6.5", features = ["derive"] }
 clap_complete = { version = "4.6.8", features = ["unstable-dynamic"] }
 comfy-table = { version = "7.2.2", features = ["tty", "custom_styling"] }
 indexmap = "2.14.0"
-nix = { version = ">=0.30.1, <0.32", features = ["fs", "process", "term", "ioctl", "signal", "user"] }
+nix = { version = ">=0.30.1, <0.32", features = ["fs", "poll", "process", "term", "ioctl", "signal", "user"] }
 async-compression = { version = "0.4.27", features = ["tokio", "gzip", "xz", "zstd"] }
-mio = { version = "1.2.0", features = ["os-ext"] }
 anyhow = "1.0.103"
 tar = { version = "0.4.45", default-features = false }
 

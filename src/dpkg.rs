@@ -1,14 +1,12 @@
-use std::fmt;
 use std::fs::File;
 use std::io::{ErrorKind, IsTerminal, Read, Write, stdin, stdout};
-use std::os::fd::{AsRawFd, IntoRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, IntoRawFd, OwnedFd, RawFd};
 
 use anyhow::{Context, Result, anyhow, bail};
-use mio::event::Iter;
-use mio::unix::SourceFd;
-use mio::{Events, Interest, Poll, Token};
+use nix::errno::Errno;
 use nix::fcntl::{FcntlArg, OFlag, fcntl};
 use nix::libc::{TIOCGWINSZ, TIOCSWINSZ, winsize};
+use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use nix::pty::forkpty;
 use nix::sys::signal::{self, SigHandler};
 use nix::sys::termios::{SetArg, Termios, cfmakeraw, tcgetattr, tcsetattr};
@@ -203,20 +201,8 @@ pub struct Pty {
 	status_buf: [u8; 4096],
 	status_pending: Vec<u8>,
 	pty_buf: [u8; 4096],
-	poll: Poll,
-	events: Events,
-	tokens: [(Token, Interest); 3],
-	stdin_registered: bool,
-}
-
-impl fmt::Debug for Pty {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		f.debug_struct("Pty")
-			.field("stdin_ready", &self.stdin_ready())
-			.field("pty_ready", &self.ready())
-			.field("status_ready", &self.status_ready())
-			.finish()
-	}
+	status_open: bool,
+	stdin_open: bool,
 }
 
 impl Pty {
@@ -225,28 +211,7 @@ impl Pty {
 		drop(writefd);
 
 		let stdin = File::from(dup(std::io::stdin())?);
-		let stdin_fd = stdin.as_raw_fd();
-		let status_fd = statusfd.as_raw_fd();
 		let master_fd = master.as_raw_fd();
-		let tokens = [
-			(Token(stdin_fd as usize), Interest::READABLE),
-			(Token(master_fd as usize), Interest::READABLE),
-			(Token(status_fd as usize), Interest::READABLE),
-		];
-
-		// Create a poll instance
-		let poll = Poll::new()?;
-		let events = Events::with_capacity(3);
-
-		let stdin_registered = poll
-			.registry()
-			.register(&mut SourceFd(&stdin_fd), tokens[0].0, tokens[0].1)
-			.is_ok();
-
-		poll.registry()
-			.register(&mut SourceFd(&master_fd), tokens[1].0, tokens[1].1)?;
-		poll.registry()
-			.register(&mut SourceFd(&status_fd), tokens[2].0, tokens[2].1)?;
 
 		Ok(Pty {
 			status: File::from(statusfd),
@@ -256,10 +221,8 @@ impl Pty {
 			status_buf: [0u8; 4096],
 			status_pending: Vec::new(),
 			pty_buf: [0u8; 4096],
-			poll,
-			events,
-			tokens,
-			stdin_registered,
+			status_open: true,
+			stdin_open: true,
 		})
 	}
 
@@ -394,33 +357,30 @@ impl Pty {
 		Ok(())
 	}
 
-	/// Polls Fds and checks if they're ready.
-	fn poll(&mut self) -> Result<()> {
-		// When resizing the terminal poll will be Error Interrupted
-		// Just wait until that's not the case.
-		while let Err(e) = self.poll.poll(&mut self.events, None) {
-			if let ErrorKind::Interrupted = e.kind() {
-				continue;
-			}
-			return Err(anyhow!(e));
+	fn poll(&self) -> Result<Vec<RawFd>> {
+		// Level-triggered poll keeps unread data and EOF ready until consumed.
+		let mut fds = vec![PollFd::new(self.pty.as_fd(), PollFlags::POLLIN)];
+		if self.status_open {
+			fds.push(PollFd::new(self.status.as_fd(), PollFlags::POLLIN));
+		}
+		if self.stdin_open {
+			fds.push(PollFd::new(self.stdin.as_fd(), PollFlags::POLLIN));
 		}
 
-		Ok(())
+		loop {
+			match poll(&mut fds, PollTimeout::NONE) {
+				Ok(_) => break,
+				Err(Errno::EINTR) => continue,
+				Err(err) => return Err(err.into()),
+			}
+		}
+
+		Ok(fds
+			.iter()
+			.filter(|fd| fd.any() == Some(true))
+			.map(|fd| fd.as_fd().as_raw_fd())
+			.collect())
 	}
-
-	fn events(&self) -> Iter<'_> { self.events.iter() }
-
-	/// Stdin Fd is ready to be read.
-	fn stdin_ready(&self) -> bool { self.stdin_registered && self.io_ready(0) }
-
-	/// Pty master Fd is ready to be read.
-	fn ready(&self) -> bool { self.io_ready(1) }
-
-	/// Status Fd is ready to be read.
-	fn status_ready(&self) -> bool { self.io_ready(2) }
-
-	/// Helper function for the ready checkers above.
-	fn io_ready(&self, i: usize) -> bool { self.events().any(|e| e.token() == self.tokens[i].0) }
 
 	fn stdin_to_pty(&mut self) -> Result<bool> {
 		let mut buffer = [0u8; 4096];
@@ -434,27 +394,30 @@ impl Pty {
 				Ok(true)
 			},
 			PtyStr::None => Ok(true),
-			PtyStr::Eof => Ok(false),
+			PtyStr::Eof => {
+				self.stdin_open = false;
+				Ok(true)
+			},
 		}
 	}
 
 	fn listen_to_child(&mut self, config: &Config, progress: &mut Progress) -> Result<bool> {
-		self.poll().context(t!("dpkg-poll"))?;
+		let ready = self.poll().context(t!("dpkg-poll"))?;
 
-		dprog!(config, progress, "pty", "{self:?}");
+		dprog!(config, progress, "pty", "ready fds: {ready:?}");
 
 		let context = t!("dpkg-read-status");
-		if self.status_ready() && !self.read_status(config, progress).context(context)? {
-			return Ok(false);
+		if ready.contains(&self.status.as_raw_fd()) {
+			self.status_open = self.read_status(config, progress).context(context)?;
 		}
 
-		if self.ready() {
+		if ready.contains(&self.pty.as_raw_fd()) {
 			return self
 				.read_master(config, progress)
 				.context(t!("dpkg-read-pty"));
 		}
 
-		if self.stdin_ready() {
+		if ready.contains(&self.stdin.as_raw_fd()) {
 			return self.stdin_to_pty().context(t!("dpkg-write-pty"));
 		}
 
@@ -511,14 +474,15 @@ fn check_spam(line: &str) -> bool {
 }
 
 fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>> {
-	let sized_buf = match file.read(buffer) {
-		Ok(0) => return Ok(PtyStr::Eof),
-		Ok(num) => &buffer[..num],
-		Err(ref e) if e.kind() == ErrorKind::WouldBlock => return Ok(PtyStr::None),
-		Err(ref e) if e.raw_os_error().is_some_and(|code| code == 5 || code == 4) => {
-			return Ok(PtyStr::Eof);
-		},
-		Err(e) => return Err(anyhow!(e)),
+	let sized_buf = loop {
+		match file.read(buffer) {
+			Ok(0) => return Ok(PtyStr::Eof),
+			Ok(num) => break &buffer[..num],
+			Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+			Err(ref e) if e.kind() == ErrorKind::WouldBlock => return Ok(PtyStr::None),
+			Err(ref e) if e.raw_os_error() == Some(nix::libc::EIO) => return Ok(PtyStr::Eof),
+			Err(e) => return Err(anyhow!(e)),
+		}
 	};
 
 	match std::str::from_utf8(sized_buf) {

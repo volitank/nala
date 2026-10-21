@@ -16,6 +16,10 @@ Run `just debtest`, `just history-test`, or `just term-test` from the
 repository root. GitLab CI runs the same scripts against the packaged binary:
 unoptimized on branches and optimized with LTO on tags.
 
+The install bridge uses level-triggered polling so queued output and EOF stay
+readable. It drains terminal output and checks the child exit status before
+returning to history recording and post-install hooks.
+
 CI also reruns unit tests with a German locale and `tests/empty-apt.conf`,
 which hides the builder's installed packages and APT indexes. Cache tests
 must supply their own fixtures; output assertions must use translated labels.
