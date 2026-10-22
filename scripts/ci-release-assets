@@ -9,7 +9,7 @@ fi
 
 target=$1
 case "$target" in
-	sid-amd64|sid-arm64|ubuntu-24.04-amd64) ;;
+	sid-amd64|sid-arm64|ubuntu-24.04-amd64|ubuntu-24.04-arm64) ;;
 	*) echo "Unknown release target: $target" >&2; exit 1 ;;
 esac
 

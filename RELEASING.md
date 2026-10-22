@@ -6,8 +6,8 @@ notice, such as configuration migration. The Cargo version and Debian version
 must match the release tag, for example `0.18.0` and `v0.18.0`.
 
 After committing and pushing, let the branch pipeline pass before pushing the
-release tag. CI runs the same three package jobs for tags: Debian Sid on amd64
-and arm64, and the upstream-Cargo package on Ubuntu 24.04 amd64.
+release tag. CI runs the same four package jobs for tags: Debian Sid and the
+upstream-Cargo package on Ubuntu 24.04, both on amd64 and arm64.
 
 Branch jobs use unoptimized builds with debug assertions and overflow checks.
 Tag jobs use size optimization and LTO; prerelease tags also use these settings
@@ -27,10 +27,10 @@ binary package version/architecture before uploading anything.
 
 After its checks pass, each build job uploads its `.deb` and complete build
 bundle to the project's Generic Package Registry using `CI_JOB_TOKEN`. The
-release job runs after all build jobs succeed and creates six download links:
+release job runs after all build jobs succeed and creates eight download links:
 
 - Debian Sid amd64 and arm64 `.deb` files and complete source/build bundles.
-- Ubuntu 24.04 amd64 `.deb` and a complete binary build bundle.
+- Ubuntu 24.04 amd64 and arm64 `.deb` files and complete binary build bundles.
 
 Bundles contain `dist/debian/` and build logs. Sid bundles also include the
 `.dsc`, source archive, source and binary `.changes`/`.buildinfo`, and debug
@@ -44,7 +44,7 @@ GitLab's `release:` job fails if a release already exists for that tag.
 
 Use the Ubuntu build on Ubuntu 24.04; the Sid build requires libapt-pkg7.0 and
 must not replace legacy packages in a shared repository for older systems.
-Other distributions and Ubuntu architectures require their own build and
+Other distributions and architectures require their own build and
 installation validation.
 
 ## Debian archive upload

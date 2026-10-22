@@ -3,7 +3,6 @@ set -eu
 target=${1:-}
 case "$target" in sid|ubuntu) ;; *) echo "Usage: scripts/ci-image sid|ubuntu" >&2; exit 2 ;; esac
 case "${RUNNER_ARCH:-}" in amd64|arm64) ;; *) echo "Invalid RUNNER_ARCH" >&2; exit 2 ;; esac
-test "$target:$RUNNER_ARCH" != ubuntu:arm64 || { echo "Ubuntu CI is amd64 only" >&2; exit 2; }
 : "${CI_PROJECT_DIR:?}" "${CI_REGISTRY:?}" "${CI_REGISTRY_IMAGE:?}" "${CI_PIPELINE_ID:?}"
 : "${CI_REGISTRY_USER:?}" "${CI_REGISTRY_PASSWORD:?}" "${NALA_CI_IMAGE_VERSION:?}"
 cd "$CI_PROJECT_DIR"

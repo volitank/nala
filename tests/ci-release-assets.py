@@ -62,7 +62,7 @@ class ReleaseAssets(unittest.TestCase):
 	def test_all_targets_have_distinct_downloads_and_complete_bundles(self):
 		(self.root / "source-build.log").write_text("successful source build\n")
 		(self.root / "dist/debian/nala_0.18.0.dsc").write_text("source descriptor\n")
-		for target in ("sid-amd64", "sid-arm64", "ubuntu-24.04-amd64"):
+		for target in ("sid-amd64", "sid-arm64", "ubuntu-24.04-amd64", "ubuntu-24.04-arm64"):
 			with self.subTest(target=target):
 				result = self.run_script(target, TEST_ARCH=target.split("-")[-1])
 				self.assertEqual(result.returncode, 0, result.stderr)
@@ -72,8 +72,8 @@ class ReleaseAssets(unittest.TestCase):
 					self.assertIn("dist/debian/nala_0.18.0.dsc", archive.getnames())
 					self.assertIn("source-build.log", archive.getnames())
 		requests = [json.loads(line) for line in (self.root / "requests.jsonl").read_text().splitlines()]
-		self.assertEqual(len(requests), 6)
-		self.assertEqual(len({args[-1] for args in requests}), 6)
+		self.assertEqual(len(requests), 8)
+		self.assertEqual(len({args[-1] for args in requests}), 8)
 		for args in requests:
 			self.assertIn("--fail", args)
 			self.assertIn("JOB-TOKEN: test-token", args)
@@ -83,7 +83,8 @@ class ReleaseAssets(unittest.TestCase):
 	def test_wrong_version_architecture_and_target_block_publication(self):
 		for target, env in (("sid-amd64", {"CI_COMMIT_TAG": "v0.19.0"}),
 			("sid-amd64", {"TEST_VERSION": "0.17.2"}),
-			("sid-amd64", {"TEST_ARCH": "arm64"}), ("unknown", {})):
+			("sid-amd64", {"TEST_ARCH": "arm64"}),
+			("ubuntu-24.04-arm64", {"TEST_ARCH": "amd64"}), ("unknown", {})):
 			with self.subTest(target=target, env=env):
 				self.assertNotEqual(self.run_script(target, **env).returncode, 0)
 		(self.root / "Cargo.toml").write_text('version = "0.17.2"\n')

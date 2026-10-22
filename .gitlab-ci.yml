@@ -21,7 +21,7 @@ ci-dependency-image:
       - CI_IMAGE_TARGET: [sid]
         RUNNER_ARCH: [amd64, arm64]
       - CI_IMAGE_TARGET: [ubuntu]
-        RUNNER_ARCH: [amd64]
+        RUNNER_ARCH: [amd64, arm64]
   tags:
     - "${RUNNER_ARCH}"
   script:
@@ -118,20 +118,23 @@ debian-sid-package:
 
 ubuntu-24.04-upstream-package:
   extends: .package-job
-  image: "$CI_REGISTRY_IMAGE/ci/ubuntu-amd64:$CI_PIPELINE_ID"
+  image: "$CI_REGISTRY_IMAGE/ci/ubuntu-${RUNNER_ARCH}:$CI_PIPELINE_ID"
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cache/cargo"
-    PACKAGE_TARGET: ubuntu-24.04-amd64
+    PACKAGE_TARGET: "ubuntu-24.04-${RUNNER_ARCH}"
+  parallel:
+    matrix:
+      - RUNNER_ARCH: [amd64, arm64]
   cache:
     - key:
-        prefix: "ubuntu-amd64-${NALA_CI_IMAGE_VERSION}-registry"
+        prefix: "ubuntu-${RUNNER_ARCH}-${NALA_CI_IMAGE_VERSION}-registry"
         files:
           - Cargo.lock
       paths:
         - .cache/cargo/registry/
       policy: "$NALA_TARGET_CACHE_POLICY"
     - key:
-        prefix: "ubuntu-amd64-${NALA_CI_IMAGE_VERSION}-${NALA_CI_BUILD_MODE}"
+        prefix: "ubuntu-${RUNNER_ARCH}-${NALA_CI_IMAGE_VERSION}-${NALA_CI_BUILD_MODE}"
         files:
           - Cargo.lock
           - Cargo.toml
@@ -164,7 +167,7 @@ release:
       awk '/^nala \(/ { if (entry++) exit; next } /^ -- / { exit } { print }' debian/changelog > release-notes.md
       cat >> release-notes.md <<'EOF'
 
-      Downloads include Debian Sid packages (amd64/arm64) and an Ubuntu 24.04 package (amd64).
+      Downloads include Debian Sid and Ubuntu 24.04 packages, both for amd64 and arm64.
       Use the package built for your distribution; the Sid build requires libapt-pkg7.0.
       Complete Sid bundles include unsigned .dsc/source archives, .changes, .buildinfo, debug packages, and build logs.
       These CI downloads are unsigned; Debian archive uploads are signed separately by the maintainer.
@@ -184,6 +187,9 @@ release:
         - name: 'Ubuntu 24.04 — amd64 .deb'
           url: '${RELEASE_ASSET_URL}-ubuntu-24.04-amd64.deb'
           link_type: package
+        - name: 'Ubuntu 24.04 — arm64 .deb'
+          url: '${RELEASE_ASSET_URL}-ubuntu-24.04-arm64.deb'
+          link_type: package
         - name: 'Debian Sid — amd64 complete source/build bundle'
           url: '${RELEASE_ASSET_URL}-sid-amd64.tar.gz'
           link_type: package
@@ -192,4 +198,7 @@ release:
           link_type: package
         - name: 'Ubuntu 24.04 — amd64 complete build bundle'
           url: '${RELEASE_ASSET_URL}-ubuntu-24.04-amd64.tar.gz'
+          link_type: package
+        - name: 'Ubuntu 24.04 — arm64 complete build bundle'
+          url: '${RELEASE_ASSET_URL}-ubuntu-24.04-arm64.tar.gz'
           link_type: package

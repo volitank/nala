@@ -37,7 +37,7 @@ class ImageBuildTests(unittest.TestCase):
 			return result, json.loads(log.read_text()) if log.exists() else None
 
 	def test_native_images_cache_layers_and_use_pipeline_tags(self):
-		for target, arch in (("sid", "amd64"), ("sid", "arm64"), ("ubuntu", "amd64")):
+		for target, arch in (("sid", "amd64"), ("sid", "arm64"), ("ubuntu", "amd64"), ("ubuntu", "arm64")):
 			with self.subTest(target=target, arch=arch):
 				result, call = self.run_build(target, arch)
 				self.assertEqual(result.returncode, 0, result.stderr)
@@ -65,7 +65,7 @@ class ImageBuildTests(unittest.TestCase):
 		self.assertFalse(Path(call["config"]).parent.exists())
 
 	def test_invalid_target_or_architecture_does_not_build(self):
-		for target, arch in (("other", "amd64"), ("sid", "other"), ("ubuntu", "arm64")):
+		for target, arch in (("other", "amd64"), ("sid", "other"), ("ubuntu", "armhf")):
 			result, call = self.run_build(target, arch)
 			self.assertEqual(result.returncode, 2)
 			self.assertIsNone(call)
