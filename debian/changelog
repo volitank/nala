@@ -1,3 +1,12 @@
+nala (0.18.2) unstable; urgency=medium
+
+  * Fix upgrade hangs after dpkg finishes by handling queued terminal output
+    and EOF reliably (GitLab: #374).
+  * Use terminal foreground colors by default so regular text and headings
+    remain readable on light themes (GitLab: #373).
+
+ -- Blake Lee <blake@volian.org>  Wed, 21 Oct 2026 23:55:13 -0500
+
 nala (0.18.1) unstable; urgency=medium
 
   * Fix rebuilder test failures by using a private installed-status and
