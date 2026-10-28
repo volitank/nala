@@ -141,6 +141,7 @@ fn bundle(language: Language) -> &'static FluentBundle<FluentResource> {
 fn build_bundle(locale: &str, source: Option<&str>) -> FluentBundle<FluentResource> {
 	let locale = locale.parse().expect("bundled Fluent locale must parse");
 	let mut bundle = FluentBundle::new_concurrent(vec![locale]);
+	bundle.set_use_isolating(false);
 	bundle
 		.add_resource(parse_resource(EN_US))
 		.expect("bundled Fluent messages must not conflict");
@@ -287,6 +288,10 @@ mod tests {
 						bundle.format_pattern(message.value().unwrap(), Some(&args), &mut errors);
 					assert!(errors.is_empty(), "{language:?}/{id}/{number}: {errors:?}");
 					assert!(!output.is_empty(), "{language:?}/{id}/{number}");
+					assert!(
+						!output.contains(['\u{2068}', '\u{2069}']),
+						"isolation marks: {language:?}/{id}/{number}"
+					);
 				}
 			}
 		}

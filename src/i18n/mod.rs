@@ -48,25 +48,25 @@ mod tests {
 	}
 
 	#[test]
-	fn translate_formats_plural_messages_with_isolating() {
+	fn translate_formats_plural_messages() {
 		let mut args = FluentArgs::new();
 
 		args.set("count", 0);
 		assert_eq!(
 			translate(Language::EnUs, "history-cleared", Some(&args)),
-			"Cleared \u{2068}0\u{2069} history entries."
+			"Cleared 0 history entries."
 		);
 
 		args.set("count", 1);
 		assert_eq!(
 			translate(Language::EnUs, "history-cleared", Some(&args)),
-			"Cleared \u{2068}1\u{2069} history entry."
+			"Cleared 1 history entry."
 		);
 
 		args.set("count", 2);
 		assert_eq!(
 			translate(Language::EnUs, "history-cleared", Some(&args)),
-			"Cleared \u{2068}2\u{2069} history entries."
+			"Cleared 2 history entries."
 		);
 	}
 
@@ -130,7 +130,7 @@ mod tests {
 		args.set("count", 2);
 		assert_eq!(
 			translate(Language::Ka, "history-cleared", Some(&args)),
-			"გასუფთავდა \u{2068}2\u{2069} ისტორიის ჩანაწერი."
+			"გასუფთავდა 2 ისტორიის ჩანაწერი."
 		);
 		assert_eq!(
 			translate(Language::Ka, "summary-protected", None),
@@ -145,7 +145,7 @@ mod tests {
 
 		assert_eq!(
 			translate(Language::PtBr, "history-cleared", Some(&args)),
-			"Limpou \u{2068}2\u{2069} entradas do histórico."
+			"Limpou 2 entradas do histórico."
 		);
 	}
 }
