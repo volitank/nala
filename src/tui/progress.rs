@@ -77,7 +77,6 @@ impl<'a> TuiProgressRenderer<'a> {
 			.wrap(Wrap::default())
 			.style(super::style::style(self.config, Theme::Regular));
 
-		terminal.clear()?;
 		terminal.insert_before(lines, move |buf| {
 			paragraph.render(buf.area, buf);
 		})?;

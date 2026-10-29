@@ -51,6 +51,7 @@ Build-Depends:
   librust-nix+user-dev (<< 0.32) <!upstream-cargo>,
   librust-nix+user-dev (>= 0.30.1) <!upstream-cargo>,
   librust-ratatui-0.30+crossterm-0-29-dev (>= 0.30.2) <!upstream-cargo>,
+  librust-ratatui-0.30+scrolling-regions-dev (>= 0.30.2) <!upstream-cargo>,
   librust-regex-1+default-dev (>= 1.13.1) <!upstream-cargo>,
   librust-reqwest-0.13+default-dev (>= 0.13.4) <!upstream-cargo>,
   librust-reqwest-0.13+json-dev (>= 0.13.4) <!upstream-cargo>,
