@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use clap::parser::ValueSource;
 use clap::{ArgMatches, ColorChoice};
 use rust_apt::config::Config as AptConfig;
@@ -12,8 +14,8 @@ use super::paths::PathSpec;
 use super::{Level, OptType, Paths, Switch, keys, logger};
 use crate::cli::Commands;
 use crate::config::color::{Style, Theme};
-use crate::t;
 use crate::util::UnitStr;
+use crate::{t, warn};
 
 #[derive(Debug)]
 pub struct Config {
@@ -50,6 +52,64 @@ impl Config {
 		self.command = name.to_string();
 		self.load_args(args)?;
 		self.apply_log_level();
+		Ok(())
+	}
+
+	pub fn apply_solver_default(&self) -> Result<()> {
+		if !self.apt.find("APT::Solver", "").is_empty() {
+			return Ok(());
+		}
+
+		// libapt does not load the solver defaults added by APT's CLI.
+		let mut command = Command::new("apt-config");
+		if let Some(options) = self.get_vec(keys::OPTION) {
+			for option in options {
+				command.arg("-o").arg(option);
+			}
+		}
+		let output = match command
+			.args(["dump", "--format", "%f=%v%n", "APT::Solver"])
+			.output()
+		{
+			Ok(output) => output,
+			Err(error) if error.kind() == ErrorKind::NotFound => {
+				warn!("apt-config was not found; using libapt's existing default solver");
+				return Ok(());
+			},
+			Err(error) => return Err(error).context("Unable to query APT's default solver"),
+		};
+		ensure!(
+			output.status.success(),
+			"apt-config failed ({}): {}",
+			output.status,
+			String::from_utf8_lossy(&output.stderr).trim()
+		);
+
+		let mut solver = None;
+		for line in std::str::from_utf8(&output.stdout)?.lines() {
+			let Some((key, value)) = line.split_once('=') else {
+				bail!("Malformed apt-config output: {line:?}");
+			};
+			if key.eq_ignore_ascii_case("APT::Solver") {
+				ensure!(
+					!value.chars().any(char::is_control),
+					"Malformed APT::Solver value in apt-config output: {value:?}"
+				);
+				ensure!(
+					solver.is_none(),
+					"Duplicate APT::Solver in apt-config output"
+				);
+				solver = Some(value);
+			} else {
+				ensure!(
+					key.to_ascii_lowercase().starts_with("apt::solver::"),
+					"Unexpected apt-config output: {line:?}"
+				);
+			}
+		}
+		if let Some(solver) = solver.filter(|value| !value.is_empty()) {
+			self.apt.set("APT::Solver", solver);
+		}
 		Ok(())
 	}
 

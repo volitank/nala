@@ -18,6 +18,7 @@ use crate::t;
 /// mode to a fresh cache.
 pub async fn upgrade(config: &Config, upgrade_type: Upgrade) -> Result<()> {
 	sudo_check(config)?;
+	config.apply_solver_default()?;
 	let cache = new_cache!()?;
 	let held_snapshots = held::snapshots(&cache);
 	let protected = protect_excluded_packages(&cache, config)?;

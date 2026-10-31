@@ -59,6 +59,7 @@ impl HistoryEntry {
 		}
 
 		util::sudo_check(config)?;
+		config.apply_solver_default()?;
 		config.set_bool(crate::config::keys::NO_AUTO_REMOVE, true);
 
 		Ok(new_cache!()?)

@@ -54,6 +54,7 @@ pub async fn split_local(config: &Config) -> Result<(Vec<String>, Vec<DebFile>)>
 
 pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<()> {
 	sudo_check(config)?;
+	config.apply_solver_default()?;
 
 	let (cache_pkgs, deb_files) = split_local(config).await?;
 	let deb_paths: Vec<&str> = deb_files.iter().map(|deb| deb.path.as_str()).collect();
@@ -106,6 +107,7 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 
 pub async fn fix_broken(config: &mut Config) -> Result<()> {
 	sudo_check(config)?;
+	config.apply_solver_default()?;
 
 	let cache = new_cache!()?;
 	if !cache.fix_broken() {
