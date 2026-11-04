@@ -108,6 +108,9 @@ Top-level configuration areas:
 
 Command-line flags override configuration values for the current invocation.
 APT options can be passed through with `-o KEY=VALUE`.
+Nala inherits APT's `APT::Install-Recommends` and `APT::Install-Suggests` settings.
+Explicit recommends/suggests flags take precedence over APT configuration and
+`-o` overrides.
 
 `Color.theme.Regular` and `Color.theme.Highlight` use `fg = "Reset"` by
 default, following the terminal's foreground color on light and dark themes.

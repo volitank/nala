@@ -168,14 +168,16 @@ impl Config {
 			}
 		}
 
-		self.apt.set(
-			"APT::Install-Recommends",
-			if self.get_no_bool(keys::INSTALL_RECOMMENDS, true) { "1" } else { "0" },
-		);
-		self.apt.set(
-			"APT::Install-Suggests",
-			if self.get_no_bool(keys::INSTALL_SUGGESTS, false) { "1" } else { "0" },
-		);
+		for (key, apt_key) in [
+			(keys::INSTALL_RECOMMENDS, "APT::Install-Recommends"),
+			(keys::INSTALL_SUGGESTS, "APT::Install-Suggests"),
+		] {
+			if self.get_bool(&format!("no_{key}"), false) {
+				self.apt.set(apt_key, "0");
+			} else if self.get_bool(key, false) {
+				self.apt.set(apt_key, "1");
+			}
+		}
 
 		if let Some(release) = self.get_str(keys::TARGET_RELEASE) {
 			self.apt.set("APT::Default-Release", release);
@@ -463,6 +465,66 @@ mod test {
 	#[test]
 	fn apt_behavior_flags_set_apt_config() {
 		let _guard = test_lock();
+		let mut config = Config::default();
+		config.apt.clear("APT::Install-Recommends");
+		config.apt.clear("APT::Install-Suggests");
+		let args = NalaParser::command()
+			.try_get_matches_from(["nala", "install", "demo"])
+			.unwrap();
+		config.load_args(args.subcommand().unwrap().1).unwrap();
+		assert_eq!(config.apt.find("APT::Install-Recommends", ""), "");
+		assert_eq!(config.apt.find("APT::Install-Suggests", ""), "");
+
+		for (flags, recommends, suggests) in [
+			(vec![], false, true),
+			(
+				vec![
+					"-o",
+					"APT::Install-Recommends=1",
+					"-o",
+					"APT::Install-Suggests=0",
+				],
+				true,
+				false,
+			),
+			(vec!["--install-recommends"], true, true),
+			(vec!["--no-install-suggests"], false, false),
+			(
+				vec![
+					"-o",
+					"APT::Install-Recommends=1",
+					"-o",
+					"APT::Install-Suggests=0",
+					"--no-install-recommends",
+					"--install-suggests",
+				],
+				false,
+				true,
+			),
+			(
+				vec![
+					"--install-recommends",
+					"--no-install-suggests",
+					"-o",
+					"APT::Install-Recommends=0",
+					"-o",
+					"APT::Install-Suggests=1",
+				],
+				true,
+				false,
+			),
+		] {
+			let args = NalaParser::command()
+				.try_get_matches_from(["nala", "install", "demo"].into_iter().chain(flags))
+				.unwrap();
+			let mut config = Config::default();
+			config.apt.set("APT::Install-Recommends", "0");
+			config.apt.set("APT::Install-Suggests", "1");
+			config.load_args(args.subcommand().unwrap().1).unwrap();
+			assert_eq!(config.apt.bool("APT::Install-Recommends", true), recommends);
+			assert_eq!(config.apt.bool("APT::Install-Suggests", false), suggests);
+		}
+
 		let args = NalaParser::command()
 			.try_get_matches_from([
 				"nala",
