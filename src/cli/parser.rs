@@ -135,7 +135,7 @@ mod tests {
 		};
 		assert!(args.recommends.install_recommends);
 		assert!(args.recommends.no_install_suggests);
-		assert_eq!(args.target_release.as_deref(), Some("testing"));
+		assert_eq!(args.transaction.target_release.as_deref(), Some("testing"));
 		assert!(args.fix_broken.no_fix_broken);
 
 		assert!(

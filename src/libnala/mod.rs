@@ -3,6 +3,7 @@ mod transaction;
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
+use rust_apt::error::{AptErrors, pending_error};
 use rust_apt::{Cache, Marked, Package, PkgCurrentState};
 pub use transaction::{HeldReason, Operation, PackageState, PackageTransition};
 
@@ -11,6 +12,16 @@ use crate::{debug, info, t, warn};
 
 type SortedChanges<'a> = (Vec<Package<'a>>, HashMap<Operation, Vec<PackageTransition>>);
 pub type PackageKey = (String, String);
+
+pub fn cache_with_policy(local_files: &[&str]) -> Result<Cache> {
+	let cache = Cache::new(local_files)?;
+	// Reject APT policy errors before accessing a failed depcache.
+	cache.depcache();
+	if pending_error() {
+		bail!(AptErrors::new());
+	}
+	Ok(cache)
+}
 
 pub fn package_key(pkg: &Package<'_>) -> PackageKey {
 	(pkg.name().to_string(), pkg.arch().to_string())

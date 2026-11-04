@@ -1,14 +1,28 @@
 use anyhow::Result;
-use rust_apt::Package;
+use rust_apt::new_cache;
 
 use crate::cmd::ShowVersion;
 use crate::config::{Config, color};
-use crate::t;
+use crate::{glob, t};
 
-/// List packages in a vector
-///
-/// Shared function between list and search
-pub fn list_packages(config: &Config, packages: Vec<Package>) -> Result<()> {
+/// List or search packages selected from the cache.
+pub fn list(config: &Config) -> Result<()> {
+	let cache = new_cache!()?;
+	let mut missing = Vec::new();
+	let packages = if config.command == "search" {
+		glob::regex_pkgs(config, &cache)?
+	} else {
+		match config.pkg_names() {
+			Ok(names) => {
+				let selection = glob::pkgs_with_modifiers(names, config, &cache)?;
+				let (packages, selection_missing) = selection.into_packages_and_missing();
+				missing = selection_missing;
+				packages
+			},
+			Err(_) => glob::sorted_pkgs(config, &cache),
+		}
+	};
+
 	// We at least have one package so we can begin listing.
 	let all_versions = config.get_bool("all_versions", false);
 	for pkg in packages {
@@ -42,5 +56,6 @@ pub fn list_packages(config: &Config, packages: Vec<Package>) -> Result<()> {
 		);
 	}
 
+	glob::log_missing_notices(&missing);
 	Ok(())
 }

@@ -14,17 +14,16 @@ use rust_apt::new_cache;
 use crate::cli::{History, HistoryCommand};
 use crate::config::Config;
 use crate::terminal::{TerminalGuard, use_fullscreen_ui};
-use crate::{t, tui, util};
+use crate::{t, tui};
 
 /// Renders the current history command output from the stored transaction records.
 pub async fn history(config: &mut Config, args: &History) -> Result<()> {
-	if let Some(HistoryCommand::Clear(clear)) = &args.command {
-		util::sudo_check(config)?;
-		if clear.all {
-			let removed = clear_history(config, &[], None, true)?;
-			println!("{}", t!("history-cleared", "count" => removed));
-			return Ok(());
-		}
+	if let Some(HistoryCommand::Clear(clear)) = &args.command
+		&& clear.all
+	{
+		let removed = clear_history(config, &[], None, true)?;
+		println!("{}", t!("history-cleared", "count" => removed));
+		return Ok(());
 	}
 
 	let history_file = get_history(config)?;

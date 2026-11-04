@@ -5,6 +5,10 @@ use clap::Args;
 #[derive(Args, Default, Debug)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TransactionFlags {
+	/// Set the default release to select packages from.
+	#[clap(short = 't', long, value_name = "RELEASE")]
+	pub target_release: Option<String>,
+
 	/// Only download packages.
 	#[clap(short = 'd', long, action)]
 	pub download_only: bool,

@@ -10,7 +10,6 @@ use anyhow::{bail, Result};
 
 use crate::config::Config;
 use crate::terminal::{TerminalGuard, use_enhanced_ui};
-use crate::util::sudo_check;
 use crate::{debug, tui};
 use crate::t;
 
@@ -49,8 +48,6 @@ fn automatic_mirrors(scored: Vec<(String, u128)>, count: usize) -> Vec<String> {
 
 /// The entry point for the `fetch` command.
 pub async fn fetch(config: &Config) -> Result<()> {
-	sudo_check(config)?;
-
 	let (distro, release, keyring) = release::detect_release(config)?;
 	debug!("Detected '{distro}:{release}'");
 

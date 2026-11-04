@@ -7,6 +7,7 @@ use rust_apt::{PackageSort, new_cache};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::config::{Config, Theme, color, keys};
+use crate::libnala::cache_with_policy;
 use crate::progress::{Progress, ProgressMessage};
 use crate::terminal::{poll_exit_event, use_enhanced_ui};
 use crate::util::confirm_with_default;
@@ -128,7 +129,7 @@ pub async fn update(config: &Config) -> Result<()> {
 
 	println!("{}", color::highlight!(&progress.finished_string()));
 
-	let cache = new_cache!()?;
+	let cache = cache_with_policy(&[])?;
 	let sort = PackageSort::default().upgradable();
 	let upgradable: Vec<_> = cache.packages(&sort).collect();
 

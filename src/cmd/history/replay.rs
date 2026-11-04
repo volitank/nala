@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
 use rust_apt::util::show_broken_pkg;
-use rust_apt::{new_cache, Cache};
+use rust_apt::Cache;
 
 use super::model::{HistoryEntry, HistoryStatus};
 use crate::config::Config;
-use crate::libnala::PackageTransition;
-use crate::{debug, t, util};
+use crate::libnala::{cache_with_policy, PackageTransition};
+use crate::{debug, t};
 
 /// Solver-facing package action derived from a stored history transition.
 #[derive(Debug, PartialEq, Eq)]
@@ -58,11 +58,9 @@ impl HistoryEntry {
 			bail!("{}", t!("history-no-changes", "id" => self.id));
 		}
 
-		util::sudo_check(config)?;
-		config.apply_solver_default()?;
 		config.set_bool(crate::config::keys::NO_AUTO_REMOVE, true);
 
-		Ok(new_cache!()?)
+		cache_with_policy(&[])
 	}
 
 	async fn commit_replay(cache: Cache, config: &mut Config) -> Result<()> {

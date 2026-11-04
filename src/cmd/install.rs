@@ -1,12 +1,11 @@
 use anyhow::{Result, bail};
-use rust_apt::new_cache;
 use rust_apt::util::show_broken_pkg;
 
 use crate::cmd::Operation;
 use crate::config::{Config, keys};
 use crate::deb::DebFile;
 use crate::download::Downloader;
-use crate::util::sudo_check;
+use crate::libnala::cache_with_policy;
 use crate::{debug, glob, info, t};
 
 /// Sort command line pkgs and download http pkgs
@@ -53,12 +52,9 @@ pub async fn split_local(config: &Config) -> Result<(Vec<String>, Vec<DebFile>)>
 }
 
 pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<()> {
-	sudo_check(config)?;
-	config.apply_solver_default()?;
-
 	let (cache_pkgs, deb_files) = split_local(config).await?;
 	let deb_paths: Vec<&str> = deb_files.iter().map(|deb| deb.path.as_str()).collect();
-	let cache = new_cache!(&deb_paths)?;
+	let cache = cache_with_policy(&deb_paths)?;
 
 	let mut selection = glob::pkgs_with_modifiers(cache_pkgs, config, &cache)?;
 
@@ -106,10 +102,7 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 }
 
 pub async fn fix_broken(config: &mut Config) -> Result<()> {
-	sudo_check(config)?;
-	config.apply_solver_default()?;
-
-	let cache = new_cache!()?;
+	let cache = cache_with_policy(&[])?;
 	if !cache.fix_broken() {
 		bail!("{}", t!("pkg-fix-broken"))
 	}

@@ -302,10 +302,6 @@ pub struct Install {
 	#[clap(long, action)]
 	pub reinstall: bool,
 
-	/// Set the default release to install packages from.
-	#[clap(short = 't', long, value_name = "RELEASE")]
-	pub target_release: Option<String>,
-
 	#[clap(flatten)]
 	pub transaction: TransactionFlags,
 

@@ -12,7 +12,6 @@ use super::color::setup_color;
 use super::file::{ConfigFile, UiMode};
 use super::paths::PathSpec;
 use super::{Level, OptType, Paths, Switch, keys, logger};
-use crate::cli::Commands;
 use crate::config::color::{Style, Theme};
 use crate::util::UnitStr;
 use crate::{t, warn};
@@ -333,31 +332,6 @@ impl Config {
 		!self.get_bool(keys::ASSUME_YES, false) || self.overrides.contains_key(keys::AUTO_REMOVE)
 	}
 
-	pub fn update_early(&self, command: &Commands) -> bool {
-		if self.get_bool(keys::NO_UPDATE, false) {
-			return false;
-		}
-
-		if self.get_bool(keys::UPDATE, false) {
-			return matches!(
-				command,
-				Commands::Upgrade(_)
-					| Commands::FullUpgrade(_)
-					| Commands::SafeUpgrade(_)
-					| Commands::Install(_)
-					| Commands::Remove(_)
-					| Commands::Purge(_)
-					| Commands::AutoRemove(_)
-					| Commands::AutoPurge(_)
-			);
-		}
-
-		matches!(
-			command,
-			Commands::Upgrade(_) | Commands::FullUpgrade(_) | Commands::SafeUpgrade(_)
-		) && self.get_bool(keys::AUTO_UPDATE, true)
-	}
-
 	pub fn debug(&self) -> bool { self.get_bool(keys::DEBUG, false) }
 
 	pub fn verbose(&self) -> bool { self.get_bool(keys::VERBOSE, self.debug()) }
@@ -373,6 +347,7 @@ mod test {
 	use crate::cli::commands::{Install, Upgrade as UpgradeCommand};
 	use crate::cli::flags::{AutoRemoveFlags, FixBrokenFlags, InstallFlags, TransactionFlags};
 	use crate::cli::{Commands, NalaParser};
+	use crate::cmd::CommandSetup;
 	use crate::config::file::{ConfigFile, UiMode};
 	use crate::config::{OptType, Paths, Switch, keys};
 	use crate::util::NumSys;
@@ -512,6 +487,31 @@ mod test {
 		assert!(config.apt.bool("APT::Install-Suggests", false));
 		assert_eq!(config.apt.find("APT::Default-Release", ""), "testing");
 		assert!(!config.get_no_bool(keys::FIX_BROKEN, true));
+
+		for command in [
+			"install",
+			"remove",
+			"purge",
+			"upgrade",
+			"full-upgrade",
+			"dist-upgrade",
+			"safe-upgrade",
+			"autoremove",
+			"autopurge",
+		] {
+			for flag in ["-t", "--target-release"] {
+				let args = NalaParser::command()
+					.try_get_matches_from(["nala", command, flag, "testing"])
+					.unwrap();
+				let (_, cmd) = args.subcommand().unwrap();
+				let mut config = Config::default();
+				config.apt.clear("APT::Default-Release");
+
+				config.load_args(cmd).unwrap();
+
+				assert_eq!(config.apt.find("APT::Default-Release", ""), "testing");
+			}
+		}
 
 		config.apt.clear("APT::Install-Recommends");
 		config.apt.clear("APT::Install-Suggests");
@@ -702,7 +702,7 @@ mod test {
 	#[test]
 	fn update_early_uses_auto_update_for_upgrade_by_default() {
 		let _guard = test_lock();
-		let config = Config::default();
+		let mut config = Config::default();
 		let command = Commands::Upgrade(UpgradeCommand {
 			print_uris: false,
 			exclude: Vec::new(),
@@ -714,7 +714,7 @@ mod test {
 			auto_remove: AutoRemoveFlags::default(),
 		});
 
-		assert!(config.update_early(&command));
+		assert!(CommandSetup::new(&command, &mut config).update_early);
 	}
 
 	#[test]
@@ -733,7 +733,7 @@ mod test {
 			auto_remove: AutoRemoveFlags::default(),
 		});
 
-		assert!(!config.update_early(&command));
+		assert!(!CommandSetup::new(&command, &mut config).update_early);
 	}
 
 	#[test]
@@ -743,17 +743,16 @@ mod test {
 		let command = Commands::Install(Install {
 			pkg_names: vec!["demo".to_string()],
 			reinstall: false,
-			target_release: None,
 			transaction: TransactionFlags::default(),
 			recommends: InstallFlags::default(),
 			auto_remove: AutoRemoveFlags::default(),
 			fix_broken: FixBrokenFlags::default(),
 		});
 
-		assert!(!config.update_early(&command));
+		assert!(!CommandSetup::new(&command, &mut config).update_early);
 
 		config.set_bool(keys::UPDATE, true);
-		assert!(config.update_early(&command));
+		assert!(CommandSetup::new(&command, &mut config).update_early);
 	}
 
 	#[test]

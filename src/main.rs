@@ -2,12 +2,10 @@ use std::process::ExitCode;
 
 use anyhow::{Result, bail};
 use clap::{ArgMatches, CommandFactory};
-use cli::{Commands, HistoryCommand};
+use cli::Commands;
 use cmd::Operation;
 use rust_apt::cache::Upgrade;
 use rust_apt::error::AptErrors;
-use rust_apt::new_cache;
-use util::{AptLockGuard, sudo_check};
 
 mod cli;
 mod cmd;
@@ -29,11 +27,11 @@ mod util;
 
 use crate::cli::NalaParser;
 use crate::cmd::{
-	clean, fetch, fix_broken, history, list_packages, mark_cli_pkgs, moo, policy, show, update,
-	upgrade,
+	clean, fetch, fix_broken, history, list, mark_cli_pkgs, moo, policy, show, update, upgrade,
 };
 use crate::config::{Config, keys};
 use crate::download::download;
+use crate::libnala::cache_with_policy;
 
 fn main() -> ExitCode {
 	clap_complete::CompleteEnv::with_factory(NalaParser::command).complete();
@@ -75,115 +73,53 @@ fn main() -> ExitCode {
 
 #[tokio::main]
 async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -> Result<()> {
-	if let (Some((name, cmd)), Some(command)) = (args.subcommand(), derived.command) {
-		config.load_command(name, cmd)?;
-		apply_command_defaults(&command, config);
-		let _apt_lock = if command_mutates(&command) {
-			sudo_check(config)?;
-			Some(AptLockGuard::acquire()?)
-		} else {
-			None
-		};
-
-		if config.debug() {
-			debug!("{config:?}");
-		}
-
-		if config.update_early(&command) {
-			update(config).await?;
-		}
-
-		match command {
-			Commands::List(_) | Commands::Search(_) => {
-				let cache = new_cache!()?;
-				let mut missing = Vec::new();
-				let packages = if config.command == "search" {
-					glob::regex_pkgs(config, &cache)?
-				} else {
-					match config.pkg_names() {
-						Ok(names) => {
-							let selection = glob::pkgs_with_modifiers(names, config, &cache)?;
-							let (packages, selection_missing) =
-								selection.into_packages_and_missing();
-							missing = selection_missing;
-							packages
-						},
-						Err(_) => glob::sorted_pkgs(config, &cache),
-					}
-				};
-
-				list_packages(config, packages)?;
-				glob::log_missing_notices(&missing);
-			},
-			Commands::Show(_) => show(config)?,
-			Commands::Policy(_) => policy(config)?,
-			Commands::Clean(_) => clean(config)?,
-			Commands::Download(_) => download(config).await?,
-			Commands::History(args) => history(config, &args).await?,
-			Commands::Fetch(_) => fetch(config).await?,
-			Commands::Update(_) => update(config).await?,
-			Commands::Upgrade(_) | Commands::FullUpgrade(_) | Commands::SafeUpgrade(_) => {
-				upgrade(config, upgrade_mode(config)).await?
-			},
-			Commands::Install(args) => {
-				if args.pkg_names.is_empty() && config.get_bool(keys::FIX_BROKEN, false) {
-					fix_broken(config).await?;
-				} else {
-					let operation =
-						if args.reinstall { Operation::Reinstall } else { Operation::Install };
-					mark_cli_pkgs(config, operation).await?;
-				}
-			},
-			Commands::Remove(_) | Commands::Purge(_) => {
-				mark_cli_pkgs(config, Operation::Remove).await?
-			},
-			Commands::AutoRemove(_) | Commands::AutoPurge(_) => {
-				sudo_check(config)?;
-				crate::summary::commit(new_cache!()?, config).await?;
-			},
-			Commands::Moo(args) => moo(args)?,
-		}
-	} else {
+	let (Some((name, cmd)), Some(command)) = (args.subcommand(), derived.command) else {
 		NalaParser::command().print_help()?;
 		bail!("{}", t!("subcommand-missing"))
+	};
+
+	config.load_command(name, cmd)?;
+	let setup = cmd::CommandSetup::new(&command, config);
+	let _apt_lock = setup.acquire(config)?;
+
+	if config.debug() {
+		debug!("{config:?}");
+	}
+
+	if setup.update_early {
+		update(config).await?;
+	}
+
+	match command {
+		Commands::List(_) | Commands::Search(_) => list(config)?,
+		Commands::Show(_) => show(config)?,
+		Commands::Policy(_) => policy(config)?,
+		Commands::Clean(_) => clean(config)?,
+		Commands::Download(_) => download(config).await?,
+		Commands::History(args) => history(config, &args).await?,
+		Commands::Fetch(_) => fetch(config).await?,
+		Commands::Update(_) => update(config).await?,
+		Commands::Upgrade(_) | Commands::FullUpgrade(_) | Commands::SafeUpgrade(_) => {
+			upgrade(config, upgrade_mode(config)).await?
+		},
+		Commands::Install(args) => {
+			if args.pkg_names.is_empty() && config.get_bool(keys::FIX_BROKEN, false) {
+				fix_broken(config).await?;
+			} else {
+				let operation =
+					if args.reinstall { Operation::Reinstall } else { Operation::Install };
+				mark_cli_pkgs(config, operation).await?;
+			}
+		},
+		Commands::Remove(_) | Commands::Purge(_) => {
+			mark_cli_pkgs(config, Operation::Remove).await?
+		},
+		Commands::AutoRemove(_) | Commands::AutoPurge(_) => {
+			crate::summary::commit(cache_with_policy(&[])?, config).await?;
+		},
+		Commands::Moo(args) => moo(args)?,
 	}
 	Ok(())
-}
-
-fn command_mutates(command: &Commands) -> bool {
-	match command {
-		Commands::Clean(_)
-		| Commands::Fetch(_)
-		| Commands::Update(_)
-		| Commands::Upgrade(_)
-		| Commands::FullUpgrade(_)
-		| Commands::SafeUpgrade(_)
-		| Commands::Install(_)
-		| Commands::Remove(_)
-		| Commands::Purge(_)
-		| Commands::AutoRemove(_)
-		| Commands::AutoPurge(_) => true,
-		Commands::History(args) => matches!(
-			args.command.as_ref(),
-			Some(HistoryCommand::Undo(_) | HistoryCommand::Redo(_) | HistoryCommand::Clear(_))
-		),
-		Commands::List(_)
-		| Commands::Search(_)
-		| Commands::Show(_)
-		| Commands::Policy(_)
-		| Commands::Download(_)
-		| Commands::Moo(_) => false,
-	}
-}
-
-fn apply_command_defaults(command: &Commands, config: &mut Config) {
-	let key = match command {
-		Commands::FullUpgrade(_) => keys::FULL,
-		Commands::SafeUpgrade(_) => keys::SAFE,
-		Commands::Purge(_) | Commands::AutoPurge(_) => keys::PURGE,
-		_ => return,
-	};
-	config.set_bool(key, true);
 }
 
 fn upgrade_mode(config: &Config) -> Upgrade {
@@ -194,79 +130,5 @@ fn upgrade_mode(config: &Config) -> Upgrade {
 		Upgrade::FullUpgrade
 	} else {
 		Upgrade::Upgrade
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use clap::Parser;
-
-	use super::*;
-
-	fn assert_command_default(command_name: &str, key: &str) {
-		let command = NalaParser::try_parse_from(["nala", command_name])
-			.unwrap()
-			.command
-			.unwrap();
-		let mut config = Config::default();
-
-		apply_command_defaults(&command, &mut config);
-
-		assert!(
-			config.get_bool(key, false),
-			"{command_name} did not set {key}"
-		);
-	}
-
-	#[test]
-	fn semantic_commands_set_their_defaults() {
-		assert_command_default("full-upgrade", keys::FULL);
-		assert_command_default("dist-upgrade", keys::FULL);
-		assert_command_default("safe-upgrade", keys::SAFE);
-		assert_command_default("purge", keys::PURGE);
-		assert_command_default("autopurge", keys::PURGE);
-	}
-
-	#[test]
-	fn mutation_commands_are_the_only_commands_that_take_the_apt_lock() {
-		for args in [
-			&["nala", "clean"][..],
-			&["nala", "fetch"][..],
-			&["nala", "update"][..],
-			&["nala", "upgrade"][..],
-			&["nala", "full-upgrade"][..],
-			&["nala", "safe-upgrade"][..],
-			&["nala", "install", "demo"][..],
-			&["nala", "remove", "demo"][..],
-			&["nala", "purge", "demo"][..],
-			&["nala", "autoremove"][..],
-			&["nala", "autopurge"][..],
-			&["nala", "history", "undo", "last"][..],
-			&["nala", "history", "redo", "last"][..],
-			&["nala", "history", "clear", "--all"][..],
-		] {
-			let command = NalaParser::try_parse_from(args).unwrap().command.unwrap();
-			assert!(
-				command_mutates(&command),
-				"{args:?} did not take the APT lock"
-			);
-		}
-
-		for args in [
-			&["nala", "list"][..],
-			&["nala", "search"][..],
-			&["nala", "show"][..],
-			&["nala", "policy"][..],
-			&["nala", "download", "demo"][..],
-			&["nala", "history"][..],
-			&["nala", "history", "info", "last"][..],
-			&["nala", "moo"][..],
-		] {
-			let command = NalaParser::try_parse_from(args).unwrap().command.unwrap();
-			assert!(
-				!command_mutates(&command),
-				"{args:?} unexpectedly took the APT lock"
-			);
-		}
 	}
 }

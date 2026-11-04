@@ -7,10 +7,10 @@ macro_rules! define_modules {
 	};
 }
 
-define_modules!(show, policy, update, upgrade, history, fetch, clean);
+define_modules!(show, policy, update, upgrade, history, fetch, clean, list);
 
 pub mod install;
-mod list;
+mod setup;
 pub mod traits;
 
 use anyhow::Result;
@@ -18,9 +18,9 @@ pub use history::HistoryEntry;
 pub(crate) use history::prepare_history_store;
 use indexmap::IndexMap;
 pub use install::{fix_broken, mark_cli_pkgs};
-pub use list::list_packages;
 use rust_apt::records::RecordField;
 use rust_apt::{DepType, Version};
+pub(crate) use setup::CommandSetup;
 use show::format_local;
 use traits::ShowFormat;
 pub use upgrade::{apt_hook_with_pkgs, run_scripts};

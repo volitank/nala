@@ -5,21 +5,18 @@ use std::collections::HashSet;
 
 use anyhow::{bail, Result};
 use rust_apt::cache::Upgrade;
-use rust_apt::{new_cache, Cache};
+use rust_apt::Cache;
 pub use hooks::{apt_hook_with_pkgs, run_scripts};
 
 use crate::config::{color, keys, Config};
-use crate::libnala::{package_key, PackageKey};
-use crate::util::sudo_check;
+use crate::libnala::{cache_with_policy, package_key, PackageKey};
 use crate::{debug, glob, info};
 use crate::t;
 
 /// Executes an upgrade transaction after applying the selected APT upgrade
 /// mode to a fresh cache.
 pub async fn upgrade(config: &Config, upgrade_type: Upgrade) -> Result<()> {
-	sudo_check(config)?;
-	config.apply_solver_default()?;
-	let cache = new_cache!()?;
+	let cache = cache_with_policy(&[])?;
 	let held_snapshots = held::snapshots(&cache);
 	let protected = protect_excluded_packages(&cache, config)?;
 
