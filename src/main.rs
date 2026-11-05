@@ -92,7 +92,7 @@ async fn main_nala(args: ArgMatches, derived: NalaParser, config: &mut Config) -
 
 	match command {
 		Commands::List(_) | Commands::Search(_) => list(config)?,
-		Commands::Show(_) => show(config)?,
+		Commands::Show(_) => show(config).await?,
 		Commands::Policy(_) => policy(config)?,
 		Commands::Clean(_) => clean(config)?,
 		Commands::Download(_) => download(config).await?,

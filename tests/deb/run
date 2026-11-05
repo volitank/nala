@@ -8,6 +8,7 @@ if [[ ! -x "${nala_bin}" ]]; then
 	echo "Build one first or pass a binary path." >&2
 	exit 1
 fi
+nala_bin="$(realpath "${nala_bin}")"
 
 if [[ "$(id -u)" != "0" ]]; then
 	echo "Deb tests need root because Nala requires root for install." >&2
@@ -146,3 +147,57 @@ if grep -Fq "recommends-or-bad" "${nala_log}"; then
 fi
 
 echo "PASS: apt and nala select the valid recommendation alternative."
+
+info_dir="${work_dir}/info"
+mkdir -p "${info_dir}/repo" "${info_dir}/lists/partial"
+for version in 1 2; do
+	cp -a "tests/deb/packages/nala-history-test-v${version}" "${info_dir}/repo-${version}"
+	sed -i 's/^Installed-Size:.*/Installed-Size: 262144/' "${info_dir}/repo-${version}/DEBIAN/control"
+	dpkg-deb --root-owner-group --build "${info_dir}/repo-${version}" \
+		"${info_dir}/repo/package_${version}.deb" >/dev/null
+done
+cp -a tests/deb/packages/nala-history-test-v1 "${info_dir}/local"
+sed -i -e 's/^Installed-Size:.*/Installed-Size: 131072/' \
+	-e 's/^Description:.*/Description: Local archive metadata/' "${info_dir}/local/DEBIAN/control"
+local_deb="${info_dir}/local package.deb"
+dpkg-deb --root-owner-group --build "${info_dir}/local" "${local_deb}" >/dev/null
+(
+	cd "${info_dir}/repo"
+	dpkg-scanpackages --multiversion . /dev/null >Packages
+) 2>/dev/null
+printf 'deb [trusted=yes] file:%s ./\n' "${info_dir}/repo" >"${info_dir}/sources.list"
+info_options=(
+	-o "Dir::State::status=${policy_status}"
+	-o "Dir::State::lists=${info_dir}/lists"
+	-o "Dir::Etc::sourcelist=${info_dir}/sources.list"
+	-o "Dir::Etc::sourceparts=-"
+)
+apt-get "${info_options[@]}" update >/dev/null 2>&1
+(
+	cd "${info_dir}"
+	"${nala_bin}" --color never "${info_options[@]}" show './local package.deb'
+) >"${info_dir}/local.txt"
+grep -Fqx 'Version: 1.0' "${info_dir}/local.txt"
+grep -Fqx 'Installed-Size: 128 MiB' "${info_dir}/local.txt"
+grep -Fq 'Description: Local archive metadata' "${info_dir}/local.txt"
+grep -Fqx "APT-Sources: ${local_deb}" "${info_dir}/local.txt"
+runuser -u nobody -- "${nala_bin}" --color never "${info_options[@]}" \
+	info --machine "${local_deb}" >"${info_dir}/local.json"
+python3 - "${info_dir}/local.json" "${local_deb}" <<'PY'
+import json, pathlib, sys
+record = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert record["Version"] == "1.0"
+assert record["Installed-Size"] == "131072"
+assert record["Size"] == str(pathlib.Path(sys.argv[2]).stat().st_size)
+PY
+"${nala_bin}" --color never "${info_options[@]}" show nala-history-test >"${info_dir}/repo.txt"
+grep -Fqx 'Version: 2.0' "${info_dir}/repo.txt"
+grep -Fqx 'Installed-Size: 256 MiB' "${info_dir}/repo.txt"
+printf 'not a Debian archive\n' >"${info_dir}/corrupt.deb"
+for archive in missing corrupt; do
+	if "${nala_bin}" "${info_options[@]}" show "${info_dir}/${archive}.deb" >/dev/null 2>&1; then
+		echo "Expected local archive lookup to reject ${archive}.deb." >&2
+		exit 1
+	fi
+done
+echo "PASS: local show/info uses the requested archive's records and units without root."

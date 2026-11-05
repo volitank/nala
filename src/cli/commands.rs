@@ -91,7 +91,7 @@ pub struct Search {
 #[derive(Args, Debug)]
 #[clap(alias = "info")]
 pub struct Show {
-	/// Package names to show
+	/// Package names or local .deb files to show
 	#[clap(required = false, add = ArgValueCompleter::new(package_completion))]
 	pub pkg_names: Vec<String>,
 

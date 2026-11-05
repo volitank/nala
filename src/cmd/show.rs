@@ -1,9 +1,11 @@
 use std::fs;
+use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rust_apt::new_cache;
 
 use crate::config::{color, Config, Theme};
+use crate::deb::DebFile;
 use crate::util::PACSTALL;
 use crate::{glob, info, t};
 
@@ -32,13 +34,55 @@ pub fn format_local(pkg_name: &str) -> String {
 }
 
 /// The show command
-pub fn show(config: &Config) -> Result<()> {
-	let cache = new_cache!()?;
+pub async fn show(config: &Config) -> Result<()> {
+	let mut names = vec![];
+	let mut debs = vec![];
+	for name in config.pkg_names()? {
+		if name.ends_with(".deb") {
+			debs.push(
+				DebFile::new(name.clone())
+					.await
+					.with_context(|| t!("file-read", "path" => &name))?,
+			);
+		} else {
+			names.push(name);
+		}
+	}
+	let paths: Vec<&str> = debs.iter().map(|deb| deb.path.as_str()).collect();
+	let cache = new_cache!(&paths)?;
+	for deb in &debs {
+		let arch = deb.control.get("Architecture").map_or("all", String::as_str);
+		let name = if arch == "all" {
+			deb.name().to_string()
+		} else {
+			format!("{}:{arch}", deb.name())
+		};
+		let pkg = cache
+			.get(&name)
+			.with_context(|| t!("pkg-not-found", "package" => &deb.path))?;
+		let path = fs::canonicalize(&deb.path)?;
+		let selected = pkg.versions().find_map(|version| {
+			if version.version() != deb.version() {
+				return None;
+			}
+			let file = version.version_files().find(|file| {
+				file.package_file()
+					.filename()
+					.and_then(|name| Path::new(name).canonicalize().ok())
+					.is_some_and(|name| name == path)
+			})?;
+			Some((version, file))
+		});
+		let (version, file) = selected.with_context(|| {
+			t!("pkg-version-missing", "package" => &name, "version" => deb.version())
+		})?;
+		ShowVersion::from_file(version, Some(file)).show(config)?;
+	}
 
 	let mut additional_records = 0;
 	// Filter virtual packages into their real package.
 	let all_versions = config.get_bool("all_versions", false);
-	let selection = glob::pkgs_with_modifiers(config.pkg_names()?, config, &cache)?;
+	let selection = glob::pkgs_with_modifiers(names, config, &cache)?;
 	let (packages, missing) = selection.into_packages_and_missing();
 	for pkg in &packages {
 		let versions = pkg.versions().map(ShowVersion::new).collect::<Vec<_>>();

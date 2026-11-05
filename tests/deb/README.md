@@ -6,7 +6,9 @@ directories under `packages/` and are built into temporary `.deb` files.
 
 - `run` checks text/JSON package and global policy against an installed-only
   status database, then checks that APT and Nala reject unsatisfiable dependency
-  alternatives and select a valid fallback recommendation.
+  alternatives and select a valid fallback recommendation. It also checks local
+  archive information against conflicting cached metadata, human size units,
+  raw machine fields, unprivileged lookup and missing/corrupt archive errors.
 - `history/run` exercises conversion, package lifecycle, replay, clearing, and
   failure handling against an offline APT repository and real dpkg state.
 - `term/run` installs the whiptail fixture in tmux, resizes the terminal while

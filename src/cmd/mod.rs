@@ -19,7 +19,7 @@ pub(crate) use history::prepare_history_store;
 use indexmap::IndexMap;
 pub use install::{fix_broken, mark_cli_pkgs};
 use rust_apt::records::RecordField;
-use rust_apt::{DepType, Version};
+use rust_apt::{DepType, PackageFile, Version, VersionFile};
 pub(crate) use setup::CommandSetup;
 use show::format_local;
 use traits::ShowFormat;
@@ -105,18 +105,29 @@ fn show_label(key: &str) -> String {
 
 pub(crate) struct ShowVersion<'a> {
 	ver: Version<'a>,
+	file: Option<VersionFile<'a>>,
 	records: IndexMap<&'static str, String>,
 }
 
-impl ShowVersion<'_> {
-	pub fn new(ver: Version) -> ShowVersion {
-		let records = IndexMap::from_iter(
-			RECORDS
-				.iter()
-				.copied()
-				.map(|key| (key, ver.get_record(key).unwrap_or_else(|| t!("unknown")))),
-		);
-		ShowVersion { ver, records }
+impl<'a> ShowVersion<'a> {
+	pub fn new(ver: Version<'a>) -> Self { Self::from_file(ver, None) }
+
+	pub fn from_file(ver: Version<'a>, file: Option<VersionFile<'a>>) -> Self {
+		let records = IndexMap::from_iter(RECORDS.iter().copied().map(|key| {
+			let value = match &file {
+				Some(file) => file.lookup().get_field(key.to_string()),
+				None => ver.get_record(key),
+			};
+			(key, value.unwrap_or_else(|| t!("unknown")))
+		}));
+		Self { ver, file, records }
+	}
+
+	fn package_file(&self) -> Option<PackageFile<'a>> {
+		self.file
+			.as_ref()
+			.map(VersionFile::package_file)
+			.or_else(|| self.ver.package_files().next())
 	}
 
 	pub fn map(&self) -> IndexMap<&str, String> {
@@ -127,7 +138,7 @@ impl ShowVersion<'_> {
 		}
 
 		// Package File Section
-		if let Some(pkg_file) = self.ver.package_files().next() {
+		if let Some(pkg_file) = self.package_file() {
 			for (key, option) in [
 				("Archive", pkg_file.archive()),
 				("Origin", pkg_file.origin()),
@@ -141,7 +152,11 @@ impl ShowVersion<'_> {
 		}
 
 		map.insert("Provides", self.ver.provides().collect::<Vec<_>>().format());
-		if let Some(desc) = self.ver.description() {
+		let description = match &self.file {
+			Some(file) => file.lookup().get_field("Description".into()),
+			None => self.ver.description(),
+		};
+		if let Some(desc) = description {
 			map.insert("Description", desc);
 		}
 
@@ -187,8 +202,18 @@ impl ShowVersion<'_> {
 		map
 	}
 
-	pub fn pretty_map(&self) -> IndexMap<&str, String> {
+	pub fn pretty_map(&self, config: &Config) -> IndexMap<&str, String> {
 		let mut map = self.map();
+		// Installed-Size records are KiB; Size records are bytes.
+		for (field, multiplier) in [(RecordField::InstalledSize, 1024), (RecordField::Size, 1)] {
+			if let Some(size) = self.records[field]
+				.parse::<u64>()
+				.ok()
+				.and_then(|size| size.checked_mul(multiplier))
+			{
+				map.insert(field, config.unit_str(size));
+			}
+		}
 
 		for kind in DEP_ITER {
 			if let Some(deps) = self.ver.get_depends(kind) {
@@ -197,7 +222,7 @@ impl ShowVersion<'_> {
 		}
 
 		// Package File Section
-		if let Some(pkg_file) = self.ver.package_files().next() {
+		if let Some(pkg_file) = self.package_file() {
 			map.insert(
 				"Origin",
 				pkg_file
@@ -208,12 +233,17 @@ impl ShowVersion<'_> {
 
 			// Check if source is local, pacstall or from a repo
 			let mut source = String::new();
-			if let Some(archive) = pkg_file.archive() {
+			if self.file.is_some() {
+				if let Some(path) = pkg_file.filename() {
+					map.insert("APT-Sources", path.to_string());
+				}
+			} else if let Some(archive) = pkg_file.archive() {
 				if archive == "now" {
 					source += &format_local(self.ver.parent().name());
 				} else {
-					let uri = self.ver.uris().next().unwrap();
-					source += URL.find(&uri).unwrap().as_str();
+					if let Some(uri) = self.ver.uris().next() {
+						source += URL.find(&uri).map_or(uri.as_str(), |url| url.as_str());
+					}
 					source += &pkg_file.format();
 				}
 				map.insert("APT-Sources", source);
@@ -228,7 +258,7 @@ impl ShowVersion<'_> {
 			return Ok(());
 		}
 
-		for (key, value) in &self.pretty_map() {
+		for (key, value) in &self.pretty_map(config) {
 			let header = show_label(key);
 			print_info(&header, value);
 		}
@@ -244,7 +274,7 @@ impl ShowVersion<'_> {
 		}
 
 		let mut string = self.ver.format();
-		if let Some(pkg_file) = self.ver.package_files().next() {
+		if let Some(pkg_file) = self.package_file() {
 			string += &pkg_file.format();
 		}
 
@@ -272,7 +302,22 @@ impl ShowVersion<'_> {
 		Ok(())
 	}
 
-	pub fn to_json(&self) -> Result<String> { Ok(serde_json::to_string_pretty(&self.ver)?) }
+	pub fn to_json(&self) -> Result<String> {
+		if self.file.is_none() {
+			return Ok(serde_json::to_string_pretty(&self.ver)?);
+		}
+		let mut data = serde_json::to_value(&self.ver)?;
+		if let (Some(file), Some(values)) = (&self.file, data.as_object_mut()) {
+			for field in RECORDS {
+				if let Some(value) = file.lookup().get_field(field.to_string()) {
+					values.insert(field.to_string(), value.into());
+				} else {
+					values.remove(field);
+				}
+			}
+		}
+		Ok(serde_json::to_string_pretty(&data)?)
+	}
 }
 
 const CAT: &str = r#"
@@ -290,7 +335,7 @@ pub fn moo(moo: Moo) -> Result<()> {
 	println!("\"...I can't moo for I'm a cat...\"");
 
 	if moo.update {
-		println!("\"...What did you expect to update to do?...\"");
+		println!("\"...What did you expect update to do?...\"");
 	} else if moo.no_update {
 		println!("\"...What did you expect no-update to do?...\"");
 	}

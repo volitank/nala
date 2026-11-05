@@ -55,8 +55,13 @@ Package inspection:
 nala list nala
 nala search --names apt
 nala show nala
+nala show ./package.deb
 nala policy nala
 ```
+
+`show` (alias `info`) reads the requested archive's version and metadata. Text
+sizes follow the configured units. `--machine` keeps raw Debian control fields:
+`Installed-Size` in KiB and `Size` in bytes.
 
 History:
 

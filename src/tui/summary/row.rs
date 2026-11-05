@@ -213,7 +213,7 @@ impl<'a> SummaryRow<'a> {
 		terminal.clear()?;
 
 		let mut lines: Vec<Text> = vec![];
-		for (head, info) in show.pretty_map() {
+		for (head, info) in show.pretty_map(config) {
 			let mut split = info.split('\n');
 			if let Some(first) = split.next() {
 				let header = color::highlight!(head);
