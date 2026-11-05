@@ -19,6 +19,7 @@ pub const NO_AUTO_REMOVE: &str = "no_auto_remove";
 pub const NO_COLOR: &str = "no_color";
 pub const NO_TUI: &str = "no_tui";
 pub const NO_UPDATE: &str = "no_update";
+pub const ONLY_UPGRADE: &str = "only_upgrade";
 pub const OPTION: &str = "option";
 pub const PKG_NAMES: &str = "pkg_names";
 pub const PURGE: &str = "purge";

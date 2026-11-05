@@ -86,7 +86,12 @@ pub async fn mark_cli_pkgs(config: &mut Config, operation: Operation) -> Result<
 		selection.add(pkg, Some(ver), None);
 	}
 
-	selection.mark(&cache, operation, config.get_bool("purge", false))?;
+	selection.mark(
+		&cache,
+		operation,
+		config.get_bool("purge", false),
+		config.apt.bool("APT::Get::Only-Upgrade", false),
+	)?;
 
 	if let Err(err) = cache.resolve(config.get_no_bool(keys::FIX_BROKEN, true)) {
 		debug!("Broken Count: {}", cache.depcache().broken_count());

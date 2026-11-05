@@ -45,9 +45,13 @@ Common command families:
 nala update
 nala upgrade
 nala install ripgrep
+nala install --only-upgrade ripgrep
 nala remove ripgrep
 nala autoremove
 ```
+
+`install --only-upgrade` skips requested packages that are not installed. New
+dependencies required by an upgrade can still be installed.
 
 Package inspection:
 

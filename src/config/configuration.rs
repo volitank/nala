@@ -171,6 +171,7 @@ impl Config {
 		for (key, apt_key) in [
 			(keys::INSTALL_RECOMMENDS, "APT::Install-Recommends"),
 			(keys::INSTALL_SUGGESTS, "APT::Install-Suggests"),
+			(keys::ONLY_UPGRADE, "APT::Get::Only-Upgrade"),
 		] {
 			if self.get_bool(&format!("no_{key}"), false) {
 				self.apt.set(apt_key, "0");
@@ -533,6 +534,7 @@ mod test {
 				"--install-suggests",
 				"--target-release",
 				"testing",
+				"--only-upgrade",
 				"--no-fix-broken",
 				"demo",
 			])
@@ -542,6 +544,7 @@ mod test {
 		config.apt.clear("APT::Install-Recommends");
 		config.apt.clear("APT::Install-Suggests");
 		config.apt.clear("APT::Default-Release");
+		config.apt.clear("APT::Get::Only-Upgrade");
 
 		config.load_args(cmd).unwrap();
 
@@ -549,6 +552,8 @@ mod test {
 		assert!(config.apt.bool("APT::Install-Suggests", false));
 		assert_eq!(config.apt.find("APT::Default-Release", ""), "testing");
 		assert!(!config.get_no_bool(keys::FIX_BROKEN, true));
+		assert!(config.apt.bool("APT::Get::Only-Upgrade", false));
+		config.apt.clear("APT::Get::Only-Upgrade");
 
 		for command in [
 			"install",
@@ -805,6 +810,7 @@ mod test {
 		let command = Commands::Install(Install {
 			pkg_names: vec!["demo".to_string()],
 			reinstall: false,
+			only_upgrade: false,
 			transaction: TransactionFlags::default(),
 			recommends: InstallFlags::default(),
 			auto_remove: AutoRemoveFlags::default(),

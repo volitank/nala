@@ -153,9 +153,15 @@ mkdir -p "${info_dir}/repo" "${info_dir}/lists/partial"
 for version in 1 2; do
 	cp -a "tests/deb/packages/nala-history-test-v${version}" "${info_dir}/repo-${version}"
 	sed -i 's/^Installed-Size:.*/Installed-Size: 262144/' "${info_dir}/repo-${version}/DEBIAN/control"
+	if [[ "${version}" == 2 ]]; then
+		printf 'Depends: recommends-or-good\nProvides: nala-only-upgrade-virtual\n' \
+			>>"${info_dir}/repo-${version}/DEBIAN/control"
+	fi
 	dpkg-deb --root-owner-group --build "${info_dir}/repo-${version}" \
 		"${info_dir}/repo/package_${version}.deb" >/dev/null
 done
+cp "${repo_dir}/recommends-or-good_1.0_all.deb" \
+	"${repo_dir}/recommends-or-bad_1.0_all.deb" "${info_dir}/repo/"
 cp -a tests/deb/packages/nala-history-test-v1 "${info_dir}/local"
 sed -i -e 's/^Installed-Size:.*/Installed-Size: 131072/' \
 	-e 's/^Description:.*/Description: Local archive metadata/' "${info_dir}/local/DEBIAN/control"
@@ -201,3 +207,36 @@ for archive in missing corrupt; do
 	fi
 done
 echo "PASS: local show/info uses the requested archive's records and units without root."
+
+upgrade_status="${info_dir}/status"
+dpkg-deb --field "${local_deb}" >"${upgrade_status}"
+printf 'Status: install ok installed\n\n' >>"${upgrade_status}"
+touch "${info_dir}/extended_states"
+upgrade_options=(
+	"${info_options[@]}"
+	-o "Dir::State::status=${upgrade_status}"
+	-o "Dir::State::extended_states=${info_dir}/extended_states"
+)
+for target in nala-history-test nala-history-test=2.0 nala-only-upgrade-virtual; do
+	apt-get "${upgrade_options[@]}" install -s --only-upgrade \
+		"${target}" recommends-or-bad >"${info_dir}/upgrade.apt.log" 2>&1
+	grep -q '^Inst nala-history-test ' "${info_dir}/upgrade.apt.log"
+	grep -q '^Inst recommends-or-good ' "${info_dir}/upgrade.apt.log"
+	[[ "$(grep -c '^Inst ' "${info_dir}/upgrade.apt.log")" == 2 ]]
+	nala_status=0
+	"${nala_bin}" --no-tui --color never "${upgrade_options[@]}" install \
+		--only-upgrade --no-update --no-autoremove --simple --assume-no \
+		"${target}" recommends-or-bad >"${info_dir}/upgrade.nala.log" 2>&1 || nala_status=$?
+	[[ "${nala_status}" == 1 ]]
+	grep -Fqx 'Upgrade: 1' "${info_dir}/upgrade.nala.log"
+	grep -Fqx '  nala-history-test' "${info_dir}/upgrade.nala.log"
+	grep -Fqx 'Install: 1' "${info_dir}/upgrade.nala.log"
+	grep -Fqx '  recommends-or-good' "${info_dir}/upgrade.nala.log"
+	grep -Fq 'User refused confirmation' "${info_dir}/upgrade.nala.log"
+done
+"${nala_bin}" --no-tui --color never "${upgrade_options[@]}" install \
+	--only-upgrade --no-update --no-autoremove recommends-or-bad \
+	>"${info_dir}/upgrade-skipped.log" 2>&1
+grep -Fq 'recommends-or-bad is not installed' "${info_dir}/upgrade-skipped.log"
+grep -Fq 'Nothing to do.' "${info_dir}/upgrade-skipped.log"
+echo "PASS: only-upgrade matches APT for installed, versioned and virtual targets, skips absent requests and allows new dependencies."

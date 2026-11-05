@@ -302,6 +302,10 @@ pub struct Install {
 	#[clap(long, action)]
 	pub reinstall: bool,
 
+	/// Skip requested packages that are not already installed.
+	#[clap(long, action)]
+	pub only_upgrade: bool,
+
 	#[clap(flatten)]
 	pub transaction: TransactionFlags,
 

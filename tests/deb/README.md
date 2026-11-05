@@ -9,6 +9,8 @@ directories under `packages/` and are built into temporary `.deb` files.
   alternatives and select a valid fallback recommendation. It also checks local
   archive information against conflicting cached metadata, human size units,
   raw machine fields, unprivileged lookup and missing/corrupt archive errors.
+  The only-upgrade cases compare installed, versioned and virtual targets with
+  APT, skipping absent requests while allowing newly required dependencies.
 - `history/run` exercises conversion, package lifecycle, replay, clearing, and
   failure handling against an offline APT repository and real dpkg state.
 - `term/run` installs the whiptail fixture in tmux, resizes the terminal while

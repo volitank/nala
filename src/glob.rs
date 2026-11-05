@@ -71,7 +71,13 @@ impl<'a> Selection<'a> {
 		(pkgs, self.missing)
 	}
 
-	pub fn mark(self, cache: &Cache, default_op: Operation, purge: bool) -> Result<()> {
+	pub fn mark(
+		self,
+		cache: &Cache,
+		default_op: Operation,
+		purge: bool,
+		only_upgrade: bool,
+	) -> Result<()> {
 		self.check_not_found()?;
 		let _action_group = unsafe { cache.depcache().action_group() };
 		let mut merged = BTreeMap::<(String, String), ResolvedPkg<'a>>::new();
@@ -122,6 +128,14 @@ impl<'a> Selection<'a> {
 		for item in merged.into_values() {
 			let pkg = &item.pkg;
 			let op = item.modifier.unwrap_or(default_op);
+
+			if only_upgrade
+				&& matches!(op, Operation::Install | Operation::Reinstall)
+				&& pkg.installed().is_none()
+			{
+				info!("{}", t!("pkg-not-installed", "package" => pkg.name()));
+				continue;
+			}
 
 			if matches!(op, Operation::Install | Operation::Reinstall)
 				&& let Some(candidate) = item.candidate
