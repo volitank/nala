@@ -3,7 +3,10 @@ use std::str::FromStr;
 use clap::{ArgGroup, Args, Subcommand};
 use clap_complete::engine::ArgValueCompleter;
 
-use super::completion::{history_id_completion, installed_package_completion, package_completion};
+use super::completion::{
+	history_id_completion, installed_package_completion, package_completion,
+	package_file_completion,
+};
 use super::flags::{AutoRemoveFlags, FixBrokenFlags, InfoFlags, InstallFlags, TransactionFlags};
 
 /// All supported nala subcommands.
@@ -92,7 +95,7 @@ pub struct Search {
 #[clap(alias = "info")]
 pub struct Show {
 	/// Package names or local .deb files to show
-	#[clap(required = false, add = ArgValueCompleter::new(package_completion))]
+	#[clap(required = false, add = ArgValueCompleter::new(package_file_completion))]
 	pub pkg_names: Vec<String>,
 
 	#[clap(flatten)]
@@ -294,8 +297,8 @@ pub struct Upgrade {
 #[derive(Args, Debug)]
 /// Install Packages
 pub struct Install {
-	/// Package names to install
-	#[clap(required = false, add = ArgValueCompleter::new(package_completion))]
+	/// Package names or local .deb files to install
+	#[clap(required = false, add = ArgValueCompleter::new(package_file_completion))]
 	pub pkg_names: Vec<String>,
 
 	/// Reinstall packages that are already installed

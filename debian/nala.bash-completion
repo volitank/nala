@@ -1,3 +1,4 @@
 if command -v nala >/dev/null 2>&1; then
     source <(COMPLETE=bash nala)
+    compopt -o filenames nala
 fi

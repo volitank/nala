@@ -11,6 +11,8 @@ mod completion {
 
 	pub fn package_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }
 
+	pub fn package_file_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }
+
 	pub fn installed_package_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }
 
 	pub fn history_id_completion(_: &OsStr) -> Vec<CompletionCandidate> { Vec::new() }

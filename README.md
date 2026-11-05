@@ -34,7 +34,7 @@ archived under `legacy/python`.
   TUI modes
 - Machine-readable output for package info and policy views
 - TOML configuration for Nala behavior, UI mode, units, color mode, and theme
-- Shell completion integration through `clap_complete`
+- Shell completion for package names and local `.deb` paths through `clap_complete`
 - Generated manpages from the Rust CLI
 
 ## Commands

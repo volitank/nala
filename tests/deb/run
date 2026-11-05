@@ -208,6 +208,37 @@ for archive in missing corrupt; do
 done
 echo "PASS: local show/info uses the requested archive's records and units without root."
 
+python3 - "${nala_bin}" "${info_dir}" <<'PY'
+import os, pathlib, subprocess, sys
+binary, root = sys.argv[1], pathlib.Path(sys.argv[2])
+registration = subprocess.check_output(
+    ["bash", "-c", "source debian/nala.bash-completion; complete -p nala"],
+    env=dict(os.environ, PATH=str(pathlib.Path(binary).parent) + os.pathsep + os.environ["PATH"]),
+    text=True,
+)
+assert "-o filenames" in registration, registration
+env = dict(os.environ, COMPLETE="bash", _CLAP_COMPLETE_INDEX="2")
+for command in ("install", "show", "info"):
+    for prefix, expected in (
+        ("./local", "./local package.deb"),
+        ("local", "local package.deb"),
+        (str(root / "local"), str(root / "local package.deb")),
+        ("./repo/pack", "./repo/package_1.deb"),
+        ("./rep", "./repo/"),
+        ("dpk", "dpkg"),
+    ):
+        matches = subprocess.check_output(
+            [binary, "--", "nala", command, prefix], cwd=root, env=env, text=True
+        ).splitlines()
+        assert expected in matches, (command, prefix, matches)
+        assert not any(name.endswith(".txt") for name in matches), matches
+for command in ("list", "search", "policy", "download"):
+    assert not subprocess.check_output(
+        [binary, "--", "nala", command, "./local"], cwd=root, env=env
+    ), command
+PY
+echo "PASS: install/show/info complete package names, local DEBs and directories."
+
 upgrade_status="${info_dir}/status"
 dpkg-deb --field "${local_deb}" >"${upgrade_status}"
 printf 'Status: install ok installed\n\n' >>"${upgrade_status}"

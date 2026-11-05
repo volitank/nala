@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 
-use clap_complete::engine::CompletionCandidate;
+use clap_complete::engine::{CompletionCandidate, PathCompleter, ValueCompleter};
 use rust_apt::{Cache, PackageSort, PkgCurrentState, new_cache};
 
 const HISTORY_DEFAULT: &str = "/var/lib/nala/history";
@@ -31,6 +31,16 @@ pub fn package_completion(current: &OsStr) -> Vec<CompletionCandidate> {
 		.collect::<BTreeSet<_>>();
 
 	names.into_iter().map(CompletionCandidate::new).collect()
+}
+
+pub fn package_file_completion(current: &OsStr) -> Vec<CompletionCandidate> {
+	let mut candidates = package_completion(current);
+	candidates.extend(
+		PathCompleter::any()
+			.filter(|path| path.extension().is_some_and(|ext| ext == "deb"))
+			.complete(current),
+	);
+	candidates
 }
 
 pub fn installed_package_completion(current: &OsStr) -> Vec<CompletionCandidate> {
