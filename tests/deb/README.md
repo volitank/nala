@@ -19,6 +19,10 @@ unoptimized on branches and optimized with LTO on tags.
 The install bridge uses level-triggered polling so queued output and EOF stay
 readable. It drains terminal output and checks the child exit status before
 returning to history recording and post-install hooks.
+Non-terminal stdin goes directly to the dpkg child, preserving piped input and
+EOF. A conffile prompt without available input fails; explicit conffile options
+still control whether locally modified files are kept or replaced. Interactive
+terminal input continues through the PTY, including Ctrl-C and dialog input.
 
 CI also reruns unit tests with a German locale and `tests/empty-apt.conf`,
 which hides the builder's installed packages and APT indexes. Cache tests

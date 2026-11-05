@@ -11,7 +11,7 @@ use nix::pty::forkpty;
 use nix::sys::signal::{self, SigHandler};
 use nix::sys::termios::{SetArg, Termios, cfmakeraw, tcgetattr, tcsetattr};
 use nix::sys::wait::{WaitStatus, waitpid};
-use nix::unistd::{close, dup, pipe};
+use nix::unistd::{close, dup, dup2_stdin, pipe};
 use nix::{ioctl_read_bad, ioctl_write_ptr_bad};
 use regex::RegexBuilder;
 use rust_apt::Cache;
@@ -120,6 +120,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 
 	let (statusfd, writefd) = pipe()?;
 	fcntl(&statusfd, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
+	let input = if stdin().is_terminal() { None } else { Some(dup(stdin())?) };
 
 	debug!("forking");
 	let window_size = unsafe { get_winsize() };
@@ -132,6 +133,10 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			config.apt.clear("DPkg::Pre-Install-Pkgs");
 
 			let child_result = (|| -> Result<()> {
+				// Keep the original non-terminal stdin, including EOF.
+				if let Some(input) = input {
+					dup2_stdin(input)?;
+				}
 				let mut progress = AcquireProgress::apt();
 
 				let mut inst_progress = InstallProgress::fd(writefd.as_raw_fd());
@@ -152,6 +157,7 @@ pub fn run_install(cache: Cache, config: &Config) -> Result<()> {
 			std::process::exit(0);
 		},
 		nix::pty::ForkptyResult::Parent { child, master } => {
+			drop(input);
 			let _input_mode = if stdin().is_terminal() && !use_enhanced_ui(config) {
 				Some(PtyInputGuard::new()?)
 			} else {
@@ -222,7 +228,7 @@ impl Pty {
 			status_pending: Vec::new(),
 			pty_buf: [0u8; 4096],
 			status_open: true,
-			stdin_open: true,
+			stdin_open: std::io::stdin().is_terminal(),
 		})
 	}
 

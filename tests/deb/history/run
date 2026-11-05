@@ -238,6 +238,21 @@ python3 tests/deb/history/verify.py --native "${history_dir}" Install
 
 echo "PASS: pre-hook failure blocks mutation; post-hook failure preserves state and history."
 
+printf 'locally modified\n' >/etc/nala-history-test.conf
+history_dir="${work_dir}/conffile-eof/history"
+mkdir -p "${history_dir}"
+eof_status=0
+NALA_HISTORY_DIR="${history_dir}" timeout 10s "${nala_bin}" \
+	--config "${config_file}" --no-tui --color never "${apt_options[@]}" \
+	upgrade --no-update </dev/null >"${work_dir}/conffile-eof.log" 2>&1 || eof_status=$?
+[[ "${eof_status}" == "1" ]]
+grep -Eq "end of file on .* at conffile prompt" "${work_dir}/conffile-eof.log"
+[[ "$(dpkg-query -W -f='${Status}|${Version}' "${package}")" == "install ok unpacked|2.0" ]]
+grep -Fqx "locally modified" /etc/nala-history-test.conf
+[[ "$(history_entry_count)" == "0" ]]
+
+echo "PASS: closed stdin fails at a conffile prompt without hanging or recording success."
+
 dpkg --purge "${package}" >/dev/null
 rm -f /etc/nala-history-test.conf.dpkg-*
 dpkg -i "${deb_path}" >/dev/null
@@ -248,7 +263,7 @@ mkdir -p "${history_dir}"
 cp tests/deb/history/legacy.json "${legacy_path}"
 conffile_legacy_hash="$(sha256sum "${legacy_path}")"
 
-nala -o "Dpkg::Options::=--force-confold" upgrade --no-update >/dev/null
+nala -o "Dpkg::Options::=--force-confold" upgrade --no-update </dev/null >/dev/null
 [[ "$(dpkg-query -W -f='${Version}' "${package}")" == "2.0" ]]
 grep -Fqx "locally modified" /etc/nala-history-test.conf
 grep -Fqx "nala history integration fixture version 2" \
@@ -289,13 +304,16 @@ dpkg --purge "${fail_package}" >/dev/null 2>&1 || true
 
 history_dir="${work_dir}/interrupted/history"
 mkdir -p "${history_dir}"
+printf -v interrupt_command '%q ' env TERM=dumb NALA_HISTORY_DIR="${history_dir}" \
+	"${nala_bin}" --config "${config_file}" --no-tui --color never \
+	"${apt_options[@]}" install "${interrupt_package}"
 if (
 	for _ in {1..200}; do
 		[[ ! -e "${interrupt_marker}" ]] || break
 		sleep 0.05
 	done
 	printf '\003'
-) | nala install "${interrupt_package}" >/dev/null 2>&1; then
+) | script -q -e -c "${interrupt_command}" /dev/null >/dev/null 2>&1; then
 	echo "Interrupted postinst unexpectedly succeeded." >&2
 	exit 1
 fi
