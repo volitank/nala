@@ -97,7 +97,7 @@ grep -Fq "Repository:" "${work_dir}/accept.log"
 grep -Fq "Distribution:" "${work_dir}/accept.log"
 grep -Fq "Origin:" "${work_dir}/accept.log"
 grep -Fq "Accepted repository information changes" "${work_dir}/accept.log"
-grep -Fq $'\rFetched ' "${work_dir}/accept.log"
+grep -Fq 'Fetched ' "${work_dir}/accept.log"
 
 write_release Venus
 "${nala[@]}" --no-tui -o Acquire::AllowReleaseInfoChange=true update \

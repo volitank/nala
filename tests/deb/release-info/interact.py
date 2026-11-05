@@ -4,6 +4,7 @@ import errno
 import fcntl
 import os
 import pty
+import re
 import select
 import signal
 import struct
@@ -48,8 +49,15 @@ def main() -> int:
             replied = True
 
     _, status = os.waitpid(pid, 0)
-    with open(output_path, "wb") as output_file:
+    with open(output_path + ".raw", "wb") as output_file:
         output_file.write(output)
+
+    # Cursor positioning can replace spaces between words in Ratatui output.
+    text = re.sub(rb"\x1b\[[0-9;]*[HfG]", b" ", output)
+    text = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", text)
+    text = re.sub(rb"[ \t]+", b" ", text)
+    with open(output_path, "wb") as output_file:
+        output_file.write(text)
 
     if not replied:
         sys.stderr.buffer.write(output)
