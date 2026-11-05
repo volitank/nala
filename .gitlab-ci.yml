@@ -103,6 +103,8 @@ debian-sid-package:
       mv "$build_dir/source-build.log" source-build.log
     - dpkg-source -x dist/debian/*.dsc "$build_dir/nala"
     - if test -d target; then mv target "$build_dir/nala/target"; fi
+    # Source archives clamp mtimes to the changelog date, older than cached Nala outputs.
+    - touch "$build_dir/nala/src/main.rs" "$build_dir/nala/build.rs"
     - (cd "$build_dir/nala" && build_package "$CI_PROJECT_DIR/build.log" --binary --no-clean --out-dir "$CI_PROJECT_DIR/dist/debian")
     - lintian dist/debian/*.changes
     - cd "$build_dir/nala"
