@@ -1,3 +1,20 @@
+nala (0.18.3) unstable; urgency=medium
+
+  * Follow the installed APT frontend's solver default and preserve APT
+    recommends/suggests settings (GitLab: #360).
+  * Support -t/--target-release across package transactions and reject invalid
+    APT policy cleanly (GitLab: #363).
+  * Preserve non-terminal stdin for dpkg so conffile prompts handle EOF
+    without hanging (GitLab: #304).
+  * Show local .deb metadata and correct human-readable package sizes
+    (GitLab: #245).
+  * Add install --only-upgrade (GitLab: #328) and local .deb path completion
+    for install and show/info.
+  * Fix inline progress flicker and unwanted bidirectional isolation marks
+    in terminal output (GitLab: #376).
+
+ -- Blake Lee <blake@volian.org>  Thu, 05 Nov 2026 14:32:36 -0600
+
 nala (0.18.2) unstable; urgency=medium
 
   * Fix upgrade hangs after dpkg finishes by handling queued terminal output
